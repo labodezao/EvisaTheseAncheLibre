@@ -1,0 +1,32 @@
+\chapter{Plan d’expérience}
+
+\section{Objectif du plan}
+Construire une campagne expérimentale reproductible pour identifier les facteurs dominants.
+
+\section{Facteurs et niveaux (version initiale)}
+\begin{longtable}{@{}llll@{}}
+\toprule
+Facteur & Symbole & Niveaux initiaux & Remarque \\
+\midrule
+\endhead
+Pression d’alimentation & $P_{in}$ & bas / moyen / haut & Contrôle source \\
+Ouverture d’anche & $h_0$ & 3 niveaux & Réglage mécanique \\
+Longueur de conduit & $L$ & 2 à 3 niveaux & Effet résonateur \\
+Température & $T$ & contrôlée & Condition d’essai \\
+\bottomrule
+\end{longtable}
+
+\section{Variables de réponse}
+\begin{itemize}
+  \item Fréquence fondamentale et harmoniques.
+  \item Niveau de pression acoustique (SPL).
+  \item Seuil d’amorçage et extinction des oscillations.
+  \item Stabilité temporelle (jitter, dérive fréquentielle).
+\end{itemize}
+
+\section{Plan recommandé pour démarrer}
+\begin{enumerate}
+  \item Criblage factoriel fractionnaire pour identifier les facteurs dominants.
+  \item Plan de surface de réponse sur les facteurs principaux.
+  \item Répétitions au point central pour estimer la variabilité.
+\end{enumerate}
