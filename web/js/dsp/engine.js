@@ -24,6 +24,7 @@ export class Engine {
       mode: 'auto',            // 'auto' | 'manual' | 'register'
       register: 'MM',
       manualNotes: null,       // [midi, ...] en mode manuel
+      trackHarmonics: 0,       // suit les partiels 2..n de chaque note (hors registre)
       response: 'normal',      // 'fast' | 'normal' | 'precise'
       beatCurve: { midiLow: 48, bLow: 0.8, midiHigh: 96, bHigh: 3.0, overrides: {} },
       ...cfg,
@@ -106,7 +107,35 @@ export class Engine {
       }
       g.voices.push({ def: v, ...t });
     }
-    return [...map.values()];
+    const groups = [...map.values()];
+
+    // Suivi individuel des harmoniques : un traqueur zoom dédié par partiel
+    // (2..n). Chaque partiel est mesuré à sa fréquence réelle — l'anche
+    // n'étant pas parfaitement harmonique, l'écart de chaque partiel au
+    // multiple exact devient une grandeur mesurée, pas une hypothèse.
+    const nH = c.mode !== 'register' ? (c.trackHarmonics | 0) : 0;
+    if (nH > 1) {
+      for (const g of groups.slice()) {
+        for (let k = 2; k <= nH; k++) {
+          if (k === g.kTrack) continue;             // déjà couvert par la voix de base
+          if (g.center * k > 9500) break;
+          groups.push({
+            key: `${g.key}h${k}`,
+            center: g.center,
+            kTrack: k,
+            isHarmonic: true,
+            voices: [{
+              def: { id: `H${k}`, label: `H${k}`, oct: 0, beatSign: 0 },
+              midi: g.voices[0].midi,
+              nominal: g.center * k,
+              beat: 0,
+              target: g.center * k,
+            }],
+          });
+        }
+      }
+    }
+    return groups;
   }
 
   process(chunk) {
@@ -182,18 +211,24 @@ export class Engine {
       if (!t) continue;
       const az = t.analyze(maxWin, Math.max(3, g.voices.length + 1));
       const voices = this.matchVoices(g, az, calib, claimed);
-      for (const v of voices) {
-        if (!v.tracked) continue;
-        for (let m = 2; m <= 24; m++) {
-          const f = m * v.fMeas;
-          if (f > 9600) break;
-          claimed.push(f);
+      if (!g.isHarmonic) {
+        // Les harmoniques mesurées d'une voix de base sont « revendiquées »
+        // pour les groupes plus aigus ; les groupes harmoniques, eux,
+        // mesurent précisément ces fréquences-là et n'en revendiquent pas.
+        for (const v of voices) {
+          if (!v.tracked) continue;
+          for (let m = 2; m <= 24; m++) {
+            const f = m * v.fMeas;
+            if (f > 9600) break;
+            claimed.push(f);
+          }
         }
       }
       groups.push({
         key: g.key,
         center: g.center,
         kTrack: g.kTrack,
+        isHarmonic: !!g.isHarmonic,
         srd: t.srd,
         W: az?.W ?? 0,
         fill: az?.fill ?? 0,
@@ -223,19 +258,24 @@ export class Engine {
       .map((v) => ({ ...v }))
       .sort((a, b) => a.target - b.target);
     const k = group.kTrack ?? 1;
-    // Fréquences ramenées à la fondamentale (mesure sur le partiel k),
-    // puis filtrage : on ne garde que les composantes proches d'une cible
-    // (élimine partiels voisins et repliements résiduels dans la bande).
-    const tolHz = Math.max(2.5, group.center * 0.05); // ≈ ±85 cents
+    // Groupes de base : fréquences ramenées à la fondamentale (mesure sur le
+    // partiel k). Groupes harmoniques : on reste dans le domaine du partiel,
+    // sa fréquence réelle est la grandeur d'intérêt (inharmonicité).
+    const div = group.isHarmonic ? 1 : k;
+    const tolHz = Math.max(2.5, (group.center * (group.isHarmonic ? k : 1)) * 0.05); // ≈ ±85 cents
     let comps = az
-      ? az.components.map((cp) => ({ ...cp, freq: (cp.freq * calib) / k }))
+      ? az.components.map((cp) => ({ ...cp, freq: (cp.freq * calib) / div }))
       : [];
     comps = comps.filter((cp) =>
       expected.some((v) => Math.abs(cp.freq - v.target) < tolHz));
     const tolClaim = az ? Math.max(0.08, (0.6 * az.srd) / az.W) : 0.08;
     for (const cp of comps) {
-      const abs = cp.freq * k;
-      cp.claimed = claimed.some((f) => Math.abs(abs - f) < tolClaim);
+      // Un groupe harmonique mesure par définition une fréquence déjà
+      // « revendiquée » par sa fondamentale : pas d'exclusion ici.
+      const abs = cp.freq * (div === 1 ? 1 : k);
+      cp.claimed = group.isHarmonic
+        ? false
+        : claimed.some((f) => Math.abs(abs - f) < tolClaim);
     }
 
     const chosen = assignOrdered(expected, comps, tolHz);

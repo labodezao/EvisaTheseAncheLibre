@@ -11,7 +11,15 @@ scientifique de l'anche libre.
   sur ton stable), plage **Mi0 → Do9**.
 - **Suivi harmonique** (comme le mode harmonique d'APTuner) : détection de
   note par appariement des partiels — pas d'erreurs d'octave ni de quinte,
-  même sur les basses à fondamentale faible.
+  même sur les basses à fondamentale faible. La détection est **robuste à
+  l'inharmonicité** : les partiels étirés (non accordés au multiple exact,
+  fréquents sur les anches réelles) sont écartés par médiane pondérée et ne
+  biaisent pas la fondamentale (vérifié jusqu'à +30 cents d'étirement).
+- **Suivi individuel des harmoniques** (jusqu'à H8) : chaque partiel reçoit
+  son propre traqueur zoom et est mesuré à sa **fréquence réelle** — l'écart
+  de chaque harmonique au multiple exact (l'inharmonicité de l'anche) devient
+  une trace sur la courbe d'accordage, mesurée à < 0,1 cent. Combinable avec
+  le mode « notes définies » pour suivre plusieurs notes à la fois.
 - **Mesure polyphonique multi-anches** : tremolo 8'+8', musette 3 voix,
   registres 16'+8'+4'… mesurés *simultanément*, sans neutraliser d'anches et
   sans ouvrir la caisse. L'utilisateur définit le registre (ou les notes de

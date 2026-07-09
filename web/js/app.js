@@ -20,6 +20,7 @@ const cfg = Object.assign({
   mode: 'auto',
   register: 'MM',
   manualNotes: null,
+  trackHarmonics: 0,
   response: 'normal',
   beatCurve: { midiLow: 48, bLow: 0.8, midiHigh: 96, bHigh: 3.0, overrides: {} },
 }, loadCfg());
@@ -148,6 +149,7 @@ function engineCfg() {
     mode: cfg.mode,
     register: cfg.register,
     manualNotes: cfg.manualNotes,
+    trackHarmonics: cfg.trackHarmonics,
     response: cfg.response,
     beatCurve: cfg.beatCurve,
   };
@@ -335,6 +337,7 @@ function drawPitchCurve() {
   }
   const selKey = $('gaugeVoice').value;
   let legendX = pad.l + 4;
+  let legendY = 4;
   keys.forEach((k, ki) => {
     const col = PALETTE[ki % PALETTE.length];
     ctx.strokeStyle = col;
@@ -353,13 +356,15 @@ function drawPitchCurve() {
       started = true;
     }
     ctx.stroke();
-    // Légende.
+    // Légende (passe sur une deuxième ligne si nécessaire).
     const lbl = state.voiceLabels.get(k) || k;
+    const wLbl = 20 + ctx.measureText(lbl).width;
+    if (legendX + wLbl > W - 8) { legendX = pad.l + 4; legendY += 11; }
     ctx.fillStyle = col;
-    ctx.fillRect(legendX, 4, 8, 8);
+    ctx.fillRect(legendX, legendY, 8, 8);
     ctx.fillStyle = '#8494a9';
-    ctx.fillText(lbl, legendX + 11, 12);
-    legendX += 20 + ctx.measureText(lbl).width;
+    ctx.fillText(lbl, legendX + 11, legendY + 8);
+    legendX += wLbl;
   });
 
   // Curseur de lecture au survol (surtout utile en mode gelé).
@@ -449,7 +454,11 @@ function drawZoom() {
   const cv = $('zoom'), ctx = cv.getContext('2d');
   const W = cv.width, H = cv.height;
   ctx.clearRect(0, 0, W, H);
-  const groups = state.tick?.groups?.filter((g) => g.spectrum) ?? [];
+  // Groupes de base d'abord, 5 bandes au maximum (au-delà, illisible :
+  // les harmoniques restent visibles sur la courbe et dans le tableau).
+  const groups = (state.tick?.groups?.filter((g) => g.spectrum) ?? [])
+    .sort((a, b) => (a.isHarmonic ? 1 : 0) - (b.isHarmonic ? 1 : 0))
+    .slice(0, 5);
   if (!groups.length) {
     ctx.fillStyle = '#5c6b80';
     ctx.font = '13px system-ui';
@@ -462,6 +471,10 @@ function drawZoom() {
   groups.forEach((g, gi) => {
     const y0 = gi * rowH;
     const k = g.kTrack || 1;
+    // Groupes harmoniques : cibles et mesures sont dans le domaine du
+    // partiel (autour de k·f0) ; groupes de base : ramenées à la fondamentale.
+    const dispCenter = g.isHarmonic ? g.center * k : g.center;
+    const scale = g.isHarmonic ? 1 : k;
     const spec = g.spectrum;
     const binHz = g.srd / g.W;
     let max = 1e-9;
@@ -474,11 +487,11 @@ function drawZoom() {
     ctx.textAlign = 'center';
     for (let hz = -span; hz <= span; hz += 5) {
       const x = ((hz + span) / (2 * span)) * W;
-      ctx.fillText(hz ? `${hz > 0 ? '+' : ''}${hz}` : `${g.center.toFixed(1)} Hz`, x, y0 + rowH - 3);
+      ctx.fillText(hz ? `${hz > 0 ? '+' : ''}${hz}` : `${dispCenter.toFixed(1)} Hz`, x, y0 + rowH - 3);
     }
     // Cibles (pointillés).
     for (const v of g.voices) {
-      const dx = (v.target - g.center);
+      const dx = (v.target - dispCenter);
       if (Math.abs(dx) > span) continue;
       const x = ((dx + span) / (2 * span)) * W;
       ctx.strokeStyle = '#f0b943';
@@ -492,8 +505,8 @@ function drawZoom() {
     ctx.lineWidth = 1.4;
     let started = false;
     for (let px = 0; px < W; px++) {
-      const hz = (px / W) * 2 * span - span;      // écart à la fondamentale
-      const offTracker = hz * k;                  // écart dans la bande du traqueur
+      const hz = (px / W) * 2 * span - span;      // écart au centre affiché
+      const offTracker = hz * scale;              // écart dans la bande du traqueur
       let bin = Math.round(offTracker / binHz);
       if (bin < 0) bin += g.W;
       if (bin < 0 || bin >= g.W) { started = false; continue; }
@@ -508,15 +521,15 @@ function drawZoom() {
     ctx.font = '11px system-ui';
     for (const v of g.voices) {
       if (!v.tracked) continue;
-      const dx = v.fMeas - g.center;
+      const dx = v.fMeas - dispCenter;
       if (Math.abs(dx) > span) continue;
       const x = ((dx + span) / (2 * span)) * W;
       ctx.fillText(`${v.def.label || noteLabel(v.midi + (cfg.transpose || 0)).full} ${v.dTargetCents >= 0 ? '+' : ''}${v.dTargetCents.toFixed(1)}¢`, x, y0 + 12);
     }
-    if (g.kTrack > 1) {
+    if (g.isHarmonic || g.kTrack > 1) {
       ctx.fillStyle = '#5c6b80';
       ctx.textAlign = 'left';
-      ctx.fillText(`mesure sur le partiel ${g.kTrack}`, 6, y0 + 12);
+      ctx.fillText(g.isHarmonic ? `partiel ${g.kTrack}` : `mesure sur le partiel ${g.kTrack}`, 6, y0 + 12);
       ctx.textAlign = 'center';
     }
   });
@@ -676,6 +689,7 @@ function bindControls() {
   $('calib').value = cfg.calibrationPpm;
   $('mode').value = cfg.mode;
   rSel.value = cfg.register;
+  $('harmonics').value = String(cfg.trackHarmonics || 0);
   $('response').value = cfg.response;
   $('bLow').value = cfg.beatCurve.bLow;
   $('bHigh').value = cfg.beatCurve.bHigh;
@@ -701,6 +715,7 @@ function bindControls() {
   $('calib').onchange = () => { cfg.calibrationPpm = Number($('calib').value) || 0; pushConfig(); };
   $('mode').onchange = () => { cfg.mode = $('mode').value; updateModeVisibility(); pushConfig(); };
   rSel.onchange = () => { cfg.register = rSel.value; pushConfig(); };
+  $('harmonics').onchange = () => { cfg.trackHarmonics = Number($('harmonics').value); pushConfig(); };
   $('response').onchange = () => { cfg.response = $('response').value; pushConfig(); };
   $('applyManual').onclick = applyManual;
   $('manualNotes').onkeydown = (e) => { if (e.key === 'Enter') applyManual(); };
@@ -765,6 +780,10 @@ function applyManual() {
 function updateModeVisibility() {
   $('modeRegister').classList.toggle('hidden', cfg.mode !== 'register');
   $('modeManual').classList.toggle('hidden', cfg.mode !== 'manual');
+  // Le suivi d'harmoniques ne s'applique pas au mode registre (les voix
+  // couvrent déjà les octaves et leurs harmoniques se recouvrent).
+  $('harmonicsCtl').classList.toggle('hidden', cfg.mode === 'register');
+  $('harmonicsHint').classList.toggle('hidden', cfg.mode === 'register');
 }
 
 // ---- Démarrage -----------------------------------------------------------------

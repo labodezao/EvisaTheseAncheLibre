@@ -101,6 +101,16 @@
         <label>Notes jouées <input type="text" id="manualNotes" placeholder="ex. Do4 Mi4 Sol4 ou C4 E4 G4"></label>
         <button id="applyManual">Appliquer</button>
       </div>
+      <label id="harmonicsCtl">Harmoniques suivies
+        <select id="harmonics">
+          <option value="0">aucune</option>
+          <option value="3">jusqu'à H3</option>
+          <option value="5">jusqu'à H5</option>
+          <option value="8">jusqu'à H8</option>
+        </select>
+      </label>
+      <p class="hint" id="harmonicsHint">Chaque partiel est mesuré à sa fréquence réelle :
+      l'inharmonicité de l'anche devient une trace sur la courbe.</p>
       <label>Réactivité
         <select id="response">
           <option value="fast">Rapide (~1,4 s de fenêtre)</option>

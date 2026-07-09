@@ -105,12 +105,15 @@ export class CoarseAnalyzer {
     let best = null;
     for (const c of candidates) {
       const H = Math.min(20, Math.floor(this.fMax / c));
-      const tolRatio = Math.pow(2, 35 / 1200) - 1; // ±35 cents
       const matched = new Set();
       const parts = [];
       let score = 0;
       for (let k = 1; k <= H; k++) {
         const target = k * c;
+        // Tolérance croissante avec le rang : les anches réelles présentent
+        // des partiels étirés (inharmonicité) de plus en plus loin du
+        // multiple exact.
+        const tolRatio = Math.pow(2, (35 + 2.5 * k) / 1200) - 1;
         const tol = target * tolRatio + this.binHz;
         let bi = -1, bd = Infinity;
         for (let j = 0; j < peaks.length; j++) {
@@ -138,15 +141,32 @@ export class CoarseAnalyzer {
     }
     if (!best) return null;
 
-    // Raffinement par moindres carrés pondérés sur les partiels appariés :
-    // minimise Σ w (f_k − k·f0)².
+    // Raffinement robuste à l'inharmonicité : chaque partiel donne une
+    // estimation f_k/k ; la médiane pondérée ignore les partiels étirés,
+    // puis des moindres carrés restreints aux partiels cohérents (< ±12
+    // cents de la médiane) affinent la valeur.
+    const med = weightedMedian(best.parts.map((p) => ({ v: p.freq / p.k, w: p.mag })));
     let num = 0, den = 0;
     for (const p of best.parts) {
+      const dev = Math.abs(1200 * Math.log2(p.freq / (p.k * med)));
+      if (dev > 12) continue;
       const w = p.mag;
       num += w * p.k * p.freq;
       den += w * p.k * p.k;
     }
-    const f0 = den > 0 ? num / den : best.c;
+    const f0 = den > 0 ? num / den : med;
     return { freq: f0, score: best.score, harmonics: best.parts };
   }
+}
+
+function weightedMedian(pairs) {
+  pairs.sort((a, b) => a.v - b.v);
+  let tot = 0;
+  for (const p of pairs) tot += p.w;
+  let acc = 0;
+  for (const p of pairs) {
+    acc += p.w;
+    if (acc >= tot / 2) return p.v;
+  }
+  return pairs.length ? pairs[pairs.length - 1].v : 0;
 }

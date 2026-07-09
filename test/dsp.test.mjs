@@ -146,5 +146,71 @@ console.log('\nTest 7 — mode « précis » : convergence < 0,02 cent sur ton s
   assert(err < 0.02, `écart de mesure = ${err.toFixed(5)} cent`);
 }
 
+// ---------------------------------------------------------------------------
+console.log('\nTest 8 — anche inharmonique : partiels étirés jusqu\'à +30 cents, fondamentale non biaisée');
+{
+  // Partiels volontairement désaccordés du multiple exact, comme sur une
+  // anche réelle : la détection ne doit être ni faussée (note) ni tirée
+  // (fréquence de la fondamentale, mesurée directement à k=1).
+  const fTrue = 165.15; // Mi3 légèrement haut
+  const stretch = [0, 6, 12, 18, 25, 30]; // cents par partiel
+  const amps = [1, 0.7, 0.5, 0.35, 0.2, 0.12];
+  const n = SR * 8;
+  const sig = new Float32Array(n);
+  for (let h = 0; h < stretch.length; h++) {
+    const fh = fTrue * (h + 1) * Math.pow(2, stretch[h] / 1200);
+    const w = (2 * Math.PI * fh) / SR;
+    const phi = Math.random() * 6.28;
+    for (let i = 0; i < n; i++) sig[i] += 0.2 * amps[h] * Math.sin(w * i + phi);
+  }
+  for (let i = 0; i < n; i++) sig[i] += 3e-4 * (Math.random() * 2 - 1);
+  const engine = new Engine(SR, { mode: 'auto', response: 'normal' });
+  const last = run(engine, sig);
+  assert(last && last.playedMidi === 52, `note détectée = Mi3 (obtenu : ${last && noteLabel(last.playedMidi ?? 0).full})`);
+  const v = last.groups[0]?.voices[0];
+  const err = v?.tracked ? Math.abs(cents(v.fMeas, fTrue)) : Infinity;
+  assert(err < 0.1, `fondamentale mesurée à ${err.toFixed(4)} cent de la vraie valeur (partiels étirés ignorés)`);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nTest 9 — suivi individuel des harmoniques : chaque partiel mesuré à sa fréquence réelle');
+{
+  const fTrue = 220.28; // La3 +2,2 cents
+  const stretch = [0, 5, 11, 17, 23]; // cents par partiel
+  const amps = [1, 0.7, 0.5, 0.3, 0.2];
+  const n = SR * 10;
+  const sig = new Float32Array(n);
+  const partials = [];
+  for (let h = 0; h < stretch.length; h++) {
+    const fh = fTrue * (h + 1) * Math.pow(2, stretch[h] / 1200);
+    partials.push(fh);
+    const w = (2 * Math.PI * fh) / SR;
+    const phi = Math.random() * 6.28;
+    for (let i = 0; i < n; i++) sig[i] += 0.2 * amps[h] * Math.sin(w * i + phi);
+  }
+  for (let i = 0; i < n; i++) sig[i] += 3e-4 * (Math.random() * 2 - 1);
+  const engine = new Engine(SR, { mode: 'auto', trackHarmonics: 5, response: 'normal' });
+  const last = run(engine, sig);
+  assert(last && last.playedMidi === 57, `note détectée = La3 (obtenu : ${last && noteLabel(last.playedMidi ?? 0).full})`);
+  let ok = 0;
+  const details = [];
+  for (let k = 2; k <= 5; k++) {
+    const g = last.groups.find((gr) => gr.key.endsWith(`h${k}`));
+    const v = g?.voices[0];
+    const err = v?.tracked ? Math.abs(cents(v.fMeas, partials[k - 1])) : Infinity;
+    details.push(`H${k}: ${err.toFixed(4)}¢`);
+    if (err < 0.1) ok++;
+  }
+  assert(ok === 4, `4 harmoniques suivies à < 0,1 cent de leur fréquence réelle (${details.join(', ')})`);
+  // L'inharmonicité mesurée (écart de H_k au multiple exact) correspond à
+  // l'étirement programmé.
+  const g3 = last.groups.find((gr) => gr.key.endsWith('h3'));
+  const v3 = g3?.voices[0];
+  const inh3 = v3 ? cents(v3.fMeas, 3 * midiToFreq(57)) : NaN;
+  const expected3 = cents(partials[2], 3 * midiToFreq(57));
+  assert(Math.abs(inh3 - expected3) < 0.1,
+    `écart de H3 à 3·f_nominale = ${inh3.toFixed(2)}¢ (attendu ${expected3.toFixed(2)}¢)`);
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);
