@@ -33,8 +33,8 @@
 <main>
   <section class="col" id="colGauges">
     <div class="panel">
-      <h2>Aiguille <span class="hint" id="gaugeRangeLbl">±25 ¢</span></h2>
-      <canvas id="gauge" width="420" height="240"></canvas>
+      <h2>Courbe d'accordage <span class="hint" id="curveRangeLbl">±25 ¢ · 15 s</span></h2>
+      <canvas id="pitchCurve" width="420" height="280"></canvas>
       <div class="row gap">
         <label>Échelle
           <select id="gaugeRange">
@@ -46,6 +46,8 @@
         </label>
         <label>Voix suivie <select id="gaugeVoice"></select></label>
       </div>
+      <p class="hint">Écart en cents de chaque anche sur les 15 dernières secondes.
+      Cliquez sur la courbe (ou ❄) pour geler ; survolez pour lire les valeurs.</p>
     </div>
     <div class="panel">
       <h2>Stroboscope</h2>
@@ -172,7 +174,9 @@
     <li><b>Mode notes définies</b> : accords et basses — indiquez les notes qui sonnent.</li>
     <li>La précision affichée converge pendant que l'anche sonne : la barre
         « convergence » indique le remplissage de la fenêtre d'analyse.</li>
-    <li>Gelez l'écran (❄) pour lire tranquillement valeurs et graphiques.</li>
+    <li>La <b>courbe d'accordage</b> trace l'écart de chaque anche sur 15 s :
+        transitoires d'attaque, dérives, stabilité. Cliquez dessus (ou ❄) pour
+        geler, survolez pour lire les valeurs point par point.</li>
   </ul>
   <form method="dialog"><button class="primary">Fermer</button></form>
 </dialog>

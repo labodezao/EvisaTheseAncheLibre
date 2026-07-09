@@ -31,11 +31,16 @@ function saveCfg() {
   try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); } catch { /* ignore */ }
 }
 
+const HISTORY_SPAN = 15; // secondes de courbe affichées
+const PALETTE = ['#4fc3f7', '#46d68c', '#f0b943', '#f0625d', '#b58cf0', '#7fd8d0'];
+
 const state = {
   running: false,
   frozen: false,
   tick: null,           // dernier résultat moteur
-  smoothCents: null,    // lissage de l'aiguille
+  history: [],          // [{t, midi, vals: {clé de voix → {c, f}}}]
+  voiceLabels: new Map(), // clé de voix → étiquette
+  mouse: null,          // position du curseur sur la courbe (px canvas)
   strobePhase: 0,
   lastDraw: performance.now(),
   stableTicks: 0,
@@ -160,6 +165,21 @@ function onTick(t) {
   if (t.playedMidi === state.lastMidi) state.stableTicks++;
   else { state.stableTicks = 0; state.lastMidi = t.playedMidi; }
 
+  // Historique pour la courbe d'accordage.
+  const vals = {};
+  for (const g of t.groups) {
+    for (const v of g.voices) {
+      const key = `${g.key}:${v.def.id}`;
+      state.voiceLabels.set(key,
+        v.def.label || (v.def.fixedMidi != null ? noteLabel(v.def.fixedMidi + (cfg.transpose || 0)).full : 'anche'));
+      if (v.tracked && !t.quiet) vals[key] = { c: v.dTargetCents, f: v.fMeas };
+    }
+  }
+  state.history.push({ t: t.time, midi: t.playedMidi, vals });
+  while (state.history.length && state.history[0].t < t.time - HISTORY_SPAN - 0.5) {
+    state.history.shift();
+  }
+
   // Enregistrement automatique quand la mesure est convergée et stable.
   if ($('autoRecord').checked && t.playedMidi != null && !t.quiet && state.stableTicks > 8
       && t.groups.length && t.groups.every((g) => g.fill >= 0.999)
@@ -244,59 +264,131 @@ function updateVoicesTable(t) {
 }
 
 // ---- Dessins -----------------------------------------------------------------
-function drawGauge() {
-  const cv = $('gauge'), ctx = cv.getContext('2d');
+// Courbe d'accordage : écart en cents de chaque anche au fil du temps
+// (fenêtre glissante de 15 s), marqueurs de changement de note, lecture au
+// survol. C'est l'outil de lecture des transitoires d'attaque, des dérives
+// et de la stabilité d'une anche.
+function drawPitchCurve() {
+  const cv = $('pitchCurve'), ctx = cv.getContext('2d');
   const W = cv.width, H = cv.height;
   ctx.clearRect(0, 0, W, H);
   const range = Number($('gaugeRange').value);
-  $('gaugeRangeLbl').textContent = `±${range} ¢`;
-  const cx = W / 2, cy = H - 18, R = H - 44;
-  const a0 = Math.PI * 1.25, a1 = Math.PI * 1.75;
-  const angFor = (c) => a0 + ((clamp(c, -range, range) + range) / (2 * range)) * (a1 - a0);
+  $('curveRangeLbl').textContent = `±${range} ¢ · ${HISTORY_SPAN} s`;
+  const pad = { l: 36, r: 8, t: 18, b: 18 };
+  const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
+  const yFor = (c) => pad.t + (1 - (clamp(c, -range, range) + range) / (2 * range)) * plotH;
 
-  // Zones colorées.
-  const zones = [[-range, -range * 0.2, '#5b2523'], [-range * 0.2, range * 0.2, '#1d4a33'], [range * 0.2, range, '#5b2523']];
-  for (const [z0, z1, col] of zones) {
-    ctx.beginPath();
-    ctx.strokeStyle = col;
-    ctx.lineWidth = 16;
-    ctx.arc(cx, cy, R, angFor(z0), angFor(z1));
-    ctx.stroke();
-  }
-  // Graduations.
-  ctx.fillStyle = '#8494a9';
-  ctx.font = '11px system-ui';
-  ctx.textAlign = 'center';
+  // Grille verticale (cents).
+  ctx.font = '10px system-ui';
+  ctx.textAlign = 'right';
   const step = range <= 5 ? 1 : range <= 10 ? 2 : range <= 25 ? 5 : 10;
   for (let c = -range; c <= range; c += step) {
-    const a = angFor(c);
-    const x1 = cx + Math.cos(a) * (R - 12), y1 = cy + Math.sin(a) * (R - 12);
-    const x2 = cx + Math.cos(a) * (R + 10), y2 = cy + Math.sin(a) * (R + 10);
-    ctx.strokeStyle = c === 0 ? '#dde5ef' : '#44536a';
-    ctx.lineWidth = c === 0 ? 2 : 1;
-    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-    ctx.fillText(String(c), cx + Math.cos(a) * (R + 24), cy + Math.sin(a) * (R + 24) + 4);
+    const y = yFor(c);
+    ctx.strokeStyle = c === 0 ? '#44536a' : '#1e242e';
+    ctx.lineWidth = c === 0 ? 1.5 : 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+    ctx.fillStyle = '#5c6b80';
+    ctx.fillText(String(c), pad.l - 5, y + 3);
   }
-  // Aiguille.
-  const v = selectedVoice(state.tick);
-  const target = v?.dTargetCents;
-  if (target != null) {
-    state.smoothCents = state.smoothCents == null ? target : state.smoothCents + 0.35 * (target - state.smoothCents);
-    const a = angFor(state.smoothCents);
-    ctx.strokeStyle = Math.abs(target) < 1 ? '#46d68c' : '#f0b943';
-    ctx.lineWidth = 3;
+
+  const hist = state.history;
+  const T = hist.length ? hist[hist.length - 1].t : 0;
+  const xFor = (t) => pad.l + plotW * (1 - (T - t) / HISTORY_SPAN);
+
+  // Grille horizontale (secondes).
+  ctx.textAlign = 'center';
+  for (let s = 0; s <= HISTORY_SPAN; s += 5) {
+    const x = pad.l + plotW * (1 - s / HISTORY_SPAN);
+    ctx.strokeStyle = '#1e242e';
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, H - pad.b); ctx.stroke();
+    ctx.fillStyle = '#5c6b80';
+    ctx.fillText(s ? `−${s} s` : '0', x, H - 5);
+  }
+
+  if (!hist.length) {
+    ctx.fillStyle = '#5c6b80';
+    ctx.font = '13px system-ui';
+    ctx.fillText('jouez une note…', W / 2, H / 2);
+    return;
+  }
+
+  // Marqueurs de changement de note (transitions).
+  ctx.textAlign = 'left';
+  ctx.font = '10px system-ui';
+  for (let i = 1; i < hist.length; i++) {
+    if (hist[i].midi !== hist[i - 1].midi && hist[i].midi != null) {
+      const x = xFor(hist[i].t);
+      if (x < pad.l) continue;
+      ctx.strokeStyle = '#3a4a60';
+      ctx.setLineDash([2, 4]);
+      ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, H - pad.b); ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = '#8494a9';
+      ctx.fillText(noteLabel(hist[i].midi + (cfg.transpose || 0)).full, x + 3, pad.t - 5);
+    }
+  }
+
+  // Traces (une par anche), la voix suivie en gras.
+  const keys = [];
+  for (const e of hist) {
+    for (const k of Object.keys(e.vals)) if (!keys.includes(k)) keys.push(k);
+  }
+  const selKey = $('gaugeVoice').value;
+  let legendX = pad.l + 4;
+  keys.forEach((k, ki) => {
+    const col = PALETTE[ki % PALETTE.length];
+    ctx.strokeStyle = col;
+    ctx.lineWidth = k === selKey ? 2.4 : 1.3;
     ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(cx + Math.cos(a) * (R - 20), cy + Math.sin(a) * (R - 20));
+    let started = false, prevT = null;
+    for (const e of hist) {
+      const v = e.vals[k];
+      if (!v) { started = false; continue; }
+      if (prevT != null && e.t - prevT > 0.6) started = false;
+      const x = xFor(e.t);
+      prevT = e.t;
+      if (x < pad.l) continue;
+      const y = yFor(v.c);
+      started ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+      started = true;
+    }
     ctx.stroke();
-    ctx.font = 'bold 20px var(--mono), monospace';
-    ctx.fillStyle = '#dde5ef';
-    ctx.fillText((target >= 0 ? '+' : '') + target.toFixed(1) + ' ¢', cx, cy - R / 2);
+    // Légende.
+    const lbl = state.voiceLabels.get(k) || k;
+    ctx.fillStyle = col;
+    ctx.fillRect(legendX, 4, 8, 8);
+    ctx.fillStyle = '#8494a9';
+    ctx.fillText(lbl, legendX + 11, 12);
+    legendX += 20 + ctx.measureText(lbl).width;
+  });
+
+  // Curseur de lecture au survol (surtout utile en mode gelé).
+  if (state.mouse && state.mouse.x >= pad.l && state.mouse.x <= W - pad.r) {
+    const tCur = T - HISTORY_SPAN * (1 - (state.mouse.x - pad.l) / plotW);
+    let best = null;
+    for (const e of hist) {
+      if (!best || Math.abs(e.t - tCur) < Math.abs(best.t - tCur)) best = e;
+    }
+    if (best) {
+      const x = xFor(best.t);
+      ctx.strokeStyle = '#8494a9';
+      ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, H - pad.b); ctx.stroke();
+      const parts = [`−${(T - best.t).toFixed(1)} s`];
+      for (const k of keys) {
+        const v = best.vals[k];
+        if (v) parts.push(`${state.voiceLabels.get(k) || k} ${v.c >= 0 ? '+' : ''}${v.c.toFixed(1)}¢ (${v.f.toFixed(3)} Hz)`);
+      }
+      ctx.font = '11px system-ui';
+      const text = parts.join('   ');
+      const tw = ctx.measureText(text).width + 10;
+      const bx = clamp(x - tw / 2, pad.l, W - pad.r - tw);
+      ctx.fillStyle = 'rgba(16,20,26,0.92)';
+      ctx.fillRect(bx, pad.t + 2, tw, 16);
+      ctx.fillStyle = '#dde5ef';
+      ctx.textAlign = 'left';
+      ctx.fillText(text, bx + 5, pad.t + 14);
+    }
   }
-  ctx.beginPath();
-  ctx.fillStyle = '#4fc3f7';
-  ctx.arc(cx, cy, 5, 0, 7);
-  ctx.fill();
 }
 
 function drawStrobe(dt) {
@@ -467,13 +559,22 @@ function clamp(x, a, b) { return Math.min(b, Math.max(a, x)); }
 function renderLoop(now) {
   const dt = Math.min(0.1, (now - state.lastDraw) / 1000);
   state.lastDraw = now;
+  // La courbe est redessinée même gelée : l'historique n'avance plus mais le
+  // curseur de lecture doit suivre la souris.
+  drawPitchCurve();
   if (!state.frozen) {
-    drawGauge();
     drawSpectrum();
     drawZoom();
   }
   drawStrobe(dt);
   requestAnimationFrame(renderLoop);
+}
+
+function toggleFreeze() {
+  if (!state.running) return;
+  state.frozen = !state.frozen;
+  $('btnFreeze').classList.toggle('active', state.frozen);
+  $('btnFreeze').textContent = state.frozen ? '❄ Gelé' : '❄ Geler';
 }
 
 // ---- Générateur de sons -------------------------------------------------------
@@ -583,11 +684,17 @@ function bindControls() {
   updateModeVisibility();
 
   $('btnStart').onclick = () => (state.running ? stopAudio() : startAudio());
-  $('btnFreeze').onclick = () => {
-    state.frozen = !state.frozen;
-    $('btnFreeze').classList.toggle('active', state.frozen);
-    $('btnFreeze').textContent = state.frozen ? '❄ Gelé' : '❄ Geler';
-  };
+  $('btnFreeze').onclick = toggleFreeze;
+  const curve = $('pitchCurve');
+  curve.addEventListener('mousemove', (e) => {
+    const r = curve.getBoundingClientRect();
+    state.mouse = {
+      x: ((e.clientX - r.left) * curve.width) / r.width,
+      y: ((e.clientY - r.top) * curve.height) / r.height,
+    };
+  });
+  curve.addEventListener('mouseleave', () => { state.mouse = null; });
+  curve.addEventListener('click', toggleFreeze);
   $('a4').onchange = () => { cfg.a4 = clamp(Number($('a4').value) || 440, 430, 450); $('a4').value = cfg.a4; pushConfig(); };
   tSel.onchange = () => { cfg.temperament = tSel.value; pushConfig(); };
   trSel.onchange = () => { cfg.transpose = Number(trSel.value); pushConfig(); };

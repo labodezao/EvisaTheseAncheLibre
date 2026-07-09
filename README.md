@@ -24,9 +24,12 @@ scientifique de l'anche libre.
 - La4 réglable **430–450 Hz**, **transposition**, **tempéraments** historiques
   (égal, Pythagore, mésotonique 1/4 comma, Werckmeister III, Kirnberger III,
   Vallotti), calibration de la carte son (ppm).
-- Aiguille (±5 à ±50 ¢), stroboscope, spectre 20 Hz–10 kHz, **zoom spectral**
-  montrant chaque anche individuellement, écran gelable, générateur de sons
-  au timbre d'anche.
+- **Courbe d'accordage** : écart en cents de chaque anche au fil du temps
+  (fenêtre glissante de 15 s, échelle ±5 à ±50 ¢), marqueurs de changement de
+  note pour lire les transitions, gel par bouton ou clic sur la courbe,
+  lecture des valeurs au survol. Plus stroboscope, spectre 20 Hz–10 kHz,
+  **zoom spectral** montrant chaque anche individuellement, générateur de
+  sons au timbre d'anche.
 - **Faible latence** : capture AudioWorklet (blocs de 512 échantillons),
   analyse dans un Worker dédié, affichage 60 fps.
 
