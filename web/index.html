@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Accordeur Anche Libre Pro</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2314171c'/%3E%3Cpath d='M6 20 L12 20 L16 8 L20 26 L24 14 L26 14' stroke='%234fc3f7' stroke-width='2.5' fill='none'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="topbar">
+  <div class="brand">
+    <h1>Accordeur <em>Anche Libre</em> Pro</h1>
+    <span class="sub">accordéon · concertina · bandonéon · harmonica · mélodica</span>
+  </div>
+  <div class="note-display">
+    <span id="noteName">—</span><sub id="noteOct"></sub>
+    <div class="note-sub"><span id="freqVal">—</span> Hz</div>
+  </div>
+  <div class="cents-display">
+    <span id="centsVal">—</span><span class="unit">cent</span>
+    <div class="note-sub" id="convState">micro arrêté</div>
+  </div>
+  <div class="level-wrap" title="Niveau d'entrée">
+    <div id="levelBar"></div>
+  </div>
+  <div class="top-actions">
+    <button id="btnStart" class="primary">▶ Démarrer</button>
+    <button id="btnFreeze" disabled>❄ Geler</button>
+  </div>
+</header>
+
+<main>
+  <section class="col" id="colGauges">
+    <div class="panel">
+      <h2>Aiguille <span class="hint" id="gaugeRangeLbl">±25 ¢</span></h2>
+      <canvas id="gauge" width="420" height="240"></canvas>
+      <div class="row gap">
+        <label>Échelle
+          <select id="gaugeRange">
+            <option value="50">±50 ¢</option>
+            <option value="25" selected>±25 ¢</option>
+            <option value="10">±10 ¢</option>
+            <option value="5">±5 ¢</option>
+          </select>
+        </label>
+        <label>Voix suivie <select id="gaugeVoice"></select></label>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Stroboscope</h2>
+      <canvas id="strobe" width="420" height="90"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Générateur de sons</h2>
+      <div class="row gap">
+        <button id="btnTone">♪ Jouer la cible</button>
+        <label>Volume <input type="range" id="toneVol" min="0" max="100" value="30"></label>
+      </div>
+      <p class="hint">Joue la ou les fréquences cibles de la note courante (timbre d'anche).</p>
+    </div>
+  </section>
+
+  <section class="col wide" id="colSpectra">
+    <div class="panel">
+      <h2>Spectre 20 Hz – 10 kHz</h2>
+      <canvas id="spectrum" width="760" height="200"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Zoom sur la note <span class="hint">(chaque pic = une anche ; pointillés = cibles)</span></h2>
+      <canvas id="zoom" width="760" height="300"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Anches mesurées</h2>
+      <table id="voicesTable">
+        <thead>
+          <tr><th>Voix</th><th>Note</th><th>Cible (Hz)</th><th>Mesure (Hz)</th>
+              <th>Écart (¢)</th><th>Écart (Hz)</th><th>Battement (Hz)</th><th>Cible batt.</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="col" id="colControls">
+    <div class="panel">
+      <h2>Mode de mesure</h2>
+      <label>Mode
+        <select id="mode">
+          <option value="auto">Automatique (une anche)</option>
+          <option value="register">Registre (multi-anches)</option>
+          <option value="manual">Notes définies (accords, basses)</option>
+        </select>
+      </label>
+      <div id="modeRegister" class="subctl">
+        <label>Registre <select id="register"></select></label>
+      </div>
+      <div id="modeManual" class="subctl hidden">
+        <label>Notes jouées <input type="text" id="manualNotes" placeholder="ex. Do4 Mi4 Sol4 ou C4 E4 G4"></label>
+        <button id="applyManual">Appliquer</button>
+      </div>
+      <label>Réactivité
+        <select id="response">
+          <option value="fast">Rapide (~1,4 s de fenêtre)</option>
+          <option value="normal" selected>Normale (~2,7 s)</option>
+          <option value="precise">Précise (~5,5 s)</option>
+        </select>
+      </label>
+    </div>
+    <div class="panel">
+      <h2>Référence &amp; tempérament</h2>
+      <label>La4 (Hz) <input type="number" id="a4" min="430" max="450" step="0.1" value="440.0"></label>
+      <label>Transposition
+        <select id="transpose"></select>
+      </label>
+      <label>Tempérament <select id="temperament"></select></label>
+      <label>Calibration carte son (ppm) <input type="number" id="calib" step="1" value="0"></label>
+    </div>
+    <div class="panel">
+      <h2>Liste de battements (tremolo)</h2>
+      <div class="row gap">
+        <label>Batt. à <span id="bLowNote">Do3</span> (Hz) <input type="number" id="bLow" step="0.05" value="0.8"></label>
+        <label>Batt. à <span id="bHighNote">Do7</span> (Hz) <input type="number" id="bHigh" step="0.05" value="3.0"></label>
+      </div>
+      <canvas id="beatCurve" width="330" height="120"></canvas>
+      <p class="hint">Courbe exponentielle entre les deux ancrages ; écrasements par note dans le rapport.</p>
+    </div>
+    <div class="panel">
+      <h2>Entrée audio</h2>
+      <label>Périphérique <select id="deviceSel"></select></label>
+      <p class="hint" id="latencyInfo"></p>
+    </div>
+  </section>
+</main>
+
+<section id="reportSec">
+  <div class="panel">
+    <h2>Enregistrement &amp; rapport d'accordage
+      <span class="report-actions">
+        <label class="inline"><input type="checkbox" id="autoRecord"> auto</label>
+        <button id="btnRecord" class="primary">● Enregistrer la mesure</button>
+        <button id="btnReport">Rapport imprimable</button>
+        <button id="btnCsv">Export CSV</button>
+        <button id="btnSaveJson">Sauver</button>
+        <button id="btnLoadJson">Charger</button>
+        <button id="btnCopyBeats">Copier battements mesurés → liste cible</button>
+        <button id="btnClear" class="danger">Effacer</button>
+      </span>
+    </h2>
+    <div class="row gap">
+      <label>Instrument <input type="text" id="instrName" placeholder="ex. Maugein 1954 n°1234"></label>
+      <span class="hint" id="reportCount"></span>
+    </div>
+    <div id="reportTableWrap"><table id="reportTable"></table></div>
+  </div>
+</section>
+
+<footer>
+  <span>Accordeur pour instruments à anche libre — plage Mi0 → Do9 · précision &lt; 0,1 cent · </span>
+  <a href="#" id="aboutLink">à propos / aide</a>
+</footer>
+
+<dialog id="aboutDlg">
+  <h2>À propos</h2>
+  <p>Accordeur professionnel pour accordéon et instruments à anche libre
+  (concertina, bandonéon, harmonica, mélodica, orgue à anches).</p>
+  <ul>
+    <li><b>Mode automatique</b> : détection de note par analyse harmonique (Mi0 → Do9),
+        puis suivi de phase hétérodyne — précision &lt; 0,1 cent sur ton stable.</li>
+    <li><b>Mode registre</b> : mesure simultanée de 2 à 4 anches (tremolo, octaves)
+        sans démontage ; battements mesurés et comparés à la liste cible.</li>
+    <li><b>Mode notes définies</b> : accords et basses — indiquez les notes qui sonnent.</li>
+    <li>La précision affichée converge pendant que l'anche sonne : la barre
+        « convergence » indique le remplissage de la fenêtre d'analyse.</li>
+    <li>Gelez l'écran (❄) pour lire tranquillement valeurs et graphiques.</li>
+  </ul>
+  <form method="dialog"><button class="primary">Fermer</button></form>
+</dialog>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
