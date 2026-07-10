@@ -1106,6 +1106,21 @@ function bindControls() {
   curve.addEventListener('click', toggleFreeze);
   $('phase').addEventListener('click', toggleFreeze);
 
+  // Onglets : Accordage / Analyse / Réglages / Rapport. L'en-tête (note,
+  // témoin, boutons) reste visible en permanence au-dessus, chaque onglet
+  // tient sans avoir à faire défiler toute la page.
+  document.querySelectorAll('#tabbar .tab').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('#tabbar .tab').forEach((t) => {
+        t.classList.toggle('active', t === tab);
+        t.setAttribute('aria-selected', String(t === tab));
+      });
+      document.querySelectorAll('.tabpage').forEach((p) => {
+        p.classList.toggle('active', p.id === `tabpage-${tab.dataset.tab}`);
+      });
+    });
+  });
+
   // Plein écran sur les panneaux marqués.
   document.querySelectorAll('.fsbtn[data-fs]').forEach((b) => {
     b.addEventListener('click', (e) => {

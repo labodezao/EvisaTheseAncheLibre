@@ -99,17 +99,45 @@ body {
 #levelBar { height: 100%; width: 0; background: linear-gradient(90deg, var(--ok), var(--warn)); }
 .top-actions { margin-left: auto; display: flex; gap: 8px; }
 
+/* ---- Onglets ---- */
+/* L'accordage tient sur un seul onglet sans avoir à faire défiler une page
+   entière : Accordage (l'essentiel pendant qu'on joue), Analyse (spectre,
+   phase, physique), Réglages, Rapport. L'en-tête (note, témoin, boutons)
+   reste hors des onglets, visible en permanence. */
+#tabbar {
+  display: flex;
+  gap: 2px;
+  padding: 0 12px;
+  background: #171c24;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+#tabbar .tab {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  color: var(--dim);
+  padding: 11px 16px;
+  font: 600 13px system-ui;
+  white-space: nowrap;
+  cursor: pointer;
+}
+#tabbar .tab:hover:not(.active) { color: var(--text); }
+#tabbar .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
 /* ---- Disposition ---- */
-main {
-  display: grid;
-  grid-template-columns: 460px 1fr 370px;
+main { padding: 12px; }
+.tabpage {
+  display: none;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
   gap: 12px;
-  padding: 12px;
   align-items: start;
 }
-main .col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
-@media (max-width: 1250px) { main { grid-template-columns: 1fr 1fr; } #colSpectra { order: -1; grid-column: 1 / -1; } }
-@media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+.tabpage.active { display: grid; }
+.tabpage .panel.wide { grid-column: 1 / -1; }
+@media (max-width: 720px) { .tabpage { grid-template-columns: 1fr; } }
 
 .panel {
   background: var(--panel);
@@ -179,7 +207,6 @@ td.bad { color: var(--bad); }
 td.dim { color: var(--dim); }
 
 /* ---- Rapport ---- */
-#reportSec { padding: 0 12px 12px; }
 .report-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 #reportTableWrap { max-height: 320px; overflow: auto; margin-top: 8px; }
 #reportTable input { width: 64px; font-family: var(--mono); font-size: 12px; padding: 2px 4px; }

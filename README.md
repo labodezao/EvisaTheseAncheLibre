@@ -51,6 +51,10 @@ scientifique de l'anche libre.
   soufflet, verrouillage de note, grille de progression (anche × note × sens
   du soufflet), sens tirer/pousser mémorisés séparément, raccourcis clavier,
   calibrage du micro depuis une référence connue. Voir [`web/aide.html`](web/aide.html).
+- **Interface en onglets** (Accordage / Analyse / Réglages / Rapport) : l'en-tête
+  (note, témoin, boutons) reste toujours visible, chaque onglet tient sur un
+  seul écran sans avoir à faire défiler toute la page — pensé pour l'usage à
+  l'établi comme sur mobile.
 - **Analyse physique** (voir [ANALYSE.md](ANALYSE.md)) : export CSV de la
   courbe (120 s : fréquence, écart ¢, intensité dB par voix), temps de
   réponse de l'anche à chaque attaque (10→90 %, résolution 10,7 ms),

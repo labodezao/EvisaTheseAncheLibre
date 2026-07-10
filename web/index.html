@@ -32,8 +32,15 @@
   </div>
 </header>
 
+<nav id="tabbar" role="tablist">
+  <button class="tab active" data-tab="tune" role="tab" aria-selected="true">🎯 Accordage</button>
+  <button class="tab" data-tab="analyse" role="tab" aria-selected="false">📊 Analyse</button>
+  <button class="tab" data-tab="settings" role="tab" aria-selected="false">⚙ Réglages</button>
+  <button class="tab" data-tab="report" role="tab" aria-selected="false">📋 Rapport</button>
+</nav>
+
 <main>
-  <section class="col" id="colGauges">
+  <div class="tabpage active" id="tabpage-tune" role="tabpanel">
     <div class="panel">
       <h2>Courbe d'accordage
         <span>
@@ -64,20 +71,34 @@
       <div id="readoutCards" class="readout-cards"></div>
     </div>
     <div class="panel">
+      <h2>Zoom sur la note
+        <span>
+          <span class="hint">(chaque pic = une anche ; pointillés = cibles)</span>
+          <button class="fsbtn" data-fs title="Plein écran">⛶</button>
+        </span>
+      </h2>
+      <canvas id="zoom" width="760" height="300"></canvas>
+    </div>
+    <div class="panel">
+      <h2>Anches mesurées</h2>
+      <table id="voicesTable">
+        <thead>
+          <tr><th>Voix</th><th>Note</th><th>Cible (Hz)</th><th>Mesure (Hz)</th>
+              <th>Écart (¢)</th><th>Écart (Hz)</th><th>Battement (Hz)</th><th>Cible batt.</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+    <div class="panel">
       <h2>Stroboscope</h2>
       <canvas id="strobe" width="420" height="90"></canvas>
     </div>
+  </div>
+
+  <div class="tabpage" id="tabpage-analyse" role="tabpanel">
     <div class="panel">
-      <h2>Analyse physique <button id="btnCurveCsv">Export CSV courbe</button></h2>
-      <div id="attackInfo">Temps de réponse de l'anche : <b>—</b></div>
-      <ul id="attackList" class="attack-list"></ul>
-      <label>Seuil de gel du temps
-        <input type="range" id="gateDb" min="-80" max="-40" step="1" value="-70">
-        <span id="gateDbVal">−70</span> dB
-      </label>
-      <p class="hint">Sous ce niveau d'entrée, l'horloge se gèle : les traqueurs et la
-      courbe s'arrêtent, la mesure reste affichée. L'export CSV couvre les
-      120 dernières secondes (temps, fréquence, écart ¢ et intensité dB par voix).</p>
+      <h2>Spectre 20 Hz – 10 kHz</h2>
+      <canvas id="spectrum" width="760" height="200"></canvas>
     </div>
     <div class="panel">
       <h2>Diagramme de phase <button class="fsbtn" data-fs title="Plein écran">⛶</button></h2>
@@ -110,6 +131,18 @@
       pression du soufflet pour tracer f(p) et I(p).</p>
     </div>
     <div class="panel">
+      <h2>Analyse physique <button id="btnCurveCsv">Export CSV courbe</button></h2>
+      <div id="attackInfo">Temps de réponse de l'anche : <b>—</b></div>
+      <ul id="attackList" class="attack-list"></ul>
+      <label>Seuil de gel du temps
+        <input type="range" id="gateDb" min="-80" max="-40" step="1" value="-70">
+        <span id="gateDbVal">−70</span> dB
+      </label>
+      <p class="hint">Sous ce niveau d'entrée, l'horloge se gèle : les traqueurs et la
+      courbe s'arrêtent, la mesure reste affichée. L'export CSV couvre les
+      120 dernières secondes (temps, fréquence, écart ¢ et intensité dB par voix).</p>
+    </div>
+    <div class="panel">
       <h2>Générateur de sons</h2>
       <div class="row gap">
         <button id="btnTone">♪ Jouer la cible</button>
@@ -117,35 +150,9 @@
       </div>
       <p class="hint">Joue la ou les fréquences cibles de la note courante (timbre d'anche).</p>
     </div>
-  </section>
+  </div>
 
-  <section class="col wide" id="colSpectra">
-    <div class="panel">
-      <h2>Spectre 20 Hz – 10 kHz</h2>
-      <canvas id="spectrum" width="760" height="200"></canvas>
-    </div>
-    <div class="panel">
-      <h2>Zoom sur la note
-        <span>
-          <span class="hint">(chaque pic = une anche ; pointillés = cibles)</span>
-          <button class="fsbtn" data-fs title="Plein écran">⛶</button>
-        </span>
-      </h2>
-      <canvas id="zoom" width="760" height="300"></canvas>
-    </div>
-    <div class="panel">
-      <h2>Anches mesurées</h2>
-      <table id="voicesTable">
-        <thead>
-          <tr><th>Voix</th><th>Note</th><th>Cible (Hz)</th><th>Mesure (Hz)</th>
-              <th>Écart (¢)</th><th>Écart (Hz)</th><th>Battement (Hz)</th><th>Cible batt.</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="col" id="colControls">
+  <div class="tabpage" id="tabpage-settings" role="tabpanel">
     <div class="panel">
       <h2>Mode de mesure</h2>
       <label>Mode
@@ -222,36 +229,36 @@
       <p class="hint" id="latencyInfo"></p>
       <p class="hint" id="dspLoad"></p>
     </div>
-  </section>
-</main>
-
-<section id="reportSec">
-  <div class="panel">
-    <h2>Enregistrement &amp; rapport d'accordage
-      <span class="report-actions">
-        <span class="bellows-toggle" title="Sens du soufflet (raccourci : B)">
-          <button id="btnTirer" class="active">⬅ Tirer</button><button id="btnPousser">Pousser ➡</button>
-        </span>
-        <label class="inline"><input type="checkbox" id="autoRecord"> auto</label>
-        <button id="btnRecord" class="primary" title="Raccourci : Entrée">● Enregistrer la mesure</button>
-        <button id="btnReport">Rapport imprimable</button>
-        <button id="btnCsv">Export CSV</button>
-        <button id="btnSaveJson">Sauver</button>
-        <button id="btnLoadJson">Charger</button>
-        <button id="btnCopyBeats">Copier battements mesurés → liste cible</button>
-        <button id="btnClear" class="danger">Effacer</button>
-      </span>
-    </h2>
-    <div class="row gap">
-      <label>Instrument <input type="text" id="instrName" placeholder="ex. Maugein 1954 n°1234"></label>
-      <span class="hint" id="reportCount"></span>
-      <span class="hint">Raccourcis : Entrée = enregistrer · F = geler · L = verrouiller la note ·
-        B = soufflet · T = son de référence</span>
-    </div>
-    <div id="tuneGrid"></div>
-    <div id="reportTableWrap"><table id="reportTable"></table></div>
   </div>
-</section>
+
+  <div class="tabpage" id="tabpage-report" role="tabpanel">
+    <div class="panel wide">
+      <h2>Enregistrement &amp; rapport d'accordage
+        <span class="report-actions">
+          <span class="bellows-toggle" title="Sens du soufflet (raccourci : B)">
+            <button id="btnTirer" class="active">⬅ Tirer</button><button id="btnPousser">Pousser ➡</button>
+          </span>
+          <label class="inline"><input type="checkbox" id="autoRecord"> auto</label>
+          <button id="btnRecord" class="primary" title="Raccourci : Entrée">● Enregistrer la mesure</button>
+          <button id="btnReport">Rapport imprimable</button>
+          <button id="btnCsv">Export CSV</button>
+          <button id="btnSaveJson">Sauver</button>
+          <button id="btnLoadJson">Charger</button>
+          <button id="btnCopyBeats">Copier battements mesurés → liste cible</button>
+          <button id="btnClear" class="danger">Effacer</button>
+        </span>
+      </h2>
+      <div class="row gap">
+        <label>Instrument <input type="text" id="instrName" placeholder="ex. Maugein 1954 n°1234"></label>
+        <span class="hint" id="reportCount"></span>
+        <span class="hint">Raccourcis : Entrée = enregistrer · F = geler · L = verrouiller la note ·
+          B = soufflet · T = son de référence</span>
+      </div>
+      <div id="tuneGrid"></div>
+      <div id="reportTableWrap"><table id="reportTable"></table></div>
+    </div>
+  </div>
+</main>
 
 <footer>
   <span>Accordeur pour instruments à anche libre — plage Mi0 → Do9 · précision &lt; 0,1 cent · </span>
