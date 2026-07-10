@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guide — Accordeur Anche Libre Pro</title>
+<style>
+  :root {
+    --bg: #14171c; --panel: #1c2129; --line: #303a49; --text: #dde5ef;
+    --dim: #8494a9; --accent: #4fc3f7; --ok: #46d68c; --warn: #f0b943;
+    --mono: "SF Mono", "Cascadia Code", Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 system-ui, "Segoe UI", Roboto, sans-serif;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 32px 22px 80px; }
+  h1 { font-size: 30px; margin: 0 0 4px; }
+  h1 em { color: var(--accent); font-style: normal; }
+  .lead { color: var(--dim); font-size: 15px; margin-bottom: 28px; }
+  h2 {
+    font-size: 21px; margin: 38px 0 12px; padding-top: 16px;
+    border-top: 1px solid var(--line);
+  }
+  h3 { font-size: 17px; margin: 22px 0 8px; color: var(--accent); }
+  a { color: var(--accent); }
+  code, kbd {
+    font-family: var(--mono); font-size: 0.9em;
+    background: #232a35; padding: 1px 6px; border-radius: 4px;
+  }
+  kbd { border: 1px solid var(--line); box-shadow: 0 1px 0 var(--line); }
+  .panel {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px; padding: 16px 20px; margin: 16px 0;
+  }
+  .steps { counter-reset: s; list-style: none; padding: 0; }
+  .steps > li {
+    counter-increment: s; position: relative; padding: 10px 0 10px 46px;
+    border-bottom: 1px solid var(--line);
+  }
+  .steps > li:last-child { border-bottom: none; }
+  .steps > li::before {
+    content: counter(s); position: absolute; left: 0; top: 10px;
+    width: 30px; height: 30px; border-radius: 50%;
+    background: #135a7d; color: #fff; font-weight: 700;
+    display: grid; place-items: center;
+  }
+  .tag {
+    display: inline-block; font-size: 12px; font-weight: 700;
+    padding: 2px 9px; border-radius: 20px; vertical-align: middle;
+  }
+  .t-ok { background: #1d7a4d; color: #eafff3; }
+  .t-up { background: #7a4a1d; color: #ffe9d6; }
+  .callout {
+    border-left: 3px solid var(--accent); background: #182029;
+    padding: 12px 16px; margin: 16px 0; border-radius: 0 8px 8px 0;
+  }
+  .callout.warn { border-color: var(--warn); }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; font-size: 14px; }
+  th, td { border: 1px solid var(--line); padding: 6px 10px; text-align: left; }
+  th { background: #232a35; }
+  .kbdrow td:first-child { font-family: var(--mono); white-space: nowrap; }
+  .toc a { display: inline-block; margin-right: 14px; font-size: 14px; }
+  .big { font-size: 15px; }
+  ul.tight li { margin: 3px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Accordeur <em>Anche Libre</em> Pro — guide</h1>
+  <div class="lead">Accordéon · concertina · bandonéon · harmonica · mélodica · orgue à anches.
+    Précision &lt; 0,1 cent · plage Mi0 → Do9 · mesure multi-anches simultanée.</div>
+
+  <div class="panel toc">
+    <b>Sur cette page :</b><br>
+    <a href="#start">Démarrer (dont Android)</a>
+    <a href="#workflow">Workflow d'accordage</a>
+    <a href="#latence">Latence &amp; charge</a>
+    <a href="#calib">Calibrer le micro</a>
+    <a href="#registres">Registres &amp; battements</a>
+    <a href="#analyse">Analyse physique</a>
+    <a href="#raccourcis">Raccourcis</a>
+  </div>
+
+  <h2 id="start">1. Démarrer</h2>
+  <h3>Sur ordinateur (navigateur)</h3>
+  <p>Ouvrez <code>index.html</code> via un petit serveur (les modules et le micro
+  exigent <code>http://</code>, pas un double-clic sur le fichier) :</p>
+  <div class="panel"><code>node server.mjs</code> puis ouvrez
+  <code>http://localhost:8173</code> dans Chrome, Edge, Firefox ou Safari récent.</div>
+  <p>Application de bureau native : <code>npm install &amp;&amp; npm start</code>
+  (Electron, Windows/macOS/Linux).</p>
+
+  <h3>Sur Android (Termux)</h3>
+  <div class="callout warn">
+    <b>L'erreur <code>EACCES … package.json</code> est normale :</b> <code>npm</code>
+    ne peut pas travailler dans <code>/storage/emulated/0/Download</code>
+    (stockage partagé sans permissions Unix). Copiez le projet dans le dossier
+    personnel de Termux, et n'utilisez <b>pas</b> <code>npm</code> — le mode
+    navigateur n'en a pas besoin :
+  </div>
+  <div class="panel"><code>cp -r /storage/emulated/0/Download/tuner ~/tuner</code><br>
+  <code>cd ~/tuner</code><br>
+  <code>node server.mjs</code><br>
+  <span style="color:var(--dim)">puis Chrome Android →</span>
+  <code>http://localhost:8173</code> <span style="color:var(--dim)">(autoriser le micro).</span></div>
+  <p>Le plus simple sur mobile : héberger le dossier <code>web/</code> sur une URL
+  (GitHub Pages est configuré dans ce dépôt) et ouvrir cette adresse — aucun
+  Termux ni serveur local. Une connexion <code>https://</code> est requise pour
+  le micro.</p>
+
+  <h2 id="workflow">2. Workflow d'accordage (établi)</h2>
+  <p>L'accordeur est pensé pour la boucle réelle du professionnel, mains sur
+  l'instrument :</p>
+  <ol class="steps big">
+    <li>Choisissez le <b>sens du soufflet</b> (<kbd>B</kbd> ou boutons
+      <b>Tirer / Pousser</b>) et le <b>registre</b> (ou le mode « une anche »).</li>
+    <li><b>Mettez le soufflet en pression et jouez la note.</b> L'accordeur
+      détecte la note et l'octave, affiche chaque anche et le témoin d'accordage.</li>
+    <li>Lisez le <b>témoin</b> en haut : <span class="tag t-ok">✔ OK</span>
+      dans la tolérance, <span class="tag t-up">↑ +x ¢</span> trop bas (monter),
+      <span class="tag t-up" style="background:#6d2f4a;color:#ffe3ef">↓ −x ¢</span>
+      trop haut (descendre). La <b>courbe</b> montre l'évolution, le
+      <b>zoom</b> chaque anche séparément.</li>
+    <li>Quand la mesure est <b>convergée et stable</b>, l'écran se
+      <b>gèle automatiquement</b> (bip) : lâchez le soufflet, retournez la caisse,
+      les valeurs restent lisibles.</li>
+    <li>Corrigez l'anche à la table d'accordage d'après l'écart affiché.</li>
+    <li><b>Remettez le soufflet en pression :</b> la nouvelle attaque
+      <b>réveille automatiquement</b> l'accordeur (fin du gel). Le témoin repasse
+      au vert quand l'anche est bonne — passez à la suivante.</li>
+  </ol>
+  <div class="callout">
+    <b>Grille de progression</b> (sous le rapport) : une pastille par anche × note,
+    verte quand accordée, orange proche, rouge à reprendre, vide non mesurée —
+    pour chaque sens de soufflet. <b>Cliquez une pastille</b> pour verrouiller
+    cette note et aller la mesurer. Vous voyez d'un coup d'œil ce qui reste à faire.
+  </div>
+  <p>Réglages du témoin et du gel : panneau <b>Mode de mesure</b> →
+  « Tolérance du témoin » (±0,5 à ±5 ¢) et « gel automatique ». Le
+  <b>verrouillage de note</b> (🔒 dans le bandeau, ou <kbd>L</kbd>) fige la note
+  suivie pour qu'une anche faible ou une sous-harmonique ne fasse pas basculer
+  la détection.</p>
+
+  <h2 id="latence">3. Latence &amp; charge de calcul</h2>
+  <div class="callout">
+    <b>Le mode navigateur n'ajoute pas de latence perceptible, et « beaucoup de
+    calcul » ne ralentit pas l'affichage ni ne coupe le son.</b> Voici pourquoi :
+  </div>
+  <ul class="tight">
+    <li>La <b>capture</b> tourne sur le thread audio temps réel (AudioWorklet),
+      par blocs de 512 échantillons (~11 ms). Elle ne fait que transmettre l'audio.</li>
+    <li>Tout le <b>traitement lourd</b> (FFT, zoom, harmoniques) tourne dans un
+      <b>Worker séparé</b> : il ne bloque jamais ni l'audio ni l'interface. Même
+      saturé, il ne provoque ni coupure ni retard d'affichage — au pire, une
+      analyse est calculée un peu plus tard.</li>
+    <li>L'aiguille… pardon, la <b>courbe</b> réagit en ~100 ms ; la précision
+      extrême (&lt; 0,1 ¢) se stabilise ensuite pendant que l'anche sonne
+      (indicateur « convergence »). C'est une limite <b>physique</b> — séparer
+      deux fréquences proches demande du temps d'écoute — pas un défaut du
+      navigateur.</li>
+    <li>Le panneau <b>Entrée audio</b> affiche la <b>charge DSP</b> réelle
+      (ex. « 4 ms par période de 85 ms ≈ 5 % d'un cœur ») : vous constatez que
+      la marge est énorme. Si besoin, le réglage <b>Réactivité</b> « Rapide »
+      réduit encore la fenêtre.</li>
+  </ul>
+
+  <h2 id="calib">4. Calibrer le micro</h2>
+  <p>La précision <i>absolue</i> dépend du quartz de la carte son (typiquement
+  ±20 ppm ≈ ±0,03 cent). Pour l'annuler :</p>
+  <ol class="tight">
+    <li>Faites sonner une <b>référence connue</b> (diapason étalonné, générateur,
+      note d'un instrument de référence).</li>
+    <li>Saisissez sa fréquence dans <b>Réf. de calibrage (Hz)</b> (ex. 440,000).</li>
+    <li>Attendez <b>« convergé »</b>, puis cliquez <b>Calibrer le micro depuis la
+      mesure</b>. L'écart d'horloge est mesuré et corrigé (champ « Calibration
+      carte son (ppm) »), et mémorisé.</li>
+  </ol>
+  <div class="callout">Le calibrage se compose : vous pouvez le refaire à tout
+  moment, il s'ajuste par rapport à la valeur courante. La correction s'applique
+  à toutes les mesures (fréquence, cents, battements).</div>
+
+  <h2 id="registres">5. Registres, battements &amp; sens du soufflet</h2>
+  <p>En mode <b>Registre</b>, l'accordeur mesure 2 à 5 anches <b>en même temps</b>
+  (tremolo, musette, 16'+8'+4'…) sans neutraliser d'anche ni ouvrir la caisse,
+  et affiche le <b>battement</b> de chaque anche décalée.</p>
+  <p>La <b>liste de battements</b> (courbe exponentielle + écrasements par note)
+  définit le tremolo cible. Le bouton <b>Copier battements mesurés → liste
+  cible</b> reproduit l'accord d'un instrument existant sur un autre.</p>
+  <p>Chaque note d'accordéon a une anche par <b>sens du soufflet</b> : tirer et
+  pousser sont mémorisés séparément dans le rapport, la grille et l'export.</p>
+
+  <h2 id="analyse">6. Analyse physique (pour la recherche)</h2>
+  <ul class="tight">
+    <li><b>Suivi des harmoniques</b> (jusqu'à H8) : chaque partiel mesuré à sa
+      <b>fréquence réelle</b> — l'inharmonicité de l'anche devient une trace.</li>
+    <li><b>Diagramme de phase</b> : trajectoire de la voix suivie dans un plan au
+      choix (intensité, écart ¢, fréquence, df/dt, dI/dt). X = intensité, Y = écart
+      donne la caractéristique fréquence–amplitude de l'anche.</li>
+    <li><b>Temps de réponse</b> mesuré à chaque attaque (10→90 %).</li>
+    <li><b>Détection de bifurcation</b> : bandes f/2 et 3f/2 (doublement de période).</li>
+    <li><b>Export CSV de la courbe</b> (120 s) et <b>gel automatique sous seuil
+      d'intensité</b>. Détails et feuille de route dans <code>ANALYSE.md</code>.</li>
+  </ul>
+
+  <h2 id="raccourcis">7. Raccourcis clavier</h2>
+  <table>
+    <tr><th>Touche</th><th>Action</th></tr>
+    <tr class="kbdrow"><td><kbd>Espace</kbd></td><td>Enregistrer la mesure dans le rapport</td></tr>
+    <tr class="kbdrow"><td><kbd>F</kbd></td><td>Geler / dégeler l'écran</td></tr>
+    <tr class="kbdrow"><td><kbd>L</kbd></td><td>Verrouiller / déverrouiller la note suivie</td></tr>
+    <tr class="kbdrow"><td><kbd>B</kbd></td><td>Basculer le sens du soufflet (tirer ↔ pousser)</td></tr>
+    <tr class="kbdrow"><td><kbd>T</kbd></td><td>Jouer / arrêter le son de référence</td></tr>
+  </table>
+
+  <p style="margin-top:30px"><a href="index.html">← Retour à l'accordeur</a></p>
+</div>
+</body>
+</html>

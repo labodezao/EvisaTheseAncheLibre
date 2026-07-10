@@ -39,7 +39,14 @@ scientifique de l'anche libre.
   **zoom spectral** montrant chaque anche individuellement, générateur de
   sons au timbre d'anche.
 - **Faible latence** : capture AudioWorklet (blocs de 512 échantillons),
-  analyse dans un Worker dédié, affichage 60 fps.
+  analyse dans un Worker dédié (jamais bloquant pour l'audio ni l'affichage),
+  spectres transférés sans copie, affichage 60 fps. Charge DSP affichée en
+  direct (typiquement ~7 % d'un cœur).
+- **Flux d'accordage professionnel** : témoin ✔/↑/↓ à tolérance réglable, gel
+  automatique quand la mesure est lisible et reprise à la prochaine attaque du
+  soufflet, verrouillage de note, grille de progression (anche × note × sens
+  du soufflet), sens tirer/pousser mémorisés séparément, raccourcis clavier,
+  calibrage du micro depuis une référence connue. Voir [`web/aide.html`](web/aide.html).
 - **Analyse physique** (voir [ANALYSE.md](ANALYSE.md)) : export CSV de la
   courbe (120 s : fréquence, écart ¢, intensité dB par voix), temps de
   réponse de l'anche à chaque attaque (10→90 %, résolution 10,7 ms),
@@ -56,6 +63,25 @@ scientifique de l'anche libre.
 node server.mjs
 # puis ouvrir http://localhost:8173  (Chrome, Edge, Firefox, Safari récents)
 ```
+
+Guide d'utilisation complet : ouvrez [`web/aide.html`](web/aide.html) (lien
+« guide d'utilisation » en bas de l'accordeur).
+
+### Android (Termux)
+
+`npm` ne fonctionne pas dans `/storage/emulated/0/...` (stockage partagé sans
+permissions Unix) — d'où l'erreur `EACCES`. Copiez le projet dans le home de
+Termux ; aucun `npm install` n'est nécessaire pour le mode navigateur :
+
+```bash
+cp -r /storage/emulated/0/Download/tuner ~/tuner
+cd ~/tuner && node server.mjs
+# puis Chrome Android → http://localhost:8173  (autoriser le micro)
+```
+
+Le plus simple sur mobile : le dossier `web/` est publié sur **GitHub Pages**
+(workflow `.github/workflows/pages.yml`) — ouvrez l'URL Pages directement, sans
+Termux ni serveur. Une connexion `https://` est requise pour le micro.
 
 ### Application de bureau (Windows / macOS / Linux)
 

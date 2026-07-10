@@ -33,6 +33,7 @@ export class ZoomTracker {
     this.a1re = 0; this.a1im = 0; this.c1 = 0;
     this.a2re = 0; this.a2im = 0; this.c2 = 0;
     this.windows = new Map();
+    this.scratch = new Map(); // tampons FFT réutilisés par taille de fenêtre
   }
 
   setCenter(fc) {
@@ -89,11 +90,17 @@ export class ZoomTracker {
   }
 
   // FFT complexe de la fenêtre de `len` échantillons décimés se terminant
-  // `back` échantillons avant le présent. Retourne {re, im, mags}.
-  spectrumAt(len, back) {
+  // `back` échantillons avant le présent. Retourne {re, im} dans des tampons
+  // réutilisés (slot 0 ou 1) — valides jusqu'au prochain appel du même slot.
+  spectrumAt(len, back, slot = 0) {
     const fft = FFT.get(len);
-    const re = new Float64Array(len);
-    const im = new Float64Array(len);
+    const key = `${len}|${slot}`;
+    let buf = this.scratch.get(key);
+    if (!buf) {
+      buf = { re: new Float64Array(len), im: new Float64Array(len) };
+      this.scratch.set(key, buf);
+    }
+    const { re, im } = buf;
     const w = this.hannFor(len);
     const start = this.count - back - len;
     for (let i = 0; i < len; i++) {
@@ -115,8 +122,8 @@ export class ZoomTracker {
 
     const H = W >> 2; // décalage pour le raffinement de phase
     const canRefine = avail >= W + H;
-    const cur = this.spectrumAt(W, 0);
-    const prev = canRefine ? this.spectrumAt(W, H) : null;
+    const cur = this.spectrumAt(W, 0, 0);
+    const prev = canRefine ? this.spectrumAt(W, H, 1) : null;
 
     const mags = new Float32Array(W);
     for (let i = 0; i < W; i++) mags[i] = Math.hypot(cur.re[i], cur.im[i]);

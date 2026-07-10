@@ -24,6 +24,9 @@ const cfg = Object.assign({
   trackSub: false,
   lockNote: null,
   gateDb: -70,
+  bellows: 'T',
+  tolCents: 1,
+  autoFreeze: true,
   response: 'normal',
   beatCurve: { midiLow: 48, bLow: 0.8, midiHigh: 96, bHigh: 3.0, overrides: {} },
 }, loadCfg());
@@ -54,6 +57,11 @@ const state = {
   toneOn: false,
   attacks: [],          // dernières attaques mesurées
   lastAttackT: null,
+  autoFrozen: false,    // le gel courant vient du gel automatique
+  frozenAtTime: 0,      // horloge moteur au moment du gel
+  curveCache: null,     // fenêtre visible et clés, recalculées par tick
+  phaseCache: null,
+  dspMs: 0,             // charge DSP lissée (ms par période d'analyse)
 };
 
 let audioCtx = null;
@@ -149,22 +157,10 @@ async function listDevices() {
   if (cur) sel.value = cur;
 }
 
+// Le moteur reçoit la configuration complète et ignore les clés purement UI :
+// une seule liste de champs à maintenir (les valeurs par défaut ci-dessus).
 function engineCfg() {
-  return {
-    a4: cfg.a4,
-    temperament: cfg.temperament,
-    transpose: cfg.transpose,
-    calibrationPpm: cfg.calibrationPpm,
-    mode: cfg.mode,
-    register: cfg.register,
-    manualNotes: cfg.manualNotes,
-    trackHarmonics: cfg.trackHarmonics,
-    trackSub: cfg.trackSub,
-    lockNote: cfg.lockNote,
-    gateDb: cfg.gateDb,
-    response: cfg.response,
-    beatCurve: cfg.beatCurve,
-  };
+  return { ...cfg };
 }
 function pushConfig() {
   saveCfg();
@@ -174,10 +170,26 @@ function pushConfig() {
 
 // ---- Réception des analyses --------------------------------------------------
 function onTick(t) {
-  if (state.frozen) return;
+  if (state.frozen) {
+    // Reprise automatique : le professionnel remet le soufflet en pression,
+    // une nouvelle attaque est détectée → l'accordeur repart tout seul.
+    if (state.autoFrozen && t.attack && t.attack.t > state.frozenAtTime) {
+      setFrozen(false);
+    } else {
+      return;
+    }
+  }
   state.tick = t;
-  if (t.playedMidi === state.lastMidi) state.stableTicks++;
-  else { state.stableTicks = 0; state.lastMidi = t.playedMidi; }
+  state.curveCache = null;
+  state.phaseCache = null;
+  state.dspMs = state.dspMs * 0.9 + (t.dspMs || 0) * 0.1;
+  if (t.playedMidi === state.lastMidi) {
+    state.stableTicks++;
+  } else {
+    state.stableTicks = 0;
+    state.lastMidi = t.playedMidi;
+    refreshReport(); // met à jour la note courante dans la grille de progression
+  }
 
   // Historique pour la courbe, le diagramme de phase et l'export CSV.
   // Sous le seuil d'intensité, l'horloge se gèle : rien n'est ajouté, le
@@ -213,11 +225,28 @@ function onTick(t) {
   // Enregistrement automatique quand la mesure est convergée et stable.
   if ($('autoRecord').checked && t.playedMidi != null && !t.quiet && state.stableTicks > 8
       && t.groups.length && t.groups.every((g) => g.fill >= 0.999)
-      && t.groups.every((g) => g.voices.every((v) => v.tracked))) {
-    if (report.record(t, cfg)) refreshReport();
+      && t.groups.every((g) => g.voices.every((v) => v.tracked || g.isSub))) {
+    if (report.record(t, cfg, cfg.bellows)) { refreshReport(); beep(1318, 0.05); }
   }
   updateVoicesTable(t);
   updateHeader(t);
+
+  // Gel automatique « quand c'est lisible » : mesure convergée, stable et
+  // toutes les anches suivies → l'écran se fige, on peut lâcher le soufflet
+  // et retourner la caisse. Le témoin reste affiché.
+  if (cfg.autoFreeze && !state.frozen && !t.quiet && t.playedMidi != null
+      && state.stableTicks > 10 && t.groups.length
+      && t.groups.every((g) => g.fill >= 0.999)
+      && t.groups.every((g) => g.isSub || g.voices.every((v) => v.tracked))) {
+    state.frozenAtTime = t.time;
+    setFrozen(true, true);
+    beep(880, 0.06);
+  }
+
+  if ((state.stableTicks % 12) === 0) {
+    $('dspLoad').textContent =
+      `Charge DSP : ${state.dspMs.toFixed(1)} ms par période d'analyse de 85 ms (${(state.dspMs / 85 * 100).toFixed(0)} % d'un cœur)`;
+  }
 }
 
 function selectedVoice(t) {
@@ -254,7 +283,33 @@ function updateHeader(t) {
     cs.textContent = t.quiet ? 'silence (mesure gelée)'
       : fill >= 0.999 ? 'convergé' : `convergence ${(fill * 100).toFixed(0)} %`;
   }
+  updateVerdict(t);
   $('levelBar').style.width = `${Math.min(100, Math.max(0, 100 + (20 * Math.log10((t?.level ?? 0) + 1e-9) + 10)))}%`;
+}
+
+// Témoin d'accordage de la voix suivie : vert = dans la tolérance (passer à
+// l'anche suivante), orange « ↑ monter » / « ↓ descendre » sinon. C'est le
+// signal que le professionnel lit d'un coup d'œil depuis l'établi.
+function updateVerdict(t) {
+  const el = $('verdict');
+  const v = selectedVoice(t);
+  el.classList.remove('v-ok', 'v-up', 'v-down');
+  if (!v || v.dTargetCents == null || (t && t.playedMidi == null)) {
+    el.textContent = '—';
+    return;
+  }
+  const c = v.dTargetCents;
+  const tol = cfg.tolCents;
+  if (Math.abs(c) <= tol) {
+    el.textContent = '✔ OK';
+    el.classList.add('v-ok');
+  } else if (c < 0) {
+    el.textContent = `↑ +${(-c).toFixed(1)} ¢`;
+    el.classList.add('v-up');
+  } else {
+    el.textContent = `↓ −${c.toFixed(1)} ¢`;
+    el.classList.add('v-down');
+  }
 }
 
 // ---- Tableau des voix --------------------------------------------------------
@@ -323,9 +378,16 @@ function drawPitchCurve() {
 
   const all = state.history;
   const T = all.length ? all[all.length - 1].t : 0;
-  // Seule la fenêtre affichée est parcourue (l'historique conservé est plus
-  // long pour l'export CSV et le diagramme de phase).
-  const hist = all.filter((e) => e.t >= T - HISTORY_SPAN - 0.2);
+  // La fenêtre visible et la liste des clés de voix ne changent qu'au rythme
+  // des ticks (~12 Hz) : on les met en cache pour ne pas refiltrer tout
+  // l'historique à chaque image (60 fps).
+  if (!state.curveCache) {
+    const hist = all.filter((e) => e.t >= T - HISTORY_SPAN - 0.2);
+    const keys = [];
+    for (const e of hist) for (const k of Object.keys(e.vals)) if (!keys.includes(k)) keys.push(k);
+    state.curveCache = { hist, keys, T };
+  }
+  const { hist, keys } = state.curveCache;
   const xFor = (t) => pad.l + plotW * (1 - (T - t) / HISTORY_SPAN);
 
   // Grille horizontale (secondes).
@@ -362,10 +424,6 @@ function drawPitchCurve() {
   }
 
   // Traces (une par anche), la voix suivie en gras.
-  const keys = [];
-  for (const e of hist) {
-    for (const k of Object.keys(e.vals)) if (!keys.includes(k)) keys.push(k);
-  }
   const selKey = $('gaugeVoice').value;
   let legendX = pad.l + 4;
   let legendY = 4;
@@ -640,7 +698,15 @@ function drawPhase() {
   ctx.clearRect(0, 0, W, H);
   const ax = PHASE_AXES[$('phaseX').value] || PHASE_AXES.ampDb;
   const ay = PHASE_AXES[$('phaseY').value] || PHASE_AXES.cents;
-  const pts = phasePoints(Number($('phaseSpan').value) || 15);
+  // Les points ne dépendent que de l'historique (rythme des ticks), de la
+  // voix suivie et de la fenêtre : mis en cache pour éviter de re-parcourir
+  // l'historique et de réallouer à chaque image.
+  const span = Number($('phaseSpan').value) || 15;
+  const sig = `${span}|${$('gaugeVoice').value}`;
+  if (!state.phaseCache || state.phaseCache.sig !== sig) {
+    state.phaseCache = { sig, pts: phasePoints(span) };
+  }
+  const pts = state.phaseCache.pts;
   const pad = { l: 44, r: 10, t: 10, b: 26 };
   ctx.font = '10px system-ui';
   if (pts.length < 3) {
@@ -746,11 +812,16 @@ function renderLoop(now) {
   requestAnimationFrame(renderLoop);
 }
 
+function setFrozen(on, auto = false) {
+  state.frozen = on;
+  state.autoFrozen = on && auto;
+  $('btnFreeze').classList.toggle('active', on);
+  $('btnFreeze').textContent = on ? (auto ? '❄ Gelé (auto)' : '❄ Gelé') : '❄ Geler';
+}
+
 function toggleFreeze() {
   if (!state.running) return;
-  state.frozen = !state.frozen;
-  $('btnFreeze').classList.toggle('active', state.frozen);
-  $('btnFreeze').textContent = state.frozen ? '❄ Gelé' : '❄ Geler';
+  setFrozen(!state.frozen);
 }
 
 // ---- Générateur de sons -------------------------------------------------------
@@ -810,7 +881,66 @@ function refreshReport() {
     pushConfig();
     refreshReport();
   });
+  report.renderGrid($('tuneGrid'), cfg, cfg.bellows, state.tick?.playedMidi ?? null, (midi) => {
+    cfg.lockNote = midi;
+    updateLockButton();
+    pushConfig();
+  });
   $('reportCount').textContent = `${report.rows.size} mesures enregistrées`;
+}
+
+// Confirmation sonore discrète (enregistrement, changement de soufflet).
+function beep(freq = 1318, dur = 0.05) {
+  if (!audioCtx) return;
+  const o = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  o.frequency.value = freq;
+  g.gain.value = 0.06;
+  g.gain.setTargetAtTime(0, audioCtx.currentTime + dur, 0.01);
+  o.connect(g).connect(audioCtx.destination);
+  o.start();
+  o.stop(audioCtx.currentTime + dur + 0.08);
+}
+
+function setBellows(dir) {
+  cfg.bellows = dir;
+  $('btnTirer').classList.toggle('active', dir === 'T');
+  $('btnPousser').classList.toggle('active', dir === 'P');
+  saveCfg();
+  refreshReport();
+  beep(dir === 'T' ? 660 : 880, 0.04);
+}
+
+// Calibrage du micro : l'utilisateur fait sonner une fréquence connue
+// (diapason, générateur étalonné) ; l'écart entre la mesure (déjà corrigée
+// du ppm courant) et la référence donne la correction d'horloge à appliquer.
+function calibrateFromMeasure() {
+  const v = selectedVoice(state.tick);
+  const ref = Number($('calRef').value);
+  if (!v || !v.tracked || state.tick?.quiet) {
+    alert('Faites sonner la référence et attendez « convergé » avant de calibrer.');
+    return;
+  }
+  if (!(ref > 0)) { alert('Référence de calibrage invalide.'); return; }
+  // La mesure inclut déjà le ppm courant : on compose la correction.
+  const residualPpm = (ref / v.fMeas - 1) * 1e6;
+  cfg.calibrationPpm = Math.round((cfg.calibrationPpm + residualPpm) * 10) / 10;
+  $('calib').value = cfg.calibrationPpm;
+  pushConfig();
+  beep(1046, 0.08);
+  alert(`Micro calibré : ${cfg.calibrationPpm} ppm `
+    + `(correction de ${residualPpm >= 0 ? '+' : ''}${residualPpm.toFixed(2)} ppm, `
+    + `soit ${(residualPpm * 1.2e-3).toFixed(3)} cent).`);
+}
+
+function recordNow() {
+  const n = report.record(state.tick, cfg, cfg.bellows);
+  if (!n) {
+    alert('Aucune mesure convergée à enregistrer — laissez sonner la note jusqu\'à « convergé ».');
+    return;
+  }
+  refreshReport();
+  beep(1318, 0.05);
 }
 
 function download(name, text, mime) {
@@ -854,6 +984,8 @@ function bindControls() {
   rSel.value = cfg.register;
   $('harmonics').value = String(cfg.trackHarmonics || 0);
   $('response').value = cfg.response;
+  $('tolCents').value = String(cfg.tolCents);
+  $('autoFreeze').checked = !!cfg.autoFreeze;
   $('bLow').value = cfg.beatCurve.bLow;
   $('bHigh').value = cfg.beatCurve.bHigh;
   $('instrName').value = report.name;
@@ -912,6 +1044,9 @@ function bindControls() {
   rSel.onchange = () => { cfg.register = rSel.value; pushConfig(); };
   $('harmonics').onchange = () => { cfg.trackHarmonics = Number($('harmonics').value); pushConfig(); };
   $('response').onchange = () => { cfg.response = $('response').value; pushConfig(); };
+  $('tolCents').onchange = () => { cfg.tolCents = Number($('tolCents').value); saveCfg(); };
+  $('autoFreeze').onchange = () => { cfg.autoFreeze = $('autoFreeze').checked; saveCfg(); };
+  $('btnCalibrate').onclick = calibrateFromMeasure;
   $('applyManual').onclick = applyManual;
   $('manualNotes').onkeydown = (e) => { if (e.key === 'Enter') applyManual(); };
   $('bLow').onchange = () => { cfg.beatCurve.bLow = Number($('bLow').value) || 0.8; pushConfig(); };
@@ -924,11 +1059,23 @@ function bindControls() {
   };
 
   $('instrName').onchange = () => { report.name = $('instrName').value; report.save(); };
-  $('btnRecord').onclick = () => {
-    const n = report.record(state.tick, cfg);
-    if (!n) alert('Aucune mesure convergée à enregistrer — laissez sonner la note jusqu\'à « convergé ».');
-    refreshReport();
-  };
+  $('btnRecord').onclick = recordNow;
+  $('btnTirer').onclick = () => setBellows('T');
+  $('btnPousser').onclick = () => setBellows('P');
+  setBellows(cfg.bellows || 'T');
+
+  // Raccourcis clavier : les mains restent sur l'instrument.
+  document.addEventListener('keydown', (e) => {
+    if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
+    switch (e.key === ' ' ? 'Space' : e.key.toLowerCase()) {
+      case 'Space': e.preventDefault(); recordNow(); break;
+      case 'f': toggleFreeze(); break;
+      case 'l': $('btnLock').click(); break;
+      case 'b': setBellows(cfg.bellows === 'T' ? 'P' : 'T'); break;
+      case 't': toggleTone(); break;
+      default: break;
+    }
+  });
   $('btnReport').onclick = () => {
     const w = window.open('', '_blank');
     w.document.write(report.printableHtml(cfg));

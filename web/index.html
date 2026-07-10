@@ -21,6 +21,7 @@
     <span id="centsVal">—</span><span class="unit">cent</span>
     <div class="note-sub" id="convState">micro arrêté</div>
   </div>
+  <div id="verdict" class="verdict" title="Témoin d'accordage : vert = dans la tolérance, passez à l'anche suivante">—</div>
   <div class="level-wrap" title="Niveau d'entrée">
     <div id="levelBar"></div>
   </div>
@@ -173,6 +174,16 @@
           <option value="precise">Précise (~5,5 s)</option>
         </select>
       </label>
+      <label>Tolérance du témoin
+        <select id="tolCents">
+          <option value="0.5">±0,5 ¢</option>
+          <option value="1" selected>±1 ¢</option>
+          <option value="2">±2 ¢</option>
+          <option value="5">±5 ¢</option>
+        </select>
+      </label>
+      <label class="inline"><input type="checkbox" id="autoFreeze" checked>
+        gel automatique quand la mesure est lisible (reprise à la prochaine attaque)</label>
     </div>
     <div class="panel">
       <h2>Référence &amp; tempérament</h2>
@@ -181,7 +192,13 @@
         <select id="transpose"></select>
       </label>
       <label>Tempérament <select id="temperament"></select></label>
-      <label>Calibration carte son (ppm) <input type="number" id="calib" step="1" value="0"></label>
+      <label>Calibration carte son (ppm) <input type="number" id="calib" step="0.1" value="0"></label>
+      <div class="subctl">
+        <label>Réf. de calibrage (Hz) <input type="number" id="calRef" value="440.000" step="0.001"></label>
+        <button id="btnCalibrate">Calibrer le micro depuis la mesure</button>
+        <p class="hint">Faites sonner une référence connue (diapason, générateur étalonné),
+        attendez « convergé », puis cliquez : l'écart d'horloge de la carte son est corrigé.</p>
+      </div>
     </div>
     <div class="panel">
       <h2>Liste de battements (tremolo)</h2>
@@ -196,6 +213,7 @@
       <h2>Entrée audio</h2>
       <label>Périphérique <select id="deviceSel"></select></label>
       <p class="hint" id="latencyInfo"></p>
+      <p class="hint" id="dspLoad"></p>
     </div>
   </section>
 </main>
@@ -204,8 +222,11 @@
   <div class="panel">
     <h2>Enregistrement &amp; rapport d'accordage
       <span class="report-actions">
+        <span class="bellows-toggle" title="Sens du soufflet (raccourci : B)">
+          <button id="btnTirer" class="active">⬅ Tirer</button><button id="btnPousser">Pousser ➡</button>
+        </span>
         <label class="inline"><input type="checkbox" id="autoRecord"> auto</label>
-        <button id="btnRecord" class="primary">● Enregistrer la mesure</button>
+        <button id="btnRecord" class="primary" title="Raccourci : Espace">● Enregistrer la mesure</button>
         <button id="btnReport">Rapport imprimable</button>
         <button id="btnCsv">Export CSV</button>
         <button id="btnSaveJson">Sauver</button>
@@ -217,14 +238,18 @@
     <div class="row gap">
       <label>Instrument <input type="text" id="instrName" placeholder="ex. Maugein 1954 n°1234"></label>
       <span class="hint" id="reportCount"></span>
+      <span class="hint">Raccourcis : Espace = enregistrer · F = geler · L = verrouiller la note ·
+        B = soufflet · T = son de référence</span>
     </div>
+    <div id="tuneGrid"></div>
     <div id="reportTableWrap"><table id="reportTable"></table></div>
   </div>
 </section>
 
 <footer>
   <span>Accordeur pour instruments à anche libre — plage Mi0 → Do9 · précision &lt; 0,1 cent · </span>
-  <a href="#" id="aboutLink">à propos / aide</a>
+  <a href="aide.html" target="_blank">guide d'utilisation</a> ·
+  <a href="#" id="aboutLink">à propos</a>
 </footer>
 
 <dialog id="aboutDlg">

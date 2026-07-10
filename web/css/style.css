@@ -50,6 +50,19 @@ body {
 }
 .cents-display .unit { font-size: 14px; color: var(--dim); margin-left: 6px; }
 .note-sub { font-size: 13px; font-weight: 400; color: var(--dim); }
+.verdict {
+  font: 700 17px system-ui;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #232a35;
+  color: var(--dim);
+  min-width: 110px;
+  text-align: center;
+  align-self: center;
+}
+.verdict.v-ok { background: #1d7a4d; color: #eafff3; box-shadow: 0 0 14px #2b8f5f88; }
+.verdict.v-up { background: #7a4a1d; color: #ffe9d6; }
+.verdict.v-down { background: #6d2f4a; color: #ffe3ef; }
 .level-wrap {
   width: 90px; height: 10px; border-radius: 5px;
   background: #0d1014; border: 1px solid var(--line);
@@ -173,3 +186,21 @@ dialog h2 { margin-top: 0; }
 }
 #attackInfo b { font-family: var(--mono); color: var(--accent); }
 #phase { cursor: crosshair; }
+
+/* ---- Soufflet & grille de progression ---- */
+.bellows-toggle button { border-radius: 0; }
+.bellows-toggle button:first-child { border-radius: 6px 0 0 6px; }
+.bellows-toggle button:last-child { border-radius: 0 6px 6px 0; }
+#tuneGrid { overflow-x: auto; margin-top: 8px; }
+.tune-grid { border-collapse: collapse; font-size: 9px; }
+.tune-grid th { border: none; padding: 1px 3px; color: var(--dim); font-weight: 500; }
+.tune-grid th.cur { color: var(--accent); }
+.tune-grid td {
+  width: 13px; height: 14px; padding: 0; border: 1px solid #10141a;
+  background: #242b36; cursor: pointer;
+}
+.tune-grid td:hover { outline: 1px solid var(--accent); }
+.tune-grid td.g-ok { background: #2b8f5f; }
+.tune-grid td.g-warn { background: #a8842f; }
+.tune-grid td.g-bad { background: #a8443f; }
+.tune-grid td.cur { outline: 2px solid var(--accent); }
