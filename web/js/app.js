@@ -13,6 +13,7 @@ const $ = (id) => document.getElementById(id);
 // ---- État ------------------------------------------------------------------
 const CFG_KEY = 'aal.cfg';
 const cfg = Object.assign({
+  _v: 2, // version du schéma de configuration mémorisée (migrations)
   a4: 440,
   temperament: 'equal',
   transpose: 0,
@@ -33,7 +34,17 @@ const cfg = Object.assign({
 }, loadCfg());
 
 function loadCfg() {
-  try { return JSON.parse(localStorage.getItem(CFG_KEY)) || {}; } catch { return {}; }
+  try {
+    const stored = JSON.parse(localStorage.getItem(CFG_KEY)) || {};
+    // Migration v2 : autoFreeze était activé par défaut dans une version
+    // précédente — les profils mémorisés avant le changement repassent au
+    // nouveau défaut (désactivé), sinon le gel « surprise » persiste.
+    if (!stored._v || stored._v < 2) {
+      delete stored.autoFreeze;
+      stored._v = 2;
+    }
+    return stored;
+  } catch { return {}; }
 }
 function saveCfg() {
   try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); } catch { /* ignore */ }
@@ -69,6 +80,7 @@ const state = {
   lastAttackT: null,
   autoFrozen: false,    // le gel courant vient du gel automatique
   frozenAtTime: 0,      // horloge moteur au moment du gel
+  lastUnfreezeT: 0,     // horloge moteur au dernier dégel (délai de réarmement)
   curveCache: null,     // fenêtre visible et clés, recalculées par tick
   phaseCache: null,
   dspMs: 0,             // charge DSP lissée (ms par période d'analyse)
@@ -107,6 +119,9 @@ async function startAudio() {
     const gen = new URLSearchParams(location.search).get('gen');
     if (gen) {
       // Mode test : oscillateurs internes au lieu du micro (?gen=440.2,442.5).
+      // Exposés sur window.__gen pour pouvoir simuler des changements de
+      // note dans les tests de bout en bout.
+      window.__gen = [];
       for (const f of gen.split(',').map(Number)) {
         const osc = audioCtx.createOscillator();
         osc.setPeriodicWave(reedWave(audioCtx));
@@ -115,6 +130,7 @@ async function startAudio() {
         g.gain.value = 0.2;
         osc.connect(g).connect(node);
         osc.start();
+        window.__gen.push(osc);
       }
     } else {
       mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -187,9 +203,14 @@ function pushConfig() {
 // ---- Réception des analyses --------------------------------------------------
 function onTick(t) {
   if (state.frozen) {
-    // Reprise automatique : le professionnel remet le soufflet en pression,
-    // une nouvelle attaque est détectée → l'accordeur repart tout seul.
-    if (state.autoFrozen && t.attack && t.attack.t > state.frozenAtTime) {
+    // Reprise automatique du gel auto : nouvelle attaque (soufflet remis en
+    // pression) OU changement de note détecté par le moteur — indispensable
+    // en jeu lié, où il n'y a aucun silence entre deux notes, donc jamais
+    // d'« attaque » au sens de l'enveloppe.
+    const newAttack = t.attack && t.attack.t > state.frozenAtTime;
+    const newNote = t.playedMidi != null && t.playedMidi !== state.lastMidi;
+    if (state.autoFrozen && (newAttack || newNote)) {
+      state.lastUnfreezeT = t.time;
       setFrozen(false);
     } else {
       return;
@@ -251,9 +272,13 @@ function onTick(t) {
 
   // Gel automatique « quand c'est lisible » : mesure convergée, stable et
   // toutes les anches suivies → l'écran se fige, on peut lâcher le soufflet
-  // et retourner la caisse. Le témoin reste affiché.
+  // et retourner la caisse. Le témoin reste affiché. Le délai de réarmement
+  // après un dégel évite le cycle gel→dégel→regel immédiat qui n'ajoutait
+  // qu'un ou deux points à la courbe par bouffée (courbe « figée », valeurs
+  // de début de convergence aberrantes).
   if (cfg.autoFreeze && !state.frozen && !t.quiet && t.playedMidi != null
       && state.stableTicks > 10 && t.groups.length
+      && t.time - (state.lastUnfreezeT || 0) > 3
       && t.groups.every((g) => g.fill >= 0.999)
       && t.groups.every((g) => g.isSub || g.voices.every((v) => v.tracked))) {
     state.frozenAtTime = t.time;
