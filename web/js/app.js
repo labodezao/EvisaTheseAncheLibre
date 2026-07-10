@@ -72,6 +72,11 @@ const state = {
   curveCache: null,     // fenêtre visible et clés, recalculées par tick
   phaseCache: null,
   dspMs: 0,             // charge DSP lissée (ms par période d'analyse)
+  // Le spectre large bande et le zoom par anche ne dépendent que du dernier
+  // tick (~12 Hz), pas de la souris : inutile de les redessiner à 60 fps.
+  // Ce drapeau évite ce travail superflu sur le thread principal, pour que
+  // le défilement tactile reste fluide sur mobile pendant l'accordage.
+  vizDirty: true,
 };
 
 let audioCtx = null;
@@ -147,6 +152,7 @@ function stopAudio() {
   audioCtx = null; worker = null; mediaStream = null;
   state.running = false;
   state.tick = null;
+  state.vizDirty = true;
   $('btnStart').textContent = '▶ Démarrer';
   $('btnFreeze').disabled = true;
   $('btnLock').disabled = true;
@@ -192,6 +198,7 @@ function onTick(t) {
   state.tick = t;
   state.curveCache = null;
   state.phaseCache = null;
+  state.vizDirty = true;
   state.dspMs = state.dspMs * 0.9 + (t.dspMs || 0) * 0.1;
   if (t.playedMidi === state.lastMidi) {
     state.stableTicks++;
@@ -893,9 +900,13 @@ function renderLoop(now) {
   // n'avance plus mais le curseur et les axes doivent rester interactifs.
   drawPitchCurve();
   drawPhase();
-  if (!state.frozen) {
+  // Spectre et zoom ne dépendent que du dernier tick (~12 Hz), sans curseur
+  // interactif : les redessiner à 60 fps ne fait que charger le thread
+  // principal pour rien, au risque de saccader le défilement tactile.
+  if (!state.frozen && state.vizDirty) {
     drawSpectrum();
     drawZoom();
+    state.vizDirty = false;
   }
   drawStrobe(dt);
   requestAnimationFrame(renderLoop);
@@ -1154,10 +1165,13 @@ function bindControls() {
   setBellows(cfg.bellows || 'T');
 
   // Raccourcis clavier : les mains restent sur l'instrument.
+  // Volontairement PAS sur la barre d'espace : c'est le raccourci natif de
+  // défilement de page dans tous les navigateurs, et le bloquer empêchait de
+  // faire défiler l'écran pendant l'accordage. « Entrée » ne défile jamais.
   document.addEventListener('keydown', (e) => {
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
-    switch (e.key === ' ' ? 'Space' : e.key.toLowerCase()) {
-      case 'Space': e.preventDefault(); recordNow(); break;
+    switch (e.key === 'Enter' ? 'Enter' : e.key.toLowerCase()) {
+      case 'Enter': e.preventDefault(); recordNow(); break;
       case 'f': toggleFreeze(); break;
       case 'l': $('btnLock').click(); break;
       case 'b': setBellows(cfg.bellows === 'T' ? 'P' : 'T'); break;
