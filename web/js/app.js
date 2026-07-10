@@ -26,7 +26,7 @@ const cfg = Object.assign({
   gateDb: -70,
   bellows: 'T',
   tolCents: 1,
-  autoFreeze: true,
+  autoFreeze: false, // désactivé par défaut : surprenant pour un premier essai
   readout: null,        // clés de voix affichées en lecture numérique (null = toutes)
   response: 'normal',
   beatCurve: { midiLow: 48, bLow: 0.8, midiHigh: 96, bHigh: 3.0, overrides: {} },
@@ -917,6 +917,9 @@ function setFrozen(on, auto = false) {
   state.autoFrozen = on && auto;
   $('btnFreeze').classList.toggle('active', on);
   $('btnFreeze').textContent = on ? (auto ? '❄ Gelé (auto)' : '❄ Gelé') : '❄ Geler';
+  // Bannière bien visible directement sur la courbe : le gel automatique ne
+  // doit jamais donner l'impression que l'outil s'est arrêté de fonctionner.
+  $('freezeBanner').classList.toggle('hidden', !(on && auto));
 }
 
 function toggleFreeze() {

@@ -48,6 +48,9 @@
           <button class="fsbtn" data-fs title="Plein écran">⛶</button>
         </span>
       </h2>
+      <div id="freezeBanner" class="freeze-banner hidden">
+        ❄ Gelé automatiquement — mesure stable. Rejouez une note pour reprendre.
+      </div>
       <canvas id="pitchCurve" width="420" height="280"></canvas>
       <div class="row gap">
         <label>Échelle
@@ -70,6 +73,9 @@
       <div id="readoutChips" class="chips"></div>
       <div id="readoutCards" class="readout-cards"></div>
     </div>
+  </div>
+
+  <div class="tabpage" id="tabpage-analyse" role="tabpanel">
     <div class="panel">
       <h2>Zoom sur la note
         <span>
@@ -93,9 +99,6 @@
       <h2>Stroboscope</h2>
       <canvas id="strobe" width="420" height="90"></canvas>
     </div>
-  </div>
-
-  <div class="tabpage" id="tabpage-analyse" role="tabpanel">
     <div class="panel">
       <h2>Spectre 20 Hz – 10 kHz</h2>
       <canvas id="spectrum" width="760" height="200"></canvas>
@@ -196,7 +199,7 @@
           <option value="5">±5 ¢</option>
         </select>
       </label>
-      <label class="inline"><input type="checkbox" id="autoFreeze" checked>
+      <label class="inline"><input type="checkbox" id="autoFreeze">
         gel automatique quand la mesure est lisible (reprise à la prochaine attaque)</label>
     </div>
     <div class="panel">
