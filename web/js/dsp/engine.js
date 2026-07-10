@@ -10,7 +10,6 @@ import {
 } from '../music.js';
 
 const HOP = 4096;             // période d'analyse (~85 ms à 48 kHz)
-const GATE_RMS = 2.5e-4;      // seuil de silence (~ −72 dBFS)
 const MAXWIN = { fast: 128, normal: 256, precise: 512 };
 
 export class Engine {
@@ -25,6 +24,9 @@ export class Engine {
       register: 'MM',
       manualNotes: null,       // [midi, ...] en mode manuel
       trackHarmonics: 0,       // suit les partiels 2..n de chaque note (hors registre)
+      trackSub: false,         // bandes f/2 et 3f/2 (détection de bifurcation)
+      lockNote: null,          // note MIDI imposée (désactive la détection)
+      gateDb: -70,             // seuil de silence : gèle traqueurs et horloge
       response: 'normal',      // 'fast' | 'normal' | 'precise'
       beatCurve: { midiLow: 48, bLow: 0.8, midiHigh: 96, bHigh: 3.0, overrides: {} },
       ...cfg,
@@ -38,7 +40,14 @@ export class Engine {
     this.candMidi = null;
     this.candCount = 0;
     this.samplesTotal = 0;
+    // Détection d'attaque : enveloppe RMS par bloc (~10,7 ms à 48 kHz).
+    this.env = [];
+    this.quietChunks = 99;
+    this.attackPending = null;
+    this.lastAttack = null;
   }
+
+  get gate() { return Math.pow(10, (this.cfg.gateDb ?? -70) / 20); }
 
   configure(patch) {
     Object.assign(this.cfg, patch);
@@ -75,8 +84,7 @@ export class Engine {
       keep.add(g.key);
       let t = this.trackers.get(g.key);
       if (!t) { t = new ZoomTracker(this.sr); this.trackers.set(g.key, t); }
-      const fc = g.center * g.kTrack;
-      if (force || t.fc !== fc) t.setCenter(fc);
+      if (force || t.fc !== g.fc) t.setCenter(g.fc);
     }
     for (const k of [...this.trackers.keys()]) if (!keep.has(k)) this.trackers.delete(k);
   }
@@ -108,6 +116,7 @@ export class Engine {
       g.voices.push({ def: v, ...t });
     }
     const groups = [...map.values()];
+    for (const g of groups) g.fc = g.center * g.kTrack;
 
     // Suivi individuel des harmoniques : un traqueur zoom dédié par partiel
     // (2..n). Chaque partiel est mesuré à sa fréquence réelle — l'anche
@@ -123,6 +132,7 @@ export class Engine {
             key: `${g.key}h${k}`,
             center: g.center,
             kTrack: k,
+            fc: g.center * k,
             isHarmonic: true,
             voices: [{
               def: { id: `H${k}`, label: `H${k}`, oct: 0, beatSign: 0 },
@@ -135,12 +145,42 @@ export class Engine {
         }
       }
     }
+
+    // Bandes sous-harmoniques f/2 et 3f/2 : de l'énergie y apparaît quand
+    // l'anche entre en doublement de période (bifurcation non linéaire) —
+    // signal inaudible sur un accordeur classique mais décisif pour le
+    // diagnostic d'une anche qui « râle ».
+    if (c.trackSub && c.mode !== 'register') {
+      for (const g of groups.slice()) {
+        if (g.isHarmonic) continue;
+        for (const [suffix, ratio, label] of [['s05', 0.5, 'f∕2'], ['s15', 1.5, '3f∕2']]) {
+          const fT = g.center * ratio;
+          if (fT < 15 || fT > 9500) continue;
+          groups.push({
+            key: `${g.key}${suffix}`,
+            center: g.center,
+            kTrack: 1,
+            fc: fT,
+            isHarmonic: true,
+            isSub: true,
+            voices: [{
+              def: { id: suffix, label, oct: 0, beatSign: 0 },
+              midi: g.voices[0].midi,
+              nominal: fT,
+              beat: 0,
+              target: fT,
+            }],
+          });
+        }
+      }
+    }
     return groups;
   }
 
   process(chunk) {
     this.coarse.write(chunk);
     this.samplesTotal += chunk.length;
+    const gate = this.gate;
 
     let sum = 0;
     for (let i = 0; i < chunk.length; i++) sum += chunk[i] * chunk[i];
@@ -148,9 +188,26 @@ export class Engine {
     this.rmsAcc += sum;
     this.rmsN += chunk.length;
 
+    // Enveloppe et détection d'attaque (temps de réponse de l'anche).
+    const tNow = this.samplesTotal / this.sr;
+    this.env.push({ t: tNow, rms });
+    if (this.env.length > 512) this.env.shift();
+    if (rms < gate * 2) {
+      this.quietChunks++;
+    } else {
+      if (rms > gate * 4 && this.quietChunks >= 8 && !this.attackPending) {
+        this.attackPending = { onsetT: tNow, evalAt: tNow + 1.0 };
+      }
+      this.quietChunks = 0;
+    }
+    if (this.attackPending && tNow >= this.attackPending.evalAt) {
+      this.measureAttack(this.attackPending);
+      this.attackPending = null;
+    }
+
     // En silence, on gèle les traqueurs : la dernière mesure reste valable
     // et le bruit ne dégrade pas la fenêtre d'analyse.
-    if (rms >= GATE_RMS) {
+    if (rms >= gate) {
       for (const t of this.trackers.values()) t.process(chunk);
     }
 
@@ -162,18 +219,48 @@ export class Engine {
     return null;
   }
 
+  // Temps de réponse 10 % → 90 % du régime établi, mesuré sur l'enveloppe
+  // RMS (résolution ~10,7 ms). Le régime établi est la médiane de
+  // l'enveloppe entre 0,65 et 1 s après l'attaque.
+  measureAttack({ onsetT, evalAt }) {
+    const seg = this.env.filter((e) => e.t >= evalAt - 0.35 && e.t <= evalAt);
+    if (seg.length < 5) return;
+    const sorted = seg.map((e) => e.rms).sort((a, b) => a - b);
+    const steady = sorted[sorted.length >> 1];
+    if (steady < this.gate * 4) return;
+    let t10 = null, t90 = null;
+    for (const e of this.env) {
+      if (e.t < onsetT - 0.08) continue;
+      if (t10 == null && e.rms >= 0.1 * steady) t10 = e.t;
+      if (t10 != null && e.rms >= 0.9 * steady) { t90 = e.t; break; }
+    }
+    if (t10 != null && t90 != null && t90 >= t10) {
+      this.lastAttack = {
+        t: onsetT,
+        riseMs: (t90 - t10) * 1000,
+        midi: this.playedMidi,
+        steadyDb: 20 * Math.log10(steady + 1e-12),
+      };
+    }
+  }
+
   tick() {
     const c = this.cfg;
     const level = Math.sqrt(this.rmsAcc / Math.max(1, this.rmsN));
     this.rmsAcc = 0; this.rmsN = 0;
-    const quiet = level < GATE_RMS;
+    const quiet = level < this.gate;
     const calib = 1 + (c.calibrationPpm || 0) * 1e-6;
 
     const coarse = this.coarse.ready() ? this.coarse.analyze() : null;
     let f0 = coarse?.f0 ? coarse.f0.freq * calib : null;
 
-    // Décision de note avec hystérésis (2 trames stables).
-    if (!quiet && f0 && c.mode !== 'manual') {
+    // Note verrouillée par l'utilisateur : la détection est court-circuitée.
+    if (c.lockNote != null && c.mode !== 'manual') {
+      if (this.playedMidi !== c.lockNote) {
+        this.playedMidi = c.lockNote;
+        this.retune();
+      }
+    } else if (!quiet && f0 && c.mode !== 'manual') {
       let midi = nearestMidi(f0, c);
       if (c.mode === 'register') {
         // La fondamentale détectée correspond à la voix la plus grave.
@@ -228,13 +315,31 @@ export class Engine {
         key: g.key,
         center: g.center,
         kTrack: g.kTrack,
+        fc: g.fc,
         isHarmonic: !!g.isHarmonic,
+        isSub: !!g.isSub,
         srd: t.srd,
         W: az?.W ?? 0,
         fill: az?.fill ?? 0,
         spectrum: az ? az.mags : null,
         voices,
       });
+    }
+
+    // Les bandes sous-harmoniques ne comptent comme détectées que si leur
+    // niveau dépasse −55 dB par rapport à la voix la plus forte : en deçà,
+    // c'est du bruit de fond, pas une bifurcation.
+    let baseAmp = 0;
+    for (const g of groups) {
+      if (g.isSub) continue;
+      for (const v of g.voices) if (v.tracked && v.amp > baseAmp) baseAmp = v.amp;
+    }
+    const subFloor = baseAmp * Math.pow(10, -55 / 20);
+    for (const g of groups) {
+      if (!g.isSub) continue;
+      for (const v of g.voices) {
+        if (v.tracked && v.amp < subFloor) this.fillVoice(v, null);
+      }
     }
 
     return {
@@ -245,6 +350,8 @@ export class Engine {
       f0,
       playedMidi: played,
       transpose: c.transpose,
+      lockNote: c.lockNote ?? null,
+      attack: this.lastAttack,
       groups,
       coarseSpectrum: coarse ? logResample(coarse.mag, coarse.binHz, 1024) : null,
     };
@@ -262,7 +369,12 @@ export class Engine {
     // partiel k). Groupes harmoniques : on reste dans le domaine du partiel,
     // sa fréquence réelle est la grandeur d'intérêt (inharmonicité).
     const div = group.isHarmonic ? 1 : k;
-    const tolHz = Math.max(2.5, (group.center * (group.isHarmonic ? k : 1)) * 0.05); // ≈ ±85 cents
+    // Tolérance : ±85 cents en général ; ±20 cents pour les bandes
+    // sous-harmoniques (un doublement de période est verrouillé sur la
+    // fondamentale — un pic éloigné est du bruit, pas une bifurcation).
+    const tolHz = group.isSub
+      ? Math.max(1.5, group.fc * 0.012)
+      : Math.max(2.5, (group.center * (group.isHarmonic ? k : 1)) * 0.05);
     let comps = az
       ? az.components.map((cp) => ({ ...cp, freq: (cp.freq * calib) / div }))
       : [];
@@ -279,7 +391,7 @@ export class Engine {
     }
 
     const chosen = assignOrdered(expected, comps, tolHz);
-    for (let i = 0; i < expected.length; i++) this.fillVoice(expected[i], chosen[i]);
+    for (let i = 0; i < expected.length; i++) this.fillVoice(expected[i], chosen[i], az?.W);
 
     // Battements mesurés par rapport à la voix de référence du groupe.
     const base = expected.find((v) => v.def.beatSign === 0) ?? expected[0];
@@ -291,10 +403,11 @@ export class Engine {
     return expected;
   }
 
-  fillVoice(v, comp) {
+  fillVoice(v, comp, w) {
     if (comp) {
       v.fMeas = comp.freq;
-      v.amp = comp.mag;
+      // Amplitude ramenée à l'échelle du signal (pic Hann complexe ≈ A·W/2).
+      v.amp = comp.mag / ((w || 2) / 2);
       v.dCents = centsBetween(comp.freq, v.nominal);
       v.dHz = comp.freq - v.nominal;
       v.dTargetCents = centsBetween(comp.freq, v.target);

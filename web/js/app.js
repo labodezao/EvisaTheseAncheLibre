@@ -21,6 +21,9 @@ const cfg = Object.assign({
   register: 'MM',
   manualNotes: null,
   trackHarmonics: 0,
+  trackSub: false,
+  lockNote: null,
+  gateDb: -70,
   response: 'normal',
   beatCurve: { midiLow: 48, bLow: 0.8, midiHigh: 96, bHigh: 3.0, overrides: {} },
 }, loadCfg());
@@ -32,8 +35,10 @@ function saveCfg() {
   try { localStorage.setItem(CFG_KEY, JSON.stringify(cfg)); } catch { /* ignore */ }
 }
 
-const HISTORY_SPAN = 15; // secondes de courbe affichées
-const PALETTE = ['#4fc3f7', '#46d68c', '#f0b943', '#f0625d', '#b58cf0', '#7fd8d0'];
+const HISTORY_SPAN = 15;  // secondes de courbe affichées
+const HISTORY_KEEP = 120; // secondes conservées (export CSV, diagramme de phase)
+const PALETTE = ['#4fc3f7', '#46d68c', '#f0b943', '#f0625d', '#b58cf0', '#7fd8d0',
+  '#e88fc6', '#9fd85f', '#f09b5f'];
 
 const state = {
   running: false,
@@ -47,6 +52,8 @@ const state = {
   stableTicks: 0,
   lastMidi: null,
   toneOn: false,
+  attacks: [],          // dernières attaques mesurées
+  lastAttackT: null,
 };
 
 let audioCtx = null;
@@ -103,6 +110,7 @@ async function startAudio() {
     state.running = true;
     $('btnStart').textContent = '■ Arrêter';
     $('btnFreeze').disabled = false;
+    $('btnLock').disabled = false;
     const lat = ((audioCtx.baseLatency || 0) * 1000).toFixed(1);
     $('latencyInfo').textContent =
       `Échantillonnage ${audioCtx.sampleRate} Hz · latence de sortie ${lat} ms · capture par blocs de 512 (≈ ${(512000 / audioCtx.sampleRate).toFixed(0)} ms)`;
@@ -123,6 +131,7 @@ function stopAudio() {
   state.tick = null;
   $('btnStart').textContent = '▶ Démarrer';
   $('btnFreeze').disabled = true;
+  $('btnLock').disabled = true;
   $('convState').textContent = 'micro arrêté';
 }
 
@@ -150,6 +159,9 @@ function engineCfg() {
     register: cfg.register,
     manualNotes: cfg.manualNotes,
     trackHarmonics: cfg.trackHarmonics,
+    trackSub: cfg.trackSub,
+    lockNote: cfg.lockNote,
+    gateDb: cfg.gateDb,
     response: cfg.response,
     beatCurve: cfg.beatCurve,
   };
@@ -167,19 +179,35 @@ function onTick(t) {
   if (t.playedMidi === state.lastMidi) state.stableTicks++;
   else { state.stableTicks = 0; state.lastMidi = t.playedMidi; }
 
-  // Historique pour la courbe d'accordage.
-  const vals = {};
-  for (const g of t.groups) {
-    for (const v of g.voices) {
-      const key = `${g.key}:${v.def.id}`;
-      state.voiceLabels.set(key,
-        v.def.label || (v.def.fixedMidi != null ? noteLabel(v.def.fixedMidi + (cfg.transpose || 0)).full : 'anche'));
-      if (v.tracked && !t.quiet) vals[key] = { c: v.dTargetCents, f: v.fMeas };
+  // Historique pour la courbe, le diagramme de phase et l'export CSV.
+  // Sous le seuil d'intensité, l'horloge se gèle : rien n'est ajouté, le
+  // temps affiché s'arrête avec la dernière mesure.
+  if (!t.quiet) {
+    const vals = {};
+    for (const g of t.groups) {
+      for (const v of g.voices) {
+        const key = `${g.key}:${v.def.id}`;
+        state.voiceLabels.set(key,
+          v.def.label || (v.def.fixedMidi != null ? noteLabel(v.def.fixedMidi + (cfg.transpose || 0)).full : 'anche'));
+        if (v.tracked) vals[key] = { c: v.dTargetCents, f: v.fMeas, a: v.amp };
+      }
+    }
+    state.history.push({ t: t.time, midi: t.playedMidi, vals });
+    while (state.history.length && state.history[0].t < t.time - HISTORY_KEEP) {
+      state.history.shift();
     }
   }
-  state.history.push({ t: t.time, midi: t.playedMidi, vals });
-  while (state.history.length && state.history[0].t < t.time - HISTORY_SPAN - 0.5) {
-    state.history.shift();
+
+  // Temps de réponse de l'anche (attaques mesurées par le moteur).
+  if (t.attack && t.attack.t !== state.lastAttackT) {
+    state.lastAttackT = t.attack.t;
+    state.attacks.unshift(t.attack);
+    state.attacks.length = Math.min(state.attacks.length, 6);
+    const lbl = t.attack.midi != null ? noteLabel(t.attack.midi + (cfg.transpose || 0)).full : '?';
+    $('attackInfo').innerHTML = `Temps de réponse de l'anche : <b>${t.attack.riseMs.toFixed(0)} ms</b> (10→90 %, ${lbl})`;
+    $('attackList').innerHTML = state.attacks
+      .map((a) => `<li>${a.midi != null ? noteLabel(a.midi + (cfg.transpose || 0)).full : '?'} — ${a.riseMs.toFixed(0)} ms · ${a.steadyDb.toFixed(0)} dB</li>`)
+      .join('');
   }
 
   // Enregistrement automatique quand la mesure est convergée et stable.
@@ -245,8 +273,8 @@ function updateVoicesTable(t) {
         <td>${v.tracked ? fmt(v.fMeas, 3) : '—'}</td>
         <td class="${cls(v.dTargetCents)}">${fmt(v.dTargetCents, 1)}</td>
         <td class="${cls(v.dTargetCents)}">${fmt(v.dHz, 3)}</td>
-        <td>${fmt(v.beatMeas)}</td><td>${v.beat ? v.beat.toFixed(2) : '—'}</td></tr>`);
-      opts.push({ key: `${t.groups.find((gg) => gg === g).key}:${v.def.id}`, label: `${lbl} (${note})` });
+        <td>${fmt(v.beatMeas)}</td><td>${v.beat == null ? '—' : v.beat.toFixed(2)}</td></tr>`);
+      opts.push({ key: `${g.key}:${v.def.id}`, label: `${lbl} (${note})` });
     }
   }
   tbody.innerHTML = rows.join('') || '<tr><td colspan="8" class="dim">jouez une note…</td></tr>';
@@ -293,8 +321,11 @@ function drawPitchCurve() {
     ctx.fillText(String(c), pad.l - 5, y + 3);
   }
 
-  const hist = state.history;
-  const T = hist.length ? hist[hist.length - 1].t : 0;
+  const all = state.history;
+  const T = all.length ? all[all.length - 1].t : 0;
+  // Seule la fenêtre affichée est parcourue (l'historique conservé est plus
+  // long pour l'export CSV et le diagramme de phase).
+  const hist = all.filter((e) => e.t >= T - HISTORY_SPAN - 0.2);
   const xFor = (t) => pad.l + plotW * (1 - (T - t) / HISTORY_SPAN);
 
   // Grille horizontale (secondes).
@@ -471,9 +502,10 @@ function drawZoom() {
   groups.forEach((g, gi) => {
     const y0 = gi * rowH;
     const k = g.kTrack || 1;
-    // Groupes harmoniques : cibles et mesures sont dans le domaine du
-    // partiel (autour de k·f0) ; groupes de base : ramenées à la fondamentale.
-    const dispCenter = g.isHarmonic ? g.center * k : g.center;
+    // Groupes harmoniques/sous-harmoniques : cibles et mesures sont dans le
+    // domaine du partiel (fc du traqueur) ; groupes de base : ramenées à la
+    // fondamentale.
+    const dispCenter = g.isHarmonic ? (g.fc ?? g.center * k) : g.center;
     const scale = g.isHarmonic ? 1 : k;
     const spec = g.spectrum;
     const binHz = g.srd / g.W;
@@ -567,14 +599,145 @@ function drawBeatCurve() {
   ctx.fillText(`${maxB.toFixed(1)} Hz`, W - 2, 10);
 }
 
+// ---- Diagramme de phase --------------------------------------------------------
+// Trajectoire de la voix suivie dans un plan au choix (intensité, écart en
+// cents, fréquence, dérivées, temps). L'outil de base de l'analyse de la
+// dynamique de l'anche : caractéristique f–I, cycles, transitoires.
+const PHASE_AXES = {
+  time: { label: 't (s)', get: (p) => p.t },
+  cents: { label: 'écart (¢)', get: (p) => p.c },
+  freq: { label: 'f (Hz)', get: (p) => p.f },
+  ampDb: { label: 'I (dB)', get: (p) => p.db },
+  dCents: { label: 'df/dt (¢/s)', get: (p) => p.dc },
+  dAmp: { label: 'dI/dt (dB/s)', get: (p) => p.dDb },
+};
+
+function phasePoints(span) {
+  const key = $('gaugeVoice').value || null;
+  const hist = state.history;
+  if (!hist.length) return [];
+  const T = hist[hist.length - 1].t;
+  const pts = [];
+  let prev = null;
+  for (const e of hist) {
+    if (e.t < T - span) continue;
+    const v = key ? e.vals[key] : Object.values(e.vals)[0];
+    if (!v) { prev = null; continue; }
+    const p = { t: e.t, c: v.c, f: v.f, db: 20 * Math.log10((v.a ?? 0) + 1e-9) };
+    if (prev && e.t - prev.t < 0.6 && e.t > prev.t) {
+      p.dc = (p.c - prev.c) / (e.t - prev.t);
+      p.dDb = (p.db - prev.db) / (e.t - prev.t);
+      pts.push(p);
+    }
+    prev = p;
+  }
+  return pts;
+}
+
+function drawPhase() {
+  const cv = $('phase'), ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  const ax = PHASE_AXES[$('phaseX').value] || PHASE_AXES.ampDb;
+  const ay = PHASE_AXES[$('phaseY').value] || PHASE_AXES.cents;
+  const pts = phasePoints(Number($('phaseSpan').value) || 15);
+  const pad = { l: 44, r: 10, t: 10, b: 26 };
+  ctx.font = '10px system-ui';
+  if (pts.length < 3) {
+    ctx.fillStyle = '#5c6b80';
+    ctx.textAlign = 'center';
+    ctx.fillText('pas encore assez de points — jouez une note…', W / 2, H / 2);
+    return;
+  }
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const p of pts) {
+    const x = ax.get(p), y = ay.get(p);
+    if (!isFinite(x) || !isFinite(y)) continue;
+    x0 = Math.min(x0, x); x1 = Math.max(x1, x);
+    y0 = Math.min(y0, y); y1 = Math.max(y1, y);
+  }
+  const mx = (x1 - x0) * 0.06 + 1e-6, my = (y1 - y0) * 0.06 + 1e-6;
+  x0 -= mx; x1 += mx; y0 -= my; y1 += my;
+  const px = (x) => pad.l + ((x - x0) / (x1 - x0)) * (W - pad.l - pad.r);
+  const py = (y) => H - pad.b - ((y - y0) / (y1 - y0)) * (H - pad.t - pad.b);
+  // Axes et graduations minimales.
+  ctx.strokeStyle = '#232a35';
+  ctx.fillStyle = '#5c6b80';
+  ctx.textAlign = 'center';
+  for (let i = 0; i <= 4; i++) {
+    const gx = x0 + ((x1 - x0) * i) / 4;
+    ctx.beginPath(); ctx.moveTo(px(gx), pad.t); ctx.lineTo(px(gx), H - pad.b); ctx.stroke();
+    ctx.fillText(gx.toFixed(Math.abs(x1 - x0) < 5 ? 2 : 1), px(gx), H - pad.b + 12);
+  }
+  ctx.textAlign = 'right';
+  for (let i = 0; i <= 4; i++) {
+    const gy = y0 + ((y1 - y0) * i) / 4;
+    ctx.beginPath(); ctx.moveTo(pad.l, py(gy)); ctx.lineTo(W - pad.r, py(gy)); ctx.stroke();
+    ctx.fillText(gy.toFixed(Math.abs(y1 - y0) < 5 ? 2 : 1), pad.l - 4, py(gy) + 3);
+  }
+  ctx.textAlign = 'center';
+  ctx.fillText(ax.label, (pad.l + W - pad.r) / 2, H - 4);
+  ctx.save();
+  ctx.translate(11, (pad.t + H - pad.b) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.fillText(ay.label, 0, 0);
+  ctx.restore();
+  // Trajectoire : segments de plus en plus opaques vers le présent.
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i];
+    if (b.t - a.t > 0.6) continue;
+    ctx.strokeStyle = `rgba(79,195,247,${0.12 + 0.85 * (i / pts.length)})`;
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    ctx.moveTo(px(ax.get(a)), py(ay.get(a)));
+    ctx.lineTo(px(ax.get(b)), py(ay.get(b)));
+    ctx.stroke();
+  }
+  // Point courant.
+  const last = pts[pts.length - 1];
+  ctx.fillStyle = '#f0b943';
+  ctx.beginPath();
+  ctx.arc(px(ax.get(last)), py(ay.get(last)), 3.5, 0, 7);
+  ctx.fill();
+}
+
+// Export CSV de l'historique complet (120 s) : temps, note, puis fréquence,
+// écart en cents et intensité dB pour chaque voix suivie.
+function exportCurveCsv() {
+  const hist = state.history;
+  if (!hist.length) { alert('Aucune donnée : jouez d\'abord une note.'); return; }
+  const keys = [];
+  for (const e of hist) for (const k of Object.keys(e.vals)) if (!keys.includes(k)) keys.push(k);
+  const sep = ';';
+  const head = ['t_s', 'midi', 'note'];
+  for (const k of keys) {
+    const lbl = (state.voiceLabels.get(k) || k).replace(/[;\n]/g, ' ');
+    head.push(`${lbl} f_hz`, `${lbl} ecart_cents`, `${lbl} intensite_db`);
+  }
+  const lines = [head.join(sep)];
+  for (const e of hist) {
+    const row = [e.t.toFixed(4), e.midi ?? '',
+      e.midi != null ? noteLabel(e.midi + (cfg.transpose || 0)).full : ''];
+    for (const k of keys) {
+      const v = e.vals[k];
+      row.push(v ? v.f.toFixed(5) : '', v ? v.c.toFixed(3) : '',
+        v ? (20 * Math.log10((v.a ?? 0) + 1e-9)).toFixed(2) : '');
+    }
+    lines.push(row.join(sep));
+  }
+  download(`courbe-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`,
+    lines.join('\n'), 'text/csv');
+}
+
 function clamp(x, a, b) { return Math.min(b, Math.max(a, x)); }
 
 function renderLoop(now) {
   const dt = Math.min(0.1, (now - state.lastDraw) / 1000);
   state.lastDraw = now;
-  // La courbe est redessinée même gelée : l'historique n'avance plus mais le
-  // curseur de lecture doit suivre la souris.
+  // Courbe et diagramme de phase sont redessinés même gelés : l'historique
+  // n'avance plus mais le curseur et les axes doivent rester interactifs.
   drawPitchCurve();
+  drawPhase();
   if (!state.frozen) {
     drawSpectrum();
     drawZoom();
@@ -709,6 +872,38 @@ function bindControls() {
   });
   curve.addEventListener('mouseleave', () => { state.mouse = null; });
   curve.addEventListener('click', toggleFreeze);
+  $('phase').addEventListener('click', toggleFreeze);
+
+  // Plein écran sur les panneaux marqués.
+  document.querySelectorAll('.fsbtn[data-fs]').forEach((b) => {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const panel = b.closest('.panel');
+      if (document.fullscreenElement === panel) document.exitFullscreen();
+      else panel.requestFullscreen?.();
+    });
+  });
+
+  // Verrouillage de la note mesurée.
+  $('btnLock').onclick = () => {
+    if (cfg.lockNote != null) cfg.lockNote = null;
+    else if (state.tick?.playedMidi != null) cfg.lockNote = state.tick.playedMidi;
+    else return;
+    updateLockButton();
+    pushConfig();
+  };
+
+  $('gateDb').value = cfg.gateDb;
+  $('gateDbVal').textContent = String(cfg.gateDb);
+  $('gateDb').oninput = () => {
+    cfg.gateDb = Number($('gateDb').value);
+    $('gateDbVal').textContent = String(cfg.gateDb);
+    pushConfig();
+  };
+  $('trackSub').checked = !!cfg.trackSub;
+  $('trackSub').onchange = () => { cfg.trackSub = $('trackSub').checked; pushConfig(); };
+  $('btnCurveCsv').onclick = exportCurveCsv;
+  updateLockButton();
   $('a4').onchange = () => { cfg.a4 = clamp(Number($('a4').value) || 440, 430, 450); $('a4').value = cfg.a4; pushConfig(); };
   tSel.onchange = () => { cfg.temperament = tSel.value; pushConfig(); };
   trSel.onchange = () => { cfg.transpose = Number(trSel.value); pushConfig(); };
@@ -777,6 +972,18 @@ function applyManual() {
   pushConfig();
 }
 
+function updateLockButton() {
+  const b = $('btnLock');
+  b.disabled = !state.running && cfg.lockNote == null;
+  if (cfg.lockNote != null) {
+    b.textContent = `🔒 ${noteLabel(cfg.lockNote + (cfg.transpose || 0)).full}`;
+    b.classList.add('active');
+  } else {
+    b.textContent = '🔓 Auto';
+    b.classList.remove('active');
+  }
+}
+
 function updateModeVisibility() {
   $('modeRegister').classList.toggle('hidden', cfg.mode !== 'register');
   $('modeManual').classList.toggle('hidden', cfg.mode !== 'manual');
@@ -784,6 +991,7 @@ function updateModeVisibility() {
   // couvrent déjà les octaves et leurs harmoniques se recouvrent).
   $('harmonicsCtl').classList.toggle('hidden', cfg.mode === 'register');
   $('harmonicsHint').classList.toggle('hidden', cfg.mode === 'register');
+  $('subCtl').classList.toggle('hidden', cfg.mode === 'register');
 }
 
 // ---- Démarrage -----------------------------------------------------------------

@@ -6,6 +6,14 @@ import { noteLabel, beatTarget } from './music.js';
 
 const STORE_KEY = 'aal.report';
 
+// Échappement HTML : les noms d'instrument et étiquettes peuvent provenir
+// d'un JSON importé ou du localStorage — jamais insérés bruts dans le DOM.
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+}
+
 export class Report {
   constructor() {
     this.name = '';
@@ -96,10 +104,11 @@ export class Report {
       const bt = r.beatTarget ? beatTarget(r.midi, cfg.beatCurve).toFixed(2) : '—';
       const firstOfMidi = !seenMidi.has(r.midi);
       seenMidi.add(r.midi);
-      const ov = cfg.beatCurve?.overrides?.[r.midi] ?? '';
+      const ovRaw = cfg.beatCurve?.overrides?.[r.midi];
+      const ov = Number.isFinite(Number(ovRaw)) && ovRaw !== '' && ovRaw != null ? Number(ovRaw) : '';
       html += `<tr>
         <td>${firstOfMidi ? lbl.full : ''}</td>
-        <td>${r.label}</td>
+        <td>${esc(r.label)}</td>
         <td>${fmt(r.target, 3)}</td>
         <td>${fmt(r.fMeas, 3)}</td>
         <td class="${cls(r.dCents)}">${fmt(r.dCents, 1)}</td>
@@ -161,12 +170,12 @@ export class Report {
     let body = '';
     for (const r of this.sorted()) {
       const lbl = noteLabel(r.midi + (cfg.transpose || 0));
-      body += `<tr><td>${lbl.full}</td><td>${r.label}</td><td>${fmt(r.target, 3)}</td>
+      body += `<tr><td>${lbl.full}</td><td>${esc(r.label)}</td><td>${fmt(r.target, 3)}</td>
         <td>${fmt(r.fMeas, 3)}</td><td>${fmt(r.dCents, 1)}</td><td>${fmt(r.dTargetCents, 1)}</td>
         <td>${fmt(r.beatMeas)}</td></tr>`;
     }
     return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
-<title>Rapport d'accordage — ${this.name || 'instrument'}</title>
+<title>Rapport d'accordage — ${esc(this.name) || 'instrument'}</title>
 <style>
  body{font:13px/1.5 system-ui,sans-serif;color:#111;margin:28px}
  h1{font-size:20px} .meta{color:#555;margin-bottom:14px}
@@ -175,8 +184,8 @@ export class Report {
  th:first-child,td:first-child{text-align:left}
 </style></head><body>
 <h1>Rapport d'accordage</h1>
-<div class="meta">Instrument : <b>${this.name || '—'}</b> · ${date} ·
- La4 = ${cfg.a4} Hz · tempérament : ${cfg.temperament} · ${this.rows.size} mesures</div>
+<div class="meta">Instrument : <b>${esc(this.name) || '—'}</b> · ${date} ·
+ La4 = ${Number(cfg.a4)} Hz · tempérament : ${esc(cfg.temperament)} · ${this.rows.size} mesures</div>
 <table><thead><tr><th>Note</th><th>Voix</th><th>Cible (Hz)</th><th>Mesuré (Hz)</th>
 <th>Écart nominal (¢)</th><th>Écart cible (¢)</th><th>Battement (Hz)</th></tr></thead>
 <tbody>${body}</tbody></table>

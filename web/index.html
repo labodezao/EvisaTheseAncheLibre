@@ -27,13 +27,19 @@
   <div class="top-actions">
     <button id="btnStart" class="primary">▶ Démarrer</button>
     <button id="btnFreeze" disabled>❄ Geler</button>
+    <button id="btnLock" disabled title="Verrouiller la note mesurée (désactive la détection automatique)">🔓 Auto</button>
   </div>
 </header>
 
 <main>
   <section class="col" id="colGauges">
     <div class="panel">
-      <h2>Courbe d'accordage <span class="hint" id="curveRangeLbl">±25 ¢ · 15 s</span></h2>
+      <h2>Courbe d'accordage
+        <span>
+          <span class="hint" id="curveRangeLbl">±25 ¢ · 15 s</span>
+          <button class="fsbtn" data-fs title="Plein écran">⛶</button>
+        </span>
+      </h2>
       <canvas id="pitchCurve" width="420" height="280"></canvas>
       <div class="row gap">
         <label>Échelle
@@ -54,6 +60,48 @@
       <canvas id="strobe" width="420" height="90"></canvas>
     </div>
     <div class="panel">
+      <h2>Analyse physique <button id="btnCurveCsv">Export CSV courbe</button></h2>
+      <div id="attackInfo">Temps de réponse de l'anche : <b>—</b></div>
+      <ul id="attackList" class="attack-list"></ul>
+      <label>Seuil de gel du temps
+        <input type="range" id="gateDb" min="-80" max="-40" step="1" value="-70">
+        <span id="gateDbVal">−70</span> dB
+      </label>
+      <p class="hint">Sous ce niveau d'entrée, l'horloge se gèle : les traqueurs et la
+      courbe s'arrêtent, la mesure reste affichée. L'export CSV couvre les
+      120 dernières secondes (temps, fréquence, écart ¢ et intensité dB par voix).</p>
+    </div>
+    <div class="panel">
+      <h2>Diagramme de phase <button class="fsbtn" data-fs title="Plein écran">⛶</button></h2>
+      <div class="row gap">
+        <label>X <select id="phaseX">
+          <option value="ampDb" selected>Intensité (dB)</option>
+          <option value="cents">Écart (¢)</option>
+          <option value="freq">Fréquence (Hz)</option>
+          <option value="dAmp">dI/dt (dB/s)</option>
+          <option value="dCents">df/dt (¢/s)</option>
+          <option value="time">Temps (s)</option>
+        </select></label>
+        <label>Y <select id="phaseY">
+          <option value="ampDb">Intensité (dB)</option>
+          <option value="cents" selected>Écart (¢)</option>
+          <option value="freq">Fréquence (Hz)</option>
+          <option value="dAmp">dI/dt (dB/s)</option>
+          <option value="dCents">df/dt (¢/s)</option>
+          <option value="time">Temps (s)</option>
+        </select></label>
+        <label>Fenêtre <select id="phaseSpan">
+          <option value="15" selected>15 s</option>
+          <option value="60">60 s</option>
+          <option value="120">120 s</option>
+        </select></label>
+      </div>
+      <canvas id="phase" width="420" height="280"></canvas>
+      <p class="hint">Trajectoire de la voix suivie (récent = opaque). X = intensité,
+      Y = écart : caractéristique fréquence-amplitude de l'anche — balayez la
+      pression du soufflet pour tracer f(p) et I(p).</p>
+    </div>
+    <div class="panel">
       <h2>Générateur de sons</h2>
       <div class="row gap">
         <button id="btnTone">♪ Jouer la cible</button>
@@ -69,7 +117,12 @@
       <canvas id="spectrum" width="760" height="200"></canvas>
     </div>
     <div class="panel">
-      <h2>Zoom sur la note <span class="hint">(chaque pic = une anche ; pointillés = cibles)</span></h2>
+      <h2>Zoom sur la note
+        <span>
+          <span class="hint">(chaque pic = une anche ; pointillés = cibles)</span>
+          <button class="fsbtn" data-fs title="Plein écran">⛶</button>
+        </span>
+      </h2>
       <canvas id="zoom" width="760" height="300"></canvas>
     </div>
     <div class="panel">
@@ -111,6 +164,8 @@
       </label>
       <p class="hint" id="harmonicsHint">Chaque partiel est mesuré à sa fréquence réelle :
       l'inharmonicité de l'anche devient une trace sur la courbe.</p>
+      <label id="subCtl" class="inline"><input type="checkbox" id="trackSub">
+        bandes f∕2 et 3f∕2 (détection de bifurcation sous-harmonique)</label>
       <label>Réactivité
         <select id="response">
           <option value="fast">Rapide (~1,4 s de fenêtre)</option>

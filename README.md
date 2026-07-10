@@ -40,6 +40,13 @@ scientifique de l'anche libre.
   sons au timbre d'anche.
 - **Faible latence** : capture AudioWorklet (blocs de 512 échantillons),
   analyse dans un Worker dédié, affichage 60 fps.
+- **Analyse physique** (voir [ANALYSE.md](ANALYSE.md)) : export CSV de la
+  courbe (120 s : fréquence, écart ¢, intensité dB par voix), temps de
+  réponse de l'anche à chaque attaque (10→90 %, résolution 10,7 ms),
+  **diagrammes de phase** à axes choisis (f–I, portraits de phase df/dt…),
+  **gel automatique du temps** sous un seuil d'intensité réglable, détecteur
+  de **bifurcation sous-harmonique** (bandes f/2 et 3f/2), verrouillage
+  manuel de la note, plein écran par panneau, registre 5 anches.
 
 ## Utilisation
 

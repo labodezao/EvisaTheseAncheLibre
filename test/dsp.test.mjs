@@ -212,5 +212,52 @@ console.log('\nTest 9 — suivi individuel des harmoniques : chaque partiel mesu
     `écart de H3 à 3·f_nominale = ${inh3.toFixed(2)}¢ (attendu ${expected3.toFixed(2)}¢)`);
 }
 
+// ---------------------------------------------------------------------------
+console.log('\nTest 10 — temps de réponse de l\'anche : rampe d\'attaque de 100 ms mesurée');
+{
+  const f = 440.0;
+  const n = SR * 5;
+  const sig = new Float32Array(n);
+  const t0 = SR * 1.5;        // début de l'attaque à 1,5 s
+  const ramp = SR * 0.1;      // montée linéaire de 100 ms
+  const w = (2 * Math.PI * f) / SR;
+  for (let i = 0; i < n; i++) {
+    const envl = i < t0 ? 0 : Math.min(1, (i - t0) / ramp);
+    sig[i] = 0.3 * envl * Math.sin(w * i) + 2e-5 * (Math.random() * 2 - 1);
+  }
+  const engine = new Engine(SR, { mode: 'auto', response: 'fast' });
+  const last = run(engine, sig);
+  const a = last?.attack;
+  assert(a != null, 'une attaque a été détectée');
+  // Rampe linéaire : 10 % → 90 % = 80 % de 100 ms = 80 ms (± résolution 10,7 ms).
+  assert(a && Math.abs(a.riseMs - 80) < 25, `temps de réponse mesuré = ${a?.riseMs?.toFixed(0)} ms (attendu ≈ 80 ms)`);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nTest 11 — détection de bifurcation : énergie sous-harmonique à f/2');
+{
+  // Anche en doublement de période : composante à f0/2 (période double).
+  // Note verrouillée sur La4 pour que la bande f/2 soit surveillée.
+  const f0 = 440.0;
+  const n = SR * 10;
+  const sig = new Float32Array(n);
+  for (const [f, a] of [[f0, 0.25], [f0 / 2, 0.06], [f0 * 1.5, 0.04], [f0 * 2, 0.12]]) {
+    const w = (2 * Math.PI * f) / SR;
+    const phi = Math.random() * 6.28;
+    for (let i = 0; i < n; i++) sig[i] += a * Math.sin(w * i + phi);
+  }
+  for (let i = 0; i < n; i++) sig[i] += 3e-4 * (Math.random() * 2 - 1);
+  const engine = new Engine(SR, { mode: 'auto', lockNote: 69, trackSub: true, response: 'normal' });
+  const last = run(engine, sig);
+  const gSub = last.groups.find((g) => g.key.endsWith('s05'));
+  const gS32 = last.groups.find((g) => g.key.endsWith('s15'));
+  const vSub = gSub?.voices[0];
+  const vS32 = gS32?.voices[0];
+  assert(vSub?.tracked && Math.abs(vSub.fMeas - 220) < 0.05,
+    `sous-harmonique f/2 détectée à ${vSub?.fMeas?.toFixed(3)} Hz (attendu 220,000)`);
+  assert(vS32?.tracked && Math.abs(vS32.fMeas - 660) < 0.05,
+    `bande 3f/2 détectée à ${vS32?.fMeas?.toFixed(3)} Hz (attendu 660,000)`);
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);

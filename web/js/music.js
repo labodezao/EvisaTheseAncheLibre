@@ -83,8 +83,9 @@ export function parseNoteList(text) {
   const rx = /([a-gA-G]|do|ré|re|mi|fa|sol|la|si)\s*(#|b)?\s*(-?\d)/giu;
   const fr = { do: 0, re: 2, 'ré': 2, mi: 4, fa: 5, sol: 7, la: 9, si: 11 };
   const en = { c: 0, d: 2, e: 4, f: 5, g: 7, a: 9, b: 11 };
+  const norm = text.normalize('NFC');
   let m;
-  while ((m = rx.exec(text.normalize('NFC'))) !== null) {
+  while ((m = rx.exec(norm)) !== null) {
     const name = m[1].toLowerCase();
     let pc = name.length > 1 ? fr[name] : en[name];
     if (pc === undefined) continue;
@@ -153,6 +154,16 @@ export const REGISTER_PRESETS = {
       { id: '4', label: "4'", oct: 1, beatSign: 0 },
     ],
   },
+  LMMMH: {
+    name: "16'+musette+4' (5 anches)",
+    voices: [
+      { id: '16', label: "16'", oct: -1, beatSign: 0 },
+      { id: '8-', label: "8'−", oct: 0, beatSign: -1 },
+      { id: '8', label: "8'", oct: 0, beatSign: 0 },
+      { id: '8+', label: "8'+", oct: 0, beatSign: 1 },
+      { id: '4', label: "4'", oct: 1, beatSign: 0 },
+    ],
+  },
 };
 
 // Courbe de battement (« liste de battements ») : battement cible en Hz pour
@@ -166,6 +177,7 @@ export function beatTarget(midi, curve) {
   const mHigh = c.midiHigh ?? 96; // Do7
   const bLow = Math.max(0.01, c.bLow ?? 0.8);
   const bHigh = Math.max(0.01, c.bHigh ?? 3.0);
+  if (mHigh === mLow) return bLow; // configuration dégénérée (JSON importé)
   const t = (midi - mLow) / (mHigh - mLow);
   return bLow * Math.pow(bHigh / bLow, t);
 }
