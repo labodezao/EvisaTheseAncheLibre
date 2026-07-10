@@ -50,6 +50,34 @@ body {
 }
 .cents-display .unit { font-size: 14px; color: var(--dim); margin-left: 6px; }
 .note-sub { font-size: 13px; font-weight: 400; color: var(--dim); }
+/* ---- Lecture numérique ---- */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.chip {
+  font: 12px var(--mono); padding: 3px 9px; border-radius: 20px;
+  border: 1px solid var(--line); background: #232a35; color: var(--dim);
+  cursor: pointer; user-select: none;
+}
+.chip.on { border-color: currentColor; color: var(--text); }
+.chip .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: baseline; }
+.readout-cards {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;
+}
+.rcard {
+  border: 1px solid var(--line); border-left-width: 4px; border-radius: 8px;
+  padding: 8px 10px; background: #10141a;
+}
+.rcard .rc-head { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); }
+.rcard .rc-head b { color: var(--text); }
+.rcard .rc-cents { font: 700 26px/1.1 var(--mono); margin: 3px 0 1px; }
+.rcard .rc-sub { font: 12px var(--mono); color: var(--dim); }
+.rcard.c-ok { border-left-color: var(--ok); }
+.rcard.c-ok .rc-cents { color: var(--ok); }
+.rcard.c-warn { border-left-color: var(--warn); }
+.rcard.c-warn .rc-cents { color: var(--warn); }
+.rcard.c-bad { border-left-color: var(--bad); }
+.rcard.c-bad .rc-cents { color: var(--bad); }
+.rcard.c-off { border-left-color: var(--line); opacity: 0.55; }
+.rcard.c-off .rc-cents { color: var(--dim); }
 .verdict {
   font: 700 17px system-ui;
   padding: 8px 14px;

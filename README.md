@@ -32,6 +32,10 @@ scientifique de l'anche libre.
 - La4 réglable **430–450 Hz**, **transposition**, **tempéraments** historiques
   (égal, Pythagore, mésotonique 1/4 comma, Werckmeister III, Kirnberger III,
   Vallotti), calibration de la carte son (ppm).
+- **Lecture numérique** : sélection par cases d'une ou plusieurs anches/harmoniques,
+  affichées en grands caractères (justesse en cents, fréquence et écart en Hz,
+  battement) — la valeur exacte sans interpréter la courbe, couleurs cohérentes
+  avec les traces, sélection mémorisée.
 - **Courbe d'accordage** : écart en cents de chaque anche au fil du temps
   (fenêtre glissante de 15 s, échelle ±5 à ±50 ¢), marqueurs de changement de
   note pour lire les transitions, gel par bouton ou clic sur la courbe,

@@ -27,6 +27,7 @@ const cfg = Object.assign({
   bellows: 'T',
   tolCents: 1,
   autoFreeze: true,
+  readout: null,        // clés de voix affichées en lecture numérique (null = toutes)
   response: 'normal',
   beatCurve: { midiLow: 48, bLow: 0.8, midiHigh: 96, bHigh: 3.0, overrides: {} },
 }, loadCfg());
@@ -42,6 +43,15 @@ const HISTORY_SPAN = 15;  // secondes de courbe affichées
 const HISTORY_KEEP = 120; // secondes conservées (export CSV, diagramme de phase)
 const PALETTE = ['#4fc3f7', '#46d68c', '#f0b943', '#f0625d', '#b58cf0', '#7fd8d0',
   '#e88fc6', '#9fd85f', '#f09b5f'];
+
+// Couleur stable par voix : indexée par ordre de première apparition, pour
+// que la courbe, les chips et les cartes de lecture partagent les couleurs.
+const voiceOrder = [];
+function colorFor(key) {
+  let i = voiceOrder.indexOf(key);
+  if (i < 0) { i = voiceOrder.length; voiceOrder.push(key); }
+  return PALETTE[i % PALETTE.length];
+}
 
 const state = {
   running: false,
@@ -229,6 +239,7 @@ function onTick(t) {
     if (report.record(t, cfg, cfg.bellows)) { refreshReport(); beep(1318, 0.05); }
   }
   updateVoicesTable(t);
+  updateReadout(t);
   updateHeader(t);
 
   // Gel automatique « quand c'est lisible » : mesure convergée, stable et
@@ -348,6 +359,84 @@ function updateVoicesTable(t) {
   }
 }
 
+// ---- Lecture numérique -------------------------------------------------------
+// Panneau de justesse : cartes en grands caractères pour une sélection
+// d'anches/harmoniques — la valeur exacte sans avoir à interpréter la courbe.
+function updateReadout(t) {
+  const chips = $('readoutChips');
+  const cards = $('readoutCards');
+  const voices = [];
+  for (const g of t?.groups ?? []) {
+    for (const v of g.voices) {
+      voices.push({ key: `${g.key}:${v.def.id}`, v, g });
+    }
+  }
+
+  // Chips de sélection : reconstruits seulement si l'ensemble des voix change.
+  const sig = voices.map((x) => x.key).join(',');
+  if (chips.dataset.sig !== sig) {
+    chips.dataset.sig = sig;
+    chips.innerHTML = '';
+    for (const { key } of voices) {
+      const lbl = state.voiceLabels.get(key) || key;
+      const on = cfg.readout == null || cfg.readout.includes(key);
+      const b = document.createElement('button');
+      b.className = `chip${on ? ' on' : ''}`;
+      b.style.color = colorFor(key);
+      b.innerHTML = `<span class="dot" style="background:${colorFor(key)}"></span>${lbl}`;
+      b.onclick = () => toggleReadout(key);
+      chips.appendChild(b);
+    }
+  }
+
+  let shown = voices.filter((x) => cfg.readout == null || cfg.readout.includes(x.key));
+  // Sélection sauvegardée obsolète (aucune de ses clés n'existe ici) : on
+  // affiche tout plutôt qu'un panneau vide après un changement de mode.
+  if (!shown.length && cfg.readout != null && voices.length
+      && !cfg.readout.some((k) => voices.some((x) => x.key === k))) {
+    shown = voices;
+  }
+  if (!shown.length) {
+    cards.innerHTML = voices.length
+      ? '<p class="hint">cochez une anche ou une harmonique ci-dessus.</p>'
+      : '<p class="hint">jouez une note…</p>';
+    return;
+  }
+  const tol = cfg.tolCents;
+  cards.innerHTML = shown.map(({ key, v }) => {
+    const lbl = state.voiceLabels.get(key) || key;
+    const note = noteLabel(v.midi + (cfg.transpose || 0)).full;
+    if (!v.tracked || v.dTargetCents == null) {
+      return `<div class="rcard c-off"><div class="rc-head"><b>${lbl}</b><span>${note}</span></div>
+        <div class="rc-cents">—</div><div class="rc-sub">non détecté</div></div>`;
+    }
+    const c = v.dTargetCents;
+    const cls = Math.abs(c) <= tol ? 'c-ok' : Math.abs(c) < 5 ? 'c-warn' : 'c-bad';
+    const arrow = Math.abs(c) <= tol ? '✔' : c < 0 ? '↑' : '↓';
+    const beat = (v.beatMeas != null && Math.abs(v.beatMeas) > 0.02)
+      ? ` · batt ${v.beatMeas >= 0 ? '+' : ''}${v.beatMeas.toFixed(2)} Hz` : '';
+    return `<div class="rcard ${cls}" style="border-left-color:${colorFor(key)}">
+      <div class="rc-head"><b>${lbl}</b><span>${note}</span></div>
+      <div class="rc-cents">${arrow} ${c >= 0 ? '+' : ''}${c.toFixed(2)} ¢</div>
+      <div class="rc-sub">${v.fMeas.toFixed(3)} Hz · ${v.dHz >= 0 ? '+' : ''}${v.dHz.toFixed(3)} Hz${beat}</div>
+    </div>`;
+  }).join('');
+}
+
+function toggleReadout(key) {
+  // null = toutes affichées ; premier clic fige la sélection courante (toutes)
+  // puis retire/ajoute, pour que décocher une voix garde les autres.
+  if (cfg.readout == null) {
+    cfg.readout = ($('readoutChips').dataset.sig || '').split(',').filter(Boolean);
+  }
+  const i = cfg.readout.indexOf(key);
+  if (i >= 0) cfg.readout.splice(i, 1);
+  else cfg.readout.push(key);
+  saveCfg();
+  $('readoutChips').dataset.sig = ''; // force la reconstruction des chips
+  if (state.tick) updateReadout(state.tick);
+}
+
 // ---- Dessins -----------------------------------------------------------------
 // Courbe d'accordage : écart en cents de chaque anche au fil du temps
 // (fenêtre glissante de 15 s), marqueurs de changement de note, lecture au
@@ -427,8 +516,8 @@ function drawPitchCurve() {
   const selKey = $('gaugeVoice').value;
   let legendX = pad.l + 4;
   let legendY = 4;
-  keys.forEach((k, ki) => {
-    const col = PALETTE[ki % PALETTE.length];
+  keys.forEach((k) => {
+    const col = colorFor(k);
     ctx.strokeStyle = col;
     ctx.lineWidth = k === selKey ? 2.4 : 1.3;
     ctx.beginPath();
@@ -1145,5 +1234,6 @@ function updateModeVisibility() {
 bindControls();
 drawBeatCurve();
 refreshReport();
+updateReadout(null);
 requestAnimationFrame(renderLoop);
 if (new URLSearchParams(location.search).get('gen')) startAudio();
