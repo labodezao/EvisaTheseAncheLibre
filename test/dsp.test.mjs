@@ -259,5 +259,47 @@ console.log('\nTest 11 — détection de bifurcation : énergie sous-harmonique 
     `bande 3f/2 détectée à ${vS32?.fMeas?.toFixed(3)} Hz (attendu 660,000)`);
 }
 
+// ---------------------------------------------------------------------------
+console.log('\nTest 12 — suivi continu : glissando vocal (+40 cents en 4 s), courbe sans trous');
+{
+  // Une hauteur qui bouge en continu (chant, glissando) empêche le zoom
+  // hétérodyne d'accrocher — le repli « suivi continu » (fondamentale de
+  // l'analyse harmonique) doit alimenter la mesure sans discontinuités.
+  const f0 = midiToFreq(57); // La3
+  const n = SR * 5;
+  const sig = new Float32Array(n);
+  const harmonics = [1, 0.6, 0.4, 0.25];
+  let phase = [0, 0, 0, 0];
+  for (let i = 0; i < n; i++) {
+    // +40 cents répartis linéairement entre t=0,5 s et t=4,5 s.
+    const t = i / SR;
+    const cents = t < 0.5 ? 0 : t > 4.5 ? 40 : ((t - 0.5) / 4) * 40;
+    const f = f0 * Math.pow(2, cents / 1200);
+    for (let h = 0; h < harmonics.length; h++) {
+      phase[h] += (2 * Math.PI * f * (h + 1)) / SR;
+      sig[i] += 0.2 * harmonics[h] * Math.sin(phase[h]);
+    }
+    sig[i] += 3e-4 * (Math.random() * 2 - 1);
+  }
+  const engine = new Engine(SR, { mode: 'auto', response: 'normal' });
+  let tracked = 0, total = 0, last = null;
+  for (let i = 0; i < n; i += 512) {
+    const r = engine.process(sig.subarray(i, Math.min(i + 512, n)));
+    if (r) {
+      last = r;
+      if (r.time > 1.2) { // après amorçage de la détection
+        total++;
+        const v = r.groups[0]?.voices[0];
+        if (v?.tracked) tracked++;
+      }
+    }
+  }
+  const ratio = total ? tracked / total : 0;
+  assert(ratio > 0.9, `mesure disponible sur ${(ratio * 100).toFixed(0)} % des trames pendant le glissando (> 90 % requis)`);
+  const v = last.groups[0]?.voices[0];
+  const finalCents = v?.tracked ? cents(v.fMeas, f0) : NaN;
+  assert(Math.abs(finalCents - 40) < 4, `hauteur finale suivie à ${finalCents.toFixed(1)} cents (+40 attendu, ±4)`);
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);

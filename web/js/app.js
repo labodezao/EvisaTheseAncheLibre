@@ -516,10 +516,11 @@ function updateReadout(t) {
     const arrow = Math.abs(c) <= tol ? '✔' : c < 0 ? '↑' : '↓';
     const beat = (v.beatMeas != null && Math.abs(v.beatMeas) > 0.02)
       ? ` · batt ${v.beatMeas >= 0 ? '+' : ''}${v.beatMeas.toFixed(2)} Hz` : '';
+    const est = v.coarse ? ' · suivi rapide' : '';
     return `<div class="rcard ${cls}" style="border-left-color:${colorFor(key)}">
       <div class="rc-head"><b>${lbl}</b><span>${note}</span></div>
-      <div class="rc-cents">${arrow} ${c >= 0 ? '+' : ''}${c.toFixed(2)} ¢</div>
-      <div class="rc-sub">${v.fMeas.toFixed(3)} Hz · ${v.dHz >= 0 ? '+' : ''}${v.dHz.toFixed(3)} Hz${beat}</div>
+      <div class="rc-cents">${v.coarse ? '≈' : arrow} ${c >= 0 ? '+' : ''}${c.toFixed(v.coarse ? 1 : 2)} ¢</div>
+      <div class="rc-sub">${v.fMeas.toFixed(v.coarse ? 2 : 3)} Hz · ${v.dHz >= 0 ? '+' : ''}${v.dHz.toFixed(v.coarse ? 2 : 3)} Hz${beat}${est}</div>
     </div>`;
   }).join('');
 }
@@ -597,9 +598,12 @@ function drawPitchCurve() {
     return;
   }
 
-  // Marqueurs de changement de note (transitions).
+  // Marqueurs de changement de note (transitions). L'étiquette n'est écrite
+  // que si elle ne chevauche pas la précédente — en chant ou jeu rapide, les
+  // notes changent plus vite que la place disponible pour les noms.
   ctx.textAlign = 'left';
   ctx.font = '10px system-ui';
+  let lastLabelEnd = -Infinity;
   for (let i = 1; i < hist.length; i++) {
     if (hist[i].midi !== hist[i - 1].midi && hist[i].midi != null) {
       const x = xFor(hist[i].t);
@@ -608,8 +612,13 @@ function drawPitchCurve() {
       ctx.setLineDash([2, 4]);
       ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, H - pad.b); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = theme().dim;
-      ctx.fillText(noteLabel(hist[i].midi + (cfg.transpose || 0)).full, x + 3, pad.t - 5);
+      const lbl = noteLabel(hist[i].midi + (cfg.transpose || 0)).full;
+      const w = ctx.measureText(lbl).width;
+      if (x + 3 > lastLabelEnd + 6) {
+        ctx.fillStyle = theme().dim;
+        ctx.fillText(lbl, x + 3, pad.t - 5);
+        lastLabelEnd = x + 3 + w;
+      }
     }
   }
 

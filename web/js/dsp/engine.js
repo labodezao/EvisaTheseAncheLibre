@@ -45,6 +45,10 @@ export class Engine {
     this.quietChunks = 99;
     this.attackPending = null;
     this.lastAttack = null;
+    // Suivi continu : historique de f0 pour détecter une hauteur en
+    // mouvement (chant, glissando), et verrou de préférence au suivi rapide.
+    this.f0Hist = [];
+    this.motionLatch = false;
   }
 
   get gate() { return Math.pow(10, (this.cfg.gateDb ?? -70) / 20); }
@@ -328,6 +332,45 @@ export class Engine {
         spectrum: az ? az.mags : null,
         voices,
       });
+    }
+
+    // Mode automatique : repli « suivi continu » quand le traqueur fin n'a
+    // pas (encore) accroché — voix chantée, glissando, vibrato large, ou les
+    // premières centaines de ms après un changement de note. La fondamentale
+    // affinée de l'analyse harmonique (mise à jour toutes les ~85 ms,
+    // précision ~0,1–1 cent) alimente alors la mesure ; le zoom hétérodyne
+    // haute précision reprend la main dès que le ton est stable. Sans ce
+    // repli, la courbe est pleine de trous dès que la hauteur bouge.
+    if (c.mode === 'auto' && !quiet && f0 && played != null) {
+      const g = groups.find((gr) => !gr.isHarmonic && !gr.isSub);
+      const v = g?.voices[0];
+      // Détection de hauteur en mouvement : dérive de f0 sur ~0,5 s. Le
+      // désaccord zoom/f0 seul ne suffit pas comme critère — une anche
+      // inharmonique fait diverger les deux légitimement sur ton stable.
+      const tNow = this.samplesTotal / this.sr;
+      this.f0Hist.push({ t: tNow, f: f0 });
+      while (this.f0Hist.length && this.f0Hist[0].t < tNow - 1.2) this.f0Hist.shift();
+      const ref = this.f0Hist.find((e) => e.t <= tNow - 0.5);
+      const drift = ref ? Math.abs(centsBetween(f0, ref.f)) : 0;
+      if (drift > 5) {
+        // La hauteur bouge : la longue fenêtre du zoom moyenne le mouvement
+        // et sa valeur traîne — le suivi rapide prend la main.
+        this.motionLatch = true;
+      } else if (this.motionLatch && v?.tracked
+          && Math.abs(centsBetween(v.fMeas, f0)) < 3) {
+        // Le zoom a re-convergé sur la hauteur stabilisée : il reprend la main.
+        this.motionLatch = false;
+      }
+      if (v && (!v.tracked || this.motionLatch) && Math.abs(centsBetween(f0, v.nominal)) < 120) {
+        v.fMeas = f0;
+        v.amp = level;
+        v.dCents = centsBetween(f0, v.nominal);
+        v.dHz = f0 - v.nominal;
+        v.dTargetCents = centsBetween(f0, v.target);
+        v.tracked = true;
+        v.coarse = true; // estimation rapide, pas la mesure fine du zoom
+        v.beatMeas = 0;
+      }
     }
 
     // Les bandes sous-harmoniques ne comptent comme détectées que si leur
