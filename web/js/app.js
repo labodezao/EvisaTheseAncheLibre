@@ -122,6 +122,7 @@ const state = {
   frozenAtTime: 0,      // horloge moteur au moment du gel
   lastUnfreezeT: 0,     // horloge moteur au dernier dégel (délai de réarmement)
   curveCache: null,     // fenêtre visible et clés, recalculées par tick
+  centerEMA: null,      // centre lissé de l'échelle auto de la courbe
   phaseCache: null,
   dspMs: 0,             // charge DSP lissée (ms par période d'analyse)
   lastSpectrum: null,   // dernier spectre large bande reçu (gardé en silence)
@@ -565,40 +566,61 @@ function drawPitchCurve() {
   const { hist, keys } = state.curveCache;
   const xFor = (t) => pad.l + plotW * (1 - (T - t) / HISTORY_SPAN);
 
-  // Échelle : fixe (±5 à ±50 ¢) ou automatique — le plus petit palier qui
-  // contient toutes les données visibles, élargi quand la courbe dépasse,
-  // resserré quand les valeurs extrêmes sortent de la fenêtre de 15 s.
+  // Échelle : fixe (±5 à ±50 ¢, centrée sur 0) ou automatique — centrée sur
+  // la médiane des valeurs visibles (robuste aux transitoires d'attaque),
+  // avec la plus petite étendue qui contient toutes les données. Quand la
+  // hauteur vit loin du zéro (voix à +40 ¢, anche très désaccordée), le
+  // détail reste lisible au lieu de laisser la moitié du graphe vide.
   const rangeSel = $('gaugeRange').value;
   let range;
+  let center = 0;
   if (rangeSel === 'auto') {
-    let maxAbs = 4;
+    const vals = [];
     for (const e of hist) {
       for (const k of keys) {
         const v = e.vals[k];
-        if (v && isFinite(v.c)) maxAbs = Math.max(maxAbs, Math.abs(v.c));
+        if (v && isFinite(v.c)) vals.push(v.c);
       }
     }
-    const steps = [5, 10, 25, 50, 100, 200, 400];
-    range = steps.find((s) => s >= maxAbs * 1.02) || 400;
-    $('curveRangeLbl').textContent = `auto ±${range} ¢ · ${HISTORY_SPAN} s`;
+    if (vals.length) {
+      vals.sort((a, b) => a - b);
+      const median = vals[vals.length >> 1];
+      // Centre lissé (EMA) et arrondi au demi-cent : un axe stable, qui ne
+      // tremble pas à chaque tick.
+      state.centerEMA = state.centerEMA == null ? median
+        : state.centerEMA + 0.25 * (median - state.centerEMA);
+      center = Math.round(state.centerEMA * 2) / 2;
+      let maxDev = 1.5;
+      for (const c of vals) maxDev = Math.max(maxDev, Math.abs(c - center));
+      const steps = [2, 5, 10, 25, 50, 100, 200, 400];
+      range = steps.find((s) => s >= maxDev * 1.05) || 400;
+    } else {
+      state.centerEMA = null;
+      range = 5;
+    }
+    const cLbl = center === 0 ? '' : `${center > 0 ? '+' : ''}${center} `;
+    $('curveRangeLbl').textContent = `auto ${cLbl}±${range} ¢ · ${HISTORY_SPAN} s`;
   } else {
     range = Number(rangeSel);
     $('curveRangeLbl').textContent = `±${range} ¢ · ${HISTORY_SPAN} s`;
   }
-  const yFor = (c) => pad.t + (1 - (clamp(c, -range, range) + range) / (2 * range)) * plotH;
+  const yFor = (c) => pad.t + (1 - (clamp(c - center, -range, range) + range) / (2 * range)) * plotH;
 
-  // Grille verticale (cents).
+  // Grille verticale (cents) : lignes sur les multiples absolus du pas, la
+  // ligne de zéro (la cible d'accordage) marquée quand elle est dans le champ.
   ctx.font = '10px system-ui';
   ctx.textAlign = 'right';
-  const step = range <= 5 ? 1 : range <= 10 ? 2 : range <= 25 ? 5
+  const step = range <= 2 ? 0.5 : range <= 5 ? 1 : range <= 10 ? 2 : range <= 25 ? 5
     : range <= 50 ? 10 : range <= 100 ? 25 : range <= 200 ? 50 : 100;
-  for (let c = -range; c <= range; c += step) {
-    const y = yFor(c);
-    ctx.strokeStyle = c === 0 ? theme().gridStrong : theme().grid;
-    ctx.lineWidth = c === 0 ? 1.5 : 1;
+  const gridStart = Math.ceil((center - range) / step) * step;
+  for (let c = gridStart; c <= center + range + 1e-9; c += step) {
+    const cRound = Math.round(c * 2) / 2;
+    const y = yFor(cRound);
+    ctx.strokeStyle = cRound === 0 ? theme().gridStrong : theme().grid;
+    ctx.lineWidth = cRound === 0 ? 1.5 : 1;
     ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
     ctx.fillStyle = theme().dim2;
-    ctx.fillText(String(c), pad.l - 5, y + 3);
+    ctx.fillText(String(cRound), pad.l - 5, y + 3);
   }
 
   // Grille horizontale (secondes).
