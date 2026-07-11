@@ -251,7 +251,11 @@ export class Engine {
     const quiet = level < this.gate;
     const calib = 1 + (c.calibrationPpm || 0) * 1e-6;
 
-    const coarse = this.coarse.ready() ? this.coarse.analyze() : null;
+    // En silence, la détection de note n'a rien à détecter : la FFT large
+    // bande (le poste de calcul dominant, ~5 ms) est sautée — l'accordeur
+    // au repos ne consomme presque rien. L'affichage du spectre garde la
+    // dernière image côté interface.
+    const coarse = (!quiet && this.coarse.ready()) ? this.coarse.analyze() : null;
     let f0 = coarse?.f0 ? coarse.f0.freq * calib : null;
 
     // Note verrouillée par l'utilisateur : la détection est court-circuitée.

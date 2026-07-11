@@ -2,7 +2,7 @@
 // affiche le tableau des écarts, exporte (CSV / JSON / impression) et permet
 // de copier les battements mesurés vers la liste de battements cible.
 
-import { noteLabel, beatTarget } from './music.js';
+import { noteLabel, beatTarget, centsClass } from './music.js';
 
 const STORE_KEY = 'aal.report';
 
@@ -114,7 +114,7 @@ export class Report {
       for (let m = lo; m <= hi; m++) {
         const r = byKey.get(`${m}|${vid}`);
         const c = r?.dTargetCents;
-        const cls = r == null ? 'empty' : Math.abs(c) < 1 ? 'g-ok' : Math.abs(c) < 5 ? 'g-warn' : 'g-bad';
+        const cls = r == null ? 'empty' : `g-${centsClass(c, cfg.tolCents ?? 1)}`;
         const title = `${noteLabel(m + (cfg.transpose || 0)).full}${r ? ` : ${c >= 0 ? '+' : ''}${c.toFixed(1)} ¢` : ' (non mesuré)'}`;
         html += `<td class="${cls}${m === currentMidi ? ' cur' : ''}" data-midi="${m}" title="${title}"></td>`;
       }
@@ -145,7 +145,7 @@ export class Report {
   renderTable(el, cfg, onOverride) {
     const rows = this.sorted();
     const fmt = (x, d = 2) => (x == null ? '—' : x.toFixed(d));
-    const cls = (c) => (c == null ? 'dim' : Math.abs(c) < 1 ? 'ok' : Math.abs(c) < 5 ? 'warn' : 'bad');
+    const cls = (c) => centsClass(c, cfg.tolCents ?? 1);
     let html = `<thead><tr><th>Note</th><th>Voix</th><th>Soufflet</th><th>Cible (Hz)</th><th>Mesuré (Hz)</th>
       <th>Écart nom. (¢)</th><th>Écart cible (¢)</th><th>Batt. mes. (Hz)</th><th>Batt. cible</th>
       <th>Écrasement batt.</th></tr></thead><tbody>`;
