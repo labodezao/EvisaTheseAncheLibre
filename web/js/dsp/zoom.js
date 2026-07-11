@@ -128,10 +128,14 @@ export class ZoomTracker {
     const mags = new Float32Array(W);
     for (let i = 0; i < W; i++) mags[i] = Math.hypot(cur.re[i], cur.im[i]);
 
-    // Seuil : médiane des magnitudes.
-    const sorted = Array.from(mags).sort((a, b) => a - b);
-    const median = sorted[W >> 1] + 1e-30;
-    const maxMag = sorted[W - 1];
+    // Seuil : médiane des magnitudes (tampon réutilisé, tri en place —
+    // `mags` reste intact car transmis à l'affichage).
+    let ms = this.scratch.get(`m${W}`);
+    if (!ms) { ms = { re: new Float32Array(W) }; this.scratch.set(`m${W}`, ms); }
+    ms.re.set(mags);
+    ms.re.sort();
+    const median = ms.re[W >> 1] + 1e-30;
+    const maxMag = ms.re[W - 1];
 
     const binHz = this.srd / W;
     const offLimit = 0.45 * this.srd;

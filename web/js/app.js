@@ -4,7 +4,7 @@
 
 import {
   TEMPERAMENTS, REGISTER_PRESETS, noteLabel, parseNoteList,
-  midiToFreq, voiceTargetFreq, beatTarget,
+  midiToFreq, voiceTargetFreq, beatTarget, centsClass,
 } from './music.js';
 import { Report } from './report.js';
 
@@ -84,11 +84,15 @@ const state = {
   curveCache: null,     // fenêtre visible et clés, recalculées par tick
   phaseCache: null,
   dspMs: 0,             // charge DSP lissée (ms par période d'analyse)
-  // Le spectre large bande et le zoom par anche ne dépendent que du dernier
-  // tick (~12 Hz), pas de la souris : inutile de les redessiner à 60 fps.
-  // Ce drapeau évite ce travail superflu sur le thread principal, pour que
-  // le défilement tactile reste fluide sur mobile pendant l'accordage.
-  vizDirty: true,
+  lastSpectrum: null,   // dernier spectre large bande reçu (gardé en silence)
+  // Rendu à la demande : chaque vue n'est redessinée que si ses données ont
+  // changé (tick ~12 Hz, souris, réglage) ET si son onglet est visible.
+  // Redessiner à 60 fps des canvas cachés ou inchangés chargeait le thread
+  // principal pour rien — fluidité tactile et batterie sur mobile.
+  curveDirty: true,
+  phaseDirty: true,
+  specDirty: true,
+  zoomDirty: true,
 };
 
 let audioCtx = null;
@@ -122,6 +126,7 @@ async function startAudio() {
       // Exposés sur window.__gen pour pouvoir simuler des changements de
       // note dans les tests de bout en bout.
       window.__gen = [];
+      window.__genGain = [];
       for (const f of gen.split(',').map(Number)) {
         const osc = audioCtx.createOscillator();
         osc.setPeriodicWave(reedWave(audioCtx));
@@ -131,6 +136,7 @@ async function startAudio() {
         osc.connect(g).connect(node);
         osc.start();
         window.__gen.push(osc);
+        window.__genGain.push(g);
       }
     } else {
       mediaStream = await navigator.mediaDevices.getUserMedia({
@@ -168,7 +174,7 @@ function stopAudio() {
   audioCtx = null; worker = null; mediaStream = null;
   state.running = false;
   state.tick = null;
-  state.vizDirty = true;
+  markAllDirty();
   $('btnStart').textContent = '▶ Démarrer';
   $('btnFreeze').disabled = true;
   $('btnLock').disabled = true;
@@ -219,7 +225,8 @@ function onTick(t) {
   state.tick = t;
   state.curveCache = null;
   state.phaseCache = null;
-  state.vizDirty = true;
+  markAllDirty();
+  if (t.coarseSpectrum) state.lastSpectrum = t.coarseSpectrum;
   state.dspMs = state.dspMs * 0.9 + (t.dspMs || 0) * 0.1;
   if (t.playedMidi === state.lastMidi) {
     state.stableTicks++;
@@ -356,28 +363,50 @@ function updateVerdict(t) {
 }
 
 // ---- Tableau des voix --------------------------------------------------------
+// Le DOM du tableau n'est reconstruit que quand l'ensemble des voix change ;
+// aux ticks suivants (~12 Hz), seuls les textes et classes des cellules sont
+// mis à jour en place — pas de destruction/re-parse du DOM en continu.
 function updateVoicesTable(t) {
   const tbody = $('voicesTable').querySelector('tbody');
   const sel = $('gaugeVoice');
-  const rows = [];
+  const fmt = (x, d = 2) => (x == null ? '—' : x.toFixed(d));
+  const voices = [];
   const opts = [];
   for (const g of t?.groups ?? []) {
     for (const v of g.voices) {
       const lbl = v.def.label || (v.def.fixedMidi != null ? noteLabel(v.def.fixedMidi + (cfg.transpose || 0)).full : 'anche');
       const note = noteLabel(v.midi + (cfg.transpose || 0)).full;
-      const cls = (c) => (c == null ? 'dim' : Math.abs(c) < 1 ? 'ok' : Math.abs(c) < 5 ? 'warn' : 'bad');
-      const fmt = (x, d = 2) => (x == null ? '—' : x.toFixed(d));
-      rows.push(`<tr><td>${lbl}</td><td>${note}</td><td>${fmt(v.target, 3)}</td>
-        <td>${v.tracked ? fmt(v.fMeas, 3) : '—'}</td>
-        <td class="${cls(v.dTargetCents)}">${fmt(v.dTargetCents, 1)}</td>
-        <td class="${cls(v.dTargetCents)}">${fmt(v.dHz, 3)}</td>
-        <td>${fmt(v.beatMeas)}</td><td>${v.beat == null ? '—' : v.beat.toFixed(2)}</td></tr>`);
+      voices.push({ v, lbl, note });
       opts.push({ key: `${g.key}:${v.def.id}`, label: `${lbl} (${note})` });
     }
   }
-  tbody.innerHTML = rows.join('') || '<tr><td colspan="8" class="dim">jouez une note…</td></tr>';
-  // Ne reconstruit le sélecteur de voix que s'il change.
   const sig = opts.map((o) => o.key).join(',');
+
+  if (tbody.dataset.sig !== sig) {
+    tbody.dataset.sig = sig;
+    tbody.innerHTML = voices.length
+      ? voices.map(() => `<tr>${'<td></td>'.repeat(8)}</tr>`).join('')
+      : '<tr><td colspan="8" class="dim">jouez une note…</td></tr>';
+  }
+  if (voices.length) {
+    const trs = tbody.rows;
+    voices.forEach(({ v, lbl, note }, i) => {
+      const c = trs[i].cells;
+      const k = centsClass(v.dTargetCents, cfg.tolCents);
+      c[0].textContent = lbl;
+      c[1].textContent = note;
+      c[2].textContent = fmt(v.target, 3);
+      c[3].textContent = v.tracked ? fmt(v.fMeas, 3) : '—';
+      c[4].textContent = fmt(v.dTargetCents, 1);
+      c[4].className = k;
+      c[5].textContent = fmt(v.dHz, 3);
+      c[5].className = k;
+      c[6].textContent = fmt(v.beatMeas);
+      c[7].textContent = v.beat == null ? '—' : v.beat.toFixed(2);
+    });
+  }
+
+  // Ne reconstruit le sélecteur de voix que s'il change.
   if (sel.dataset.sig !== sig) {
     const cur = sel.value;
     sel.innerHTML = '';
@@ -443,7 +472,7 @@ function updateReadout(t) {
         <div class="rc-cents">—</div><div class="rc-sub">non détecté</div></div>`;
     }
     const c = v.dTargetCents;
-    const cls = Math.abs(c) <= tol ? 'c-ok' : Math.abs(c) < 5 ? 'c-warn' : 'c-bad';
+    const cls = `c-${centsClass(c, tol)}`;
     const arrow = Math.abs(c) <= tol ? '✔' : c < 0 ? '↑' : '↓';
     const beat = (v.beatMeas != null && Math.abs(v.beatMeas) > 0.02)
       ? ` · batt ${v.beatMeas >= 0 ? '+' : ''}${v.beatMeas.toFixed(2)} Hz` : '';
@@ -632,7 +661,9 @@ function drawSpectrum() {
   const cv = $('spectrum'), ctx = cv.getContext('2d');
   const W = cv.width, H = cv.height;
   ctx.clearRect(0, 0, W, H);
-  const spec = state.tick?.coarseSpectrum;
+  // Dernier spectre reçu : conservé pendant les silences (le moteur ne
+  // recalcule plus la FFT large bande quand le niveau est sous le seuil).
+  const spec = state.lastSpectrum;
   // Repères d'octaves (Do1..Do9) sur échelle log 20 Hz → 10 kHz.
   ctx.font = '10px system-ui';
   ctx.textAlign = 'left';
@@ -918,22 +949,46 @@ function exportCurveCsv() {
 
 function clamp(x, a, b) { return Math.min(b, Math.max(a, x)); }
 
+function markAllDirty() {
+  state.curveDirty = true;
+  state.phaseDirty = true;
+  state.specDirty = true;
+  state.zoomDirty = true;
+}
+
+// Un canvas dans un onglet caché a offsetParent === null : rien à dessiner.
+function canvasVisible(id) {
+  const el = $(id);
+  return el && el.offsetParent !== null;
+}
+
 function renderLoop(now) {
   const dt = Math.min(0.1, (now - state.lastDraw) / 1000);
   state.lastDraw = now;
-  // Courbe et diagramme de phase sont redessinés même gelés : l'historique
-  // n'avance plus mais le curseur et les axes doivent rester interactifs.
-  drawPitchCurve();
-  drawPhase();
-  // Spectre et zoom ne dépendent que du dernier tick (~12 Hz), sans curseur
-  // interactif : les redessiner à 60 fps ne fait que charger le thread
-  // principal pour rien, au risque de saccader le défilement tactile.
-  if (!state.frozen && state.vizDirty) {
-    drawSpectrum();
-    drawZoom();
-    state.vizDirty = false;
+  // Chaque vue n'est redessinée que si elle est visible ET marquée modifiée
+  // (nouveau tick, souris, réglage). La courbe reste interactive gelée
+  // (curseur de lecture) : le survol la marque modifiée.
+  if (state.curveDirty && canvasVisible('pitchCurve')) {
+    drawPitchCurve();
+    state.curveDirty = false;
   }
-  drawStrobe(dt);
+  if (state.phaseDirty && canvasVisible('phase')) {
+    drawPhase();
+    state.phaseDirty = false;
+  }
+  if (!state.frozen) {
+    if (state.specDirty && canvasVisible('spectrum')) {
+      drawSpectrum();
+      state.specDirty = false;
+    }
+    if (state.zoomDirty && canvasVisible('zoom')) {
+      drawZoom();
+      state.zoomDirty = false;
+    }
+  }
+  // Le stroboscope est une animation continue : dessiné tant qu'il est
+  // visible (sa dérive de phase, elle, n'avance que hors gel).
+  if (canvasVisible('strobe')) drawStrobe(dt);
   requestAnimationFrame(renderLoop);
 }
 
@@ -945,6 +1000,7 @@ function setFrozen(on, auto = false) {
   // Bannière bien visible directement sur la courbe : le gel automatique ne
   // doit jamais donner l'impression que l'outil s'est arrêté de fonctionner.
   $('freezeBanner').classList.toggle('hidden', !(on && auto));
+  markAllDirty();
 }
 
 function toggleFreeze() {
@@ -1129,8 +1185,9 @@ function bindControls() {
       x: ((e.clientX - r.left) * curve.width) / r.width,
       y: ((e.clientY - r.top) * curve.height) / r.height,
     };
+    state.curveDirty = true;
   });
-  curve.addEventListener('mouseleave', () => { state.mouse = null; });
+  curve.addEventListener('mouseleave', () => { state.mouse = null; state.curveDirty = true; });
   curve.addEventListener('click', toggleFreeze);
   $('phase').addEventListener('click', toggleFreeze);
 
@@ -1146,8 +1203,16 @@ function bindControls() {
       document.querySelectorAll('.tabpage').forEach((p) => {
         p.classList.toggle('active', p.id === `tabpage-${tab.dataset.tab}`);
       });
+      markAllDirty(); // les canvas du nouvel onglet doivent se dessiner
     });
   });
+
+  // Les vues se redessinent quand leurs réglages changent.
+  $('gaugeRange').onchange = () => { state.curveDirty = true; };
+  $('gaugeVoice').onchange = () => { state.curveDirty = true; state.phaseDirty = true; };
+  for (const id of ['phaseX', 'phaseY', 'phaseSpan']) {
+    $(id).onchange = () => { state.phaseDirty = true; };
+  }
 
   // Plein écran sur les panneaux marqués.
   document.querySelectorAll('.fsbtn[data-fs]').forEach((b) => {
@@ -1156,6 +1221,7 @@ function bindControls() {
       const panel = b.closest('.panel');
       if (document.fullscreenElement === panel) document.exitFullscreen();
       else panel.requestFullscreen?.();
+      markAllDirty();
     });
   });
 

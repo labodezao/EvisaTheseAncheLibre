@@ -68,6 +68,18 @@ export function centsBetween(freq, ref) {
   return 1200 * Math.log2(freq / ref);
 }
 
+// Classe de couleur d'un écart en cents, pilotée par la tolérance choisie
+// par l'utilisateur — partagée par le tableau des anches, les cartes de
+// lecture, la grille de progression et le rapport, pour que « vert » ait
+// partout le même sens.
+export function centsClass(c, tol = 1) {
+  if (c == null || !isFinite(c)) return 'dim';
+  const a = Math.abs(c);
+  if (a <= tol) return 'ok';
+  if (a <= Math.max(5, 2 * tol)) return 'warn';
+  return 'bad';
+}
+
 export function noteLabel(midi, lang = 'fr') {
   const pc = ((midi % 12) + 12) % 12;
   const oct = Math.floor(midi / 12) - 1;

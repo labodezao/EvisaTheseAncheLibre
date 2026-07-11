@@ -22,6 +22,9 @@ export class CoarseAnalyzer {
     this.im = new Float64Array(this.fftSize);
     this.mag = new Float32Array(this.fftSize / 2);
     this.binHz = this.sr / this.fftSize;
+    // Tampons réutilisés par findPeaks (aucune allocation par analyse).
+    this.blockScratch = new Float32Array(256);
+    this.floorArr = new Float32Array(Math.ceil(this.fftSize / 2 / 256));
   }
 
   write(chunk) {
@@ -59,16 +62,19 @@ export class CoarseAnalyzer {
     const iMin = Math.max(2, Math.floor(this.fMin / this.binHz));
     const iMax = Math.min(nBins - 3, Math.ceil(this.fMax / this.binHz));
 
-    // Plancher de bruit : médiane par blocs de 256 bins.
+    // Plancher de bruit : médiane par blocs de 256 bins (tampons réutilisés,
+    // tri numérique en place des TypedArray — pas d'allocation par tick).
     const block = 256;
-    const floor = new Float32Array(Math.ceil(nBins / block));
-    const tmp = [];
-    for (let b = 0; b < floor.length; b++) {
-      tmp.length = 0;
-      const end = Math.min(nBins, (b + 1) * block);
-      for (let i = b * block; i < end; i++) tmp.push(mag[i]);
-      tmp.sort((x, y) => x - y);
-      floor[b] = tmp[tmp.length >> 1] || 0;
+    const floor = this.floorArr;
+    const nFloor = Math.ceil(nBins / block);
+    for (let b = 0; b < nFloor; b++) {
+      const start = b * block;
+      const len = Math.min(nBins, start + block) - start;
+      const s = this.blockScratch;
+      for (let i = 0; i < len; i++) s[i] = mag[start + i];
+      const view = s.subarray(0, len);
+      view.sort();
+      floor[b] = view[len >> 1] || 0;
     }
 
     const peaks = [];
