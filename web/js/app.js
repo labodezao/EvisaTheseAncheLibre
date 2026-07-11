@@ -84,6 +84,9 @@ function applyTheme(name) {
   markAllDirty();
   const b = $('themeToggle');
   if (b) { b.textContent = name === 'dark' ? '☀' : '🌙'; b.title = name === 'dark' ? 'Thème clair' : 'Thème sombre'; }
+  // Barre système (Android/PWA installée) assortie au bandeau du thème actif.
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', name === 'dark' ? '#171c24' : '#f5f8fb');
   // Les cartes de lecture numérique fixent leurs couleurs en ligne (pas de
   // dépendance CSS) : sans ceci elles garderaient les couleurs de l'ancien
   // thème jusqu'à la prochaine mesure, voire indéfiniment si à l'arrêt.
@@ -1391,6 +1394,15 @@ function updateModeVisibility() {
 }
 
 // ---- Démarrage -----------------------------------------------------------------
+// App installable (PWA) : fonctionne hors ligne une fois visitée, s'ajoute à
+// l'écran d'accueil. Chemin relatif : valide aussi si servi depuis un
+// sous-dossier (ex. GitHub Pages de projet).
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => { /* hors ligne indisponible, l'app reste utilisable en ligne */ });
+  });
+}
+
 $('themeToggle').onclick = toggleTheme;
 applyTheme(currentTheme()); // synchronise le libellé du bouton avec l'attribut posé au chargement
 bindControls();
