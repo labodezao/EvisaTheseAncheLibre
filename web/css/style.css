@@ -1,0 +1,300 @@
+/* Accordeur Anche Libre Pro — thème sombre professionnel */
+:root {
+  --bg: #14171c;
+  --panel: #1c2129;
+  --panel2: #232a35;
+  --line: #303a49;
+  --text: #dde5ef;
+  --dim: #8494a9;
+  --accent: #4fc3f7;
+  --ok: #46d68c;
+  --warn: #f0b943;
+  --bad: #f0625d;
+  --mono: "SF Mono", "Cascadia Code", Consolas, "DejaVu Sans Mono", monospace;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif;
+}
+
+/* ---- Bandeau supérieur ---- */
+#topbar {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 10px 18px;
+  background: linear-gradient(180deg, #1d2430, #171c24);
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.brand h1 { margin: 0; font-size: 19px; font-weight: 650; }
+.brand h1 em { color: var(--accent); font-style: normal; }
+.brand .sub { color: var(--dim); font-size: 11px; }
+.note-display {
+  font-family: var(--mono);
+  font-size: 44px;
+  font-weight: 700;
+  min-width: 130px;
+  line-height: 1;
+}
+.note-display sub { font-size: 20px; color: var(--dim); }
+.cents-display {
+  font-family: var(--mono);
+  font-size: 34px;
+  font-weight: 700;
+  min-width: 170px;
+  line-height: 1.1;
+}
+.cents-display .unit { font-size: 14px; color: var(--dim); margin-left: 6px; }
+.note-sub { font-size: 13px; font-weight: 400; color: var(--dim); }
+/* ---- Lecture numérique ---- */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+.chip {
+  font: 12px var(--mono); padding: 3px 9px; border-radius: 20px;
+  border: 1px solid var(--line); background: #232a35; color: var(--dim);
+  cursor: pointer; user-select: none;
+}
+.chip.on { border-color: currentColor; color: var(--text); }
+.chip .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: baseline; }
+.readout-cards {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px;
+}
+.rcard {
+  border: 1px solid var(--line); border-left-width: 4px; border-radius: 8px;
+  padding: 8px 10px; background: #10141a;
+}
+.rcard .rc-head { display: flex; justify-content: space-between; font-size: 12px; color: var(--dim); }
+.rcard .rc-head b { color: var(--text); }
+.rcard .rc-cents { font: 700 26px/1.1 var(--mono); margin: 3px 0 1px; }
+.rcard .rc-sub { font: 12px var(--mono); color: var(--dim); }
+.rcard.c-ok { border-left-color: var(--ok); }
+.rcard.c-ok .rc-cents { color: var(--ok); }
+.rcard.c-warn { border-left-color: var(--warn); }
+.rcard.c-warn .rc-cents { color: var(--warn); }
+.rcard.c-bad { border-left-color: var(--bad); }
+.rcard.c-bad .rc-cents { color: var(--bad); }
+.rcard.c-off { border-left-color: var(--line); opacity: 0.55; }
+.rcard.c-off .rc-cents { color: var(--dim); }
+.freeze-banner {
+  background: #1d3a52;
+  border: 1px solid var(--accent);
+  color: #d8f0ff;
+  font-weight: 600;
+  font-size: 12.5px;
+  padding: 7px 11px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  text-align: center;
+}
+.verdict {
+  font: 700 17px system-ui;
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #232a35;
+  color: var(--dim);
+  min-width: 110px;
+  text-align: center;
+  align-self: center;
+}
+.verdict.v-ok { background: #1d7a4d; color: #eafff3; box-shadow: 0 0 14px #2b8f5f88; }
+.verdict.v-up { background: #7a4a1d; color: #ffe9d6; }
+.verdict.v-down { background: #6d2f4a; color: #ffe3ef; }
+.level-wrap {
+  width: 90px; height: 10px; border-radius: 5px;
+  background: #0d1014; border: 1px solid var(--line);
+  overflow: hidden; align-self: center;
+}
+#levelBar { height: 100%; width: 0; background: linear-gradient(90deg, var(--ok), var(--warn)); }
+.top-actions { margin-left: auto; display: flex; gap: 8px; }
+
+/* ---- Onglets ---- */
+/* L'accordage tient sur un seul onglet sans avoir à faire défiler une page
+   entière : Accordage (l'essentiel pendant qu'on joue), Analyse (spectre,
+   phase, physique), Réglages, Rapport. L'en-tête (note, témoin, boutons)
+   reste hors des onglets, visible en permanence. */
+#tabbar {
+  display: flex;
+  gap: 2px;
+  padding: 0 12px;
+  background: #171c24;
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+#tabbar .tab {
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  border-radius: 0;
+  color: var(--dim);
+  padding: 11px 16px;
+  font: 600 13px system-ui;
+  white-space: nowrap;
+  cursor: pointer;
+}
+#tabbar .tab:hover:not(.active) { color: var(--text); }
+#tabbar .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
+/* ---- Disposition ---- */
+main { padding: 12px; }
+.tabpage {
+  display: none;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+.tabpage.active { display: grid; }
+.tabpage .panel.wide { grid-column: 1 / -1; }
+@media (max-width: 720px) {
+  .tabpage { grid-template-columns: 1fr; gap: 8px; }
+  main { padding: 8px; }
+  .panel { padding: 10px 12px; }
+  /* Texte d'explication utile la première fois, superflu ensuite (le guide
+     complet reste dans aide.html) : masqué sur petit écran pour que l'onglet
+     Accordage tienne mieux dans la hauteur disponible. */
+  .tabpage p.hint { display: none; }
+
+  /* L'en-tête (logo, note géante, témoin, boutons) prenait à lui seul la
+     quasi-totalité de l'écran avant même d'atteindre la courbe : condensé
+     ici pour que le contenu de l'onglet actif soit visible sans défiler. */
+  #topbar { gap: 8px 14px; padding: 6px 10px; }
+  .brand .sub { display: none; }
+  .brand h1 { font-size: 15px; }
+  .note-display { font-size: 28px; min-width: 0; }
+  .note-display sub { font-size: 14px; }
+  .note-display .note-sub { font-size: 10px; }
+  .cents-display { font-size: 20px; min-width: 0; }
+  .cents-display .unit { font-size: 10px; margin-left: 3px; }
+  .cents-display .note-sub { font-size: 10px; }
+  .verdict { font-size: 12px; padding: 5px 9px; min-width: 0; }
+  .level-wrap { display: none; }
+  .top-actions button { padding: 5px 8px; font-size: 11.5px; }
+  #tabbar .tab { padding: 8px 10px; font-size: 12px; }
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+.panel h2 {
+  margin: 0 0 10px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--dim);
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  flex-wrap: wrap;
+}
+.hint { color: var(--dim); font-size: 11.5px; text-transform: none; letter-spacing: 0; }
+p.hint { margin: 8px 0 0; }
+canvas { display: block; width: 100%; height: auto; background: #10141a; border-radius: 6px; }
+/* Le geste de défilement vertical reste toujours prioritaire sur les
+   canvas cliquables (survol/gel) : indispensable pour pouvoir faire défiler
+   la page au doigt pendant l'accordage. */
+#pitchCurve, #phase { cursor: crosshair; touch-action: pan-y; }
+
+/* ---- Contrôles ---- */
+label { display: flex; align-items: center; gap: 8px; margin: 6px 0; color: var(--text); flex-wrap: wrap; }
+label.inline { display: inline-flex; margin: 0; }
+select, input[type="number"], input[type="text"] {
+  background: var(--panel2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font: inherit;
+  min-width: 0;
+}
+input[type="number"] { width: 90px; }
+input[type="range"] { accent-color: var(--accent); }
+button {
+  background: var(--panel2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: 0.45; cursor: default; }
+button.primary { background: #135a7d; border-color: #1d7fae; }
+button.danger { border-color: #7d2f2c; }
+button.active { background: #135a7d; border-color: var(--accent); }
+.row { display: flex; align-items: center; flex-wrap: wrap; }
+.row.gap { gap: 12px; }
+.subctl { margin: 4px 0 8px; padding-left: 6px; border-left: 2px solid var(--line); }
+.hidden { display: none !important; }
+
+/* ---- Tables ---- */
+.panel { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 12.5px; }
+th, td { border-bottom: 1px solid var(--line); padding: 4px 8px; text-align: right; white-space: nowrap; }
+th { color: var(--dim); font-weight: 600; }
+th:first-child, td:first-child { text-align: left; }
+td.ok { color: var(--ok); }
+td.warn { color: var(--warn); }
+td.bad { color: var(--bad); }
+td.dim { color: var(--dim); }
+
+/* ---- Rapport ---- */
+.report-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+#reportTableWrap { max-height: 320px; overflow: auto; margin-top: 8px; }
+#reportTable input { width: 64px; font-family: var(--mono); font-size: 12px; padding: 2px 4px; }
+
+footer { padding: 8px 18px 16px; color: var(--dim); font-size: 12px; }
+footer a { color: var(--accent); }
+
+dialog {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  max-width: 560px;
+  padding: 20px 24px;
+}
+dialog::backdrop { background: rgba(0, 0, 0, 0.55); }
+dialog h2 { margin-top: 0; }
+
+/* ---- Plein écran & analyse ---- */
+.fsbtn { padding: 2px 7px; font-size: 12px; }
+.panel:fullscreen {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  overflow: auto;
+  padding: 20px 26px;
+}
+.panel:fullscreen canvas { flex: 1; min-height: 0; height: calc(100vh - 170px); }
+.attack-list {
+  margin: 4px 0;
+  padding-left: 18px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--dim);
+}
+#attackInfo b { font-family: var(--mono); color: var(--accent); }
+#phase { cursor: crosshair; }
+
+/* ---- Soufflet & grille de progression ---- */
+.bellows-toggle button { border-radius: 0; }
+.bellows-toggle button:first-child { border-radius: 6px 0 0 6px; }
+.bellows-toggle button:last-child { border-radius: 0 6px 6px 0; }
+#tuneGrid { overflow-x: auto; margin-top: 8px; }
+.tune-grid { border-collapse: collapse; font-size: 9px; }
+.tune-grid th { border: none; padding: 1px 3px; color: var(--dim); font-weight: 500; }
+.tune-grid th.cur { color: var(--accent); }
+.tune-grid td {
+  width: 13px; height: 14px; padding: 0; border: 1px solid #10141a;
+  background: #242b36; cursor: pointer;
+}
+.tune-grid td:hover { outline: 1px solid var(--accent); }
+.tune-grid td.g-ok { background: #2b8f5f; }
+.tune-grid td.g-warn { background: #a8842f; }
+.tune-grid td.g-bad { background: #a8443f; }
+.tune-grid td.cur { outline: 2px solid var(--accent); }

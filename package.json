@@ -1,0 +1,40 @@
+{
+  "name": "accordeur-anche-libre",
+  "productName": "Accordeur Anche Libre Pro",
+  "version": "0.1.0",
+  "description": "Accordeur professionnel pour accordéon et instruments à anche libre — précision < 0,1 cent, mesure multi-anches simultanée",
+  "main": "electron/main.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "serve": "node server.mjs",
+    "test": "node test/dsp.test.mjs",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  },
+  "build": {
+    "appId": "fr.anchelibre.accordeur",
+    "files": [
+      "electron/**",
+      "web/**"
+    ],
+    "mac": {
+      "category": "public.app-category.music",
+      "target": "dmg",
+      "extendInfo": {
+        "NSMicrophoneUsageDescription": "L'accordeur a besoin du microphone pour mesurer les anches."
+      }
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  }
+}
