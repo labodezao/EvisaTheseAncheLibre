@@ -1,0 +1,15 @@
+{
+  "name": "Accordeur Anche Libre Pro",
+  "short_name": "Anche Libre",
+  "description": "Accordeur professionnel pour accordéon et instruments à anche libre — précision < 0,1 cent, mesure multi-anches simultanée.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#eef1f5",
+  "theme_color": "#f5f8fb",
+  "lang": "fr",
+  "icons": [
+    { "src": "icon.svg", "sizes": "192x192 512x512", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

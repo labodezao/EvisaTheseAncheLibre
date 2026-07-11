@@ -59,6 +59,9 @@ scientifique de l'anche libre.
   mémorisé) — toutes les couleurs, y compris celles dessinées sur les
   graphiques (courbe, spectre, zoom, phase), viennent d'un même jeu de
   variables CSS par thème.
+- **Installable (PWA)** : manifeste + service worker — s'ajoute à l'écran
+  d'accueil (Android/desktop Chrome), s'ouvre en plein écran sans navigateur,
+  fonctionne **hors ligne** une fois visitée une première fois.
 - **Analyse physique** (voir [ANALYSE.md](ANALYSE.md)) : export CSV de la
   courbe (120 s : fréquence, écart ¢, intensité dB par voix), temps de
   réponse de l'anche à chaque attaque (10→90 %, résolution 10,7 ms),
