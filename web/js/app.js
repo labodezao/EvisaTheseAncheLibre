@@ -548,24 +548,8 @@ function drawPitchCurve() {
   const cv = $('pitchCurve'), ctx = cv.getContext('2d');
   const W = cv.width, H = cv.height;
   ctx.clearRect(0, 0, W, H);
-  const range = Number($('gaugeRange').value);
-  $('curveRangeLbl').textContent = `±${range} ¢ · ${HISTORY_SPAN} s`;
   const pad = { l: 36, r: 8, t: 18, b: 18 };
   const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
-  const yFor = (c) => pad.t + (1 - (clamp(c, -range, range) + range) / (2 * range)) * plotH;
-
-  // Grille verticale (cents).
-  ctx.font = '10px system-ui';
-  ctx.textAlign = 'right';
-  const step = range <= 5 ? 1 : range <= 10 ? 2 : range <= 25 ? 5 : 10;
-  for (let c = -range; c <= range; c += step) {
-    const y = yFor(c);
-    ctx.strokeStyle = c === 0 ? theme().gridStrong : theme().grid;
-    ctx.lineWidth = c === 0 ? 1.5 : 1;
-    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
-    ctx.fillStyle = theme().dim2;
-    ctx.fillText(String(c), pad.l - 5, y + 3);
-  }
 
   const all = state.history;
   const T = all.length ? all[all.length - 1].t : 0;
@@ -580,6 +564,42 @@ function drawPitchCurve() {
   }
   const { hist, keys } = state.curveCache;
   const xFor = (t) => pad.l + plotW * (1 - (T - t) / HISTORY_SPAN);
+
+  // Échelle : fixe (±5 à ±50 ¢) ou automatique — le plus petit palier qui
+  // contient toutes les données visibles, élargi quand la courbe dépasse,
+  // resserré quand les valeurs extrêmes sortent de la fenêtre de 15 s.
+  const rangeSel = $('gaugeRange').value;
+  let range;
+  if (rangeSel === 'auto') {
+    let maxAbs = 4;
+    for (const e of hist) {
+      for (const k of keys) {
+        const v = e.vals[k];
+        if (v && isFinite(v.c)) maxAbs = Math.max(maxAbs, Math.abs(v.c));
+      }
+    }
+    const steps = [5, 10, 25, 50, 100, 200, 400];
+    range = steps.find((s) => s >= maxAbs * 1.02) || 400;
+    $('curveRangeLbl').textContent = `auto ±${range} ¢ · ${HISTORY_SPAN} s`;
+  } else {
+    range = Number(rangeSel);
+    $('curveRangeLbl').textContent = `±${range} ¢ · ${HISTORY_SPAN} s`;
+  }
+  const yFor = (c) => pad.t + (1 - (clamp(c, -range, range) + range) / (2 * range)) * plotH;
+
+  // Grille verticale (cents).
+  ctx.font = '10px system-ui';
+  ctx.textAlign = 'right';
+  const step = range <= 5 ? 1 : range <= 10 ? 2 : range <= 25 ? 5
+    : range <= 50 ? 10 : range <= 100 ? 25 : range <= 200 ? 50 : 100;
+  for (let c = -range; c <= range; c += step) {
+    const y = yFor(c);
+    ctx.strokeStyle = c === 0 ? theme().gridStrong : theme().grid;
+    ctx.lineWidth = c === 0 ? 1.5 : 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+    ctx.fillStyle = theme().dim2;
+    ctx.fillText(String(c), pad.l - 5, y + 3);
+  }
 
   // Grille horizontale (secondes).
   ctx.textAlign = 'center';
