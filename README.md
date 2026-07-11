@@ -55,6 +55,10 @@ scientifique de l'anche libre.
   (note, témoin, boutons) reste toujours visible, chaque onglet tient sur un
   seul écran sans avoir à faire défiler toute la page — pensé pour l'usage à
   l'établi comme sur mobile.
+- **Thème clair par défaut**, sombre en option (bouton dans le bandeau,
+  mémorisé) — toutes les couleurs, y compris celles dessinées sur les
+  graphiques (courbe, spectre, zoom, phase), viennent d'un même jeu de
+  variables CSS par thème.
 - **Analyse physique** (voir [ANALYSE.md](ANALYSE.md)) : export CSV de la
   courbe (120 s : fréquence, écart ¢, intensité dB par voix), temps de
   réponse de l'anche à chaque attaque (10→90 %, résolution 10,7 ms),
