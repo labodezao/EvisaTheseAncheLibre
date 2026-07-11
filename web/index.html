@@ -6,6 +6,11 @@
 <title>Accordeur Anche Libre Pro</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%2314171c'/%3E%3Cpath d='M6 20 L12 20 L16 8 L20 26 L24 14 L26 14' stroke='%234fc3f7' stroke-width='2.5' fill='none'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="css/style.css">
+<script>
+  // Applique le thème mémorisé avant le premier rendu (évite un flash sombre
+  // puis clair). Thème clair par défaut si rien n'est encore mémorisé.
+  document.documentElement.setAttribute('data-theme', localStorage.getItem('aal.theme') || 'light');
+</script>
 </head>
 <body>
 <header id="topbar">
@@ -26,6 +31,7 @@
     <div id="levelBar"></div>
   </div>
   <div class="top-actions">
+    <button id="themeToggle" title="Thème sombre">🌙</button>
     <button id="btnStart" class="primary">▶ Démarrer</button>
     <button id="btnFreeze" disabled>❄ Geler</button>
     <button id="btnLock" disabled title="Verrouiller la note mesurée (désactive la détection automatique)">🔓 Auto</button>

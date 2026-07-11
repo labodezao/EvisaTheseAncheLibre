@@ -52,8 +52,44 @@ function saveCfg() {
 
 const HISTORY_SPAN = 15;  // secondes de courbe affichées
 const HISTORY_KEEP = 120; // secondes conservées (export CSV, diagramme de phase)
-const PALETTE = ['#4fc3f7', '#46d68c', '#f0b943', '#f0625d', '#b58cf0', '#7fd8d0',
-  '#e88fc6', '#9fd85f', '#f09b5f'];
+
+// ---- Thème (clair par défaut, sombre en option) ----------------------------
+// Toutes les couleurs — y compris celles dessinées à la main sur les canvas —
+// viennent des variables CSS : un seul jeu de couleurs à maintenir par thème.
+const THEME_KEY = 'aal.theme';
+let themeCache = null;
+function theme() {
+  if (!themeCache) {
+    const s = getComputedStyle(document.documentElement);
+    const v = (name) => s.getPropertyValue(name).trim();
+    themeCache = {
+      text: v('--text'), dim: v('--dim'), dim2: v('--dim2'),
+      accent: v('--accent'), accentMuted: v('--accent-muted'),
+      ok: v('--ok'), okStrong: v('--ok-strong'), warn: v('--warn'), bad: v('--bad'),
+      canvasBg: v('--canvas-bg'), grid: v('--grid'), gridStrong: v('--grid-strong'),
+      markerLine: v('--marker-line'), panel2: v('--panel2'),
+      palette: [v('--accent'), v('--ok'), v('--warn'), v('--bad'),
+        v('--v5'), v('--v6'), v('--v7'), v('--v8'), v('--v9')],
+    };
+  }
+  return themeCache;
+}
+function currentTheme() {
+  return document.documentElement.getAttribute('data-theme') || 'light';
+}
+function applyTheme(name) {
+  document.documentElement.setAttribute('data-theme', name);
+  try { localStorage.setItem(THEME_KEY, name); } catch { /* ignore */ }
+  themeCache = null;
+  markAllDirty();
+  const b = $('themeToggle');
+  if (b) { b.textContent = name === 'dark' ? '☀' : '🌙'; b.title = name === 'dark' ? 'Thème clair' : 'Thème sombre'; }
+  // Les cartes de lecture numérique fixent leurs couleurs en ligne (pas de
+  // dépendance CSS) : sans ceci elles garderaient les couleurs de l'ancien
+  // thème jusqu'à la prochaine mesure, voire indéfiniment si à l'arrêt.
+  if (typeof updateReadout === 'function' && $('readoutCards')) updateReadout(state.tick);
+}
+function toggleTheme() { applyTheme(currentTheme() === 'dark' ? 'light' : 'dark'); }
 
 // Couleur stable par voix : indexée par ordre de première apparition, pour
 // que la courbe, les chips et les cartes de lecture partagent les couleurs.
@@ -61,7 +97,8 @@ const voiceOrder = [];
 function colorFor(key) {
   let i = voiceOrder.indexOf(key);
   if (i < 0) { i = voiceOrder.length; voiceOrder.push(key); }
-  return PALETTE[i % PALETTE.length];
+  const p = theme().palette;
+  return p[i % p.length];
 }
 
 const state = {
@@ -519,10 +556,10 @@ function drawPitchCurve() {
   const step = range <= 5 ? 1 : range <= 10 ? 2 : range <= 25 ? 5 : 10;
   for (let c = -range; c <= range; c += step) {
     const y = yFor(c);
-    ctx.strokeStyle = c === 0 ? '#44536a' : '#1e242e';
+    ctx.strokeStyle = c === 0 ? theme().gridStrong : theme().grid;
     ctx.lineWidth = c === 0 ? 1.5 : 1;
     ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
-    ctx.fillStyle = '#5c6b80';
+    ctx.fillStyle = theme().dim2;
     ctx.fillText(String(c), pad.l - 5, y + 3);
   }
 
@@ -544,14 +581,14 @@ function drawPitchCurve() {
   ctx.textAlign = 'center';
   for (let s = 0; s <= HISTORY_SPAN; s += 5) {
     const x = pad.l + plotW * (1 - s / HISTORY_SPAN);
-    ctx.strokeStyle = '#1e242e';
+    ctx.strokeStyle = theme().grid;
     ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, H - pad.b); ctx.stroke();
-    ctx.fillStyle = '#5c6b80';
+    ctx.fillStyle = theme().dim2;
     ctx.fillText(s ? `−${s} s` : '0', x, H - 5);
   }
 
   if (!hist.length) {
-    ctx.fillStyle = '#5c6b80';
+    ctx.fillStyle = theme().dim2;
     ctx.font = '13px system-ui';
     ctx.fillText('jouez une note…', W / 2, H / 2);
     return;
@@ -564,11 +601,11 @@ function drawPitchCurve() {
     if (hist[i].midi !== hist[i - 1].midi && hist[i].midi != null) {
       const x = xFor(hist[i].t);
       if (x < pad.l) continue;
-      ctx.strokeStyle = '#3a4a60';
+      ctx.strokeStyle = theme().markerLine;
       ctx.setLineDash([2, 4]);
       ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, H - pad.b); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = '#8494a9';
+      ctx.fillStyle = theme().dim;
       ctx.fillText(noteLabel(hist[i].midi + (cfg.transpose || 0)).full, x + 3, pad.t - 5);
     }
   }
@@ -601,7 +638,7 @@ function drawPitchCurve() {
     if (legendX + wLbl > W - 8) { legendX = pad.l + 4; legendY += 11; }
     ctx.fillStyle = col;
     ctx.fillRect(legendX, legendY, 8, 8);
-    ctx.fillStyle = '#8494a9';
+    ctx.fillStyle = theme().dim;
     ctx.fillText(lbl, legendX + 11, legendY + 8);
     legendX += wLbl;
   });
@@ -615,7 +652,7 @@ function drawPitchCurve() {
     }
     if (best) {
       const x = xFor(best.t);
-      ctx.strokeStyle = '#8494a9';
+      ctx.strokeStyle = theme().dim;
       ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, H - pad.b); ctx.stroke();
       const parts = [`−${(T - best.t).toFixed(1)} s`];
       for (const k of keys) {
@@ -628,7 +665,7 @@ function drawPitchCurve() {
       const bx = clamp(x - tw / 2, pad.l, W - pad.r - tw);
       ctx.fillStyle = 'rgba(16,20,26,0.92)';
       ctx.fillRect(bx, pad.t + 2, tw, 16);
-      ctx.fillStyle = '#dde5ef';
+      ctx.fillStyle = theme().text;
       ctx.textAlign = 'left';
       ctx.fillText(text, bx + 5, pad.t + 14);
     }
@@ -649,9 +686,9 @@ function drawStrobe(dt) {
   const off = ((state.strobePhase % period) + period) % period;
   for (let x = -period; x < W + period; x += period) {
     const g = ctx.createLinearGradient(x + off, 0, x + off + period, 0);
-    g.addColorStop(0, '#10141a');
-    g.addColorStop(0.5, v?.tracked ? (Math.abs(v.dTargetCents) < 1 ? '#2b8f5f' : '#3a6d8f') : '#232a35');
-    g.addColorStop(1, '#10141a');
+    g.addColorStop(0, theme().canvasBg);
+    g.addColorStop(0.5, v?.tracked ? (Math.abs(v.dTargetCents) < 1 ? theme().okStrong : theme().accentMuted) : theme().panel2);
+    g.addColorStop(1, theme().canvasBg);
     ctx.fillStyle = g;
     ctx.fillRect(x + off, 8, period, H - 16);
   }
@@ -671,16 +708,16 @@ function drawSpectrum() {
     const f = midiToFreq(12 * oct + 12, cfg);
     if (f < 20 || f > 10000) continue;
     const x = (Math.log(f / 20) / Math.log(500)) * W;
-    ctx.strokeStyle = '#232a35';
+    ctx.strokeStyle = theme().panel2;
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
-    ctx.fillStyle = '#5c6b80';
+    ctx.fillStyle = theme().dim2;
     ctx.fillText(`Do${oct}`, x + 3, 12);
   }
   if (!spec) return;
   let max = 1e-9;
   for (let i = 0; i < spec.length; i++) if (spec[i] > max) max = spec[i];
   ctx.beginPath();
-  ctx.strokeStyle = '#4fc3f7';
+  ctx.strokeStyle = theme().accent;
   ctx.lineWidth = 1.2;
   for (let i = 0; i < spec.length; i++) {
     const db = 20 * Math.log10((spec[i] + 1e-12) / max);
@@ -701,7 +738,7 @@ function drawZoom() {
     .sort((a, b) => (a.isHarmonic ? 1 : 0) - (b.isHarmonic ? 1 : 0))
     .slice(0, 5);
   if (!groups.length) {
-    ctx.fillStyle = '#5c6b80';
+    ctx.fillStyle = theme().dim2;
     ctx.font = '13px system-ui';
     ctx.textAlign = 'center';
     ctx.fillText('jouez une note pour voir chaque anche…', W / 2, H / 2);
@@ -722,9 +759,9 @@ function drawZoom() {
     let max = 1e-9;
     for (let i = 0; i < spec.length; i++) if (spec[i] > max) max = spec[i];
     // Axe.
-    ctx.strokeStyle = '#232a35';
+    ctx.strokeStyle = theme().panel2;
     ctx.beginPath(); ctx.moveTo(0, y0 + rowH - 14); ctx.lineTo(W, y0 + rowH - 14); ctx.stroke();
-    ctx.fillStyle = '#5c6b80';
+    ctx.fillStyle = theme().dim2;
     ctx.font = '10px system-ui';
     ctx.textAlign = 'center';
     for (let hz = -span; hz <= span; hz += 5) {
@@ -736,14 +773,14 @@ function drawZoom() {
       const dx = (v.target - dispCenter);
       if (Math.abs(dx) > span) continue;
       const x = ((dx + span) / (2 * span)) * W;
-      ctx.strokeStyle = '#f0b943';
+      ctx.strokeStyle = theme().warn;
       ctx.setLineDash([4, 4]);
       ctx.beginPath(); ctx.moveTo(x, y0 + 14); ctx.lineTo(x, y0 + rowH - 14); ctx.stroke();
       ctx.setLineDash([]);
     }
     // Spectre zoom (bande de base recentrée, axe ramené à la fondamentale).
     ctx.beginPath();
-    ctx.strokeStyle = '#46d68c';
+    ctx.strokeStyle = theme().ok;
     ctx.lineWidth = 1.4;
     let started = false;
     for (let px = 0; px < W; px++) {
@@ -759,7 +796,7 @@ function drawZoom() {
     }
     ctx.stroke();
     // Étiquettes des voix mesurées.
-    ctx.fillStyle = '#dde5ef';
+    ctx.fillStyle = theme().text;
     ctx.font = '11px system-ui';
     for (const v of g.voices) {
       if (!v.tracked) continue;
@@ -769,7 +806,7 @@ function drawZoom() {
       ctx.fillText(`${v.def.label || noteLabel(v.midi + (cfg.transpose || 0)).full} ${v.dTargetCents >= 0 ? '+' : ''}${v.dTargetCents.toFixed(1)}¢`, x, y0 + 12);
     }
     if (g.isHarmonic || g.kTrack > 1) {
-      ctx.fillStyle = '#5c6b80';
+      ctx.fillStyle = theme().dim2;
       ctx.textAlign = 'left';
       ctx.fillText(g.isHarmonic ? `partiel ${g.kTrack}` : `mesure sur le partiel ${g.kTrack}`, 6, y0 + 12);
       ctx.textAlign = 'center';
@@ -786,7 +823,7 @@ function drawBeatCurve() {
   let maxB = 0.1;
   for (let m = m0; m <= m1; m++) maxB = Math.max(maxB, beatTarget(m, c));
   ctx.beginPath();
-  ctx.strokeStyle = '#4fc3f7';
+  ctx.strokeStyle = theme().accent;
   for (let m = m0; m <= m1; m++) {
     const x = ((m - m0) / (m1 - m0)) * W;
     const y = H - 12 - (beatTarget(m, c) / maxB) * (H - 24);
@@ -794,13 +831,13 @@ function drawBeatCurve() {
   }
   ctx.stroke();
   // Écrasements.
-  ctx.fillStyle = '#f0b943';
+  ctx.fillStyle = theme().warn;
   for (const [m, b] of Object.entries(c.overrides || {})) {
     const x = ((m - m0) / (m1 - m0)) * W;
     const y = H - 12 - (Number(b) / maxB) * (H - 24);
     ctx.beginPath(); ctx.arc(x, y, 3, 0, 7); ctx.fill();
   }
-  ctx.fillStyle = '#5c6b80';
+  ctx.fillStyle = theme().dim2;
   ctx.font = '10px system-ui';
   ctx.textAlign = 'left';
   ctx.fillText(noteLabel(m0).full, 2, H - 2);
@@ -862,7 +899,7 @@ function drawPhase() {
   const pad = { l: 44, r: 10, t: 10, b: 26 };
   ctx.font = '10px system-ui';
   if (pts.length < 3) {
-    ctx.fillStyle = '#5c6b80';
+    ctx.fillStyle = theme().dim2;
     ctx.textAlign = 'center';
     ctx.fillText('pas encore assez de points — jouez une note…', W / 2, H / 2);
     return;
@@ -879,8 +916,8 @@ function drawPhase() {
   const px = (x) => pad.l + ((x - x0) / (x1 - x0)) * (W - pad.l - pad.r);
   const py = (y) => H - pad.b - ((y - y0) / (y1 - y0)) * (H - pad.t - pad.b);
   // Axes et graduations minimales.
-  ctx.strokeStyle = '#232a35';
-  ctx.fillStyle = '#5c6b80';
+  ctx.strokeStyle = theme().panel2;
+  ctx.fillStyle = theme().dim2;
   ctx.textAlign = 'center';
   for (let i = 0; i <= 4; i++) {
     const gx = x0 + ((x1 - x0) * i) / 4;
@@ -913,7 +950,7 @@ function drawPhase() {
   }
   // Point courant.
   const last = pts[pts.length - 1];
-  ctx.fillStyle = '#f0b943';
+  ctx.fillStyle = theme().warn;
   ctx.beginPath();
   ctx.arc(px(ax.get(last)), py(ay.get(last)), 3.5, 0, 7);
   ctx.fill();
@@ -1354,6 +1391,8 @@ function updateModeVisibility() {
 }
 
 // ---- Démarrage -----------------------------------------------------------------
+$('themeToggle').onclick = toggleTheme;
+applyTheme(currentTheme()); // synchronise le libellé du bouton avec l'attribut posé au chargement
 bindControls();
 drawBeatCurve();
 refreshReport();
