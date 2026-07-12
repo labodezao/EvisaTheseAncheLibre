@@ -24,6 +24,7 @@ export class Engine {
       register: 'MM',
       manualNotes: null,       // [midi, ...] en mode manuel
       trackHarmonics: 0,       // suit les partiels 2..n de chaque note (hors registre)
+      fuseHarmonics: true,     // fusion multi-harmonique cohérente (mode auto)
       trackSub: false,         // bandes f/2 et 3f/2 (détection de bifurcation)
       lockNote: null,          // note MIDI imposée (désactive la détection)
       gateDb: -70,             // seuil de silence : gèle traqueurs et horloge
@@ -43,8 +44,13 @@ export class Engine {
     // Détection d'attaque : enveloppe RMS par bloc (~10,7 ms à 48 kHz).
     this.env = [];
     this.quietChunks = 99;
+    this.attackArmed = true;
     this.attackPending = null;
     this.lastAttack = null;
+    // Suivi continu : historique de f0 pour détecter une hauteur en
+    // mouvement (chant, glissando), et verrou de préférence au suivi rapide.
+    this.f0Hist = [];
+    this.motionLatch = false;
   }
 
   get gate() { return Math.pow(10, (this.cfg.gateDb ?? -70) / 20); }
@@ -174,6 +180,40 @@ export class Engine {
         }
       }
     }
+
+    // Fusion multi-harmonique (mode auto) : une anche libre en régime établi
+    // est strictement périodique, donc ses partiels exactement harmoniques —
+    // mesurer plusieurs partiels et fusionner leurs fréquences (ramenées à
+    // la fondamentale) multiplie la précision, la variance d'un partiel k
+    // s'améliorant en k². Des traqueurs cachés suivent les partiels 2..4
+    // quand ils ne sont pas déjà affichés via « harmoniques suivies ».
+    if (c.mode === 'auto' && c.fuseHarmonics !== false) {
+      for (const g of groups.slice()) {
+        if (g.isHarmonic || g.isSub) continue;
+        for (let k = 2; k <= 4; k++) {
+          if (k === g.kTrack) continue;
+          if (g.center * k > 9500) break;
+          const exists = groups.some((x) => x.isHarmonic && !x.isSub
+            && x.center === g.center && x.kTrack === k);
+          if (exists) continue;
+          groups.push({
+            key: `${g.key}h${k}x`,
+            center: g.center,
+            kTrack: k,
+            fc: g.center * k,
+            isHarmonic: true,
+            hidden: true, // sert à la fusion, pas à l'affichage
+            voices: [{
+              def: { id: `H${k}`, label: `H${k}`, oct: 0, beatSign: 0 },
+              midi: g.voices[0].midi,
+              nominal: g.center * k,
+              beat: 0,
+              target: g.center * k,
+            }],
+          });
+        }
+      }
+    }
     return groups;
   }
 
@@ -192,13 +232,18 @@ export class Engine {
     const tNow = this.samplesTotal / this.sr;
     this.env.push({ t: tNow, rms });
     if (this.env.length > 512) this.env.shift();
+    // Armé par un vrai silence (≥ 8 blocs), déclenché au franchissement du
+    // seuil haut. La zone intermédiaire ne désarme pas : une attaque lente
+    // (croissance exponentielle douce) la traverse pendant plusieurs blocs.
     if (rms < gate * 2) {
       this.quietChunks++;
+      if (this.quietChunks >= 8) this.attackArmed = true;
     } else {
-      if (rms > gate * 4 && this.quietChunks >= 8 && !this.attackPending) {
-        this.attackPending = { onsetT: tNow, evalAt: tNow + 1.0 };
-      }
       this.quietChunks = 0;
+      if (rms > gate * 4 && this.attackArmed && !this.attackPending) {
+        this.attackPending = { onsetT: tNow, evalAt: tNow + 1.0 };
+        this.attackArmed = false;
+      }
     }
     if (this.attackPending && tNow >= this.attackPending.evalAt) {
       this.measureAttack(this.attackPending);
@@ -235,9 +280,24 @@ export class Engine {
       if (t10 != null && e.rms >= 0.9 * steady) { t90 = e.t; break; }
     }
     if (t10 != null && t90 != null && t90 >= t10) {
+      // Taux de croissance exponentiel σ : le démarrage d'une anche est une
+      // instabilité linéaire, l'amplitude croît en A·e^(σt) — σ est le
+      // paramètre physique du « parler » de l'anche (ajustement de ln(RMS)
+      // par moindres carrés sur la zone de montée 10 % → 90 %).
+      let sigma = null;
+      let n = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
+      for (const e of this.env) {
+        if (e.t < t10 || e.t > t90 || e.rms <= 0) continue;
+        const x = e.t - onsetT;
+        const y = Math.log(e.rms);
+        n++; sx += x; sy += y; sxx += x * x; sxy += x * y;
+      }
+      const denom = n * sxx - sx * sx;
+      if (n >= 4 && denom > 1e-12) sigma = (n * sxy - sx * sy) / denom;
       this.lastAttack = {
         t: onsetT,
         riseMs: (t90 - t10) * 1000,
+        sigma,
         midi: this.playedMidi,
         steadyDb: 20 * Math.log10(steady + 1e-12),
       };
@@ -322,12 +382,93 @@ export class Engine {
         fc: g.fc,
         isHarmonic: !!g.isHarmonic,
         isSub: !!g.isSub,
+        hidden: !!g.hidden,
         srd: t.srd,
         W: az?.W ?? 0,
         fill: az?.fill ?? 0,
         spectrum: az ? az.mags : null,
         voices,
       });
+    }
+
+    // Mode automatique : repli « suivi continu » quand le traqueur fin n'a
+    // pas (encore) accroché — voix chantée, glissando, vibrato large, ou les
+    // premières centaines de ms après un changement de note. La fondamentale
+    // affinée de l'analyse harmonique (mise à jour toutes les ~85 ms,
+    // précision ~0,1–1 cent) alimente alors la mesure ; le zoom hétérodyne
+    // haute précision reprend la main dès que le ton est stable. Sans ce
+    // repli, la courbe est pleine de trous dès que la hauteur bouge.
+    if (c.mode === 'auto' && !quiet && f0 && played != null) {
+      const g = groups.find((gr) => !gr.isHarmonic && !gr.isSub);
+      const v = g?.voices[0];
+      // Détection de hauteur en mouvement : dérive de f0 sur ~0,5 s. Le
+      // désaccord zoom/f0 seul ne suffit pas comme critère — une anche
+      // inharmonique fait diverger les deux légitimement sur ton stable.
+      const tNow = this.samplesTotal / this.sr;
+      this.f0Hist.push({ t: tNow, f: f0 });
+      while (this.f0Hist.length && this.f0Hist[0].t < tNow - 1.2) this.f0Hist.shift();
+      // Référence = l'échantillon le plus récent vieux d'au moins 0,5 s
+      // (recherche depuis la fin — le premier match depuis le début serait
+      // le plus ancien de la fenêtre, jusqu'à 1,2 s, et biaiserait la dérive).
+      let ref = null;
+      for (let i = this.f0Hist.length - 1; i >= 0; i--) {
+        if (this.f0Hist[i].t <= tNow - 0.5) { ref = this.f0Hist[i]; break; }
+      }
+      const drift = ref ? Math.abs(centsBetween(f0, ref.f)) : 0;
+      if (drift > 5) {
+        // La hauteur bouge : la longue fenêtre du zoom moyenne le mouvement
+        // et sa valeur traîne — le suivi rapide prend la main.
+        this.motionLatch = true;
+      } else if (this.motionLatch && v?.tracked
+          && Math.abs(centsBetween(v.fMeas, f0)) < 3) {
+        // Le zoom a re-convergé sur la hauteur stabilisée : il reprend la main.
+        this.motionLatch = false;
+      }
+      if (v && (!v.tracked || this.motionLatch) && Math.abs(centsBetween(f0, v.nominal)) < 120) {
+        v.fMeas = f0;
+        v.amp = level;
+        v.dCents = centsBetween(f0, v.nominal);
+        v.dHz = f0 - v.nominal;
+        v.dTargetCents = centsBetween(f0, v.target);
+        v.tracked = true;
+        v.coarse = true; // estimation rapide, pas la mesure fine du zoom
+        v.beatMeas = 0;
+      }
+    }
+
+    // Fusion multi-harmonique cohérente : les fréquences des partiels
+    // (ramenées à la fondamentale) sont combinées avec des poids ∝ (A·k)² —
+    // la variance d'une mesure au partiel k s'améliore en k². Seuls les
+    // partiels cohérents avec le modèle harmonique (< 1,5 cent de la
+    // fondamentale mesurée) participent : les partiels étirés d'une anche
+    // inharmonique sont écartés d'office, la robustesse est préservée.
+    if (c.mode === 'auto' && c.fuseHarmonics !== false && !quiet) {
+      const base = groups.find((gr) => !gr.isHarmonic && !gr.isSub);
+      const bv = base?.voices[0];
+      if (bv?.tracked && !bv.coarse) {
+        const wBase = (bv.amp * (base.kTrack || 1)) ** 2;
+        let num = wBase * bv.fMeas;
+        let den = wBase;
+        let nFused = 1;
+        for (const g of groups) {
+          if (!g.isHarmonic || g.isSub) continue;
+          const v = g.voices[0];
+          if (!v?.tracked) continue;
+          const fEq = v.fMeas / g.kTrack; // fMeas en domaine du partiel
+          if (Math.abs(centsBetween(fEq, bv.fMeas)) > 1.5) continue;
+          const w = (v.amp * g.kTrack) ** 2;
+          num += w * fEq;
+          den += w;
+          nFused++;
+        }
+        if (nFused > 1) {
+          bv.fMeas = num / den;
+          bv.dCents = centsBetween(bv.fMeas, bv.nominal);
+          bv.dHz = bv.fMeas - bv.nominal;
+          bv.dTargetCents = centsBetween(bv.fMeas, bv.target);
+          bv.fusedN = nFused;
+        }
+      }
     }
 
     // Les bandes sous-harmoniques ne comptent comme détectées que si leur
@@ -346,17 +487,33 @@ export class Engine {
       }
     }
 
+    // Écart rapide de la fondamentale à la note nominale : c'est la donnée
+    // à utiliser pour la caractéristique pression-hauteur f(I) — la mesure
+    // fine (longue fenêtre) traîne derrière un balayage de pression et
+    // biaiserait la pente vers zéro.
+    let f0Cents = null;
+    if (f0 && played != null) {
+      const bn = groups.find((g) => !g.isHarmonic && !g.isSub)?.voices[0]?.nominal;
+      if (bn) {
+        const cts = centsBetween(f0, bn);
+        if (Math.abs(cts) < 120) f0Cents = cts;
+      }
+    }
+
     return {
       type: 'tick',
       time: this.samplesTotal / this.sr,
       level,
       quiet,
       f0,
+      f0Cents,
       playedMidi: played,
       transpose: c.transpose,
       lockNote: c.lockNote ?? null,
       attack: this.lastAttack,
-      groups,
+      // Les groupes cachés (traqueurs de fusion) ne sont pas transmis :
+      // ils servent au calcul, pas à l'affichage.
+      groups: groups.filter((g) => !g.hidden),
       coarseSpectrum: coarse ? logResample(coarse.mag, coarse.binHz, 1024) : null,
     };
   }
@@ -384,6 +541,15 @@ export class Engine {
       : [];
     comps = comps.filter((cp) =>
       expected.some((v) => Math.abs(cp.freq - v.target) < tolHz));
+    // Plancher relatif : un pic à plus de 30 dB sous le plus fort du groupe
+    // est une fuite spectrale ou du bruit, pas une anche — les anches d'un
+    // même ton jouent à quelques dB les unes des autres. (Les bandes
+    // sous-harmoniques, volontairement faibles, ne sont pas concernées.)
+    if (!group.isSub && comps.length > 1) {
+      let mMax = 0;
+      for (const cp of comps) mMax = Math.max(mMax, cp.mag);
+      comps = comps.filter((cp) => cp.mag >= mMax / 31.6);
+    }
     const tolClaim = az ? Math.max(0.08, (0.6 * az.srd) / az.W) : 0.08;
     for (const cp of comps) {
       // Un groupe harmonique mesure par définition une fréquence déjà

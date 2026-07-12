@@ -73,6 +73,31 @@ stochastiques et des bifurcations non linéaires des anches libres.
 - **Export CSV de la courbe** : 120 s × (fréquence, écart ¢, intensité dB)
   par voix + note — prêt pour Python/R/Matlab.
 
+## 2 bis. Modèle physique implémenté (mesures reliées à l'expérience)
+
+- **Fusion multi-harmonique cohérente** (mode auto) : une anche en régime
+  établi est strictement périodique → partiels exactement harmoniques ; les
+  partiels 2–4 sont suivis en interne et fusionnés (poids ∝ (A·k)², variance
+  en 1/k²), seuls les partiels < 1,5 cent de la fondamentale participant
+  (les partiels étirés sont écartés). Précision accrue sous bruit et
+  fondamentale faible, convergence plus rapide.
+- **Caractéristique pression–hauteur f(I)** : régression en direct de
+  l'écart (¢) sur l'intensité (dB) à partir de l'estimateur *rapide* (la
+  mesure fine traîne derrière un balayage et biaiserait la pente vers zéro).
+  Affichée sous le diagramme de phase : pente en ¢/dB, R², plage. Protocole :
+  note tenue, crescendo/decrescendo ≥ 3 dB.
+- **Taux de croissance exponentiel σ de l'attaque** : le démarrage d'une
+  anche est une instabilité linéaire (A·e^{σt}) ; σ est ajusté par moindres
+  carrés sur ln(RMS) dans la zone de montée 10→90 % (vérifié à ±1 % sur
+  attaque synthétique à 25 s⁻¹). Affiché avec le temps de réponse.
+- **Alerte de verrouillage par injection** : deux anches accrochées
+  oscillent à la même fréquence — une seule composante là où deux anches
+  devraient battre (voix tremblée non détectée, mesure convergée, référence
+  présente) → « ⚠ verrouillé ? » dans le tableau. Second cas signalé :
+  battement mesuré quasi nul contre une cible non nulle.
+- **Plancher d'appariement −30 dB** : un pic à plus de 30 dB sous le plus
+  fort du groupe est une fuite spectrale, pas une anche.
+
 ## 3. Feuille de route : stochastique et bifurcations
 
 Fonctionnalités proposées (par ordre coût/bénéfice croissant), toutes

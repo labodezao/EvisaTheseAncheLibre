@@ -259,5 +259,110 @@ console.log('\nTest 11 — détection de bifurcation : énergie sous-harmonique 
     `bande 3f/2 détectée à ${vS32?.fMeas?.toFixed(3)} Hz (attendu 660,000)`);
 }
 
+// ---------------------------------------------------------------------------
+console.log('\nTest 12 — suivi continu : glissando vocal (+40 cents en 4 s), courbe sans trous');
+{
+  // Une hauteur qui bouge en continu (chant, glissando) empêche le zoom
+  // hétérodyne d'accrocher — le repli « suivi continu » (fondamentale de
+  // l'analyse harmonique) doit alimenter la mesure sans discontinuités.
+  const f0 = midiToFreq(57); // La3
+  const n = SR * 5;
+  const sig = new Float32Array(n);
+  const harmonics = [1, 0.6, 0.4, 0.25];
+  let phase = [0, 0, 0, 0];
+  for (let i = 0; i < n; i++) {
+    // +40 cents répartis linéairement entre t=0,5 s et t=4,5 s.
+    const t = i / SR;
+    const cents = t < 0.5 ? 0 : t > 4.5 ? 40 : ((t - 0.5) / 4) * 40;
+    const f = f0 * Math.pow(2, cents / 1200);
+    for (let h = 0; h < harmonics.length; h++) {
+      phase[h] += (2 * Math.PI * f * (h + 1)) / SR;
+      sig[i] += 0.2 * harmonics[h] * Math.sin(phase[h]);
+    }
+    sig[i] += 3e-4 * (Math.random() * 2 - 1);
+  }
+  const engine = new Engine(SR, { mode: 'auto', response: 'normal' });
+  let tracked = 0, total = 0, last = null;
+  for (let i = 0; i < n; i += 512) {
+    const r = engine.process(sig.subarray(i, Math.min(i + 512, n)));
+    if (r) {
+      last = r;
+      if (r.time > 1.2) { // après amorçage de la détection
+        total++;
+        const v = r.groups[0]?.voices[0];
+        if (v?.tracked) tracked++;
+      }
+    }
+  }
+  const ratio = total ? tracked / total : 0;
+  assert(ratio > 0.9, `mesure disponible sur ${(ratio * 100).toFixed(0)} % des trames pendant le glissando (> 90 % requis)`);
+  const v = last.groups[0]?.voices[0];
+  const finalCents = v?.tracked ? cents(v.fMeas, f0) : NaN;
+  assert(Math.abs(finalCents - 40) < 4, `hauteur finale suivie à ${finalCents.toFixed(1)} cents (+40 attendu, ±4)`);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nTest 13 — fusion multi-harmonique : gain de précision sous bruit fort');
+{
+  // Modèle physique : une anche en régime établi est strictement périodique,
+  // ses partiels exactement harmoniques — fusionner les mesures de plusieurs
+  // partiels (variance en 1/k²) doit battre la mesure mono-partiel.
+  const fTrue = 440.13;
+  const n = SR * 4;
+  const makeSig = () => {
+    const sig = new Float32Array(n);
+    const harmonics = [0.5, 0.8, 0.6, 0.45];
+    for (let h = 0; h < harmonics.length; h++) {
+      const w = (2 * Math.PI * fTrue * (h + 1)) / SR;
+      for (let i = 0; i < n; i++) sig[i] += 0.08 * harmonics[h] * Math.sin(w * i + h);
+    }
+    // Bruit déterministe (LCG) pour un test reproductible, niveau élevé.
+    let seed = 123456789;
+    for (let i = 0; i < n; i++) {
+      seed = (1103515245 * seed + 12345) & 0x7fffffff;
+      sig[i] += 0.03 * (seed / 0x40000000 - 1);
+    }
+    return sig;
+  };
+  const run2 = (fuse) => {
+    const engine = new Engine(SR, { mode: 'auto', response: 'normal', fuseHarmonics: fuse });
+    const last = run(engine, makeSig());
+    const v = last.groups[0]?.voices[0];
+    return v?.tracked ? Math.abs(cents(v.fMeas, fTrue)) : Infinity;
+  };
+  const errFused = run2(true);
+  const errSingle = run2(false);
+  console.log(`  erreur mono-partiel : ${errSingle.toFixed(4)} ¢ · fusionnée : ${errFused.toFixed(4)} ¢`);
+  assert(errFused < 0.1, `erreur fusionnée = ${errFused.toFixed(4)} cent (< 0,1 requis malgré le bruit)`);
+  assert(errFused <= errSingle + 1e-9, 'la fusion ne dégrade jamais la mesure mono-partiel');
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nTest 14 — taux de croissance exponentiel σ de l\'attaque (parler de l\'anche)');
+{
+  // Le démarrage d'une anche est une instabilité linéaire : A(t) = A0·e^(σt).
+  // On génère une attaque exponentielle à σ = 25 s⁻¹ et on vérifie que
+  // l'ajustement du moteur retrouve σ.
+  const sigmaTrue = 25;
+  const f = 440.0;
+  const n = SR * 5;
+  const sig = new Float32Array(n);
+  const t0 = 1.5;      // début de l'attaque
+  const tFull = t0 + 0.35; // amplitude pleine (0,3) atteinte ici
+  const w = (2 * Math.PI * f) / SR;
+  for (let i = 0; i < n; i++) {
+    const t = i / SR;
+    let amp = 0;
+    if (t >= t0) amp = 0.3 * Math.min(1, Math.exp(sigmaTrue * (t - tFull)));
+    sig[i] = amp * Math.sin(w * i) + 2e-5 * (Math.random() * 2 - 1);
+  }
+  const engine = new Engine(SR, { mode: 'auto', response: 'fast' });
+  const last = run(engine, sig);
+  const a = last?.attack;
+  assert(a?.sigma != null, 'σ mesuré sur l\'attaque');
+  const rel = a?.sigma != null ? Math.abs(a.sigma - sigmaTrue) / sigmaTrue : Infinity;
+  assert(rel < 0.25, `σ mesuré = ${a?.sigma?.toFixed(1)} s⁻¹ (vrai : ${sigmaTrue}, écart ${(rel * 100).toFixed(0)} % < 25 %)`);
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);

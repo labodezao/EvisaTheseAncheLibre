@@ -122,6 +122,7 @@ const state = {
   frozenAtTime: 0,      // horloge moteur au moment du gel
   lastUnfreezeT: 0,     // horloge moteur au dernier dégel (délai de réarmement)
   curveCache: null,     // fenêtre visible et clés, recalculées par tick
+  centerEMA: null,      // centre lissé de l'échelle auto de la courbe
   phaseCache: null,
   dspMs: 0,             // charge DSP lissée (ms par période d'analyse)
   lastSpectrum: null,   // dernier spectre large bande reçu (gardé en silence)
@@ -289,7 +290,15 @@ function onTick(t) {
         if (v.tracked) vals[key] = { c: v.dTargetCents, f: v.fMeas, a: v.amp };
       }
     }
-    state.history.push({ t: t.time, midi: t.playedMidi, vals });
+    state.history.push({
+      t: t.time,
+      midi: t.playedMidi,
+      vals,
+      // Paire (écart rapide, intensité) pour la caractéristique f(I).
+      fast: t.f0Cents != null
+        ? { c: t.f0Cents, db: 20 * Math.log10(t.level + 1e-9) }
+        : null,
+    });
     while (state.history.length && state.history[0].t < t.time - HISTORY_KEEP) {
       state.history.shift();
     }
@@ -301,9 +310,11 @@ function onTick(t) {
     state.attacks.unshift(t.attack);
     state.attacks.length = Math.min(state.attacks.length, 6);
     const lbl = t.attack.midi != null ? noteLabel(t.attack.midi + (cfg.transpose || 0)).full : '?';
-    $('attackInfo').innerHTML = `Temps de réponse de l'anche : <b>${t.attack.riseMs.toFixed(0)} ms</b> (10→90 %, ${lbl})`;
+    const sig = t.attack.sigma != null ? ` · σ ≈ ${t.attack.sigma.toFixed(0)} s⁻¹` : '';
+    $('attackInfo').innerHTML = `Temps de réponse de l'anche : <b>${t.attack.riseMs.toFixed(0)} ms</b> (10→90 %, ${lbl})${sig}`;
     $('attackList').innerHTML = state.attacks
-      .map((a) => `<li>${a.midi != null ? noteLabel(a.midi + (cfg.transpose || 0)).full : '?'} — ${a.riseMs.toFixed(0)} ms · ${a.steadyDb.toFixed(0)} dB</li>`)
+      .map((a) => `<li>${a.midi != null ? noteLabel(a.midi + (cfg.transpose || 0)).full : '?'} — ${a.riseMs.toFixed(0)} ms`
+        + `${a.sigma != null ? ` · σ ${a.sigma.toFixed(0)} s⁻¹` : ''} · ${a.steadyDb.toFixed(0)} dB</li>`)
       .join('');
   }
 
@@ -416,7 +427,7 @@ function updateVoicesTable(t) {
     for (const v of g.voices) {
       const lbl = v.def.label || (v.def.fixedMidi != null ? noteLabel(v.def.fixedMidi + (cfg.transpose || 0)).full : 'anche');
       const note = noteLabel(v.midi + (cfg.transpose || 0)).full;
-      voices.push({ v, lbl, note });
+      voices.push({ v, lbl, note, g });
       opts.push({ key: `${g.key}:${v.def.id}`, label: `${lbl} (${note})` });
     }
   }
@@ -430,7 +441,7 @@ function updateVoicesTable(t) {
   }
   if (voices.length) {
     const trs = tbody.rows;
-    voices.forEach(({ v, lbl, note }, i) => {
+    voices.forEach(({ v, lbl, note, g }, i) => {
       const c = trs[i].cells;
       const k = centsClass(v.dTargetCents, cfg.tolCents);
       c[0].textContent = lbl;
@@ -441,7 +452,31 @@ function updateVoicesTable(t) {
       c[4].className = k;
       c[5].textContent = fmt(v.dHz, 3);
       c[5].className = k;
-      c[6].textContent = fmt(v.beatMeas);
+      // Verrouillage par injection : deux anches accrochées oscillent à la
+      // MÊME fréquence — une seule composante spectrale là où deux anches
+      // devraient battre. Signature : voix tremblée (cible ≥ 0,4 Hz) non
+      // détectée alors que la mesure est convergée et que l'anche de
+      // référence est bien là. Second cas (recouvrement partiel) : les deux
+      // détectées mais battement quasi nul.
+      const base = g?.voices.find((x) => x.def.beatSign === 0);
+      const lockedUnison = !v.tracked && v.beat != null && Math.abs(v.beat) >= 0.4
+        && g && g.fill >= 0.999 && base && base !== v && base.tracked;
+      const lockedBeat = v.tracked && v.beat != null && Math.abs(v.beat) >= 0.4
+        && v.beatMeas != null && Math.abs(v.beatMeas) < 0.15;
+      if (lockedUnison) {
+        c[6].textContent = '⚠ verrouillé ?';
+        c[6].className = 'bad';
+        c[6].title = 'Une seule composante détectée là où deux anches devraient battre : '
+          + 'verrouillage probable (couplage) ou anches non résolues — écartez-les avant de conclure.';
+      } else if (lockedBeat) {
+        c[6].textContent = `⚠ ${fmt(v.beatMeas)}`;
+        c[6].className = 'bad';
+        c[6].title = 'Battement quasi nul alors que la cible est non nulle : verrouillage probable des deux anches.';
+      } else {
+        c[6].textContent = fmt(v.beatMeas);
+        c[6].className = '';
+        c[6].title = '';
+      }
       c[7].textContent = v.beat == null ? '—' : v.beat.toFixed(2);
     });
   }
@@ -516,10 +551,11 @@ function updateReadout(t) {
     const arrow = Math.abs(c) <= tol ? '✔' : c < 0 ? '↑' : '↓';
     const beat = (v.beatMeas != null && Math.abs(v.beatMeas) > 0.02)
       ? ` · batt ${v.beatMeas >= 0 ? '+' : ''}${v.beatMeas.toFixed(2)} Hz` : '';
+    const est = v.coarse ? ' · suivi rapide' : '';
     return `<div class="rcard ${cls}" style="border-left-color:${colorFor(key)}">
       <div class="rc-head"><b>${lbl}</b><span>${note}</span></div>
-      <div class="rc-cents">${arrow} ${c >= 0 ? '+' : ''}${c.toFixed(2)} ¢</div>
-      <div class="rc-sub">${v.fMeas.toFixed(3)} Hz · ${v.dHz >= 0 ? '+' : ''}${v.dHz.toFixed(3)} Hz${beat}</div>
+      <div class="rc-cents">${v.coarse ? '≈' : arrow} ${c >= 0 ? '+' : ''}${c.toFixed(v.coarse ? 1 : 2)} ¢</div>
+      <div class="rc-sub">${v.fMeas.toFixed(v.coarse ? 2 : 3)} Hz · ${v.dHz >= 0 ? '+' : ''}${v.dHz.toFixed(v.coarse ? 2 : 3)} Hz${beat}${est}</div>
     </div>`;
   }).join('');
 }
@@ -547,38 +583,78 @@ function drawPitchCurve() {
   const cv = $('pitchCurve'), ctx = cv.getContext('2d');
   const W = cv.width, H = cv.height;
   ctx.clearRect(0, 0, W, H);
-  const range = Number($('gaugeRange').value);
-  $('curveRangeLbl').textContent = `±${range} ¢ · ${HISTORY_SPAN} s`;
   const pad = { l: 36, r: 8, t: 18, b: 18 };
   const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
-  const yFor = (c) => pad.t + (1 - (clamp(c, -range, range) + range) / (2 * range)) * plotH;
-
-  // Grille verticale (cents).
-  ctx.font = '10px system-ui';
-  ctx.textAlign = 'right';
-  const step = range <= 5 ? 1 : range <= 10 ? 2 : range <= 25 ? 5 : 10;
-  for (let c = -range; c <= range; c += step) {
-    const y = yFor(c);
-    ctx.strokeStyle = c === 0 ? theme().gridStrong : theme().grid;
-    ctx.lineWidth = c === 0 ? 1.5 : 1;
-    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
-    ctx.fillStyle = theme().dim2;
-    ctx.fillText(String(c), pad.l - 5, y + 3);
-  }
 
   const all = state.history;
   const T = all.length ? all[all.length - 1].t : 0;
-  // La fenêtre visible et la liste des clés de voix ne changent qu'au rythme
-  // des ticks (~12 Hz) : on les met en cache pour ne pas refiltrer tout
-  // l'historique à chaque image (60 fps).
-  if (!state.curveCache) {
+  const rangeSel = $('gaugeRange').value;
+  // La fenêtre visible, les clés de voix ET l'échelle ne changent qu'au
+  // rythme des ticks (~12 Hz) ou d'un changement de réglage : tout est mis
+  // en cache pour ne rien recalculer à 60 fps pendant le survol souris.
+  if (!state.curveCache || state.curveCache.rangeSel !== rangeSel) {
     const hist = all.filter((e) => e.t >= T - HISTORY_SPAN - 0.2);
     const keys = [];
     for (const e of hist) for (const k of Object.keys(e.vals)) if (!keys.includes(k)) keys.push(k);
-    state.curveCache = { hist, keys, T };
+
+    // Échelle : fixe (±5 à ±50 ¢, centrée sur 0) ou automatique — centrée
+    // sur la médiane des valeurs visibles (robuste aux transitoires), avec
+    // la plus petite étendue contenant les données, plafonnée à ±50 ¢ :
+    // au-delà d'un demi-ton, la détection change de note de toute façon.
+    let range;
+    let center = 0;
+    if (rangeSel === 'auto') {
+      const vals = [];
+      for (const e of hist) {
+        for (const k of keys) {
+          const v = e.vals[k];
+          if (v && isFinite(v.c)) vals.push(v.c);
+        }
+      }
+      if (vals.length) {
+        vals.sort((a, b) => a - b);
+        const median = vals[vals.length >> 1];
+        // Centre lissé (EMA, une mise à jour par tick) et arrondi au
+        // demi-cent : un axe stable, qui ne tremble pas.
+        state.centerEMA = state.centerEMA == null ? median
+          : state.centerEMA + 0.25 * (median - state.centerEMA);
+        center = Math.round(state.centerEMA * 2) / 2;
+        let maxDev = 1.5;
+        for (const c of vals) maxDev = Math.max(maxDev, Math.abs(c - center));
+        const steps = [2, 5, 10, 25, 50];
+        range = steps.find((s) => s >= maxDev * 1.05) || 50;
+      } else {
+        state.centerEMA = null;
+        range = 5;
+      }
+      const cLbl = center === 0 ? '' : `${center > 0 ? '+' : ''}${center} `;
+      $('curveRangeLbl').textContent = `auto ${cLbl}±${range} ¢ · ${HISTORY_SPAN} s`;
+    } else {
+      range = Number(rangeSel);
+      $('curveRangeLbl').textContent = `±${range} ¢ · ${HISTORY_SPAN} s`;
+    }
+    state.curveCache = { hist, keys, T, rangeSel, center, range };
   }
-  const { hist, keys } = state.curveCache;
+  const { hist, keys, center, range } = state.curveCache;
   const xFor = (t) => pad.l + plotW * (1 - (T - t) / HISTORY_SPAN);
+  const yFor = (c) => pad.t + (1 - (clamp(c - center, -range, range) + range) / (2 * range)) * plotH;
+
+  // Grille verticale (cents) : lignes sur les multiples absolus du pas, la
+  // ligne de zéro (la cible d'accordage) marquée quand elle est dans le champ.
+  ctx.font = '10px system-ui';
+  ctx.textAlign = 'right';
+  const step = range <= 2 ? 0.5 : range <= 5 ? 1 : range <= 10 ? 2 : range <= 25 ? 5
+    : range <= 50 ? 10 : range <= 100 ? 25 : range <= 200 ? 50 : 100;
+  const gridStart = Math.ceil((center - range) / step) * step;
+  for (let c = gridStart; c <= center + range + 1e-9; c += step) {
+    const cRound = Math.round(c * 2) / 2;
+    const y = yFor(cRound);
+    ctx.strokeStyle = cRound === 0 ? theme().gridStrong : theme().grid;
+    ctx.lineWidth = cRound === 0 ? 1.5 : 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+    ctx.fillStyle = theme().dim2;
+    ctx.fillText(String(cRound), pad.l - 5, y + 3);
+  }
 
   // Grille horizontale (secondes).
   ctx.textAlign = 'center';
@@ -597,9 +673,12 @@ function drawPitchCurve() {
     return;
   }
 
-  // Marqueurs de changement de note (transitions).
+  // Marqueurs de changement de note (transitions). L'étiquette n'est écrite
+  // que si elle ne chevauche pas la précédente — en chant ou jeu rapide, les
+  // notes changent plus vite que la place disponible pour les noms.
   ctx.textAlign = 'left';
   ctx.font = '10px system-ui';
+  let lastLabelEnd = -Infinity;
   for (let i = 1; i < hist.length; i++) {
     if (hist[i].midi !== hist[i - 1].midi && hist[i].midi != null) {
       const x = xFor(hist[i].t);
@@ -608,8 +687,13 @@ function drawPitchCurve() {
       ctx.setLineDash([2, 4]);
       ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, H - pad.b); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.fillStyle = theme().dim;
-      ctx.fillText(noteLabel(hist[i].midi + (cfg.transpose || 0)).full, x + 3, pad.t - 5);
+      const lbl = noteLabel(hist[i].midi + (cfg.transpose || 0)).full;
+      const w = ctx.measureText(lbl).width;
+      if (x + 3 > lastLabelEnd + 6) {
+        ctx.fillStyle = theme().dim;
+        ctx.fillText(lbl, x + 3, pad.t - 5);
+        lastLabelEnd = x + 3 + w;
+      }
     }
   }
 
@@ -899,6 +983,7 @@ function drawPhase() {
     state.phaseCache = { sig, pts: phasePoints(span) };
   }
   const pts = state.phaseCache.pts;
+  updatePressureFit();
   const pad = { l: 44, r: 10, t: 10, b: 26 };
   ctx.font = '10px system-ui';
   if (pts.length < 3) {
@@ -957,6 +1042,46 @@ function drawPhase() {
   ctx.beginPath();
   ctx.arc(px(ax.get(last)), py(ay.get(last)), 3.5, 0, 7);
   ctx.fill();
+}
+
+// Caractéristique pression–hauteur de l'anche : régression linéaire de
+// l'écart (¢) sur l'intensité (dB) — à embouchure fixe, l'intensité croît
+// avec la pression d'alimentation, donc la pente mesure le « flattening »
+// de l'anche (elle baisse quand on pousse). Pour la mesurer : balayer la
+// pression du soufflet en crescendo/decrescendo sur une note tenue.
+function updatePressureFit() {
+  const el = $('pressureFit');
+  if (!el) return;
+  // Utilise l'estimateur rapide (f0, fenêtre ~341 ms) : la mesure fine
+  // traîne derrière un balayage de pression et biaiserait la pente.
+  const span = Number($('phaseSpan').value) || 15;
+  const hist = state.history;
+  const T = hist.length ? hist[hist.length - 1].t : 0;
+  const xs = [], ys = [];
+  for (const e of hist) {
+    if (e.t < T - span || !e.fast) continue;
+    if (isFinite(e.fast.db) && isFinite(e.fast.c)) { xs.push(e.fast.db); ys.push(e.fast.c); }
+  }
+  const n = xs.length;
+  const spread = n ? Math.max(...xs) - Math.min(...xs) : 0;
+  if (n < 15 || spread < 3) {
+    el.classList.remove('measured');
+    el.textContent = 'Balayez la pression du soufflet (crescendo/decrescendo, ≥ 3 dB de plage) pour mesurer la pente fréquence-intensité.';
+    return;
+  }
+  let sx = 0, sy = 0, sxx = 0, sxy = 0, syy = 0;
+  for (let i = 0; i < n; i++) {
+    sx += xs[i]; sy += ys[i];
+    sxx += xs[i] * xs[i]; sxy += xs[i] * ys[i]; syy += ys[i] * ys[i];
+  }
+  const denomX = n * sxx - sx * sx;
+  const denomY = n * syy - sy * sy;
+  if (denomX < 1e-9) return;
+  const slope = (n * sxy - sx * sy) / denomX;
+  const r2 = denomY > 1e-12 ? ((n * sxy - sx * sy) ** 2) / (denomX * denomY) : 0;
+  el.classList.add('measured');
+  el.textContent = `Caractéristique f(I) : ${slope >= 0 ? '+' : ''}${slope.toFixed(2)} ¢/dB `
+    + `· R² ${r2.toFixed(2)} · plage ${spread.toFixed(1)} dB · ${n} points`;
 }
 
 // Export CSV de l'historique complet (120 s) : temps, note, puis fréquence,
