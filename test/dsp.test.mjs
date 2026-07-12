@@ -337,5 +337,32 @@ console.log('\nTest 13 — fusion multi-harmonique : gain de précision sous bru
   assert(errFused <= errSingle + 1e-9, 'la fusion ne dégrade jamais la mesure mono-partiel');
 }
 
+// ---------------------------------------------------------------------------
+console.log('\nTest 14 — taux de croissance exponentiel σ de l\'attaque (parler de l\'anche)');
+{
+  // Le démarrage d'une anche est une instabilité linéaire : A(t) = A0·e^(σt).
+  // On génère une attaque exponentielle à σ = 25 s⁻¹ et on vérifie que
+  // l'ajustement du moteur retrouve σ.
+  const sigmaTrue = 25;
+  const f = 440.0;
+  const n = SR * 5;
+  const sig = new Float32Array(n);
+  const t0 = 1.5;      // début de l'attaque
+  const tFull = t0 + 0.35; // amplitude pleine (0,3) atteinte ici
+  const w = (2 * Math.PI * f) / SR;
+  for (let i = 0; i < n; i++) {
+    const t = i / SR;
+    let amp = 0;
+    if (t >= t0) amp = 0.3 * Math.min(1, Math.exp(sigmaTrue * (t - tFull)));
+    sig[i] = amp * Math.sin(w * i) + 2e-5 * (Math.random() * 2 - 1);
+  }
+  const engine = new Engine(SR, { mode: 'auto', response: 'fast' });
+  const last = run(engine, sig);
+  const a = last?.attack;
+  assert(a?.sigma != null, 'σ mesuré sur l\'attaque');
+  const rel = a?.sigma != null ? Math.abs(a.sigma - sigmaTrue) / sigmaTrue : Infinity;
+  assert(rel < 0.25, `σ mesuré = ${a?.sigma?.toFixed(1)} s⁻¹ (vrai : ${sigmaTrue}, écart ${(rel * 100).toFixed(0)} % < 25 %)`);
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);

@@ -290,7 +290,15 @@ function onTick(t) {
         if (v.tracked) vals[key] = { c: v.dTargetCents, f: v.fMeas, a: v.amp };
       }
     }
-    state.history.push({ t: t.time, midi: t.playedMidi, vals });
+    state.history.push({
+      t: t.time,
+      midi: t.playedMidi,
+      vals,
+      // Paire (écart rapide, intensité) pour la caractéristique f(I).
+      fast: t.f0Cents != null
+        ? { c: t.f0Cents, db: 20 * Math.log10(t.level + 1e-9) }
+        : null,
+    });
     while (state.history.length && state.history[0].t < t.time - HISTORY_KEEP) {
       state.history.shift();
     }
@@ -302,9 +310,11 @@ function onTick(t) {
     state.attacks.unshift(t.attack);
     state.attacks.length = Math.min(state.attacks.length, 6);
     const lbl = t.attack.midi != null ? noteLabel(t.attack.midi + (cfg.transpose || 0)).full : '?';
-    $('attackInfo').innerHTML = `Temps de réponse de l'anche : <b>${t.attack.riseMs.toFixed(0)} ms</b> (10→90 %, ${lbl})`;
+    const sig = t.attack.sigma != null ? ` · σ ≈ ${t.attack.sigma.toFixed(0)} s⁻¹` : '';
+    $('attackInfo').innerHTML = `Temps de réponse de l'anche : <b>${t.attack.riseMs.toFixed(0)} ms</b> (10→90 %, ${lbl})${sig}`;
     $('attackList').innerHTML = state.attacks
-      .map((a) => `<li>${a.midi != null ? noteLabel(a.midi + (cfg.transpose || 0)).full : '?'} — ${a.riseMs.toFixed(0)} ms · ${a.steadyDb.toFixed(0)} dB</li>`)
+      .map((a) => `<li>${a.midi != null ? noteLabel(a.midi + (cfg.transpose || 0)).full : '?'} — ${a.riseMs.toFixed(0)} ms`
+        + `${a.sigma != null ? ` · σ ${a.sigma.toFixed(0)} s⁻¹` : ''} · ${a.steadyDb.toFixed(0)} dB</li>`)
       .join('');
   }
 
@@ -417,7 +427,7 @@ function updateVoicesTable(t) {
     for (const v of g.voices) {
       const lbl = v.def.label || (v.def.fixedMidi != null ? noteLabel(v.def.fixedMidi + (cfg.transpose || 0)).full : 'anche');
       const note = noteLabel(v.midi + (cfg.transpose || 0)).full;
-      voices.push({ v, lbl, note });
+      voices.push({ v, lbl, note, g });
       opts.push({ key: `${g.key}:${v.def.id}`, label: `${lbl} (${note})` });
     }
   }
@@ -431,7 +441,7 @@ function updateVoicesTable(t) {
   }
   if (voices.length) {
     const trs = tbody.rows;
-    voices.forEach(({ v, lbl, note }, i) => {
+    voices.forEach(({ v, lbl, note, g }, i) => {
       const c = trs[i].cells;
       const k = centsClass(v.dTargetCents, cfg.tolCents);
       c[0].textContent = lbl;
@@ -442,7 +452,31 @@ function updateVoicesTable(t) {
       c[4].className = k;
       c[5].textContent = fmt(v.dHz, 3);
       c[5].className = k;
-      c[6].textContent = fmt(v.beatMeas);
+      // Verrouillage par injection : deux anches accrochées oscillent à la
+      // MÊME fréquence — une seule composante spectrale là où deux anches
+      // devraient battre. Signature : voix tremblée (cible ≥ 0,4 Hz) non
+      // détectée alors que la mesure est convergée et que l'anche de
+      // référence est bien là. Second cas (recouvrement partiel) : les deux
+      // détectées mais battement quasi nul.
+      const base = g?.voices.find((x) => x.def.beatSign === 0);
+      const lockedUnison = !v.tracked && v.beat != null && Math.abs(v.beat) >= 0.4
+        && g && g.fill >= 0.999 && base && base !== v && base.tracked;
+      const lockedBeat = v.tracked && v.beat != null && Math.abs(v.beat) >= 0.4
+        && v.beatMeas != null && Math.abs(v.beatMeas) < 0.15;
+      if (lockedUnison) {
+        c[6].textContent = '⚠ verrouillé ?';
+        c[6].className = 'bad';
+        c[6].title = 'Une seule composante détectée là où deux anches devraient battre : '
+          + 'verrouillage probable (couplage) ou anches non résolues — écartez-les avant de conclure.';
+      } else if (lockedBeat) {
+        c[6].textContent = `⚠ ${fmt(v.beatMeas)}`;
+        c[6].className = 'bad';
+        c[6].title = 'Battement quasi nul alors que la cible est non nulle : verrouillage probable des deux anches.';
+      } else {
+        c[6].textContent = fmt(v.beatMeas);
+        c[6].className = '';
+        c[6].title = '';
+      }
       c[7].textContent = v.beat == null ? '—' : v.beat.toFixed(2);
     });
   }
@@ -949,6 +983,7 @@ function drawPhase() {
     state.phaseCache = { sig, pts: phasePoints(span) };
   }
   const pts = state.phaseCache.pts;
+  updatePressureFit();
   const pad = { l: 44, r: 10, t: 10, b: 26 };
   ctx.font = '10px system-ui';
   if (pts.length < 3) {
@@ -1007,6 +1042,46 @@ function drawPhase() {
   ctx.beginPath();
   ctx.arc(px(ax.get(last)), py(ay.get(last)), 3.5, 0, 7);
   ctx.fill();
+}
+
+// Caractéristique pression–hauteur de l'anche : régression linéaire de
+// l'écart (¢) sur l'intensité (dB) — à embouchure fixe, l'intensité croît
+// avec la pression d'alimentation, donc la pente mesure le « flattening »
+// de l'anche (elle baisse quand on pousse). Pour la mesurer : balayer la
+// pression du soufflet en crescendo/decrescendo sur une note tenue.
+function updatePressureFit() {
+  const el = $('pressureFit');
+  if (!el) return;
+  // Utilise l'estimateur rapide (f0, fenêtre ~341 ms) : la mesure fine
+  // traîne derrière un balayage de pression et biaiserait la pente.
+  const span = Number($('phaseSpan').value) || 15;
+  const hist = state.history;
+  const T = hist.length ? hist[hist.length - 1].t : 0;
+  const xs = [], ys = [];
+  for (const e of hist) {
+    if (e.t < T - span || !e.fast) continue;
+    if (isFinite(e.fast.db) && isFinite(e.fast.c)) { xs.push(e.fast.db); ys.push(e.fast.c); }
+  }
+  const n = xs.length;
+  const spread = n ? Math.max(...xs) - Math.min(...xs) : 0;
+  if (n < 15 || spread < 3) {
+    el.classList.remove('measured');
+    el.textContent = 'Balayez la pression du soufflet (crescendo/decrescendo, ≥ 3 dB de plage) pour mesurer la pente fréquence-intensité.';
+    return;
+  }
+  let sx = 0, sy = 0, sxx = 0, sxy = 0, syy = 0;
+  for (let i = 0; i < n; i++) {
+    sx += xs[i]; sy += ys[i];
+    sxx += xs[i] * xs[i]; sxy += xs[i] * ys[i]; syy += ys[i] * ys[i];
+  }
+  const denomX = n * sxx - sx * sx;
+  const denomY = n * syy - sy * sy;
+  if (denomX < 1e-9) return;
+  const slope = (n * sxy - sx * sy) / denomX;
+  const r2 = denomY > 1e-12 ? ((n * sxy - sx * sy) ** 2) / (denomX * denomY) : 0;
+  el.classList.add('measured');
+  el.textContent = `Caractéristique f(I) : ${slope >= 0 ? '+' : ''}${slope.toFixed(2)} ¢/dB `
+    + `· R² ${r2.toFixed(2)} · plage ${spread.toFixed(1)} dB · ${n} points`;
 }
 
 // Export CSV de l'historique complet (120 s) : temps, note, puis fréquence,

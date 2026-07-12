@@ -336,6 +336,8 @@ dialog h2 { margin-top: 0; }
   color: var(--dim);
 }
 #attackInfo b { font-family: var(--mono); color: var(--accent); }
+#pressureFit { font-family: var(--mono); font-size: 12px; color: var(--dim); margin: 6px 0 0; }
+#pressureFit.measured { color: var(--text); }
 #phase { cursor: crosshair; }
 
 /* ---- Soufflet & grille de progression ---- */

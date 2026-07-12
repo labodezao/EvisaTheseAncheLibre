@@ -44,6 +44,7 @@ export class Engine {
     // Détection d'attaque : enveloppe RMS par bloc (~10,7 ms à 48 kHz).
     this.env = [];
     this.quietChunks = 99;
+    this.attackArmed = true;
     this.attackPending = null;
     this.lastAttack = null;
     // Suivi continu : historique de f0 pour détecter une hauteur en
@@ -231,13 +232,18 @@ export class Engine {
     const tNow = this.samplesTotal / this.sr;
     this.env.push({ t: tNow, rms });
     if (this.env.length > 512) this.env.shift();
+    // Armé par un vrai silence (≥ 8 blocs), déclenché au franchissement du
+    // seuil haut. La zone intermédiaire ne désarme pas : une attaque lente
+    // (croissance exponentielle douce) la traverse pendant plusieurs blocs.
     if (rms < gate * 2) {
       this.quietChunks++;
+      if (this.quietChunks >= 8) this.attackArmed = true;
     } else {
-      if (rms > gate * 4 && this.quietChunks >= 8 && !this.attackPending) {
-        this.attackPending = { onsetT: tNow, evalAt: tNow + 1.0 };
-      }
       this.quietChunks = 0;
+      if (rms > gate * 4 && this.attackArmed && !this.attackPending) {
+        this.attackPending = { onsetT: tNow, evalAt: tNow + 1.0 };
+        this.attackArmed = false;
+      }
     }
     if (this.attackPending && tNow >= this.attackPending.evalAt) {
       this.measureAttack(this.attackPending);
@@ -274,9 +280,24 @@ export class Engine {
       if (t10 != null && e.rms >= 0.9 * steady) { t90 = e.t; break; }
     }
     if (t10 != null && t90 != null && t90 >= t10) {
+      // Taux de croissance exponentiel σ : le démarrage d'une anche est une
+      // instabilité linéaire, l'amplitude croît en A·e^(σt) — σ est le
+      // paramètre physique du « parler » de l'anche (ajustement de ln(RMS)
+      // par moindres carrés sur la zone de montée 10 % → 90 %).
+      let sigma = null;
+      let n = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
+      for (const e of this.env) {
+        if (e.t < t10 || e.t > t90 || e.rms <= 0) continue;
+        const x = e.t - onsetT;
+        const y = Math.log(e.rms);
+        n++; sx += x; sy += y; sxx += x * x; sxy += x * y;
+      }
+      const denom = n * sxx - sx * sx;
+      if (n >= 4 && denom > 1e-12) sigma = (n * sxy - sx * sy) / denom;
       this.lastAttack = {
         t: onsetT,
         riseMs: (t90 - t10) * 1000,
+        sigma,
         midi: this.playedMidi,
         steadyDb: 20 * Math.log10(steady + 1e-12),
       };
@@ -466,12 +487,26 @@ export class Engine {
       }
     }
 
+    // Écart rapide de la fondamentale à la note nominale : c'est la donnée
+    // à utiliser pour la caractéristique pression-hauteur f(I) — la mesure
+    // fine (longue fenêtre) traîne derrière un balayage de pression et
+    // biaiserait la pente vers zéro.
+    let f0Cents = null;
+    if (f0 && played != null) {
+      const bn = groups.find((g) => !g.isHarmonic && !g.isSub)?.voices[0]?.nominal;
+      if (bn) {
+        const cts = centsBetween(f0, bn);
+        if (Math.abs(cts) < 120) f0Cents = cts;
+      }
+    }
+
     return {
       type: 'tick',
       time: this.samplesTotal / this.sr,
       level,
       quiet,
       f0,
+      f0Cents,
       playedMidi: played,
       transpose: c.transpose,
       lockNote: c.lockNote ?? null,
@@ -506,6 +541,15 @@ export class Engine {
       : [];
     comps = comps.filter((cp) =>
       expected.some((v) => Math.abs(cp.freq - v.target) < tolHz));
+    // Plancher relatif : un pic à plus de 30 dB sous le plus fort du groupe
+    // est une fuite spectrale ou du bruit, pas une anche — les anches d'un
+    // même ton jouent à quelques dB les unes des autres. (Les bandes
+    // sous-harmoniques, volontairement faibles, ne sont pas concernées.)
+    if (!group.isSub && comps.length > 1) {
+      let mMax = 0;
+      for (const cp of comps) mMax = Math.max(mMax, cp.mag);
+      comps = comps.filter((cp) => cp.mag >= mMax / 31.6);
+    }
     const tolClaim = az ? Math.max(0.08, (0.6 * az.srd) / az.W) : 0.08;
     for (const cp of comps) {
       // Un groupe harmonique mesure par définition une fréquence déjà
