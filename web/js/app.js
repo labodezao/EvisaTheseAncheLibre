@@ -4,7 +4,7 @@
 
 import {
   TEMPERAMENTS, REGISTER_PRESETS, noteLabel, parseNoteList,
-  midiToFreq, voiceTargetFreq, beatTarget, centsClass,
+  midiToFreq, voiceTargetFreq, beatTarget, centsClass, overlappingAllan,
 } from './music.js';
 import { Report } from './report.js';
 
@@ -134,6 +134,7 @@ const state = {
   phaseDirty: true,
   specDirty: true,
   zoomDirty: true,
+  allanDirty: true,
 };
 
 let audioCtx = null;
@@ -1049,6 +1050,109 @@ function drawPhase() {
 // avec la pression d'alimentation, donc la pente mesure le « flattening »
 // de l'anche (elle baisse quand on pousse). Pour la mesurer : balayer la
 // pression du soufflet en crescendo/decrescendo sur une note tenue.
+// Déviation d'Allan σ(τ) de la voix suivie : stabilité de fréquence en
+// fonction du temps d'intégration. Calculée sur la plus longue plage
+// récente à note constante (une note tenue), tracée en log-log.
+function drawAllan() {
+  const cv = $('allan'), ctx = cv.getContext('2d');
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  const pad = { l: 46, r: 10, t: 12, b: 28 };
+  ctx.font = '10px system-ui';
+  ctx.textAlign = 'center';
+
+  // Plus longue plage contiguë récente : même note, voix suivie présente,
+  // pas de trou temporel > 0,4 s.
+  const key = $('gaugeVoice').value || null;
+  const hist = state.history;
+  const seg = [];
+  for (let i = hist.length - 1; i >= 0; i--) {
+    const e = hist[i];
+    const v = key ? e.vals[key] : Object.values(e.vals)[0];
+    if (!v || e.midi == null) break;
+    if (seg.length) {
+      const prev = seg[seg.length - 1];
+      if (prev.midi !== e.midi || prev.t - e.t > 0.4) break;
+    }
+    seg.push({ t: e.t, c: v.c, midi: e.midi });
+  }
+  seg.reverse();
+
+  const info = $('allanInfo');
+  if (seg.length < 16) {
+    ctx.fillStyle = theme().dim2;
+    ctx.fillText('tenez une note stable quelques secondes…', W / 2, H / 2);
+    return;
+  }
+  // Pas d'échantillonnage médian (robuste aux trames manquantes).
+  const dts = [];
+  for (let i = 1; i < seg.length; i++) dts.push(seg[i].t - seg[i - 1].t);
+  dts.sort((a, b) => a - b);
+  const tau0 = dts[dts.length >> 1] || 0.085;
+  const y = seg.map((s) => s.c);
+  const pts = overlappingAllan(y, tau0);
+  if (pts.length < 2) { ctx.fillStyle = theme().dim2; ctx.fillText('…', W / 2, H / 2); return; }
+
+  const xs = pts.map((p) => Math.log10(p.tau));
+  const ys = pts.map((p) => Math.log10(Math.max(p.sigma, 1e-4)));
+  const x0 = Math.min(...xs), x1 = Math.max(...xs) + 1e-6;
+  let y0 = Math.min(...ys), y1 = Math.max(...ys);
+  if (y1 - y0 < 1) { const c = (y0 + y1) / 2; y0 = c - 0.5; y1 = c + 0.5; }
+  y0 -= 0.15; y1 += 0.15;
+  const px = (lx) => pad.l + ((lx - x0) / (x1 - x0)) * (W - pad.l - pad.r);
+  const py = (ly) => H - pad.b - ((ly - y0) / (y1 - y0)) * (H - pad.t - pad.b);
+
+  // Grille décades.
+  ctx.strokeStyle = theme().grid;
+  ctx.fillStyle = theme().dim2;
+  for (let d = Math.floor(x0); d <= x1; d++) {
+    const x = px(d);
+    ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, H - pad.b); ctx.stroke();
+    const s = d < 0 ? `${(10 ** d).toFixed(-d > 2 ? 2 : -d)} s` : `${10 ** d} s`;
+    ctx.fillText(s, x, H - pad.b + 12);
+  }
+  ctx.textAlign = 'right';
+  for (let d = Math.ceil(y0); d <= y1; d++) {
+    const yy = py(d);
+    ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(W - pad.r, yy); ctx.stroke();
+    ctx.fillText(`${10 ** d}¢`, pad.l - 4, yy + 3);
+  }
+  ctx.save();
+  ctx.translate(11, (pad.t + H - pad.b) / 2);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.fillText('σ(τ)', 0, 0);
+  ctx.restore();
+
+  // Courbe σ(τ).
+  ctx.strokeStyle = theme().accent;
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  pts.forEach((p, i) => {
+    const X = px(xs[i]), Y = py(ys[i]);
+    i ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y);
+  });
+  ctx.stroke();
+  ctx.fillStyle = theme().accent;
+  pts.forEach((p, i) => { ctx.beginPath(); ctx.arc(px(xs[i]), py(ys[i]), 2, 0, 7); ctx.fill(); });
+
+  // Repère : minimum de σ (meilleure stabilité) et son τ.
+  let best = 0;
+  for (let i = 1; i < pts.length; i++) if (pts[i].sigma < pts[best].sigma) best = i;
+  const bp = pts[best];
+  if (info) {
+    info.classList.add('measured');
+    info.textContent = `σ min ${bp.sigma.toFixed(bp.sigma < 0.1 ? 3 : 2)} ¢ à τ ≈ ${bp.tau.toFixed(bp.tau < 1 ? 2 : 1)} s `
+      + `· σ(1 s) ${allanAt(pts, 1)} · ${seg.length} points sur ${(seg.length * tau0).toFixed(1)} s`;
+  }
+}
+
+function allanAt(pts, tau) {
+  let b = pts[0];
+  for (const p of pts) if (Math.abs(p.tau - tau) < Math.abs(b.tau - tau)) b = p;
+  return `${b.sigma.toFixed(b.sigma < 0.1 ? 3 : 2)} ¢`;
+}
+
 function updatePressureFit() {
   const el = $('pressureFit');
   if (!el) return;
@@ -1119,6 +1223,7 @@ function markAllDirty() {
   state.phaseDirty = true;
   state.specDirty = true;
   state.zoomDirty = true;
+  state.allanDirty = true;
 }
 
 // Un canvas dans un onglet caché a offsetParent === null : rien à dessiner.
@@ -1150,6 +1255,10 @@ function renderLoop(now) {
       drawZoom();
       state.zoomDirty = false;
     }
+  }
+  if (state.allanDirty && canvasVisible('allan')) {
+    drawAllan();
+    state.allanDirty = false;
   }
   // Le stroboscope est une animation continue : dessiné tant qu'il est
   // visible (sa dérive de phase, elle, n'avance que hors gel).
@@ -1523,8 +1632,18 @@ function updateModeVisibility() {
 // l'écran d'accueil. Chemin relatif : valide aussi si servi depuis un
 // sous-dossier (ex. GitHub Pages de projet).
 if ('serviceWorker' in navigator) {
+  // Rechargement unique quand un nouveau service worker prend la main : la
+  // mise à jour du code arrive sans manipulation, sans boucle de rechargement.
+  let swReloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (swReloaded) return;
+    swReloaded = true;
+    location.reload();
+  });
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => { /* hors ligne indisponible, l'app reste utilisable en ligne */ });
+    navigator.serviceWorker.register('sw.js')
+      .then((reg) => reg.update())
+      .catch(() => { /* hors ligne indisponible, l'app reste utilisable en ligne */ });
   });
 }
 

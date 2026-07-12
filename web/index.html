@@ -79,12 +79,18 @@
       <p class="hint">Écart en cents de chaque anche sur les 15 dernières secondes.
       Cliquez sur la courbe (ou ❄) pour geler ; survolez pour lire les valeurs.</p>
     </div>
-    <div class="panel">
-      <h2>Lecture numérique
-        <span class="hint">justesse exacte des anches/harmoniques choisies</span>
-      </h2>
-      <div id="readoutChips" class="chips"></div>
-      <div id="readoutCards" class="readout-cards"></div>
+    <div class="col-right">
+      <div class="panel">
+        <h2>Lecture numérique
+          <span class="hint">justesse exacte des anches/harmoniques choisies</span>
+        </h2>
+        <div id="readoutChips" class="chips"></div>
+        <div id="readoutCards" class="readout-cards"></div>
+      </div>
+      <div class="panel">
+        <h2>Stroboscope <span class="hint">immobile = juste</span></h2>
+        <canvas id="strobe" width="420" height="90"></canvas>
+      </div>
     </div>
   </div>
 
@@ -107,10 +113,6 @@
         </thead>
         <tbody></tbody>
       </table>
-    </div>
-    <div class="panel">
-      <h2>Stroboscope</h2>
-      <canvas id="strobe" width="420" height="90"></canvas>
     </div>
     <div class="panel">
       <h2>Spectre 20 Hz – 10 kHz</h2>
@@ -159,6 +161,16 @@
       <p class="hint">Sous ce niveau d'entrée, l'horloge se gèle : les traqueurs et la
       courbe s'arrêtent, la mesure reste affichée. L'export CSV couvre les
       120 dernières secondes (temps, fréquence, écart ¢ et intensité dB par voix).</p>
+    </div>
+    <div class="panel">
+      <h2>Stabilité — déviation d'Allan σ(τ)
+        <button class="fsbtn" data-fs title="Plein écran">⛶</button>
+      </h2>
+      <canvas id="allan" width="420" height="240"></canvas>
+      <p id="allanInfo" class="hint">Tenez une note stable : σ(τ) mesure la
+      stabilité de fréquence selon le temps d'intégration τ. Pente −½ = bruit
+      blanc (moyenner aide) ; plancher puis remontée = dérive ou marche
+      aléatoire (souffle, thermique) — le creux donne le τ d'intégration optimal.</p>
     </div>
     <div class="panel">
       <h2>Générateur de sons</h2>

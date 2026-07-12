@@ -98,6 +98,15 @@ stochastiques et des bifurcations non linéaires des anches libres.
 - **Plancher d'appariement −30 dB** : un pic à plus de 30 dB sous le plus
   fort du groupe est une fuite spectrale, pas une anche.
 
+- **Déviation d'Allan σ(τ)** (onglet Analyse) : stabilité de fréquence de la
+  voix suivie en fonction du temps d'intégration τ, calculée en overlapping
+  sur la plus longue plage récente à note constante, tracée en log-log.
+  Lecture : pente −½ = bruit blanc de fréquence (moyenner améliore) ;
+  plancher puis remontée = marche aléatoire / dérive (turbulence du souffle,
+  thermique) ; le creux donne le τ d'intégration optimal (σ min affiché avec
+  son τ, plus σ(1 s)). Estimateur validé sur bruit blanc (pente mesurée
+  −0,494 pour −0,5 théorique).
+
 ## 3. Feuille de route : stochastique et bifurcations
 
 Fonctionnalités proposées (par ordre coût/bénéfice croissant), toutes

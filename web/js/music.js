@@ -80,6 +80,43 @@ export function centsClass(c, tol = 1) {
   return 'bad';
 }
 
+// Déviation d'Allan « overlapping » d'une série de valeurs (ici l'écart en
+// cents, proportionnel à la fréquence fractionnaire). σ(τ) caractérise la
+// stabilité de fréquence selon le temps d'intégration τ = m·τ0, et sépare
+// les types de bruit (pente −½ : bruit blanc de fréquence ; plancher puis
+// remontée : marche aléatoire / dérive). Estimateur overlapping standard :
+//   ȳ_j(m) = moyenne de m échantillons consécutifs
+//   σ²(m) = 1/(2(N−2m+1)) Σ_j (ȳ_{j+m}(m) − ȳ_j(m))²
+// Retourne [{ tau, sigma }] pour des m en progression ~logarithmique.
+export function overlappingAllan(y, tau0) {
+  const N = y.length;
+  if (N < 8 || !(tau0 > 0)) return [];
+  // Sommes cumulées pour des moyennes glissantes en O(1).
+  const cum = new Float64Array(N + 1);
+  for (let i = 0; i < N; i++) cum[i + 1] = cum[i] + y[i];
+  const avg = (j, m) => (cum[j + m] - cum[j]) / m; // moyenne de y[j..j+m-1]
+  const out = [];
+  const mMax = Math.floor((N - 1) / 2);
+  let m = 1;
+  let lastM = 0;
+  while (m <= mMax) {
+    if (m !== lastM) {
+      const K = N - 2 * m + 1;
+      let s = 0;
+      for (let j = 0; j < K; j++) {
+        const d = avg(j + m, m) - avg(j, m);
+        s += d * d;
+      }
+      const variance = s / (2 * K);
+      out.push({ tau: m * tau0, sigma: Math.sqrt(variance) });
+      lastM = m;
+    }
+    // Progression logarithmique (~1,3×) pour un tracé lisible et léger.
+    m = Math.max(m + 1, Math.floor(m * 1.3));
+  }
+  return out;
+}
+
 export function noteLabel(midi, lang = 'fr') {
   const pc = ((midi % 12) + 12) % 12;
   const oct = Math.floor(midi / 12) - 1;
