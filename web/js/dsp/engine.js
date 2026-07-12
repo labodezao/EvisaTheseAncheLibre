@@ -24,6 +24,7 @@ export class Engine {
       register: 'MM',
       manualNotes: null,       // [midi, ...] en mode manuel
       trackHarmonics: 0,       // suit les partiels 2..n de chaque note (hors registre)
+      fuseHarmonics: true,     // fusion multi-harmonique cohérente (mode auto)
       trackSub: false,         // bandes f/2 et 3f/2 (détection de bifurcation)
       lockNote: null,          // note MIDI imposée (désactive la détection)
       gateDb: -70,             // seuil de silence : gèle traqueurs et horloge
@@ -178,6 +179,40 @@ export class Engine {
         }
       }
     }
+
+    // Fusion multi-harmonique (mode auto) : une anche libre en régime établi
+    // est strictement périodique, donc ses partiels exactement harmoniques —
+    // mesurer plusieurs partiels et fusionner leurs fréquences (ramenées à
+    // la fondamentale) multiplie la précision, la variance d'un partiel k
+    // s'améliorant en k². Des traqueurs cachés suivent les partiels 2..4
+    // quand ils ne sont pas déjà affichés via « harmoniques suivies ».
+    if (c.mode === 'auto' && c.fuseHarmonics !== false) {
+      for (const g of groups.slice()) {
+        if (g.isHarmonic || g.isSub) continue;
+        for (let k = 2; k <= 4; k++) {
+          if (k === g.kTrack) continue;
+          if (g.center * k > 9500) break;
+          const exists = groups.some((x) => x.isHarmonic && !x.isSub
+            && x.center === g.center && x.kTrack === k);
+          if (exists) continue;
+          groups.push({
+            key: `${g.key}h${k}x`,
+            center: g.center,
+            kTrack: k,
+            fc: g.center * k,
+            isHarmonic: true,
+            hidden: true, // sert à la fusion, pas à l'affichage
+            voices: [{
+              def: { id: `H${k}`, label: `H${k}`, oct: 0, beatSign: 0 },
+              midi: g.voices[0].midi,
+              nominal: g.center * k,
+              beat: 0,
+              target: g.center * k,
+            }],
+          });
+        }
+      }
+    }
     return groups;
   }
 
@@ -326,6 +361,7 @@ export class Engine {
         fc: g.fc,
         isHarmonic: !!g.isHarmonic,
         isSub: !!g.isSub,
+        hidden: !!g.hidden,
         srd: t.srd,
         W: az?.W ?? 0,
         fill: az?.fill ?? 0,
@@ -350,7 +386,13 @@ export class Engine {
       const tNow = this.samplesTotal / this.sr;
       this.f0Hist.push({ t: tNow, f: f0 });
       while (this.f0Hist.length && this.f0Hist[0].t < tNow - 1.2) this.f0Hist.shift();
-      const ref = this.f0Hist.find((e) => e.t <= tNow - 0.5);
+      // Référence = l'échantillon le plus récent vieux d'au moins 0,5 s
+      // (recherche depuis la fin — le premier match depuis le début serait
+      // le plus ancien de la fenêtre, jusqu'à 1,2 s, et biaiserait la dérive).
+      let ref = null;
+      for (let i = this.f0Hist.length - 1; i >= 0; i--) {
+        if (this.f0Hist[i].t <= tNow - 0.5) { ref = this.f0Hist[i]; break; }
+      }
       const drift = ref ? Math.abs(centsBetween(f0, ref.f)) : 0;
       if (drift > 5) {
         // La hauteur bouge : la longue fenêtre du zoom moyenne le mouvement
@@ -370,6 +412,41 @@ export class Engine {
         v.tracked = true;
         v.coarse = true; // estimation rapide, pas la mesure fine du zoom
         v.beatMeas = 0;
+      }
+    }
+
+    // Fusion multi-harmonique cohérente : les fréquences des partiels
+    // (ramenées à la fondamentale) sont combinées avec des poids ∝ (A·k)² —
+    // la variance d'une mesure au partiel k s'améliore en k². Seuls les
+    // partiels cohérents avec le modèle harmonique (< 1,5 cent de la
+    // fondamentale mesurée) participent : les partiels étirés d'une anche
+    // inharmonique sont écartés d'office, la robustesse est préservée.
+    if (c.mode === 'auto' && c.fuseHarmonics !== false && !quiet) {
+      const base = groups.find((gr) => !gr.isHarmonic && !gr.isSub);
+      const bv = base?.voices[0];
+      if (bv?.tracked && !bv.coarse) {
+        const wBase = (bv.amp * (base.kTrack || 1)) ** 2;
+        let num = wBase * bv.fMeas;
+        let den = wBase;
+        let nFused = 1;
+        for (const g of groups) {
+          if (!g.isHarmonic || g.isSub) continue;
+          const v = g.voices[0];
+          if (!v?.tracked) continue;
+          const fEq = v.fMeas / g.kTrack; // fMeas en domaine du partiel
+          if (Math.abs(centsBetween(fEq, bv.fMeas)) > 1.5) continue;
+          const w = (v.amp * g.kTrack) ** 2;
+          num += w * fEq;
+          den += w;
+          nFused++;
+        }
+        if (nFused > 1) {
+          bv.fMeas = num / den;
+          bv.dCents = centsBetween(bv.fMeas, bv.nominal);
+          bv.dHz = bv.fMeas - bv.nominal;
+          bv.dTargetCents = centsBetween(bv.fMeas, bv.target);
+          bv.fusedN = nFused;
+        }
       }
     }
 
@@ -399,7 +476,9 @@ export class Engine {
       transpose: c.transpose,
       lockNote: c.lockNote ?? null,
       attack: this.lastAttack,
-      groups,
+      // Les groupes cachés (traqueurs de fusion) ne sont pas transmis :
+      // ils servent au calcul, pas à l'affichage.
+      groups: groups.filter((g) => !g.hidden),
       coarseSpectrum: coarse ? logResample(coarse.mag, coarse.binHz, 1024) : null,
     };
   }

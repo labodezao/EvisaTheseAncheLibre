@@ -301,5 +301,41 @@ console.log('\nTest 12 — suivi continu : glissando vocal (+40 cents en 4 s), c
   assert(Math.abs(finalCents - 40) < 4, `hauteur finale suivie à ${finalCents.toFixed(1)} cents (+40 attendu, ±4)`);
 }
 
+// ---------------------------------------------------------------------------
+console.log('\nTest 13 — fusion multi-harmonique : gain de précision sous bruit fort');
+{
+  // Modèle physique : une anche en régime établi est strictement périodique,
+  // ses partiels exactement harmoniques — fusionner les mesures de plusieurs
+  // partiels (variance en 1/k²) doit battre la mesure mono-partiel.
+  const fTrue = 440.13;
+  const n = SR * 4;
+  const makeSig = () => {
+    const sig = new Float32Array(n);
+    const harmonics = [0.5, 0.8, 0.6, 0.45];
+    for (let h = 0; h < harmonics.length; h++) {
+      const w = (2 * Math.PI * fTrue * (h + 1)) / SR;
+      for (let i = 0; i < n; i++) sig[i] += 0.08 * harmonics[h] * Math.sin(w * i + h);
+    }
+    // Bruit déterministe (LCG) pour un test reproductible, niveau élevé.
+    let seed = 123456789;
+    for (let i = 0; i < n; i++) {
+      seed = (1103515245 * seed + 12345) & 0x7fffffff;
+      sig[i] += 0.03 * (seed / 0x40000000 - 1);
+    }
+    return sig;
+  };
+  const run2 = (fuse) => {
+    const engine = new Engine(SR, { mode: 'auto', response: 'normal', fuseHarmonics: fuse });
+    const last = run(engine, makeSig());
+    const v = last.groups[0]?.voices[0];
+    return v?.tracked ? Math.abs(cents(v.fMeas, fTrue)) : Infinity;
+  };
+  const errFused = run2(true);
+  const errSingle = run2(false);
+  console.log(`  erreur mono-partiel : ${errSingle.toFixed(4)} ¢ · fusionnée : ${errFused.toFixed(4)} ¢`);
+  assert(errFused < 0.1, `erreur fusionnée = ${errFused.toFixed(4)} cent (< 0,1 requis malgré le bruit)`);
+  assert(errFused <= errSingle + 1e-9, 'la fusion ne dégrade jamais la mesure mono-partiel');
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);

@@ -554,56 +554,55 @@ function drawPitchCurve() {
 
   const all = state.history;
   const T = all.length ? all[all.length - 1].t : 0;
-  // La fenêtre visible et la liste des clés de voix ne changent qu'au rythme
-  // des ticks (~12 Hz) : on les met en cache pour ne pas refiltrer tout
-  // l'historique à chaque image (60 fps).
-  if (!state.curveCache) {
+  const rangeSel = $('gaugeRange').value;
+  // La fenêtre visible, les clés de voix ET l'échelle ne changent qu'au
+  // rythme des ticks (~12 Hz) ou d'un changement de réglage : tout est mis
+  // en cache pour ne rien recalculer à 60 fps pendant le survol souris.
+  if (!state.curveCache || state.curveCache.rangeSel !== rangeSel) {
     const hist = all.filter((e) => e.t >= T - HISTORY_SPAN - 0.2);
     const keys = [];
     for (const e of hist) for (const k of Object.keys(e.vals)) if (!keys.includes(k)) keys.push(k);
-    state.curveCache = { hist, keys, T };
-  }
-  const { hist, keys } = state.curveCache;
-  const xFor = (t) => pad.l + plotW * (1 - (T - t) / HISTORY_SPAN);
 
-  // Échelle : fixe (±5 à ±50 ¢, centrée sur 0) ou automatique — centrée sur
-  // la médiane des valeurs visibles (robuste aux transitoires d'attaque),
-  // avec la plus petite étendue qui contient toutes les données. Quand la
-  // hauteur vit loin du zéro (voix à +40 ¢, anche très désaccordée), le
-  // détail reste lisible au lieu de laisser la moitié du graphe vide.
-  const rangeSel = $('gaugeRange').value;
-  let range;
-  let center = 0;
-  if (rangeSel === 'auto') {
-    const vals = [];
-    for (const e of hist) {
-      for (const k of keys) {
-        const v = e.vals[k];
-        if (v && isFinite(v.c)) vals.push(v.c);
+    // Échelle : fixe (±5 à ±50 ¢, centrée sur 0) ou automatique — centrée
+    // sur la médiane des valeurs visibles (robuste aux transitoires), avec
+    // la plus petite étendue contenant les données, plafonnée à ±50 ¢ :
+    // au-delà d'un demi-ton, la détection change de note de toute façon.
+    let range;
+    let center = 0;
+    if (rangeSel === 'auto') {
+      const vals = [];
+      for (const e of hist) {
+        for (const k of keys) {
+          const v = e.vals[k];
+          if (v && isFinite(v.c)) vals.push(v.c);
+        }
       }
-    }
-    if (vals.length) {
-      vals.sort((a, b) => a - b);
-      const median = vals[vals.length >> 1];
-      // Centre lissé (EMA) et arrondi au demi-cent : un axe stable, qui ne
-      // tremble pas à chaque tick.
-      state.centerEMA = state.centerEMA == null ? median
-        : state.centerEMA + 0.25 * (median - state.centerEMA);
-      center = Math.round(state.centerEMA * 2) / 2;
-      let maxDev = 1.5;
-      for (const c of vals) maxDev = Math.max(maxDev, Math.abs(c - center));
-      const steps = [2, 5, 10, 25, 50, 100, 200, 400];
-      range = steps.find((s) => s >= maxDev * 1.05) || 400;
+      if (vals.length) {
+        vals.sort((a, b) => a - b);
+        const median = vals[vals.length >> 1];
+        // Centre lissé (EMA, une mise à jour par tick) et arrondi au
+        // demi-cent : un axe stable, qui ne tremble pas.
+        state.centerEMA = state.centerEMA == null ? median
+          : state.centerEMA + 0.25 * (median - state.centerEMA);
+        center = Math.round(state.centerEMA * 2) / 2;
+        let maxDev = 1.5;
+        for (const c of vals) maxDev = Math.max(maxDev, Math.abs(c - center));
+        const steps = [2, 5, 10, 25, 50];
+        range = steps.find((s) => s >= maxDev * 1.05) || 50;
+      } else {
+        state.centerEMA = null;
+        range = 5;
+      }
+      const cLbl = center === 0 ? '' : `${center > 0 ? '+' : ''}${center} `;
+      $('curveRangeLbl').textContent = `auto ${cLbl}±${range} ¢ · ${HISTORY_SPAN} s`;
     } else {
-      state.centerEMA = null;
-      range = 5;
+      range = Number(rangeSel);
+      $('curveRangeLbl').textContent = `±${range} ¢ · ${HISTORY_SPAN} s`;
     }
-    const cLbl = center === 0 ? '' : `${center > 0 ? '+' : ''}${center} `;
-    $('curveRangeLbl').textContent = `auto ${cLbl}±${range} ¢ · ${HISTORY_SPAN} s`;
-  } else {
-    range = Number(rangeSel);
-    $('curveRangeLbl').textContent = `±${range} ¢ · ${HISTORY_SPAN} s`;
+    state.curveCache = { hist, keys, T, rangeSel, center, range };
   }
+  const { hist, keys, center, range } = state.curveCache;
+  const xFor = (t) => pad.l + plotW * (1 - (T - t) / HISTORY_SPAN);
   const yFor = (c) => pad.t + (1 - (clamp(c - center, -range, range) + range) / (2 * range)) * plotH;
 
   // Grille verticale (cents) : lignes sur les multiples absolus du pas, la
