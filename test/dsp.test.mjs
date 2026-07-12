@@ -2,7 +2,7 @@
 // Exécution : node test/dsp.test.mjs
 
 import { Engine } from '../web/js/dsp/engine.js';
-import { midiToFreq, noteLabel } from '../web/js/music.js';
+import { midiToFreq, noteLabel, overlappingAllan } from '../web/js/music.js';
 
 const SR = 48000;
 let failures = 0;
@@ -362,6 +362,31 @@ console.log('\nTest 14 — taux de croissance exponentiel σ de l\'attaque (parl
   assert(a?.sigma != null, 'σ mesuré sur l\'attaque');
   const rel = a?.sigma != null ? Math.abs(a.sigma - sigmaTrue) / sigmaTrue : Infinity;
   assert(rel < 0.25, `σ mesuré = ${a?.sigma?.toFixed(1)} s⁻¹ (vrai : ${sigmaTrue}, écart ${(rel * 100).toFixed(0)} % < 25 %)`);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nTest 15 — déviation d\'Allan : bruit blanc de fréquence → pente −½');
+{
+  // Signal de fréquence = bruit blanc gaussien : la déviation d'Allan doit
+  // décroître en τ^(−1/2), soit une pente −0,5 en log-log.
+  const N = 4000;
+  const tau0 = 0.085;
+  const y = new Float64Array(N);
+  let seed = 987654321;
+  const rnd = () => { seed = (1103515245 * seed + 12345) & 0x7fffffff; return seed / 0x40000000 - 1; };
+  // Bruit gaussien approché (somme de 3 uniformes).
+  for (let i = 0; i < N; i++) y[i] = (rnd() + rnd() + rnd());
+  const pts = overlappingAllan(y, tau0);
+  assert(pts.length > 5, `${pts.length} points de τ calculés`);
+  // Régression log-log sur les τ intermédiaires (évite les bords).
+  const use = pts.filter((p) => p.tau >= 3 * tau0 && p.tau <= 30 * tau0);
+  let sx = 0, sy = 0, sxx = 0, sxy = 0, k = 0;
+  for (const p of use) {
+    const lx = Math.log10(p.tau), ly = Math.log10(p.sigma);
+    sx += lx; sy += ly; sxx += lx * lx; sxy += lx * ly; k++;
+  }
+  const slope = (k * sxy - sx * sy) / (k * sxx - sx * sx);
+  assert(Math.abs(slope - (-0.5)) < 0.12, `pente log-log = ${slope.toFixed(3)} (attendu −0,5, bruit blanc)`);
 }
 
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);

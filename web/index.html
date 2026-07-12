@@ -161,6 +161,16 @@
       120 dernières secondes (temps, fréquence, écart ¢ et intensité dB par voix).</p>
     </div>
     <div class="panel">
+      <h2>Stabilité — déviation d'Allan σ(τ)
+        <button class="fsbtn" data-fs title="Plein écran">⛶</button>
+      </h2>
+      <canvas id="allan" width="420" height="240"></canvas>
+      <p id="allanInfo" class="hint">Tenez une note stable : σ(τ) mesure la
+      stabilité de fréquence selon le temps d'intégration τ. Pente −½ = bruit
+      blanc (moyenner aide) ; plancher puis remontée = dérive ou marche
+      aléatoire (souffle, thermique) — le creux donne le τ d'intégration optimal.</p>
+    </div>
+    <div class="panel">
       <h2>Générateur de sons</h2>
       <div class="row gap">
         <button id="btnTone">♪ Jouer la cible</button>
