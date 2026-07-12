@@ -1523,8 +1523,18 @@ function updateModeVisibility() {
 // l'écran d'accueil. Chemin relatif : valide aussi si servi depuis un
 // sous-dossier (ex. GitHub Pages de projet).
 if ('serviceWorker' in navigator) {
+  // Rechargement unique quand un nouveau service worker prend la main : la
+  // mise à jour du code arrive sans manipulation, sans boucle de rechargement.
+  let swReloaded = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (swReloaded) return;
+    swReloaded = true;
+    location.reload();
+  });
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => { /* hors ligne indisponible, l'app reste utilisable en ligne */ });
+    navigator.serviceWorker.register('sw.js')
+      .then((reg) => reg.update())
+      .catch(() => { /* hors ligne indisponible, l'app reste utilisable en ligne */ });
   });
 }
 

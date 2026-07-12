@@ -230,6 +230,16 @@ main { padding: 12px; }
   .level-wrap { display: none; }
   .top-actions button { padding: 5px 8px; font-size: 11.5px; }
   #tabbar .tab { padding: 8px 10px; font-size: 12px; }
+
+  /* Tableau « Anches mesurées » : sur petit écran, on masque les colonnes
+     secondaires (Cible Hz, Écart Hz, Cible batt.) pour qu'il tienne sans
+     débordement horizontal. L'essentiel reste : Voix, Note, Mesure, Écart ¢,
+     Battement. Le détail complet reste lisible sur desktop et à l'export. */
+  #voicesTable th:nth-child(3), #voicesTable td:nth-child(3),
+  #voicesTable th:nth-child(6), #voicesTable td:nth-child(6),
+  #voicesTable th:nth-child(8), #voicesTable td:nth-child(8) { display: none; }
+  #voicesTable { font-size: 11.5px; }
+  #voicesTable th, #voicesTable td { padding: 4px 5px; }
 }
 
 .panel {
