@@ -369,10 +369,15 @@ export class Engine {
         const tNow = this.samplesTotal / this.sr;
         const need = this.playedMidi == null ? 2 : 3;
         const held = tNow - (this.lastSwitchT ?? -1e9) < 0.2;
+        // Une vraie note s'établit avec de l'énergie : ne pas basculer sur le
+        // bruit d'un extinction (vibration libre décroissante) où la détection
+        // part sur des harmoniques isolées (fausses notes très aiguës). La note
+        // tenue persiste tant que le niveau est faible.
+        const loud = level > this.gate * 4;
         if (midi === this.playedMidi) {
           this.candCount = 0;
         } else if (midi === this.candMidi) {
-          if (++this.candCount >= need && !held) {
+          if (++this.candCount >= need && !held && loud) {
             this.playedMidi = midi;
             this.candCount = 0;
             this.lastSwitchT = tNow;
