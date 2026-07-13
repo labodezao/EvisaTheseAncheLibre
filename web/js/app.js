@@ -104,6 +104,14 @@ function colorFor(key) {
   return p[i % p.length];
 }
 
+// Couleur hex '#rrggbb' → rgba avec transparence (pour estomper les notes
+// passées sur la courbe).
+function hexA(hex, a) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
+}
+
 const state = {
   running: false,
   frozen: false,
@@ -598,15 +606,21 @@ function drawPitchCurve() {
     const keys = [];
     for (const e of hist) for (const k of Object.keys(e.vals)) if (!keys.includes(k)) keys.push(k);
 
+    // Note courante = celle du dernier échantillon. L'échelle auto se
+    // concentre sur elle (pas sur les notes passées, qui ont chacune leur
+    // propre référence et écraseraient la lecture de la note en cours).
+    const curMidi = hist.length ? hist[hist.length - 1].midi : null;
+
     // Échelle : fixe (±5 à ±50 ¢, centrée sur 0) ou automatique — centrée
-    // sur la médiane des valeurs visibles (robuste aux transitoires), avec
-    // la plus petite étendue contenant les données, plafonnée à ±50 ¢ :
-    // au-delà d'un demi-ton, la détection change de note de toute façon.
+    // sur la médiane des valeurs de la NOTE COURANTE, plus petite étendue
+    // qui les contient, plafonnée à ±50 ¢. Au changement de note, l'axe se
+    // recale immédiatement (pas de lissage qui traînerait entre deux notes).
     let range;
     let center = 0;
     if (rangeSel === 'auto') {
       const vals = [];
       for (const e of hist) {
+        if (curMidi != null && e.midi !== curMidi) continue;
         for (const k of keys) {
           const v = e.vals[k];
           if (v && isFinite(v.c)) vals.push(v.c);
@@ -615,15 +629,22 @@ function drawPitchCurve() {
       if (vals.length) {
         vals.sort((a, b) => a - b);
         const median = vals[vals.length >> 1];
-        // Centre lissé (EMA, une mise à jour par tick) et arrondi au
-        // demi-cent : un axe stable, qui ne tremble pas.
-        state.centerEMA = state.centerEMA == null ? median
-          : state.centerEMA + 0.25 * (median - state.centerEMA);
+        // EMA remis à la médiane dès que la note change (recalage immédiat).
+        if (state.centerEMA == null || state.centerMidi !== curMidi) {
+          state.centerEMA = median;
+          state.centerMidi = curMidi;
+        } else {
+          state.centerEMA += 0.3 * (median - state.centerEMA);
+        }
         center = Math.round(state.centerEMA * 2) / 2;
-        let maxDev = 1.5;
-        for (const c of vals) maxDev = Math.max(maxDev, Math.abs(c - center));
+        // Étendue robuste : 90e percentile des écarts au centre (pas le max),
+        // pour que les brefs pics transitoires d'attaque ne fassent pas sauter
+        // l'échelle à ±50 — ils débordent en haut, la partie stable reste lisible.
+        const devs = vals.map((v) => Math.abs(v - center)).sort((a, b) => a - b);
+        const p90 = devs[Math.min(devs.length - 1, Math.floor(devs.length * 0.9))] || 1.5;
+        const maxDev = Math.max(1.5, p90);
         const steps = [2, 5, 10, 25, 50];
-        range = steps.find((s) => s >= maxDev * 1.05) || 50;
+        range = steps.find((s) => s >= maxDev * 1.15) || 50;
       } else {
         state.centerEMA = null;
         range = 5;
@@ -634,9 +655,9 @@ function drawPitchCurve() {
       range = Number(rangeSel);
       $('curveRangeLbl').textContent = `±${range} ¢ · ${HISTORY_SPAN} s`;
     }
-    state.curveCache = { hist, keys, T, rangeSel, center, range };
+    state.curveCache = { hist, keys, T, rangeSel, center, range, curMidi };
   }
-  const { hist, keys, center, range } = state.curveCache;
+  const { hist, keys, center, range, curMidi } = state.curveCache;
   const xFor = (t) => pad.l + plotW * (1 - (T - t) / HISTORY_SPAN);
   const yFor = (c) => pad.t + (1 - (clamp(c - center, -range, range) + range) / (2 * range)) * plotH;
 
@@ -698,28 +719,42 @@ function drawPitchCurve() {
     }
   }
 
-  // Traces (une par anche), la voix suivie en gras.
+  // Traces (une par anche), la voix suivie en gras. Le trait est CASSÉ à
+  // chaque changement de note (chaque note a sa propre référence : les
+  // relier créerait des sauts verticaux illisibles) et aux trous de temps.
+  // Les segments des notes passées sont estompés pour que la note courante
+  // — celle qu'on accorde — ressorte nettement.
   const selKey = $('gaugeVoice').value;
   let legendX = pad.l + 4;
   let legendY = 4;
   keys.forEach((k) => {
     const col = colorFor(k);
-    ctx.strokeStyle = col;
-    ctx.lineWidth = k === selKey ? 2.4 : 1.3;
-    ctx.beginPath();
-    let started = false, prevT = null;
+    const baseW = k === selKey ? 2.4 : 1.3;
+    let seg = [];          // segment courant : liste de {x, y}
+    let segMidi = null;
+    let prevT = null;
+    const flush = () => {
+      if (seg.length < 1) return;
+      const past = segMidi !== curMidi;
+      ctx.strokeStyle = past ? hexA(col, 0.22) : col;
+      ctx.lineWidth = past ? Math.max(1, baseW - 0.6) : baseW;
+      ctx.beginPath();
+      seg.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
+      if (seg.length === 1) { ctx.arc(seg[0].x, seg[0].y, baseW / 2, 0, 7); ctx.fill(); }
+      else ctx.stroke();
+      seg = [];
+    };
     for (const e of hist) {
       const v = e.vals[k];
-      if (!v) { started = false; continue; }
-      if (prevT != null && e.t - prevT > 0.6) started = false;
+      if (!v) { flush(); prevT = null; continue; }
+      if (seg.length && (e.midi !== segMidi || (prevT != null && e.t - prevT > 0.5))) flush();
       const x = xFor(e.t);
       prevT = e.t;
       if (x < pad.l) continue;
-      const y = yFor(v.c);
-      started ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
-      started = true;
+      if (!seg.length) segMidi = e.midi;
+      seg.push({ x, y: yFor(v.c) });
     }
-    ctx.stroke();
+    flush();
     // Légende (passe sur une deuxième ligne si nécessaire).
     const lbl = state.voiceLabels.get(k) || k;
     const wLbl = 20 + ctx.measureText(lbl).width;
