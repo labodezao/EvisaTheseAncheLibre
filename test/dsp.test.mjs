@@ -4,6 +4,7 @@
 import { Engine } from '../web/js/dsp/engine.js';
 import { NsdfTracker } from '../web/js/dsp/nsdf.js';
 import { matrixPencil } from '../web/js/dsp/subspace.js';
+import { CoarseAnalyzer } from '../web/js/dsp/coarse.js';
 import { midiToFreq, noteLabel, overlappingAllan } from '../web/js/music.js';
 
 const SR = 48000;
@@ -558,6 +559,28 @@ console.log('\nTest 21 — le moteur sépare un unisson tremblé via Matrix Penc
   const near = (f) => sub.some((c) => Math.abs(c.freq - f) < 0.35);
   assert(sub.length >= 2 && near(440.0) && near(441.2),
     `sous-espaces : ${sub.map((c) => c.freq.toFixed(2)).join(' & ')} Hz (vraies 440,0 & 441,2)`);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nTest 22 — hystérésis de note : la note tenue résiste à une bascule de quinte');
+{
+  // Spectre ambigu Sol3 (196 Hz) / Do2 (65,4 Hz) : Sol3 = 3·Do2, piège de
+  // quinte classique des anches réelles. Partiels forts de Sol3 + fondamentales
+  // faibles de Do2 : sans hystérésis le détecteur bascule vers Do2 (erreur),
+  // avec la note tenue en référence il conserve la bonne note.
+  const ca = new CoarseAnalyzer(48000);
+  const sol = midiToFreq(55), doo = midiToFreq(36);
+  const peaks = [
+    { freq: sol, mag: 1.0 }, { freq: 2 * sol, mag: 0.7 }, { freq: 3 * sol, mag: 0.5 },
+    { freq: 4 * sol, mag: 0.3 }, { freq: doo, mag: 0.7 }, { freq: 2 * doo, mag: 0.56 },
+  ].sort((a, b) => b.mag - a.mag);
+  const toMidi = (f) => Math.round(69 + 12 * Math.log2(f / 440));
+  const none = toMidi(ca.detectF0(peaks, null).freq);
+  const holdSol = toMidi(ca.detectF0(peaks, sol).freq);
+  const holdDo = toMidi(ca.detectF0(peaks, doo).freq);
+  assert(none === 36, `sans hystérésis : erreur de quinte vers ${noteLabel(none).full} (Do2 attendu, démontre le piège)`);
+  assert(holdSol === 55, `Sol3 tenu → conservé (obtenu ${noteLabel(holdSol).full})`);
+  assert(holdDo === 36, `Do2 tenu → conservé (obtenu ${noteLabel(holdDo).full})`);
 }
 
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);

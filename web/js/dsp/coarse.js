@@ -38,7 +38,9 @@ export class CoarseAnalyzer {
   ready() { return this.filled >= this.win; }
 
   // Analyse le contenu courant : spectre, pics, fondamentale.
-  analyze() {
+  // `priorF0` (Hz) : note tenue courante — sert d'hystérésis pour éviter les
+  // bascules d'octave/quinte sur une anche réelle riche en partiels.
+  analyze(priorF0 = null) {
     if (!this.ready()) return null;
     const { win, fftSize, re, im, hann, ring, wpos } = this;
     for (let i = 0; i < win; i++) {
@@ -53,7 +55,7 @@ export class CoarseAnalyzer {
     for (let i = 0; i < nBins; i++) mag[i] = Math.hypot(re[i], im[i]);
 
     const peaks = this.findPeaks(mag);
-    const f0 = this.detectF0(peaks);
+    const f0 = this.detectF0(peaks, priorF0);
     return { peaks, f0, mag, binHz: this.binHz };
   }
 
@@ -96,7 +98,7 @@ export class CoarseAnalyzer {
     return peaks.slice(0, 48);
   }
 
-  detectF0(peaks) {
+  detectF0(peaks, priorF0 = null) {
     if (!peaks.length) return null;
     const top = peaks.slice(0, 12);
     const candidates = new Set();
@@ -143,6 +145,11 @@ export class CoarseAnalyzer {
         const kApprox = Math.max(1, Math.round(f / c));
         score -= 0.7 * Math.sqrt(peaks[j].mag) * weight(kApprox);
       }
+      // Hystérésis : la note tenue (à ± un quart de ton) conserve un bonus,
+      // pour qu'une interprétation concurrente à l'octave ou à la quinte
+      // (piège classique des anches riches en partiels) doive nettement la
+      // dépasser avant de déclencher une bascule.
+      if (priorF0 && Math.abs(1200 * Math.log2(c / priorF0)) < 50) score *= 1.3;
       if (!best || score > best.score) best = { c, score, parts };
     }
     if (!best) return null;
