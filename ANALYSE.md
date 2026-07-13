@@ -12,7 +12,7 @@ stochastiques et des bifurcations non linéaires des anches libres.
 |---|---|---|
 | Capture | AudioWorklet, blocs de 512 échantillons | ~10,7 ms à 48 kHz |
 | Enveloppe (intensité) | RMS par bloc | 10,7 ms |
-| Détection de note | FFT 32768 + appariement harmonique robuste à l'inharmonicité | fenêtre 341 ms, glissante toutes les 85 ms |
+| Détection de note | FFT 32768 + appariement harmonique **et** NSDF (méthode McLeod) comme ancre d'octave | fenêtre 341 ms (spectral) / 85 ms (NSDF), glissante toutes les 85 ms |
 | Mesure fine | hétérodynage + décimation ×512 + FFT en bande de base + raffinement de phase | < 0,001 Hz sur ton stable ; fenêtre 1,4 / 2,7 / 5,5 s |
 | Historique | 120 s conservées, 11,7 points/s par voix | export CSV |
 
@@ -97,6 +97,34 @@ stochastiques et des bifurcations non linéaires des anches libres.
   battement mesuré quasi nul contre une cible non nulle.
 - **Plancher d'appariement −30 dB** : un pic à plus de 30 dB sous le plus
   fort du groupe est une fuite spectrale, pas une anche.
+- **Analyse paramétrique à sous-espaces — Matrix Pencil** (option, onglet
+  Réglages) : sur la bande de base hétérodyne de la voix de base (signal
+  complexe I/Q, ~93,75 Hz, peu de composantes), le signal est modélisé comme
+  une somme d'exponentielles amorties `y[n] = Σ c_i·z_i^n` (Hua & Sarkar,
+  1990). Deux apports que la FFT ne donne pas : (1) **séparation sous la
+  limite de Fourier** — deux anches d'un unisson tremblé distantes de ~0,4 Hz
+  sont résolues en ~0,7 s au lieu des ~5,5 s d'une FFT ; (2) **amortissement
+  α de chaque composante** (`z_i = e^{(−α_i+j2πf_i)/f_s}`) — le taux du
+  « parler » par anche, mesuré directement (α > 0 décroissance, α < 0
+  croissance = instabilité d'attaque). Peu d'échantillons et peu de
+  composantes rendent la décomposition (Jacobi hermitien + Faddeev–LeVerrier
+  + Durand–Kerner) bon marché. Validé : séparation 1,0 / 1,4 Hz sur 0,68 s,
+  α retrouvé à ±0,3 s⁻¹, unisson 440,0 / 441,2 Hz séparé par le moteur en
+  1,5 s. Coûteuse → désactivée par défaut.
+- **Détection temporelle NSDF (méthode McLeod)** : autocorrélation normalisée
+  `NSDF(τ) = 2·Σ x[j]·x[j+τ] / Σ (x[j]²+x[j+τ]²)` (McLeod & Wyvill, 2005),
+  calculée par FFT (fenêtre 85 ms). Complète la détection spectrale sur deux
+  points : (1) **ancre d'octave** — quand la NSDF est franche (clarté ≥ 0,9)
+  et que la fondamentale spectrale tombe sur un multiple/sous-multiple entier
+  de la hauteur NSDF, la hauteur NSDF est adoptée (élimine erreurs d'octave
+  et de douzième, y compris à fondamentale manquante) ; (2) **suivi continu**
+  — la NSDF (fenêtre courte, robuste à l'octave) alimente le repli « suivi
+  rapide » d'une hauteur en mouvement (chant, glissando), plus réactive que
+  la FFT de 341 ms. La NSDF étant monophonique, elle est désactivée en mode
+  registre (anches à l'unisson). Elle **ne remplace pas** la mesure fine
+  (zoom hétérodyne < 0,001 Hz) ni la séparation polyphonique. La « clarté »
+  (valeur du pic NSDF, indice de périodicité ∈ [0,1]) est affichée sous la
+  mesure en suivi rapide comme indicateur de qualité du signal.
 
 - **Déviation d'Allan σ(τ)** (onglet Analyse) : stabilité de fréquence de la
   voix suivie en fonction du temps d'intégration τ, calculée en overlapping

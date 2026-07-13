@@ -4,6 +4,8 @@
 
 import { CoarseAnalyzer } from './coarse.js';
 import { ZoomTracker } from './zoom.js';
+import { NsdfTracker } from './nsdf.js';
+import { matrixPencil } from './subspace.js';
 import {
   midiToFreq, nearestMidi, centsBetween, voiceTargetFreq,
   MIDI_MIN, MIDI_MAX, REGISTER_PRESETS,
@@ -26,6 +28,7 @@ export class Engine {
       trackHarmonics: 0,       // suit les partiels 2..n de chaque note (hors registre)
       fuseHarmonics: true,     // fusion multi-harmonique cohérente (mode auto)
       trackSub: false,         // bandes f/2 et 3f/2 (détection de bifurcation)
+      subspace: false,         // analyse paramétrique Matrix Pencil (voix de base)
       lockNote: null,          // note MIDI imposée (désactive la détection)
       gateDb: -70,             // seuil de silence : gèle traqueurs et horloge
       response: 'normal',      // 'fast' | 'normal' | 'precise'
@@ -33,6 +36,9 @@ export class Engine {
       ...cfg,
     };
     this.coarse = new CoarseAnalyzer(sampleRate);
+    // Détecteur temporel McLeod (NSDF) : identification de note robuste aux
+    // erreurs d'octave et suivi faible latence d'une hauteur en mouvement.
+    this.nsdf = new NsdfTracker(sampleRate);
     this.trackers = new Map();   // clé: écart d'octave → ZoomTracker
     this.acc = 0;
     this.rmsAcc = 0;
@@ -318,6 +324,26 @@ export class Engine {
     const coarse = (!quiet && this.coarse.ready()) ? this.coarse.analyze() : null;
     let f0 = coarse?.f0 ? coarse.f0.freq * calib : null;
 
+    // Détection temporelle McLeod (NSDF) : hauteur monophonique robuste aux
+    // erreurs d'octave, à faible latence. Sert d'ancre d'octave à la
+    // détection spectrale et de source au suivi continu. En mode registre
+    // (plusieurs anches à l'unisson), la NSDF n'est pas fiable : on l'ignore.
+    const poly = c.mode === 'register';
+    const nsdfEst = (!quiet && !poly && this.coarse.ready())
+      ? this.nsdf.estimateFromRing(this.coarse.ring, this.coarse.wpos, this.coarse.win)
+      : null;
+    const nf0 = nsdfEst ? nsdfEst.f0 * calib : null;
+    const clarity = nsdfEst ? nsdfEst.clarity : 0;
+    // Ancre d'octave : si la NSDF est franche (clarté ≥ 0,9) et que la
+    // fondamentale spectrale tombe sur un multiple/sous-multiple entier de la
+    // hauteur NSDF (erreur d'octave ou de douzième), on adopte la NSDF.
+    if (f0 && nf0 && clarity >= 0.9) {
+      const ratio = f0 / nf0;
+      for (const R of [0.5, 2, 1 / 3, 3]) {
+        if (Math.abs(ratio - R) / R < 0.03) { f0 = nf0; break; }
+      }
+    }
+
     // Note verrouillée par l'utilisateur : la détection est court-circuitée.
     if (c.lockNote != null && c.mode !== 'manual') {
       if (this.playedMidi !== c.lockNote) {
@@ -355,13 +381,31 @@ export class Engine {
     const groups = [];
     const played = this.playedMidi;
     const claimed = [];
-    const defs = this.groupVoices(played ?? 0).sort((a, b) => a.center - b.center);
+    // Fondamentale mesurée par centre d'octave : un groupe harmonique cherche
+    // son partiel autour de k·f0_mesurée plutôt que k·f0_nominale. Sans cet
+    // ancrage, quand la fondamentale est décalée (ex. +9 ¢), le vrai partiel
+    // (lui aussi à +9 ¢) et une raie parasite proche du nominal (0 ¢) sont
+    // quasi équidistants de la cible nominale : l'appariement bascule de
+    // l'un à l'autre → pics discontinus sur la courbe des harmoniques.
+    const baseFByCenter = new Map();
+    // Tri par centre, puis explicitement base → harmonique → sous-harmonique
+    // à centre égal : garantit que le groupe de base remplit `baseFByCenter`
+    // avant que ses groupes harmoniques ne le lisent (indépendant de la
+    // stabilité de sort()).
+    const rank = (g) => (g.isSub ? 2 : g.isHarmonic ? 1 : 0);
+    const defs = this.groupVoices(played ?? 0)
+      .sort((a, b) => (a.center - b.center) || (rank(a) - rank(b)));
     for (const g of defs) {
       if (played == null && c.mode !== 'manual') break;
       const t = this.trackers.get(g.key);
       if (!t) continue;
       const az = t.analyze(maxWin, Math.max(3, g.voices.length + 1));
-      const voices = this.matchVoices(g, az, calib, claimed);
+      let anchor = null;
+      if (g.isHarmonic && !g.isSub) {
+        const bf = baseFByCenter.get(g.center);
+        if (bf) anchor = bf * g.kTrack;
+      }
+      const voices = this.matchVoices(g, az, calib, claimed, anchor);
       if (!g.isHarmonic) {
         // Les harmoniques mesurées d'une voix de base sont « revendiquées »
         // pour les groupes plus aigus ; les groupes harmoniques, eux,
@@ -373,6 +417,13 @@ export class Engine {
             if (f > 9600) break;
             claimed.push(f);
           }
+        }
+        // Fondamentale de référence du groupe (voix sans battement, ou la
+        // plus forte) → ancre des groupes harmoniques de même centre.
+        if (!g.isSub) {
+          const ref = voices.find((v) => v.def.beatSign === 0 && v.tracked)
+            ?? voices.filter((v) => v.tracked).sort((a, b) => b.amp - a.amp)[0];
+          if (ref) baseFByCenter.set(g.center, ref.fMeas);
         }
       }
       groups.push({
@@ -424,12 +475,16 @@ export class Engine {
         // Le zoom a re-convergé sur la hauteur stabilisée : il reprend la main.
         this.motionLatch = false;
       }
-      if (v && (!v.tracked || this.motionLatch) && Math.abs(centsBetween(f0, v.nominal)) < 120) {
-        v.fMeas = f0;
+      // Source du suivi : la NSDF (fenêtre 85 ms, sans erreur d'octave) suit
+      // une hauteur qui bouge de plus près que la FFT grossière (341 ms) ;
+      // repli sur la fondamentale spectrale si la NSDF n'est pas franche.
+      const followF0 = (nf0 && clarity >= 0.7) ? nf0 : f0;
+      if (v && (!v.tracked || this.motionLatch) && Math.abs(centsBetween(followF0, v.nominal)) < 120) {
+        v.fMeas = followF0;
         v.amp = level;
-        v.dCents = centsBetween(f0, v.nominal);
-        v.dHz = f0 - v.nominal;
-        v.dTargetCents = centsBetween(f0, v.target);
+        v.dCents = centsBetween(followF0, v.nominal);
+        v.dHz = followF0 - v.nominal;
+        v.dTargetCents = centsBetween(followF0, v.target);
         v.tracked = true;
         v.coarse = true; // estimation rapide, pas la mesure fine du zoom
         v.beatMeas = 0;
@@ -487,6 +542,19 @@ export class Engine {
       }
     }
 
+    // Plancher harmonique −42 dB : un partiel très en deçà de la fondamentale
+    // est noyé dans le bruit, la zone où le traqueur zoom se verrouille sur une
+    // raie parasite. Mieux vaut une lacune franche dans la courbe qu'un pic
+    // discontinu — l'anche restant strictement périodique, une harmonique
+    // trop faible pour être mesurée proprement n'apporte aucune information.
+    const harmFloor = baseAmp * Math.pow(10, -42 / 20);
+    for (const g of groups) {
+      if (!g.isHarmonic || g.isSub) continue;
+      for (const v of g.voices) {
+        if (v.tracked && v.amp < harmFloor) this.fillVoice(v, null);
+      }
+    }
+
     // Écart rapide de la fondamentale à la note nominale : c'est la donnée
     // à utiliser pour la caractéristique pression-hauteur f(I) — la mesure
     // fine (longue fenêtre) traîne derrière un balayage de pression et
@@ -500,6 +568,42 @@ export class Engine {
       }
     }
 
+    // Analyse paramétrique à sous-espaces (Matrix Pencil) sur la bande de
+    // base hétérodyne de la voix de base : sépare les anches d'un unisson
+    // sous la limite de Fourier (résolution en ~1 s au lieu de ~5,5 s) et
+    // donne l'amortissement/croissance α de chaque composante. Optionnelle
+    // (coûteuse) : n'affecte ni la mesure principale ni les autres modes.
+    if (c.subspace && !quiet && played != null) {
+      const bg = groups.find((g) => !g.isHarmonic && !g.isSub);
+      const t = bg && this.trackers.get(bg.key);
+      const bb = t ? t.baseband(48) : null;
+      if (bg && bb) {
+        const nExp = bg.voices.length;
+        const M = Math.max(1, Math.min(4, this.motionLatch ? 1 : nExp + (nExp < 3 ? 1 : 0)));
+        const k = bg.kTrack || 1;
+        let comps = [];
+        try { comps = matrixPencil(bb.re, bb.im, M, bb.srd); } catch { comps = []; }
+        // Bruit de fond : ne garder que les composantes franches (> 5 % de la
+        // plus forte) et retomber en fréquence de fondamentale (÷k).
+        let aMax = 0;
+        for (const cp of comps) if (cp.amp > aMax) aMax = cp.amp;
+        bg.subspace = comps
+          .map((cp) => {
+            const fAbs = (bb.fc + cp.freq) / k;
+            return {
+              freq: fAbs,
+              cents: centsBetween(fAbs, bg.center),
+              damping: cp.damping,
+              amp: cp.amp,
+            };
+          })
+          // Franches (> 8 % de la plus forte) et dans la bande de la note
+          // (± un demi-ton) : écarte les pôles ajustés sur le bruit résiduel.
+          .filter((cp) => cp.amp >= aMax * 0.08 && Math.abs(cp.cents) < 120)
+          .sort((a, b) => a.freq - b.freq);
+      }
+    }
+
     return {
       type: 'tick',
       time: this.samplesTotal / this.sr,
@@ -507,6 +611,7 @@ export class Engine {
       quiet,
       f0,
       f0Cents,
+      clarity,
       playedMidi: played,
       transpose: c.transpose,
       lockNote: c.lockNote ?? null,
@@ -521,7 +626,7 @@ export class Engine {
   // Associe les composantes mesurées aux voix attendues du groupe.
   // `claimed` : fréquences absolues (Hz) déjà expliquées comme harmoniques
   // de voix plus graves — elles ne sont utilisées qu'en dernier recours.
-  matchVoices(group, az, calib, claimed = []) {
+  matchVoices(group, az, calib, claimed = [], anchor = null) {
     const expected = group.voices
       .map((v) => ({ ...v }))
       .sort((a, b) => a.target - b.target);
@@ -530,17 +635,26 @@ export class Engine {
     // partiel k). Groupes harmoniques : on reste dans le domaine du partiel,
     // sa fréquence réelle est la grandeur d'intérêt (inharmonicité).
     const div = group.isHarmonic ? 1 : k;
-    // Tolérance : ±85 cents en général ; ±20 cents pour les bandes
-    // sous-harmoniques (un doublement de période est verrouillé sur la
-    // fondamentale — un pic éloigné est du bruit, pas une bifurcation).
+    // Ancrage harmonique : quand la fondamentale mesurée est connue, on
+    // cherche le partiel autour de k·f0 (mt), pas autour du nominal — et dans
+    // une fenêtre resserrée (±40 ¢) qui laisse passer l'inharmonicité réelle
+    // mais interdit de sauter sur une raie parasite au voisinage du nominal.
+    const useAnchor = anchor != null && group.isHarmonic && !group.isSub;
+    for (const v of expected) v.mt = v.target;
+    if (useAnchor) expected[0].mt = anchor;
+    // Tolérance : ±85 cents en général ; ±40 cents pour un partiel ancré ;
+    // ±20 cents pour les bandes sous-harmoniques (un doublement de période
+    // est verrouillé sur la fondamentale — un pic éloigné est du bruit).
     const tolHz = group.isSub
       ? Math.max(1.5, group.fc * 0.012)
-      : Math.max(2.5, (group.center * (group.isHarmonic ? k : 1)) * 0.05);
+      : useAnchor
+        ? Math.max(2.5, anchor * 0.023)
+        : Math.max(2.5, (group.center * (group.isHarmonic ? k : 1)) * 0.05);
     let comps = az
       ? az.components.map((cp) => ({ ...cp, freq: (cp.freq * calib) / div }))
       : [];
     comps = comps.filter((cp) =>
-      expected.some((v) => Math.abs(cp.freq - v.target) < tolHz));
+      expected.some((v) => Math.abs(cp.freq - v.mt) < tolHz));
     // Plancher relatif : un pic à plus de 30 dB sous le plus fort du groupe
     // est une fuite spectrale ou du bruit, pas une anche — les anches d'un
     // même ton jouent à quelques dB les unes des autres. (Les bandes
@@ -619,7 +733,7 @@ function assignOrdered(voices, comps, tolHz) {
   const claimPenalty = tolHz * 0.9;
   const INF = 1e15;
   const cost = (i, j) => {
-    const d = Math.abs(comps[j].freq - voices[i].target);
+    const d = Math.abs(comps[j].freq - (voices[i].mt ?? voices[i].target));
     if (d >= tolHz) return INF;
     return d + (comps[j].claimed ? claimPenalty : 0);
   };

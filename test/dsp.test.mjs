@@ -2,6 +2,8 @@
 // Exécution : node test/dsp.test.mjs
 
 import { Engine } from '../web/js/dsp/engine.js';
+import { NsdfTracker } from '../web/js/dsp/nsdf.js';
+import { matrixPencil } from '../web/js/dsp/subspace.js';
 import { midiToFreq, noteLabel, overlappingAllan } from '../web/js/music.js';
 
 const SR = 48000;
@@ -387,6 +389,175 @@ console.log('\nTest 15 — déviation d\'Allan : bruit blanc de fréquence → p
   }
   const slope = (k * sxy - sx * sy) / (k * sxx - sx * sx);
   assert(Math.abs(slope - (-0.5)) < 0.12, `pente log-log = ${slope.toFixed(3)} (attendu −0,5, bruit blanc)`);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nTest 16 — anti-pic harmonique : H3 suit le vrai partiel, pas une raie parasite près du nominal');
+{
+  // Reproduit le témoin réel : Si5 sonnant +9 ¢, partiels exactement
+  // harmoniques (vrai H3 à +9 ¢ du nominal 3·fNom), plus une raie parasite
+  // pile au nominal (0 ¢). L'ancien appariement, cherchant le partiel autour
+  // de 3·f_nominale, sautait sur la raie la plus proche du nominal → la
+  // courbe de H3 plongeait à ~0 ¢ pendant que fondamentale et H2 tenaient
+  // +9 ¢ (pics discontinus). L'ancrage sur 3·f0_mesurée corrige.
+  const nMidi = 83; // Si5
+  const fNom = midiToFreq(nMidi);
+  const fTrue = fNom * Math.pow(2, 9 / 1200); // +9 cents, comme le témoin
+  const n = SR * 10;
+  const sig = new Float32Array(n);
+  const parts = [
+    { f: fTrue, a: 0.30 },
+    { f: 2 * fTrue, a: 0.18 },
+    { f: 3 * fTrue, a: 0.12 },   // vrai H3, à +9 ¢ du nominal
+    { f: 3 * fNom, a: 0.09 },    // raie parasite pile au nominal (piège)
+  ];
+  for (const { f, a } of parts) {
+    const w = (2 * Math.PI * f) / SR;
+    const phi = Math.random() * 6.28;
+    for (let i = 0; i < n; i++) sig[i] += a * Math.sin(w * i + phi);
+  }
+  for (let i = 0; i < n; i++) sig[i] += 3e-4 * (Math.random() * 2 - 1);
+  const engine = new Engine(SR, { mode: 'auto', trackHarmonics: 3, response: 'precise' });
+  const last = run(engine, sig);
+  assert(last && last.playedMidi === nMidi,
+    `note détectée = ${noteLabel(nMidi).full} (obtenu : ${last && noteLabel(last.playedMidi ?? 0).full})`);
+  const g3 = last.groups.find((gr) => gr.key.endsWith('h3'));
+  const v3 = g3?.voices[0];
+  const errTrue = v3?.tracked ? Math.abs(cents(v3.fMeas, 3 * fTrue)) : Infinity;
+  const distNom = v3?.tracked ? Math.abs(cents(v3.fMeas, 3 * fNom)) : Infinity;
+  assert(errTrue < 1.5, `H3 verrouillée sur le vrai partiel (écart ${errTrue.toFixed(2)} ¢ < 1,5)`);
+  assert(distNom > 5, `H3 non capturée par la raie parasite du nominal (écart ${distNom.toFixed(2)} ¢ > 5)`);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nTest 17 — plancher harmonique : une harmonique trop faible fait une lacune, pas un pic');
+{
+  // H3 quasi absente (−48 dB sous la fondamentale) noyée dans le bruit : le
+  // traqueur se verrouillerait sur une raie de bruit et tracerait une valeur
+  // aberrante. Le plancher −42 dB doit la marquer non suivie (lacune franche).
+  const nMidi = 83;
+  const fNom = midiToFreq(nMidi);
+  const n = SR * 8;
+  const sig = new Float32Array(n);
+  const parts = [
+    { f: fNom, a: 0.30 },
+    { f: 2 * fNom, a: 0.16 },
+    { f: 3 * fNom, a: 0.30 * Math.pow(10, -48 / 20) }, // −48 dB → sous le plancher
+  ];
+  for (const { f, a } of parts) {
+    const w = (2 * Math.PI * f) / SR;
+    const phi = Math.random() * 6.28;
+    for (let i = 0; i < n; i++) sig[i] += a * Math.sin(w * i + phi);
+  }
+  for (let i = 0; i < n; i++) sig[i] += 6e-4 * (Math.random() * 2 - 1);
+  const engine = new Engine(SR, { mode: 'auto', trackHarmonics: 3, response: 'normal' });
+  const last = run(engine, sig);
+  const g3 = last.groups.find((gr) => gr.key.endsWith('h3'));
+  const v3 = g3?.voices[0];
+  assert(!v3?.tracked, `H3 sous le plancher n'est pas suivie (lacune) — tracked=${!!v3?.tracked}`);
+  // La fondamentale et H2, elles, restent parfaitement suivies.
+  const g2 = last.groups.find((gr) => gr.key.endsWith('h2'));
+  assert(last.groups[0]?.voices[0]?.tracked && g2?.voices[0]?.tracked,
+    'fondamentale et H2 restent suivies malgré la lacune de H3');
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nTest 18 — NSDF (méthode McLeod) : justesse et robustesse à l\'octave');
+{
+  const tracker = new NsdfTracker(SR);
+  // Justesse sur une gamme de hauteurs, son riche + bruit.
+  let worst = 0;
+  for (const f0 of [82.41, 110, 220, 440, 880]) {
+    const W = 4096;
+    const x = new Float32Array(W);
+    const harm = [1, 0.7, 0.5, 0.35, 0.2, 0.1];
+    for (let h = 0; h < harm.length; h++) {
+      const w = (2 * Math.PI * f0 * (h + 1)) / SR;
+      const phi = Math.random() * 6.28;
+      for (let i = 0; i < W; i++) x[i] += 0.2 * harm[h] * Math.sin(w * i + phi);
+    }
+    for (let i = 0; i < W; i++) x[i] += 2e-3 * (Math.random() * 2 - 1);
+    const r = tracker.estimate(x);
+    const err = r ? Math.abs(cents(r.f0, f0)) : Infinity;
+    if (err > worst) worst = err;
+  }
+  assert(worst < 0.5, `justesse NSDF ≤ ${worst.toFixed(2)} ¢ sur E2–A5 (< 0,5 requis)`);
+
+  // Fondamentale manquante (H2..H5 seulement) : ne doit pas sauter à l'octave.
+  const W = 4096;
+  const x = new Float32Array(W);
+  for (const [k, a] of [[2, 0.6], [3, 0.5], [4, 0.3], [5, 0.2]]) {
+    const w = (2 * Math.PI * 220 * k) / SR;
+    for (let i = 0; i < W; i++) x[i] += 0.2 * a * Math.sin(w * i);
+  }
+  for (let i = 0; i < W; i++) x[i] += 2e-3 * (Math.random() * 2 - 1);
+  const r = tracker.estimate(x);
+  assert(r && Math.abs(cents(r.f0, 220)) < 1,
+    `fondamentale manquante : NSDF trouve 220 Hz (obtenu ${r?.f0?.toFixed(2)}), pas l'octave`);
+
+  // Bruit blanc pur : aucune hauteur franche (clarté faible → null).
+  const noise = new Float32Array(W);
+  for (let i = 0; i < W; i++) noise[i] = Math.random() * 2 - 1;
+  const rn = tracker.estimate(noise);
+  assert(rn == null, `bruit blanc : pas de hauteur détectée (clarté insuffisante)`);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nTest 19 — la clarté NSDF est exposée par le moteur');
+{
+  const engine = new Engine(SR, { mode: 'auto', response: 'normal' });
+  const last = run(engine, reedSignal({ freqs: [{ f: 440.0 }] }));
+  assert(last && typeof last.clarity === 'number' && last.clarity > 0.8,
+    `clarté = ${last?.clarity?.toFixed(3)} sur anche franche (> 0,8 attendu)`);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nTest 20 — Matrix Pencil : séparation sous la limite de Fourier + amortissement');
+{
+  const fs = 93.75; // fréquence de la bande de base décimée
+  // Deux composantes à 0,4 Hz d'écart sur 64 échantillons (T = 0,68 s →
+  // limite de Fourier ≈ 1,46 Hz : la FFT ne les sépare pas).
+  const N = 64;
+  const yr = new Float64Array(N), yi = new Float64Array(N);
+  const parts = [{ f: 1.0, A: 1.0 }, { f: 1.4, A: 0.9 }];
+  for (let n = 0; n < N; n++) {
+    for (const p of parts) {
+      const ph = (2 * Math.PI * p.f * n) / fs;
+      yr[n] += p.A * Math.cos(ph); yi[n] += p.A * Math.sin(ph);
+    }
+    yr[n] += 1e-4 * (Math.random() * 2 - 1); yi[n] += 1e-4 * (Math.random() * 2 - 1);
+  }
+  const r = matrixPencil(yr, yi, 2, fs);
+  const ok = r.length === 2
+    && Math.abs(r[0].freq - 1.0) < 0.02 && Math.abs(r[1].freq - 1.4) < 0.02;
+  assert(ok, `2 composantes séparées à ${r.map((c) => c.freq.toFixed(3)).join(' & ')} Hz (vraies 1,0 & 1,4)`);
+
+  // Amortissement : une exponentielle décroissante α = 8 s⁻¹.
+  const M = 48;
+  const dr = new Float64Array(M), di = new Float64Array(M);
+  for (let n = 0; n < M; n++) {
+    const ph = (2 * Math.PI * 2.0 * n) / fs;
+    const env = Math.exp((-8 * n) / fs);
+    dr[n] = env * Math.cos(ph); di[n] = env * Math.sin(ph);
+  }
+  const rd = matrixPencil(dr, di, 1, fs);
+  assert(rd.length === 1 && Math.abs(rd[0].damping - 8) < 0.3,
+    `amortissement mesuré α = ${rd[0]?.damping?.toFixed(2)} s⁻¹ (vrai 8)`);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nTest 21 — le moteur sépare un unisson tremblé via Matrix Pencil sur ~1,5 s');
+{
+  // Deux anches à 1,2 Hz d'écart, observation courte (1,5 s) : la FFT du
+  // zoom (fenêtre ≤ 5,5 s) ne les résout pas encore ; l'analyse à
+  // sous-espaces, activée, doit rendre les deux fréquences.
+  const engine = new Engine(SR, { mode: 'register', register: 'MM', response: 'normal', subspace: true });
+  const last = run(engine, reedSignal({ freqs: [{ f: 440.0 }, { f: 441.2, a: 0.9 }], seconds: 1.5 }));
+  const bg = last.groups.find((g) => !g.isHarmonic && !g.isSub);
+  const sub = bg?.subspace ?? [];
+  const near = (f) => sub.some((c) => Math.abs(c.freq - f) < 0.35);
+  assert(sub.length >= 2 && near(440.0) && near(441.2),
+    `sous-espaces : ${sub.map((c) => c.freq.toFixed(2)).join(' & ')} Hz (vraies 440,0 & 441,2)`);
 }
 
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
