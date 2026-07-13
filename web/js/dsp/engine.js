@@ -336,14 +336,15 @@ export class Engine {
       : null;
     const nf0 = nsdfEst ? nsdfEst.f0 * calib : null;
     const clarity = nsdfEst ? nsdfEst.clarity : 0;
-    // Ancre d'octave : si la NSDF est franche (clarté ≥ 0,9) et que la
-    // fondamentale spectrale tombe sur un multiple/sous-multiple entier de la
-    // hauteur NSDF (erreur d'octave ou de douzième), on adopte la NSDF.
-    if (f0 && nf0 && clarity >= 0.9) {
-      const ratio = f0 / nf0;
-      for (const R of [0.5, 2, 1 / 3, 3]) {
-        if (Math.abs(ratio - R) / R < 0.03) { f0 = nf0; break; }
-      }
+    // Ancre NSDF : la fondamentale spectrale peut, sur un signal réel, tomber
+    // sur un sous-multiple aberrant (ex. f/4 sur une voix : mesuré 38 Hz pour
+    // 155 Hz réels) — la FFT « explique » alors les partiels par une
+    // fondamentale trop grave. La NSDF, robuste à l'octave, ne fait pas cette
+    // erreur : quand elle est franche (clarté ≥ 0,85) et qu'elle contredit
+    // nettement la valeur spectrale (> 40 cents), on adopte la NSDF. Sinon on
+    // garde la mesure spectrale (plus fine sur ton établi).
+    if (f0 && nf0 && clarity >= 0.85 && Math.abs(centsBetween(f0, nf0)) > 40) {
+      f0 = nf0;
     }
 
     // Note verrouillée par l'utilisateur : la détection est court-circuitée.
