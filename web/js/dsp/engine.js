@@ -46,6 +46,7 @@ export class Engine {
     this.playedMidi = null;
     this.candMidi = null;
     this.candCount = 0;
+    this.lastSwitchT = -1e9;    // instant de la dernière bascule de note (garde)
     this.samplesTotal = 0;
     // Détection d'attaque : enveloppe RMS par bloc (~10,7 ms à 48 kHz).
     this.env = [];
@@ -321,7 +322,8 @@ export class Engine {
     // bande (le poste de calcul dominant, ~5 ms) est sautée — l'accordeur
     // au repos ne consomme presque rien. L'affichage du spectre garde la
     // dernière image côté interface.
-    const coarse = (!quiet && this.coarse.ready()) ? this.coarse.analyze() : null;
+    const priorF0 = this.playedMidi != null ? midiToFreq(this.playedMidi, c) : null;
+    const coarse = (!quiet && this.coarse.ready()) ? this.coarse.analyze(priorF0) : null;
     let f0 = coarse?.f0 ? coarse.f0.freq * calib : null;
 
     // Détection temporelle McLeod (NSDF) : hauteur monophonique robuste aux
@@ -358,12 +360,21 @@ export class Engine {
         midi -= 12 * minOct;
       }
       if (midi >= MIDI_MIN && midi <= MIDI_MAX) {
+        // Première acquisition : bascule rapide (2 trames). Note déjà tenue :
+        // confirmation plus longue (3 trames) + délai de garde de 0,2 s après
+        // une bascule, le temps que le traqueur fin converge — sans ça, une
+        // anche réelle riche en partiels fait vaciller la note (octave/quinte)
+        // et re-centre les traqueurs à chaque trame (« convergence 0 % »).
+        const tNow = this.samplesTotal / this.sr;
+        const need = this.playedMidi == null ? 2 : 3;
+        const held = tNow - (this.lastSwitchT ?? -1e9) < 0.2;
         if (midi === this.playedMidi) {
           this.candCount = 0;
         } else if (midi === this.candMidi) {
-          if (++this.candCount >= 2) {
+          if (++this.candCount >= need && !held) {
             this.playedMidi = midi;
             this.candCount = 0;
+            this.lastSwitchT = tNow;
             this.retune();
           }
         } else {
