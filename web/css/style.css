@@ -237,10 +237,20 @@ main { padding: 12px; max-width: 1800px; margin: 0 auto; }
   .cents-display { font-size: 20px; min-width: 0; }
   .cents-display .unit { font-size: 10px; margin-left: 3px; }
   .cents-display .note-sub { font-size: 10px; }
-  .verdict { font-size: 12px; padding: 5px 9px; min-width: 0; }
+  .verdict { font-size: 13px; padding: 5px 10px; min-width: 0; }
   .level-wrap { display: none; }
   .top-actions button { padding: 5px 8px; font-size: 11.5px; }
   #tabbar .tab { padding: 8px 10px; font-size: 12px; }
+
+  /* Formulaires plus denses et cibles tactiles plus grandes : moins de
+     défilement, contrôles plus faciles à toucher. */
+  label { margin: 5px 0; gap: 6px; }
+  .row.gap { gap: 8px 12px; }
+  .panel h2 { margin-bottom: 8px; }
+  select, input[type="number"], input[type="text"] { padding: 7px 8px; }
+  /* Les listes déroulantes des graphiques prennent la largeur restante
+     (plus faciles à toucher qu'un petit menu). */
+  #gaugeRange, #gaugeVoice, #phaseX, #phaseY, #phaseSpan { flex: 1; min-width: 90px; }
 
   /* Tableau « Anches mesurées » : sur petit écran, on masque les colonnes
      secondaires (Cible Hz, Écart Hz, Cible batt.) pour qu'il tienne sans
