@@ -389,5 +389,75 @@ console.log('\nTest 15 — déviation d\'Allan : bruit blanc de fréquence → p
   assert(Math.abs(slope - (-0.5)) < 0.12, `pente log-log = ${slope.toFixed(3)} (attendu −0,5, bruit blanc)`);
 }
 
+// ---------------------------------------------------------------------------
+console.log('\nTest 16 — anti-pic harmonique : H3 suit le vrai partiel, pas une raie parasite près du nominal');
+{
+  // Reproduit le témoin réel : Si5 sonnant +9 ¢, partiels exactement
+  // harmoniques (vrai H3 à +9 ¢ du nominal 3·fNom), plus une raie parasite
+  // pile au nominal (0 ¢). L'ancien appariement, cherchant le partiel autour
+  // de 3·f_nominale, sautait sur la raie la plus proche du nominal → la
+  // courbe de H3 plongeait à ~0 ¢ pendant que fondamentale et H2 tenaient
+  // +9 ¢ (pics discontinus). L'ancrage sur 3·f0_mesurée corrige.
+  const nMidi = 83; // Si5
+  const fNom = midiToFreq(nMidi);
+  const fTrue = fNom * Math.pow(2, 9 / 1200); // +9 cents, comme le témoin
+  const n = SR * 10;
+  const sig = new Float32Array(n);
+  const parts = [
+    { f: fTrue, a: 0.30 },
+    { f: 2 * fTrue, a: 0.18 },
+    { f: 3 * fTrue, a: 0.12 },   // vrai H3, à +9 ¢ du nominal
+    { f: 3 * fNom, a: 0.09 },    // raie parasite pile au nominal (piège)
+  ];
+  for (const { f, a } of parts) {
+    const w = (2 * Math.PI * f) / SR;
+    const phi = Math.random() * 6.28;
+    for (let i = 0; i < n; i++) sig[i] += a * Math.sin(w * i + phi);
+  }
+  for (let i = 0; i < n; i++) sig[i] += 3e-4 * (Math.random() * 2 - 1);
+  const engine = new Engine(SR, { mode: 'auto', trackHarmonics: 3, response: 'precise' });
+  const last = run(engine, sig);
+  assert(last && last.playedMidi === nMidi,
+    `note détectée = ${noteLabel(nMidi).full} (obtenu : ${last && noteLabel(last.playedMidi ?? 0).full})`);
+  const g3 = last.groups.find((gr) => gr.key.endsWith('h3'));
+  const v3 = g3?.voices[0];
+  const errTrue = v3?.tracked ? Math.abs(cents(v3.fMeas, 3 * fTrue)) : Infinity;
+  const distNom = v3?.tracked ? Math.abs(cents(v3.fMeas, 3 * fNom)) : Infinity;
+  assert(errTrue < 1.5, `H3 verrouillée sur le vrai partiel (écart ${errTrue.toFixed(2)} ¢ < 1,5)`);
+  assert(distNom > 5, `H3 non capturée par la raie parasite du nominal (écart ${distNom.toFixed(2)} ¢ > 5)`);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nTest 17 — plancher harmonique : une harmonique trop faible fait une lacune, pas un pic');
+{
+  // H3 quasi absente (−48 dB sous la fondamentale) noyée dans le bruit : le
+  // traqueur se verrouillerait sur une raie de bruit et tracerait une valeur
+  // aberrante. Le plancher −42 dB doit la marquer non suivie (lacune franche).
+  const nMidi = 83;
+  const fNom = midiToFreq(nMidi);
+  const n = SR * 8;
+  const sig = new Float32Array(n);
+  const parts = [
+    { f: fNom, a: 0.30 },
+    { f: 2 * fNom, a: 0.16 },
+    { f: 3 * fNom, a: 0.30 * Math.pow(10, -48 / 20) }, // −48 dB → sous le plancher
+  ];
+  for (const { f, a } of parts) {
+    const w = (2 * Math.PI * f) / SR;
+    const phi = Math.random() * 6.28;
+    for (let i = 0; i < n; i++) sig[i] += a * Math.sin(w * i + phi);
+  }
+  for (let i = 0; i < n; i++) sig[i] += 6e-4 * (Math.random() * 2 - 1);
+  const engine = new Engine(SR, { mode: 'auto', trackHarmonics: 3, response: 'normal' });
+  const last = run(engine, sig);
+  const g3 = last.groups.find((gr) => gr.key.endsWith('h3'));
+  const v3 = g3?.voices[0];
+  assert(!v3?.tracked, `H3 sous le plancher n'est pas suivie (lacune) — tracked=${!!v3?.tracked}`);
+  // La fondamentale et H2, elles, restent parfaitement suivies.
+  const g2 = last.groups.find((gr) => gr.key.endsWith('h2'));
+  assert(last.groups[0]?.voices[0]?.tracked && g2?.voices[0]?.tracked,
+    'fondamentale et H2 restent suivies malgré la lacune de H3');
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);
