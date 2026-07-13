@@ -97,6 +97,20 @@ stochastiques et des bifurcations non linéaires des anches libres.
   battement mesuré quasi nul contre une cible non nulle.
 - **Plancher d'appariement −30 dB** : un pic à plus de 30 dB sous le plus
   fort du groupe est une fuite spectrale, pas une anche.
+- **Analyse paramétrique à sous-espaces — Matrix Pencil** (option, onglet
+  Réglages) : sur la bande de base hétérodyne de la voix de base (signal
+  complexe I/Q, ~93,75 Hz, peu de composantes), le signal est modélisé comme
+  une somme d'exponentielles amorties `y[n] = Σ c_i·z_i^n` (Hua & Sarkar,
+  1990). Deux apports que la FFT ne donne pas : (1) **séparation sous la
+  limite de Fourier** — deux anches d'un unisson tremblé distantes de ~0,4 Hz
+  sont résolues en ~0,7 s au lieu des ~5,5 s d'une FFT ; (2) **amortissement
+  α de chaque composante** (`z_i = e^{(−α_i+j2πf_i)/f_s}`) — le taux du
+  « parler » par anche, mesuré directement (α > 0 décroissance, α < 0
+  croissance = instabilité d'attaque). Peu d'échantillons et peu de
+  composantes rendent la décomposition (Jacobi hermitien + Faddeev–LeVerrier
+  + Durand–Kerner) bon marché. Validé : séparation 1,0 / 1,4 Hz sur 0,68 s,
+  α retrouvé à ±0,3 s⁻¹, unisson 440,0 / 441,2 Hz séparé par le moteur en
+  1,5 s. Coûteuse → désactivée par défaut.
 - **Détection temporelle NSDF (méthode McLeod)** : autocorrélation normalisée
   `NSDF(τ) = 2·Σ x[j]·x[j+τ] / Σ (x[j]²+x[j+τ]²)` (McLeod & Wyvill, 2005),
   calculée par FFT (fenêtre 85 ms). Complète la détection spectrale sur deux

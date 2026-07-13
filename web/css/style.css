@@ -131,6 +131,15 @@ body {
 .rcard.c-bad .rc-cents { color: var(--bad); }
 .rcard.c-off { border-left-color: var(--line); opacity: 0.55; }
 .rcard.c-off .rc-cents { color: var(--dim); }
+.subspace-box {
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px;
+  margin-top: 4px; background: var(--panel);
+}
+.subspace-box .ss-title { font-size: 12px; color: var(--dim); margin-bottom: 4px; }
+.subspace-box .ss-tab { width: 100%; border-collapse: collapse; font: 12.5px var(--mono); }
+.subspace-box .ss-tab td { padding: 2px 4px; color: var(--text); white-space: nowrap; }
+.subspace-box .ss-tab td:first-child { color: var(--dim); }
+.subspace-box .hint { margin-top: 4px; }
 .freeze-banner {
   background: color-mix(in srgb, var(--accent) 18%, var(--panel));
   border: 1px solid var(--accent);

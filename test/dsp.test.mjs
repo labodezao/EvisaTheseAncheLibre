@@ -3,6 +3,7 @@
 
 import { Engine } from '../web/js/dsp/engine.js';
 import { NsdfTracker } from '../web/js/dsp/nsdf.js';
+import { matrixPencil } from '../web/js/dsp/subspace.js';
 import { midiToFreq, noteLabel, overlappingAllan } from '../web/js/music.js';
 
 const SR = 48000;
@@ -508,6 +509,55 @@ console.log('\nTest 19 — la clarté NSDF est exposée par le moteur');
   const last = run(engine, reedSignal({ freqs: [{ f: 440.0 }] }));
   assert(last && typeof last.clarity === 'number' && last.clarity > 0.8,
     `clarté = ${last?.clarity?.toFixed(3)} sur anche franche (> 0,8 attendu)`);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nTest 20 — Matrix Pencil : séparation sous la limite de Fourier + amortissement');
+{
+  const fs = 93.75; // fréquence de la bande de base décimée
+  // Deux composantes à 0,4 Hz d'écart sur 64 échantillons (T = 0,68 s →
+  // limite de Fourier ≈ 1,46 Hz : la FFT ne les sépare pas).
+  const N = 64;
+  const yr = new Float64Array(N), yi = new Float64Array(N);
+  const parts = [{ f: 1.0, A: 1.0 }, { f: 1.4, A: 0.9 }];
+  for (let n = 0; n < N; n++) {
+    for (const p of parts) {
+      const ph = (2 * Math.PI * p.f * n) / fs;
+      yr[n] += p.A * Math.cos(ph); yi[n] += p.A * Math.sin(ph);
+    }
+    yr[n] += 1e-4 * (Math.random() * 2 - 1); yi[n] += 1e-4 * (Math.random() * 2 - 1);
+  }
+  const r = matrixPencil(yr, yi, 2, fs);
+  const ok = r.length === 2
+    && Math.abs(r[0].freq - 1.0) < 0.02 && Math.abs(r[1].freq - 1.4) < 0.02;
+  assert(ok, `2 composantes séparées à ${r.map((c) => c.freq.toFixed(3)).join(' & ')} Hz (vraies 1,0 & 1,4)`);
+
+  // Amortissement : une exponentielle décroissante α = 8 s⁻¹.
+  const M = 48;
+  const dr = new Float64Array(M), di = new Float64Array(M);
+  for (let n = 0; n < M; n++) {
+    const ph = (2 * Math.PI * 2.0 * n) / fs;
+    const env = Math.exp((-8 * n) / fs);
+    dr[n] = env * Math.cos(ph); di[n] = env * Math.sin(ph);
+  }
+  const rd = matrixPencil(dr, di, 1, fs);
+  assert(rd.length === 1 && Math.abs(rd[0].damping - 8) < 0.3,
+    `amortissement mesuré α = ${rd[0]?.damping?.toFixed(2)} s⁻¹ (vrai 8)`);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nTest 21 — le moteur sépare un unisson tremblé via Matrix Pencil sur ~1,5 s');
+{
+  // Deux anches à 1,2 Hz d'écart, observation courte (1,5 s) : la FFT du
+  // zoom (fenêtre ≤ 5,5 s) ne les résout pas encore ; l'analyse à
+  // sous-espaces, activée, doit rendre les deux fréquences.
+  const engine = new Engine(SR, { mode: 'register', register: 'MM', response: 'normal', subspace: true });
+  const last = run(engine, reedSignal({ freqs: [{ f: 440.0 }, { f: 441.2, a: 0.9 }], seconds: 1.5 }));
+  const bg = last.groups.find((g) => !g.isHarmonic && !g.isSub);
+  const sub = bg?.subspace ?? [];
+  const near = (f) => sub.some((c) => Math.abs(c.freq - f) < 0.35);
+  assert(sub.length >= 2 && near(440.0) && near(441.2),
+    `sous-espaces : ${sub.map((c) => c.freq.toFixed(2)).join(' & ')} Hz (vraies 440,0 & 441,2)`);
 }
 
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);

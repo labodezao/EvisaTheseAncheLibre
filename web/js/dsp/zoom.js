@@ -83,6 +83,25 @@ export class ZoomTracker {
     this.count = count;
   }
 
+  // Les `maxLen` derniers échantillons de la bande de base complexe (I/Q),
+  // dans l'ordre chronologique — entrée de l'analyse paramétrique à
+  // sous-espaces (Matrix Pencil). `srd` : fréquence d'échantillonnage
+  // décimée ; `fc` : porteuse hétérodyne.
+  baseband(maxLen = 48) {
+    const avail = Math.min(this.count, RING);
+    const len = Math.min(maxLen, avail);
+    if (len < 6) return null;
+    const re = new Float64Array(len);
+    const im = new Float64Array(len);
+    const start = this.count - len;
+    for (let i = 0; i < len; i++) {
+      const idx = (((start + i) % RING) + RING) % RING;
+      re[i] = this.ringRe[idx];
+      im[i] = this.ringIm[idx];
+    }
+    return { re, im, srd: this.srd, fc: this.fc };
+  }
+
   hannFor(n) {
     let w = this.windows.get(n);
     if (!w) { w = hannWindow(n); this.windows.set(n, w); }

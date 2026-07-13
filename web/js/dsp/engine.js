@@ -5,6 +5,7 @@
 import { CoarseAnalyzer } from './coarse.js';
 import { ZoomTracker } from './zoom.js';
 import { NsdfTracker } from './nsdf.js';
+import { matrixPencil } from './subspace.js';
 import {
   midiToFreq, nearestMidi, centsBetween, voiceTargetFreq,
   MIDI_MIN, MIDI_MAX, REGISTER_PRESETS,
@@ -27,6 +28,7 @@ export class Engine {
       trackHarmonics: 0,       // suit les partiels 2..n de chaque note (hors registre)
       fuseHarmonics: true,     // fusion multi-harmonique cohérente (mode auto)
       trackSub: false,         // bandes f/2 et 3f/2 (détection de bifurcation)
+      subspace: false,         // analyse paramétrique Matrix Pencil (voix de base)
       lockNote: null,          // note MIDI imposée (désactive la détection)
       gateDb: -70,             // seuil de silence : gèle traqueurs et horloge
       response: 'normal',      // 'fast' | 'normal' | 'precise'
@@ -386,7 +388,13 @@ export class Engine {
     // quasi équidistants de la cible nominale : l'appariement bascule de
     // l'un à l'autre → pics discontinus sur la courbe des harmoniques.
     const baseFByCenter = new Map();
-    const defs = this.groupVoices(played ?? 0).sort((a, b) => a.center - b.center);
+    // Tri par centre, puis explicitement base → harmonique → sous-harmonique
+    // à centre égal : garantit que le groupe de base remplit `baseFByCenter`
+    // avant que ses groupes harmoniques ne le lisent (indépendant de la
+    // stabilité de sort()).
+    const rank = (g) => (g.isSub ? 2 : g.isHarmonic ? 1 : 0);
+    const defs = this.groupVoices(played ?? 0)
+      .sort((a, b) => (a.center - b.center) || (rank(a) - rank(b)));
     for (const g of defs) {
       if (played == null && c.mode !== 'manual') break;
       const t = this.trackers.get(g.key);
@@ -557,6 +565,42 @@ export class Engine {
       if (bn) {
         const cts = centsBetween(f0, bn);
         if (Math.abs(cts) < 120) f0Cents = cts;
+      }
+    }
+
+    // Analyse paramétrique à sous-espaces (Matrix Pencil) sur la bande de
+    // base hétérodyne de la voix de base : sépare les anches d'un unisson
+    // sous la limite de Fourier (résolution en ~1 s au lieu de ~5,5 s) et
+    // donne l'amortissement/croissance α de chaque composante. Optionnelle
+    // (coûteuse) : n'affecte ni la mesure principale ni les autres modes.
+    if (c.subspace && !quiet && played != null) {
+      const bg = groups.find((g) => !g.isHarmonic && !g.isSub);
+      const t = bg && this.trackers.get(bg.key);
+      const bb = t ? t.baseband(48) : null;
+      if (bg && bb) {
+        const nExp = bg.voices.length;
+        const M = Math.max(1, Math.min(4, this.motionLatch ? 1 : nExp + (nExp < 3 ? 1 : 0)));
+        const k = bg.kTrack || 1;
+        let comps = [];
+        try { comps = matrixPencil(bb.re, bb.im, M, bb.srd); } catch { comps = []; }
+        // Bruit de fond : ne garder que les composantes franches (> 5 % de la
+        // plus forte) et retomber en fréquence de fondamentale (÷k).
+        let aMax = 0;
+        for (const cp of comps) if (cp.amp > aMax) aMax = cp.amp;
+        bg.subspace = comps
+          .map((cp) => {
+            const fAbs = (bb.fc + cp.freq) / k;
+            return {
+              freq: fAbs,
+              cents: centsBetween(fAbs, bg.center),
+              damping: cp.damping,
+              amp: cp.amp,
+            };
+          })
+          // Franches (> 8 % de la plus forte) et dans la bande de la note
+          // (± un demi-ton) : écarte les pôles ajustés sur le bruit résiduel.
+          .filter((cp) => cp.amp >= aMax * 0.08 && Math.abs(cp.cents) < 120)
+          .sort((a, b) => a.freq - b.freq);
       }
     }
 

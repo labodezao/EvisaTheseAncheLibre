@@ -23,6 +23,7 @@ const cfg = Object.assign({
   manualNotes: null,
   trackHarmonics: 0,
   trackSub: false,
+  subspace: false,
   lockNote: null,
   gateDb: -70,
   bellows: 'T',
@@ -548,7 +549,7 @@ function updateReadout(t) {
     return;
   }
   const tol = cfg.tolCents;
-  cards.innerHTML = shown.map(({ key, v }) => {
+  let html = shown.map(({ key, v }) => {
     const lbl = state.voiceLabels.get(key) || key;
     const note = noteLabel(v.midi + (cfg.transpose || 0)).full;
     if (!v.tracked || v.dTargetCents == null) {
@@ -569,6 +570,21 @@ function updateReadout(t) {
       <div class="rc-sub">${v.fMeas.toFixed(v.coarse ? 2 : 3)} Hz · ${v.dHz >= 0 ? '+' : ''}${v.dHz.toFixed(v.coarse ? 2 : 3)} Hz${beat}${est}</div>
     </div>`;
   }).join('');
+
+  // Analyse à sous-espaces (Matrix Pencil) : composantes séparées + α.
+  const bg = (t?.groups ?? []).find((g) => !g.isHarmonic && !g.isSub);
+  if (cfg.subspace && bg?.subspace?.length) {
+    const rows = bg.subspace.map((s) => {
+      const sign = s.cents >= 0 ? '+' : '';
+      const grow = s.damping < 0 ? ' ↑' : s.damping > 0 ? ' ↓' : '';
+      return `<tr><td>${s.freq.toFixed(3)} Hz</td><td>${sign}${s.cents.toFixed(2)} ¢</td>
+        <td>σ ${s.damping >= 0 ? '+' : ''}${s.damping.toFixed(1)} s⁻¹${grow}</td></tr>`;
+    }).join('');
+    html += `<div class="subspace-box"><div class="ss-title">Sous-espaces (Matrix Pencil)</div>
+      <table class="ss-tab">${rows}</table>
+      <div class="hint">σ &gt; 0 : décroissance · σ &lt; 0 : croissance (instabilité d'attaque)</div></div>`;
+  }
+  cards.innerHTML = html;
 }
 
 function toggleReadout(key) {
@@ -1554,6 +1570,8 @@ function bindControls() {
   };
   $('trackSub').checked = !!cfg.trackSub;
   $('trackSub').onchange = () => { cfg.trackSub = $('trackSub').checked; pushConfig(); };
+  $('subspace').checked = !!cfg.subspace;
+  $('subspace').onchange = () => { cfg.subspace = $('subspace').checked; pushConfig(); };
   $('btnCurveCsv').onclick = exportCurveCsv;
   updateLockButton();
   $('a4').onchange = () => { cfg.a4 = clamp(Number($('a4').value) || 440, 430, 450); $('a4').value = cfg.a4; pushConfig(); };

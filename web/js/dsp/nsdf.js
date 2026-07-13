@@ -32,6 +32,9 @@ export class NsdfTracker {
     this.buf = new Float32Array(this.win);
     this.nsdf = new Float32Array(this.win >> 1);
     this.prefix = new Float64Array(this.win + 1); // sommes préfixes des carrés
+    // Tampons de maxima-clés réutilisés (aucune allocation par estimation).
+    this.keyLag = new Int32Array(this.win >> 1);
+    this.keyVal = new Float32Array(this.win >> 1);
   }
 
   // Estime f0 à partir des `win` derniers échantillons d'un ring buffer
@@ -94,32 +97,32 @@ export class NsdfTracker {
     let tau = 1;
     while (tau < tauMax && nsdf[tau] > 0) tau++;
     // Maxima-clés : le plus haut entre chaque paire de passages à zéro
-    // positifs.
-    let bestG = 0;
+    // positifs. Stockés dans des tampons réutilisés (pas d'allocation).
+    const keyLag = this.keyLag, keyVal = this.keyVal;
+    let nk = 0, bestG = 0;
     let curVal = -Infinity, curLag = -1, inPos = false;
-    const keys = [];
     for (; tau <= tauMax; tau++) {
       const v = nsdf[tau];
       if (v > 0) {
         if (!inPos) { inPos = true; curVal = -Infinity; curLag = -1; }
         if (v > curVal) { curVal = v; curLag = tau; }
       } else if (inPos) {
-        if (curLag >= 0) { keys.push({ lag: curLag, val: curVal }); if (curVal > bestG) bestG = curVal; }
+        if (curLag >= 0) { keyLag[nk] = curLag; keyVal[nk] = curVal; nk++; if (curVal > bestG) bestG = curVal; }
         inPos = false;
       }
     }
-    if (inPos && curLag >= 0) { keys.push({ lag: curLag, val: curVal }); if (curVal > bestG) bestG = curVal; }
-    if (!keys.length || bestG < this.clarityMin) return null;
+    if (inPos && curLag >= 0) { keyLag[nk] = curLag; keyVal[nk] = curVal; nk++; if (curVal > bestG) bestG = curVal; }
+    if (!nk || bestG < this.clarityMin) return null;
 
     const thr = this.threshold * bestG;
-    let chosen = null;
-    for (const k of keys) {
-      if (k.val >= thr && k.lag >= tauMin) { chosen = k; break; }
+    let chosenLag = -1;
+    for (let i = 0; i < nk; i++) {
+      if (keyVal[i] >= thr && keyLag[i] >= tauMin) { chosenLag = keyLag[i]; break; }
     }
-    if (!chosen) return null;
+    if (chosenLag < 0) return null;
 
     // Interpolation parabolique du sommet.
-    const t = chosen.lag;
+    const t = chosenLag;
     const a = nsdf[t - 1], b = nsdf[t], c = nsdf[t + 1];
     let d = 0;
     const denom = a - 2 * b + c;
