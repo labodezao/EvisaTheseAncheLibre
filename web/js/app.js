@@ -560,7 +560,9 @@ function updateReadout(t) {
     const arrow = Math.abs(c) <= tol ? '✔' : c < 0 ? '↑' : '↓';
     const beat = (v.beatMeas != null && Math.abs(v.beatMeas) > 0.02)
       ? ` · batt ${v.beatMeas >= 0 ? '+' : ''}${v.beatMeas.toFixed(2)} Hz` : '';
-    const est = v.coarse ? ' · suivi rapide' : '';
+    const est = v.coarse
+      ? ` · suivi rapide${t.clarity ? ` (clarté ${(t.clarity * 100).toFixed(0)} %)` : ''}`
+      : '';
     return `<div class="rcard ${cls}" style="border-left-color:${colorFor(key)}">
       <div class="rc-head"><b>${lbl}</b><span>${note}</span></div>
       <div class="rc-cents">${v.coarse ? '≈' : arrow} ${c >= 0 ? '+' : ''}${c.toFixed(v.coarse ? 1 : 2)} ¢</div>

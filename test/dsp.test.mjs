@@ -2,6 +2,7 @@
 // Exécution : node test/dsp.test.mjs
 
 import { Engine } from '../web/js/dsp/engine.js';
+import { NsdfTracker } from '../web/js/dsp/nsdf.js';
 import { midiToFreq, noteLabel, overlappingAllan } from '../web/js/music.js';
 
 const SR = 48000;
@@ -457,6 +458,56 @@ console.log('\nTest 17 — plancher harmonique : une harmonique trop faible fait
   const g2 = last.groups.find((gr) => gr.key.endsWith('h2'));
   assert(last.groups[0]?.voices[0]?.tracked && g2?.voices[0]?.tracked,
     'fondamentale et H2 restent suivies malgré la lacune de H3');
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nTest 18 — NSDF (méthode McLeod) : justesse et robustesse à l\'octave');
+{
+  const tracker = new NsdfTracker(SR);
+  // Justesse sur une gamme de hauteurs, son riche + bruit.
+  let worst = 0;
+  for (const f0 of [82.41, 110, 220, 440, 880]) {
+    const W = 4096;
+    const x = new Float32Array(W);
+    const harm = [1, 0.7, 0.5, 0.35, 0.2, 0.1];
+    for (let h = 0; h < harm.length; h++) {
+      const w = (2 * Math.PI * f0 * (h + 1)) / SR;
+      const phi = Math.random() * 6.28;
+      for (let i = 0; i < W; i++) x[i] += 0.2 * harm[h] * Math.sin(w * i + phi);
+    }
+    for (let i = 0; i < W; i++) x[i] += 2e-3 * (Math.random() * 2 - 1);
+    const r = tracker.estimate(x);
+    const err = r ? Math.abs(cents(r.f0, f0)) : Infinity;
+    if (err > worst) worst = err;
+  }
+  assert(worst < 0.5, `justesse NSDF ≤ ${worst.toFixed(2)} ¢ sur E2–A5 (< 0,5 requis)`);
+
+  // Fondamentale manquante (H2..H5 seulement) : ne doit pas sauter à l'octave.
+  const W = 4096;
+  const x = new Float32Array(W);
+  for (const [k, a] of [[2, 0.6], [3, 0.5], [4, 0.3], [5, 0.2]]) {
+    const w = (2 * Math.PI * 220 * k) / SR;
+    for (let i = 0; i < W; i++) x[i] += 0.2 * a * Math.sin(w * i);
+  }
+  for (let i = 0; i < W; i++) x[i] += 2e-3 * (Math.random() * 2 - 1);
+  const r = tracker.estimate(x);
+  assert(r && Math.abs(cents(r.f0, 220)) < 1,
+    `fondamentale manquante : NSDF trouve 220 Hz (obtenu ${r?.f0?.toFixed(2)}), pas l'octave`);
+
+  // Bruit blanc pur : aucune hauteur franche (clarté faible → null).
+  const noise = new Float32Array(W);
+  for (let i = 0; i < W; i++) noise[i] = Math.random() * 2 - 1;
+  const rn = tracker.estimate(noise);
+  assert(rn == null, `bruit blanc : pas de hauteur détectée (clarté insuffisante)`);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nTest 19 — la clarté NSDF est exposée par le moteur');
+{
+  const engine = new Engine(SR, { mode: 'auto', response: 'normal' });
+  const last = run(engine, reedSignal({ freqs: [{ f: 440.0 }] }));
+  assert(last && typeof last.clarity === 'number' && last.clarity > 0.8,
+    `clarté = ${last?.clarity?.toFixed(3)} sur anche franche (> 0,8 attendu)`);
 }
 
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);

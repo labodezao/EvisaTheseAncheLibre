@@ -4,6 +4,7 @@
 
 import { CoarseAnalyzer } from './coarse.js';
 import { ZoomTracker } from './zoom.js';
+import { NsdfTracker } from './nsdf.js';
 import {
   midiToFreq, nearestMidi, centsBetween, voiceTargetFreq,
   MIDI_MIN, MIDI_MAX, REGISTER_PRESETS,
@@ -33,6 +34,9 @@ export class Engine {
       ...cfg,
     };
     this.coarse = new CoarseAnalyzer(sampleRate);
+    // Détecteur temporel McLeod (NSDF) : identification de note robuste aux
+    // erreurs d'octave et suivi faible latence d'une hauteur en mouvement.
+    this.nsdf = new NsdfTracker(sampleRate);
     this.trackers = new Map();   // clé: écart d'octave → ZoomTracker
     this.acc = 0;
     this.rmsAcc = 0;
@@ -318,6 +322,26 @@ export class Engine {
     const coarse = (!quiet && this.coarse.ready()) ? this.coarse.analyze() : null;
     let f0 = coarse?.f0 ? coarse.f0.freq * calib : null;
 
+    // Détection temporelle McLeod (NSDF) : hauteur monophonique robuste aux
+    // erreurs d'octave, à faible latence. Sert d'ancre d'octave à la
+    // détection spectrale et de source au suivi continu. En mode registre
+    // (plusieurs anches à l'unisson), la NSDF n'est pas fiable : on l'ignore.
+    const poly = c.mode === 'register';
+    const nsdfEst = (!quiet && !poly && this.coarse.ready())
+      ? this.nsdf.estimateFromRing(this.coarse.ring, this.coarse.wpos, this.coarse.win)
+      : null;
+    const nf0 = nsdfEst ? nsdfEst.f0 * calib : null;
+    const clarity = nsdfEst ? nsdfEst.clarity : 0;
+    // Ancre d'octave : si la NSDF est franche (clarté ≥ 0,9) et que la
+    // fondamentale spectrale tombe sur un multiple/sous-multiple entier de la
+    // hauteur NSDF (erreur d'octave ou de douzième), on adopte la NSDF.
+    if (f0 && nf0 && clarity >= 0.9) {
+      const ratio = f0 / nf0;
+      for (const R of [0.5, 2, 1 / 3, 3]) {
+        if (Math.abs(ratio - R) / R < 0.03) { f0 = nf0; break; }
+      }
+    }
+
     // Note verrouillée par l'utilisateur : la détection est court-circuitée.
     if (c.lockNote != null && c.mode !== 'manual') {
       if (this.playedMidi !== c.lockNote) {
@@ -443,12 +467,16 @@ export class Engine {
         // Le zoom a re-convergé sur la hauteur stabilisée : il reprend la main.
         this.motionLatch = false;
       }
-      if (v && (!v.tracked || this.motionLatch) && Math.abs(centsBetween(f0, v.nominal)) < 120) {
-        v.fMeas = f0;
+      // Source du suivi : la NSDF (fenêtre 85 ms, sans erreur d'octave) suit
+      // une hauteur qui bouge de plus près que la FFT grossière (341 ms) ;
+      // repli sur la fondamentale spectrale si la NSDF n'est pas franche.
+      const followF0 = (nf0 && clarity >= 0.7) ? nf0 : f0;
+      if (v && (!v.tracked || this.motionLatch) && Math.abs(centsBetween(followF0, v.nominal)) < 120) {
+        v.fMeas = followF0;
         v.amp = level;
-        v.dCents = centsBetween(f0, v.nominal);
-        v.dHz = f0 - v.nominal;
-        v.dTargetCents = centsBetween(f0, v.target);
+        v.dCents = centsBetween(followF0, v.nominal);
+        v.dHz = followF0 - v.nominal;
+        v.dTargetCents = centsBetween(followF0, v.target);
         v.tracked = true;
         v.coarse = true; // estimation rapide, pas la mesure fine du zoom
         v.beatMeas = 0;
@@ -539,6 +567,7 @@ export class Engine {
       quiet,
       f0,
       f0Cents,
+      clarity,
       playedMidi: played,
       transpose: c.transpose,
       lockNote: c.lockNote ?? null,
