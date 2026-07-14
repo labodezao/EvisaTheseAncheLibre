@@ -188,12 +188,28 @@
       <label>Mode
         <select id="mode">
           <option value="auto">Automatique (une anche)</option>
+          <option value="reeds">Auto-anches (détection du nombre d'anches)</option>
           <option value="register">Registre (multi-anches)</option>
           <option value="manual">Notes définies (accords, basses)</option>
         </select>
       </label>
       <div id="modeRegister" class="subctl">
         <label>Registre <select id="register"></select></label>
+      </div>
+      <div id="modeReeds" class="subctl hidden">
+        <p class="hint">Les anches sont détectées automatiquement sur la note jouée.
+        Coche les octaves supplémentaires si des jeux 16'/4'/2' sont tirés (fixage manuel).</p>
+        <label class="inline"><input type="checkbox" id="ro-16"> 16' (octave grave)</label>
+        <label class="inline"><input type="checkbox" id="ro-8" checked disabled> 8' (note jouée)</label>
+        <label class="inline"><input type="checkbox" id="ro-4"> 4' (octave aiguë)</label>
+        <label class="inline"><input type="checkbox" id="ro-2"> 2' (double octave)</label>
+        <label>Anches max à l'unisson
+          <select id="maxUnison">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3" selected>3</option>
+          </select>
+        </label>
       </div>
       <div id="modeManual" class="subctl hidden">
         <label>Notes jouées <input type="text" id="manualNotes" placeholder="ex. Do4 Mi4 Sol4 ou C4 E4 G4"></label>
