@@ -24,6 +24,8 @@ const cfg = Object.assign({
   trackHarmonics: 0,
   trackSub: false,
   subspace: false,
+  reedOctaves: [0],
+  maxUnison: 3,
   lockNote: null,
   gateDb: -70,
   bellows: 'T',
@@ -1572,6 +1574,21 @@ function bindControls() {
   $('trackSub').onchange = () => { cfg.trackSub = $('trackSub').checked; pushConfig(); };
   $('subspace').checked = !!cfg.subspace;
   $('subspace').onchange = () => { cfg.subspace = $('subspace').checked; pushConfig(); };
+  // Auto-anches : octaves scrutés (8' toujours actif) + unisson max.
+  const octMap = { 'ro-16': -1, 'ro-4': 1, 'ro-2': 2 };
+  const syncReedOctaves = () => {
+    const octs = [0];
+    for (const [id, oct] of Object.entries(octMap)) if ($(id).checked) octs.push(oct);
+    octs.sort((a, b) => a - b);
+    cfg.reedOctaves = octs;
+    pushConfig();
+  };
+  for (const id of Object.keys(octMap)) {
+    $(id).checked = (cfg.reedOctaves || [0]).includes(octMap[id]);
+    $(id).onchange = syncReedOctaves;
+  }
+  $('maxUnison').value = String(cfg.maxUnison || 3);
+  $('maxUnison').onchange = () => { cfg.maxUnison = Number($('maxUnison').value); pushConfig(); };
   $('btnCurveCsv').onclick = exportCurveCsv;
   updateLockButton();
   $('a4').onchange = () => { cfg.a4 = clamp(Number($('a4').value) || 440, 430, 450); $('a4').value = cfg.a4; pushConfig(); };
@@ -1675,11 +1692,13 @@ function updateLockButton() {
 function updateModeVisibility() {
   $('modeRegister').classList.toggle('hidden', cfg.mode !== 'register');
   $('modeManual').classList.toggle('hidden', cfg.mode !== 'manual');
-  // Le suivi d'harmoniques ne s'applique pas au mode registre (les voix
+  $('modeReeds').classList.toggle('hidden', cfg.mode !== 'reeds');
+  // Le suivi d'harmoniques ne s'applique pas aux modes multi-anches (les voix
   // couvrent déjà les octaves et leurs harmoniques se recouvrent).
-  $('harmonicsCtl').classList.toggle('hidden', cfg.mode === 'register');
-  $('harmonicsHint').classList.toggle('hidden', cfg.mode === 'register');
-  $('subCtl').classList.toggle('hidden', cfg.mode === 'register');
+  const multi = cfg.mode === 'register' || cfg.mode === 'reeds';
+  $('harmonicsCtl').classList.toggle('hidden', multi);
+  $('harmonicsHint').classList.toggle('hidden', multi);
+  $('subCtl').classList.toggle('hidden', multi);
 }
 
 // ---- Démarrage -----------------------------------------------------------------

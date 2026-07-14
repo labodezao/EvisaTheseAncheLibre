@@ -29,6 +29,9 @@ export class Engine {
       fuseHarmonics: true,     // fusion multi-harmonique cohérente (mode auto)
       trackSub: false,         // bandes f/2 et 3f/2 (détection de bifurcation)
       subspace: false,         // analyse paramétrique Matrix Pencil (voix de base)
+      reedOctaves: [0],        // octaves scrutés en auto-anches (0 = octave jouée ;
+                               // l'utilisateur ajoute 16'/4'/2' à la main)
+      maxUnison: 3,            // nb max d'anches à l'unisson par octave (auto-anches)
       lockNote: null,          // note MIDI imposée (désactive la détection)
       gateDb: -70,             // seuil de silence : gèle traqueurs et horloge
       response: 'normal',      // 'fast' | 'normal' | 'precise'
@@ -80,6 +83,27 @@ export class Engine {
       return c.manualNotes.map((m, i) => ({
         id: `n${i}`, label: null, oct: 0, beatSign: 0, fixedMidi: m,
       }));
+    }
+    if (c.mode === 'reeds') {
+      // Auto-anches : on ouvre, pour chaque octave scrutée (16'..2' par
+      // rapport à la note détectée), jusqu'à `maxUnison` emplacements
+      // d'unisson. Seuls les emplacements réellement alimentés seront suivis
+      // → le nombre d'anches se révèle tout seul. L'utilisateur peut restreindre
+      // les octaves et l'unisson (fixer à la main).
+      const octs = (c.reedOctaves ?? [-1, 0, 1, 2]);
+      const nU = Math.min(3, Math.max(1, c.maxUnison ?? 3));
+      const foot = { '-2': "32'", '-1': "16'", 0: "8'", 1: "4'", 2: "2'" };
+      const out = [];
+      for (const oct of octs) {
+        for (let u = 0; u < nU; u++) {
+          out.push({
+            id: `o${oct}u${u}`,
+            label: (foot[oct] ?? `${oct >= 0 ? '+' : ''}${oct}oct`) + (u > 0 ? ` ${u + 1}` : ''),
+            oct, beatSign: u === 0 ? 0 : 1,
+          });
+        }
+      }
+      return out;
     }
     return [{ id: 'auto', label: null, oct: 0, beatSign: 0 }];
   }
@@ -569,6 +593,38 @@ export class Engine {
       if (!g.isHarmonic || g.isSub) continue;
       for (const v of g.voices) {
         if (v.tracked && v.amp < harmFloor) this.fillVoice(v, null);
+      }
+    }
+
+    // Auto-anches : ne compter que les vraies anches, pas le bruit ni les
+    // harmoniques. Deux filtres :
+    //   1) plancher global −25 dB (une octave vide verrouille sur du bruit) ;
+    //   2) rejet harmonique — le partiel k d'une anche grave tombe pile sur la
+    //      fondamentale d'une octave supérieure (le 4' est à 2× le 8') : une
+    //      anche dont la fréquence coïncide (< 8 cents) avec k× une anche plus
+    //      grave ET plus forte est cette harmonique, pas une anche distincte.
+    //      Une vraie anche d'octave désaccordée (battement) y échappe.
+    if (c.mode === 'reeds') {
+      const reedFloor = baseAmp * Math.pow(10, -25 / 20);
+      for (const g of groups) {
+        for (const v of g.voices) {
+          if (v.tracked && v.amp < reedFloor) this.fillVoice(v, null);
+        }
+      }
+      const kept = [];
+      for (const g of groups) for (const v of g.voices) if (v.tracked) kept.push(v);
+      kept.sort((a, b) => a.fMeas - b.fMeas);
+      for (let i = 0; i < kept.length; i++) {
+        const v = kept[i];
+        for (let j = 0; j < i; j++) {
+          const lo = kept[j];
+          if (!lo.tracked || lo.amp <= v.amp) continue;
+          const k = Math.round(v.fMeas / lo.fMeas);
+          if (k >= 2 && Math.abs(centsBetween(v.fMeas, k * lo.fMeas)) < 8) {
+            this.fillVoice(v, null); // c'est l'harmonique k de `lo`
+            break;
+          }
+        }
       }
     }
 
