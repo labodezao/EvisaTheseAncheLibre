@@ -596,7 +596,12 @@ export class Engine {
       const bb = t ? t.baseband(48) : null;
       if (bg && bb) {
         const nExp = bg.voices.length;
-        const M = Math.max(1, Math.min(4, this.motionLatch ? 1 : nExp + (nExp < 3 ? 1 : 0)));
+        // Ordre du modèle : en registre/manuel le nombre d'anches est connu →
+        // on le prend exactement (un pôle en trop s'ajusterait sur le bruit).
+        // En auto (1 voix attendue) on autorise un pôle de plus pour révéler
+        // une seconde composante cachée (unisson non déclaré).
+        const known = c.mode === 'register' || c.mode === 'manual';
+        const M = Math.max(1, Math.min(4, this.motionLatch ? 1 : (known ? nExp : nExp + 1)));
         const k = bg.kTrack || 1;
         let comps = [];
         try { comps = matrixPencil(bb.re, bb.im, M, bb.srd); } catch { comps = []; }
