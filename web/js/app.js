@@ -122,7 +122,7 @@ const state = {
   history: [],          // [{t, midi, vals: {clé de voix → {c, f}}}]
   voiceLabels: new Map(), // clé de voix → étiquette
   mouse: null,          // position du curseur sur la courbe (px canvas)
-  strobePhase: 0,
+  strobePhase: [],      // phase (cycles) par bande harmonique du stroboscope
   lastDraw: performance.now(),
   stableTicks: 0,
   lastMidi: null,
@@ -815,25 +815,66 @@ function drawPitchCurve() {
   }
 }
 
+// Stroboscope multi-harmonique. Une bande par partiel k=1..N : elle défile à
+// la VITESSE DE BATTEMENT réelle de ce partiel contre sa cible (k×fréquence
+// cible), exactement comme un strobe mécanique. Immobile = juste. Les hautes
+// bandes battent k fois plus vite → résolution démultipliée (le principe du
+// strobe). Chaque bande utilise la mesure d'harmonique du moteur si elle
+// existe (inharmonicité réelle visible), sinon le modèle harmonique idéal
+// k×(f−cible) — cohérent avec le reste de l'accordeur.
+const STROBE_BANDS = 5;
 function drawStrobe(dt) {
   const cv = $('strobe'), ctx = cv.getContext('2d');
   const W = cv.width, H = cv.height;
-  const v = selectedVoice(state.tick);
-  if (v?.dTargetCents != null && !state.frozen) {
-    // La bande dérive à une vitesse proportionnelle à l'écart (comme un
-    // stroboscope mécanique) : immobile = juste.
-    state.strobePhase += v.dTargetCents * dt * 60;
-  }
+  const t = state.tick;
+  const v = selectedVoice(t);
+  const th = theme();
+  if (state.strobePhase.length !== STROBE_BANDS) state.strobePhase = new Array(STROBE_BANDS).fill(0);
   ctx.clearRect(0, 0, W, H);
-  const period = 46;
-  const off = ((state.strobePhase % period) + period) % period;
-  for (let x = -period; x < W + period; x += period) {
-    const g = ctx.createLinearGradient(x + off, 0, x + off + period, 0);
-    g.addColorStop(0, theme().canvasBg);
-    g.addColorStop(0.5, v?.tracked ? (Math.abs(v.dTargetCents) < 1 ? theme().okStrong : theme().accentMuted) : theme().panel2);
-    g.addColorStop(1, theme().canvasBg);
-    ctx.fillStyle = g;
-    ctx.fillRect(x + off, 8, period, H - 16);
+
+  // Battement (Hz) du partiel k : mesure d'harmonique si suivie, sinon idéal.
+  const beatOf = (k) => {
+    if (!v || !v.tracked || v.dTargetCents == null) return null;
+    if (k === 1) return v.fMeas - v.target;
+    for (const g of t?.groups ?? []) {
+      if (g.isSub) continue;
+      for (const vv of g.voices) {
+        if (vv.tracked && vv.def.label === `H${k}` && vv.midi === v.midi) {
+          return vv.fMeas - k * v.target;
+        }
+      }
+    }
+    return k * (v.fMeas - v.target);
+  };
+
+  const labelW = 30;
+  const bandH = (H - 4) / STROBE_BANDS;
+  const period = 42;
+  ctx.textAlign = 'left';
+  ctx.font = '11px var(--mono, monospace)';
+  for (let bi = 0; bi < STROBE_BANDS; bi++) {
+    const k = bi + 1;
+    const y0 = 2 + bi * bandH;
+    const beat = beatOf(k);
+    if (beat != null && !state.frozen) state.strobePhase[bi] += beat * dt; // en cycles
+    const ph = beat != null ? ((state.strobePhase[bi] % 1) + 1) % 1 : 0;
+    const off = ph * period;
+    const still = beat != null && Math.abs(beat) < 0.12;
+    const on = beat == null ? th.panel2 : (still ? th.okStrong : th.accentMuted);
+    ctx.save();
+    ctx.beginPath(); ctx.rect(labelW, y0, W - labelW, bandH - 3); ctx.clip();
+    for (let x = labelW - period; x < W + period; x += period) {
+      const gx = x + off;
+      const g = ctx.createLinearGradient(gx, 0, gx + period, 0);
+      g.addColorStop(0, th.canvasBg);
+      g.addColorStop(0.5, on);
+      g.addColorStop(1, th.canvasBg);
+      ctx.fillStyle = g;
+      ctx.fillRect(gx, y0, period, bandH - 3);
+    }
+    ctx.restore();
+    ctx.fillStyle = still ? th.okStrong : th.dim2;
+    ctx.fillText(`×${k}`, 3, y0 + bandH / 2 + 3);
   }
 }
 
@@ -1722,6 +1763,45 @@ if ('serviceWorker' in navigator) {
 }
 
 $('themeToggle').onclick = toggleTheme;
+
+// Verrouillage d'orientation (mobile) : cycle Auto → Portrait → Paysage.
+// L'API screen.orientation.lock exige le plein écran sur la plupart des
+// navigateurs mobiles ; on passe donc en plein écran avant de verrouiller.
+const ORIENTS = [
+  { mode: 'auto', label: '🔄 Auto' },
+  { mode: 'portrait', label: '📱 Portrait' },
+  { mode: 'landscape', label: '📱 Paysage' },
+];
+let orientIdx = 0;
+async function applyOrientation() {
+  const o = ORIENTS[orientIdx];
+  const btn = $('orientToggle');
+  btn.textContent = o.label;
+  try {
+    if (o.mode === 'auto') {
+      if (screen.orientation?.unlock) screen.orientation.unlock();
+      if (document.fullscreenElement) await document.exitFullscreen().catch(() => {});
+    } else {
+      if (!document.fullscreenElement && document.documentElement.requestFullscreen) {
+        await document.documentElement.requestFullscreen().catch(() => {});
+      }
+      if (screen.orientation?.lock) await screen.orientation.lock(o.mode);
+    }
+    localStorage.setItem('aal.orient', o.mode);
+  } catch (e) {
+    // Non supporté (ex. iOS Safari) : on informe une fois sans casser.
+    btn.title = "Verrouillage d'orientation non supporté par ce navigateur";
+  }
+}
+$('orientToggle').onclick = () => { orientIdx = (orientIdx + 1) % ORIENTS.length; applyOrientation(); };
+{
+  const saved = localStorage.getItem('aal.orient');
+  const i = ORIENTS.findIndex((o) => o.mode === saved);
+  if (i > 0) { orientIdx = i; $('orientToggle').textContent = ORIENTS[i].label; }
+  // On ne réapplique pas le verrou au chargement (le lock exige un geste
+  // utilisateur) : le libellé reflète le choix, l'utilisateur reclique si besoin.
+}
+
 applyTheme(currentTheme()); // synchronise le libellé du bouton avec l'attribut posé au chargement
 bindControls();
 drawBeatCurve();

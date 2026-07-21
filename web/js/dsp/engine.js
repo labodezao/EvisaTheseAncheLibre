@@ -61,6 +61,7 @@ export class Engine {
     // mouvement (chant, glissando), et verrou de préférence au suivi rapide.
     this.f0Hist = [];
     this.motionLatch = false;
+    this.lastFine = null;       // dernière mesure fine de la voix de base (maintien en creux de battement)
   }
 
   get gate() { return Math.pow(10, (this.cfg.gateDb ?? -70) / 20); }
@@ -446,7 +447,17 @@ export class Engine {
         const bf = baseFByCenter.get(g.center);
         if (bf) anchor = bf * g.kTrack;
       }
-      const voices = this.matchVoices(g, az, calib, claimed, anchor);
+      // Continuité temporelle de la voix de base (auto, une anche) : préférer
+      // la composante la plus proche de la dernière mesure fine plutôt que la
+      // plus proche du nominal, pour rester accroché à LA MÊME anche quand deux
+      // anches battent (sinon la fondamentale saute de l'une à l'autre au
+      // rythme du battement → discontinuités).
+      let cont = null;
+      if (!g.isHarmonic && !g.isSub && c.mode === 'auto' && g.voices.length === 1
+          && this.lastFine && (this.samplesTotal / this.sr) - this.lastFine.t < 0.5) {
+        cont = this.lastFine.f;
+      }
+      const voices = this.matchVoices(g, az, calib, claimed, anchor, cont);
       if (!g.isHarmonic) {
         // Les harmoniques mesurées d'une voix de base sont « revendiquées »
         // pour les groupes plus aigus ; les groupes harmoniques, eux,
@@ -520,7 +531,28 @@ export class Engine {
       // une hauteur qui bouge de plus près que la FFT grossière (341 ms) ;
       // repli sur la fondamentale spectrale si la NSDF n'est pas franche.
       const followF0 = (nf0 && clarity >= 0.7) ? nf0 : f0;
-      if (v && (!v.tracked || this.motionLatch) && Math.abs(centsBetween(followF0, v.nominal)) < 120) {
+      // Maintien valable si la dernière mesure fine est récente ET que la
+      // hauteur n'a pas vraiment bougé (l'estimation rapide reste proche) : un
+      // battement fait osciller f0 autour d'une moyenne stable (→ on tient),
+      // un glissando l'en éloigne (→ suivi rapide).
+      const holdOk = this.lastFine && tNow - this.lastFine.t < 0.5
+        && Math.abs(centsBetween(followF0, this.lastFine.f)) < 15;
+      if (v && !v.tracked && holdOk) {
+        // Creux de battement : le zoom perd brièvement l'accroche quand deux
+        // anches battent (amplitude qui module). La hauteur, elle, ne bouge
+        // pas — on TIENT la dernière mesure fine plutôt que de sauter sur
+        // l'estimation rapide, qui provoquait des discontinuités sur la courbe
+        // à chaque battement (fondamentale en dents de scie, harmoniques
+        // stables). Repli sur le suivi rapide seulement si la perte se prolonge.
+        v.fMeas = this.lastFine.f;
+        v.amp = level;
+        v.dCents = centsBetween(v.fMeas, v.nominal);
+        v.dHz = v.fMeas - v.nominal;
+        v.dTargetCents = centsBetween(v.fMeas, v.target);
+        v.tracked = true;
+        v.held = true; // maintenu pendant un creux, ni fin ni rapide
+        v.beatMeas = 0;
+      } else if (v && (!v.tracked || this.motionLatch) && Math.abs(centsBetween(followF0, v.nominal)) < 120) {
         v.fMeas = followF0;
         v.amp = level;
         v.dCents = centsBetween(followF0, v.nominal);
@@ -564,6 +596,16 @@ export class Engine {
           bv.dTargetCents = centsBetween(bv.fMeas, bv.target);
           bv.fusedN = nFused;
         }
+      }
+    }
+
+    // Mémorise la dernière mesure fine de la voix de base (ni rapide ni
+    // maintenue) : elle sert à tenir la valeur pendant les creux de battement
+    // plutôt que de sauter sur l'estimation rapide.
+    if (c.mode === 'auto' && !quiet) {
+      const bv = groups.find((gr) => !gr.isHarmonic && !gr.isSub)?.voices[0];
+      if (bv?.tracked && !bv.coarse && !bv.held) {
+        this.lastFine = { t: this.samplesTotal / this.sr, f: bv.fMeas };
       }
     }
 
@@ -704,7 +746,7 @@ export class Engine {
   // Associe les composantes mesurées aux voix attendues du groupe.
   // `claimed` : fréquences absolues (Hz) déjà expliquées comme harmoniques
   // de voix plus graves — elles ne sont utilisées qu'en dernier recours.
-  matchVoices(group, az, calib, claimed = [], anchor = null) {
+  matchVoices(group, az, calib, claimed = [], anchor = null, cont = null) {
     const expected = group.voices
       .map((v) => ({ ...v }))
       .sort((a, b) => a.target - b.target);
@@ -750,6 +792,24 @@ export class Engine {
       cp.claimed = group.isHarmonic
         ? false
         : claimed.some((f) => Math.abs(abs - f) < tolClaim);
+    }
+
+    // Verrou de continuité (voix unique, mode auto sur un ton battu) : on
+    // n'accepte QUE la composante proche (±3 ¢) de la dernière mesure fine —
+    // rester sur la même anche. Si aucune (creux de battement où l'anche suivie
+    // s'efface, remplacée par des raies parasites), on ne suit pas cette trame
+    // → le maintien reprend la dernière valeur. Sans ça, la fondamentale
+    // sautait sur l'autre anche à chaque battement.
+    if (cont != null && expected.length === 1) {
+      const tolC = Math.max(0.03, cont * (Math.pow(2, 3 / 1200) - 1));
+      let best = null, bestD = Infinity;
+      for (const cp of comps) {
+        const dd = Math.abs(cp.freq - cont);
+        if (dd < tolC && dd < bestD) { bestD = dd; best = cp; }
+      }
+      this.fillVoice(expected[0], best, az?.W);
+      expected[0].beatMeas = 0;
+      return expected;
     }
 
     const chosen = assignOrdered(expected, comps, tolHz);
