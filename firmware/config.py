@@ -1,63 +1,76 @@
 # Configuration du banc d'accordage — ESP32-S3 (MicroPython).
 #
-# ⚠ Les numéros de GPIO ci-dessous sont des valeurs par défaut RAISONNABLES
-# pour un ESP32-S3 générique : VÉRIFIE-LES contre ton câblage avant le premier
-# essai. Évités : 0/45/46 (strapping), 19/20 (USB natif), 26–32 (flash/PSRAM
-# sur certains modules). Un seul bus I2C partagé (OLED + BMP280 + SFM3000).
+# ⚠ GPIO par défaut RAISONNABLES pour un ESP32-S3 générique : VÉRIFIE-LES
+# contre ton câblage. Évités : 0/45/46 (strapping), 19/20 (USB), 26–32
+# (flash/PSRAM selon module). Bring-up actionneurs DÉBRANCHÉS.
+#
+# Rig réel (repris des Pyboards MesAnche/ValControl) : 3 axes pas-à-pas
+# STEP/DIR (pression, section-vis, clapet), turbine par PWM+RC, électrovanne,
+# bridage, capteurs P/T (BMP280) et débit (SFM3000), excitation EM par DDS.
 
 # --- Bus I2C (capteurs + écran) ---------------------------------------------
 I2C_ID = 0
 PIN_SDA = 8
 PIN_SCL = 9
 I2C_FREQ = 400_000
-
-# Adresses I2C
 ADDR_OLED = 0x3C
-ADDR_BMP280 = 0x76      # 0x76 ou 0x77 selon SDO
+ADDR_BMP280 = 0x76
 ADDR_SFM3000 = 0x40
-
-# --- Écran OLED SSD1306 ------------------------------------------------------
 OLED_W = 128
 OLED_H = 64
 
-# --- Actionneurs pneumatiques ------------------------------------------------
-PIN_VALVE = 10          # vanne (0 = fermée, 1 = ouverte) — adapte la logique
-PIN_BLOW = 11           # turbine centrifuge (PWM = régime, ou tout/rien)
-PIN_CLAMP = 12          # bridage de l'anche
-BLOW_PWM_FREQ = 20_000  # au-dessus de l'audible
+# --- Axes pas-à-pas STEP/DIR (drivers type A4988/DRV8825) --------------------
+# Chaque axe : (step, dir, limit-switch). ENABLE/SLEEP partagé (actif bas).
+PIN_DRV_ENABLE = 3          # /EN commun des drivers (0 = actif)
+AX_PRESS = dict(step=4,  dir=5,  sw=13, inv=False, spr=1600)   # sens soufflet / pression
+AX_SCREW = dict(step=6,  dir=7,  sw=14, inv=False, spr=1600)   # section (vis)
+AX_CLAP  = dict(step=15, dir=16, sw=21, inv=False, spr=1600)   # clapet (angle)
 
-# --- Moteur pas-à-pas (position de pression / inversion de soufflet) ---------
-PIN_STEP = [4, 5, 6, 7]     # 4 bobines (ordre = séquence de pas)
-STEP_SW1 = 13               # fin de course (référence)
-STEP_SW2 = 14               # capteur d'inversion
-STEP_TRAVEL = 1600          # pas entre positions haute/basse (à mesurer)
+# Géométrie (à mesurer sur ton banc)
+SCREW_MM_PER_REV = 8.0      # pas de vis (mm/tour) de l'axe section
+SECTION_WIDTH_MM = 15.0     # largeur du trou de section (→ surface = x·largeur)
+SCREW_TRAVEL_MM = 14.0      # course utile
+STEP_TRAVEL_PRESS = 1600    # pas entre positions haute/basse du soufflet
 
-# --- Excitation électromagnétique -------------------------------------------
-PIN_EM = 15             # sortie PWM vers l'ampli de la bobine
-PIN_EM_EN = 16          # enable de l'étage de puissance (0 = coupé)
-EM_MIN_HZ = 20
-EM_MAX_HZ = 5000
+# --- Turbine (consigne de régime, 0..4095 comme l'ancien DAC) ---------------
+PIN_BLOW = 11               # PWM → filtre RC → entrée consigne du variateur
+BLOW_PWM_FREQ = 20_000
+PIN_BLOW_EN = 10            # enable de la turbine (relais/driver)
 
-# --- Boucle & télémétrie -----------------------------------------------------
-SAMPLE_HZ = 50          # cadence d'échantillonnage capteurs
-TELEM_HZ = 20           # cadence de télémétrie par défaut
-DISPLAY_HZ = 5          # rafraîchissement OLED
-WDT_MS = 4000           # watchdog
+# --- Électrovanne + bridage --------------------------------------------------
+PIN_VANNE = 12              # admission d'air temporisée
+PIN_CLAMP = 40             # bridage de l'anche
 
-# --- Filtrage capteurs -------------------------------------------------------
-MEDIAN_N = 5            # médiane glissante (rejet des pics)
-IIR_ALPHA = 0.25        # passe-bas exponentiel (0..1 ; petit = plus lisse)
+# --- Excitation électromagnétique (DDS AD9833 sur SPI) ----------------------
+SPI_ID = 1
+PIN_SPI_SCK = 36
+PIN_SPI_MOSI = 35
+PIN_AD9833_FSYNC = 37       # /CS du DDS
+AD9833_MCLK = 25_000_000    # quartz du module (souvent 25 MHz)
+PIN_EM_AMP = 17             # PWM → gain/VCA de l'ampli bobine (amplitude EM)
+PIN_EM_EN = 18             # enable de l'étage de puissance EM
+EM_MIN_HZ = 10
+EM_MAX_HZ = 6000
 
-# --- UART (transport filaire de bring-up / pont USB-UART) --------------------
+# --- Boucle, acquisition & télémétrie ----------------------------------------
+SAMPLE_HZ = 50             # cadence de la boucle de fond (affichage/télémétrie)
+TELEM_HZ = 20
+DISPLAY_HZ = 5
+ACQ_HZ = 150              # cadence max de l'acquisition rapide (rafale)
+WDT_MS = 4000
+MEDIAN_N = 5
+IIR_ALPHA = 0.25
+
+# --- UART (bring-up / pont) --------------------------------------------------
 UART_ID = 1
-PIN_UART_TX = 17
-PIN_UART_RX = 18
+PIN_UART_TX = 43
+PIN_UART_RX = 44
 UART_BAUD = 115200
 
-# --- WiFi (transport sans fil vers l'accordeur ; laisse SSID vide = UART seul)
+# --- WiFi (lien principal ; SSID vide = UART seul) --------------------------
 WIFI_SSID = ""
 WIFI_PASS = ""
 WS_PORT = 8266
 
 FW_ID = "banc-anche-libre"
-FW_VERSION = "0.1.0"
+FW_VERSION = "0.2.0"

@@ -30,13 +30,25 @@ transport_ws.py    WiFi + WebSocket (lien principal vers l'accordeur)
 Tout passe par un **seul contrôleur** (`Bench`) : les transports ne font
 qu'acheminer des **commandes texte** et diffuser la **télémétrie JSON**.
 
+## Rig couvert (fusion des deux Pyboards MesAnche + ValControl)
+
+- **3 axes STEP/DIR** (drivers A4988/DRV8825, `/EN` commun) :
+  **pression** (sens soufflet), **section-vis** (`SECTION`, surface = x·15 mm),
+  **clapet** (`CLAP`, angle), chacun avec fin de course (homing).
+- **Turbine** : consigne 0..4095 (compat. DAC historique) en **PWM→filtre RC**
+  vers ton variateur (pas de DAC nécessaire).
+- **Excitation EM** : **DDS AD9833** (SPI) pour une sinus balayée propre ;
+  amplitude par PWM vers le gain de l'ampli.
+- **Électrovanne** temporisée, **bridage**, capteurs **BMP280** (P/T) + **SFM3000**.
+- **Acquisition rapide** P/Q/T (jusqu'à 150 Hz) streamée pour synchro audio.
+
 ## Câblage (défauts `config.py`, à vérifier)
 
-- **I2C** (OLED + BMP280 + SFM3000) : SDA=GPIO8, SCL=GPIO9, 400 kHz.
-- **Stepper** : GPIO4/5/6/7 ; fin de course SW1=GPIO13, inversion SW2=GPIO14.
-- **Vanne** GPIO10 · **Turbine (PWM)** GPIO11 · **Bridage** GPIO12.
-- **Excitation EM** : PWM GPIO15, enable GPIO16.
-- **UART** (bring-up) : TX=GPIO17, RX=GPIO18, 115200 bauds.
+- **I2C** (OLED + BMP280 + SFM3000) : SDA=GPIO8, SCL=GPIO9.
+- **Axes** : press 4/5 (SW13), screw 6/7 (SW14), clap 15/16 (SW21) ; `/EN`=GPIO3.
+- **Turbine** PWM=GPIO11 (+ RC), enable=GPIO10 · **Vanne** GPIO12 · **Bridage** GPIO40.
+- **EM** : SPI SCK=36 MOSI=35 FSYNC=37 ; amplitude PWM=17, enable=18.
+- **UART** (bring-up) : TX=GPIO43, RX=GPIO44.
 
 ## Installation
 
@@ -57,20 +69,26 @@ Pour le WiFi, renseigne `WIFI_SSID` / `WIFI_PASS` dans `config.py`
 
 | Commande | Effet |
 |---|---|
-| `PING` | → `PONG` |
-| `ID` | → identifiant + version |
+| `PING` / `ID` | → `PONG` / identifiant+version |
+| `HOME` | référence les 3 axes sur leurs fins de course |
 | `TARE` | capture la pression ambiante (référence) |
-| `HOME` | référence le moteur sur le fin de course |
-| `VALVE 0\|1` | ferme / ouvre la vanne |
+| `SECTION mm` | amène la vis de section à `mm` (surface = mm·15) |
+| `CLAP deg` | amène le clapet à l'angle `deg` |
+| `PRESSPOS 0\|1` | sens du soufflet (inversion de pression) |
+| `BLOW n` | consigne turbine 0..4095 |
+| `VALVE 0\|1` / `VALVE PULSE ms` | électrovanne (état ou impulsion) |
 | `CLAMP 0\|1` | bridage de l'anche |
-| `BLOW n` | turbine en boucle ouverte (0..1000) |
-| `PRESSURE p` | consigne de pression relative (Pa) — régulation turbine |
-| `STEP n` | déplace le moteur de n pas (signe = sens) |
-| `INVERT` | inverse le sens du soufflet |
 | `EM f a` | excitation EM à f Hz, amplitude a (0..1000) |
 | `SWEEP f0 f1 dur [a]` | balayage EM de f0 à f1 en `dur` s |
-| `STREAM 0\|1 [hz]` | active/désactive la télémétrie (+ cadence) |
+| `PRAMP l0 l1 dur` | rampe turbine l0→l1 en `dur` s (seuil d'auto-entretien) |
+| `ACQUIRE dur [hz]` | rafale P/Q/T horodatée streamée (`A t p q temp`) |
+| `STREAM 0\|1 [hz]` | télémétrie live (JSON) on/off + cadence |
 | `STOP` | met tous les actionneurs en sécurité |
+
+**Plan d'expériences** (l'ancien `Mesures.py` PC+rshell) se rejoue ainsi depuis
+l'accordeur : pour chaque point `SECTION`→`BLOW`/`PRAMP`→`CLAP`→`VALVE PULSE`→
+`ACQUIRE`, pendant que le navigateur enregistre l'audio et l'analyse (pitch,
+attaque `Tresp`, formants/résonances via Matrix Pencil, impédance P/Q).
 
 **Télémétrie** (JSON, une trame par ligne, ~20 Hz) :
 
