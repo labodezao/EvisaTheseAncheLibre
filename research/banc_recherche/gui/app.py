@@ -23,6 +23,67 @@ from ..config import DEFAULT, Config
 
 
 # ---------------------------------------------------------------------------
+# Exécution en tâche de fond : les analyses longues (batch, sweep, Praat) ne
+# doivent pas figer la fenêtre. Un QThread générique porte une fonction de
+# travail `work(emit_progress)` et émet progress / done / failed.
+# ---------------------------------------------------------------------------
+_WORKER_CLS = None
+
+
+def _worker_class():
+    global _WORKER_CLS
+    if _WORKER_CLS is not None:
+        return _WORKER_CLS
+    from PyQt6 import QtCore
+
+    class Worker(QtCore.QThread):
+        progress = QtCore.pyqtSignal(int, int, str)
+        done = QtCore.pyqtSignal(object)
+        failed = QtCore.pyqtSignal(str)
+
+        def __init__(self, work):
+            super().__init__()
+            self._work = work
+
+        def run(self):
+            try:
+                result = self._work(lambda k, t, m: self.progress.emit(k, t, m))
+                self.done.emit(result)
+            except Exception as e:                       # remonte l'erreur à l'UI
+                self.failed.emit(str(e))
+
+    _WORKER_CLS = Worker
+    return Worker
+
+
+def _run_async(state, work, on_progress=None, on_done=None, on_failed=None):
+    """Lance `work(emit_progress)` dans un thread ; câble les signaux à l'UI.
+
+    Garde une référence dans `state['_workers']` pour éviter le ramassage.
+    """
+    w = _worker_class()(work)
+    if on_progress:
+        w.progress.connect(on_progress)
+    state.setdefault("_workers", [])
+    state["_workers"].append(w)
+
+    def _cleanup(*_):
+        try:
+            state["_workers"].remove(w)
+        except ValueError:
+            pass
+
+    if on_done:
+        w.done.connect(on_done)
+    if on_failed:
+        w.failed.connect(on_failed)
+    w.done.connect(_cleanup)
+    w.failed.connect(_cleanup)
+    w.start()
+    return w
+
+
+# ---------------------------------------------------------------------------
 # Construction de la fenêtre (imports Qt différés : la CLI marche sans écran).
 # ---------------------------------------------------------------------------
 def _build(cfg: Config):
@@ -126,18 +187,27 @@ def _tab_excitation(state, plot_widget):
     def run():
         sw = state["cfg"].sweep
         sw.f0, sw.f1, sw.duration = f0.value(), f1.value(), dur.value()
-        try:
+        btn.setEnabled(False); status.setText("balayage…")
+
+        def work(emit):
             freqs, H = excitation.response(state["cfg"].audio, sw)
-            res = excitation.resonances(freqs, H)
+            return freqs, H, excitation.resonances(freqs, H)
+
+        def on_done(res):
+            btn.setEnabled(True)
+            freqs, H, peaks = res
             if hasattr(plot, "plot"):
                 plot.clear(); plot.plot(freqs, abs(H))
-            table.setRowCount(len(res))
-            for i, (fr, mag, ph) in enumerate(res):
+            table.setRowCount(len(peaks))
+            for i, (fr, mag, ph) in enumerate(peaks):
                 for j, v in enumerate((f"{fr:.1f}", f"{mag:.3g}", f"{ph:.2f}")):
                     table.setItem(i, j, QtWidgets.QTableWidgetItem(v))
-            status.setText(f"{len(res)} résonances")
-        except Exception as e:
-            status.setText("erreur : " + str(e))
+            status.setText(f"{len(peaks)} résonances")
+
+        def on_failed(msg):
+            btn.setEnabled(True); status.setText("erreur : " + msg)
+
+        _run_async(state, work, None, on_done, on_failed)
 
     btn = QtWidgets.QPushButton("Balayer (sweep)"); btn.clicked.connect(run)
     lay.addWidget(_row("f0", f0, "f1", f1, "durée", dur, btn))
@@ -174,16 +244,24 @@ def _tab_analysis(state, plot_widget):
     def run():
         if state["sound"] is None:
             results.setText("aucun son chargé"); return
-        try:
-            r = analysis.praat_calcs(state["sound"], state["sr"])
+        btn_r.setEnabled(False); results.setText("analyse Praat…")
+        sig, sr = state["sound"], state["sr"]
+
+        def work(emit):
+            return analysis.praat_calcs(sig, sr)
+
+        def on_done(r):
+            btn_r.setEnabled(True)
             results.setText(
                 f"Tresp = {r.tresp_s*1000:.1f} ms · F0 = {r.mean_fund_hz:.2f} Hz · "
                 f"F1–F4 = {r.f1:.0f}/{r.f2:.0f}/{r.f3:.0f}/{r.f4:.0f} Hz · HNR = {r.hnr_db:.1f} dB")
             if hasattr(plot, "plot"):
-                plot.clear()
-                plot.plot(r.env_t, r.env / (abs(r.env).max() or 1))
-        except Exception as e:
-            results.setText("erreur : " + str(e))
+                plot.clear(); plot.plot(r.env_t, r.env / (abs(r.env).max() or 1))
+
+        def on_failed(msg):
+            btn_r.setEnabled(True); results.setText("erreur : " + msg)
+
+        _run_async(state, work, None, on_done, on_failed)
 
     btn_l = QtWidgets.QPushButton("Charger WAV"); btn_l.clicked.connect(load_wav)
     btn_r = QtWidgets.QPushButton("Analyser (Praat)"); btn_r.clicked.connect(run)
@@ -266,26 +344,37 @@ def _tab_doe(state):
     def parse(le):
         return tuple(float(x) for x in le.text().split(",") if x.strip())
 
+    def add_row(pt):
+        r = table.rowCount(); table.insertRow(r)
+        vals = (pt.idx, pt.section_mm, pt.pressure_pa, pt.clapet_deg,
+                f"{pt.tresp_ms:.1f}", f"{pt.impedance:.1f}")
+        for j, v in enumerate(vals):
+            table.setItem(r, j, QtWidgets.QTableWidgetItem(str(v)))
+
     def run():
         d.sections_mm, d.pressures_pa, d.clapets_deg = parse(sec), parse(pre), parse(cla)
         total = len(d.sections_mm) * len(d.pressures_pa) * len(d.clapets_deg)
-        prog.setMaximum(total); table.setRowCount(0)
+        prog.setMaximum(total); table.setRowCount(0); btn.setEnabled(False)
+
+        def work(emit):
+            pts = []
+            for pt in doe.run(state["cfg"], link=state["link"], progress=emit):
+                pts.append(pt)
+            return pts
 
         def on_prog(k, tot, msg):
             prog.setValue(k); status.setText(f"{k}/{tot} — {msg}")
-            QtWidgets.QApplication.processEvents()
 
-        try:
-            for pt in doe.run(state["cfg"], link=state["link"], progress=on_prog):
-                r = table.rowCount(); table.insertRow(r)
-                vals = (pt.idx, pt.section_mm, pt.pressure_pa, pt.clapet_deg,
-                        f"{pt.tresp_ms:.1f}", f"{pt.impedance:.1f}")
-                for j, v in enumerate(vals):
-                    table.setItem(r, j, QtWidgets.QTableWidgetItem(str(v)))
-                QtWidgets.QApplication.processEvents()
-            status.setText(f"terminé → {state['cfg'].csv_path}")
-        except Exception as e:
-            status.setText("erreur : " + str(e))
+        def on_done(pts):
+            btn.setEnabled(True)
+            for pt in pts:
+                add_row(pt)
+            status.setText(f"terminé ({len(pts)} points) → {state['cfg'].csv_path}")
+
+        def on_failed(msg):
+            btn.setEnabled(True); status.setText("erreur : " + msg)
+
+        _run_async(state, work, on_prog, on_done, on_failed)
 
     btn = QtWidgets.QPushButton("Lancer le DOE"); btn.clicked.connect(run)
     lay.addWidget(_row("Section", sec, "Pression", pre, "Clapet", cla, btn))
@@ -321,17 +410,22 @@ def _tab_campaigns(state):
         path = state["_camp"]["path"]
         if not path:
             out.setText("aucun HDF5 ouvert"); return
+        b3.setEnabled(False)
+
+        def work(emit):
+            return batch.analyse_campaign(path, csv_path=state["cfg"].csv_path, progress=emit)
 
         def on_prog(k, tot, msg):
-            prog.setMaximum(tot); prog.setValue(k)
-            out.setText(f"{k}/{tot} — {msg}")
-            QtWidgets.QApplication.processEvents()
+            prog.setMaximum(tot); prog.setValue(k); out.setText(f"{k}/{tot} — {msg}")
 
-        try:
-            df = batch.analyse_campaign(path, csv_path=state["cfg"].csv_path, progress=on_prog)
+        def on_done(df):
+            b3.setEnabled(True)
             out.setText(f"campagne analysée : {len(df)} points → {state['cfg'].csv_path}")
-        except Exception as e:
-            out.setText("erreur : " + str(e))
+
+        def on_failed(msg):
+            b3.setEnabled(True); out.setText("erreur : " + msg)
+
+        _run_async(state, work, on_prog, on_done, on_failed)
 
     def analyse_point():
         f = state["_camp"]["f"]

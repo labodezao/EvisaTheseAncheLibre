@@ -48,21 +48,37 @@ def run(cfg: Config, link: BenchLink | None = None,
                     link.press_btn(pos, True)
             time.sleep(cfg.doe.settle_s)
 
-            rec = audio.record(cfg.audio, cfg.doe.acquire_s)
-            sig = rec[:, 0]
-            p_ch = audio.to_pascals(cfg.audio, rec[:, min(1, rec.shape[1] - 1)])
-            q_ch = rec[:, min(2, rec.shape[1] - 1)]
+            # Acquisition synchrone : audio (Behringer) + pneumatique. Si le banc
+            # ESP32 est connecté, on tire P/Q de sa télémétrie ; sinon on retombe
+            # sur les voies audio (montage tout-analogique dans la Behringer).
+            if link is not None:
+                if hasattr(link, "send"):
+                    link.send(f"ACQUIRE {cfg.doe.acquire_s}")
+                rec = audio.record(cfg.audio, cfg.doe.acquire_s)
+                sig = rec[:, 0]
+                frames = link.collect_telem(cfg.doe.acquire_s)
+                p_mean, q_mean = link.mean_pq(frames)
+                p_ch = np.array([f.get("p", np.nan) for f in frames], dtype="float64")
+                q_ch = np.array([f.get("q", np.nan) for f in frames], dtype="float64")
+            else:
+                rec = audio.record(cfg.audio, cfg.doe.acquire_s)
+                sig = rec[:, 0]
+                p_ch = audio.to_pascals(cfg.audio, rec[:, min(1, rec.shape[1] - 1)])
+                q_ch = rec[:, min(2, rec.shape[1] - 1)]
 
-            atk = analysis.attack(sig, cfg.audio.samplerate)
             imp = impedance.compute(p_ch, q_ch)
+            # Analyse acoustique fine (Praat) si dispo, sinon repli sur l'enveloppe.
             try:
-                forms = analysis.formants(sig, cfg.audio.samplerate)
-                f0 = analysis.pitch_hz(sig, cfg.audio.samplerate)
+                pr = analysis.praat_calcs(sig, cfg.audio.samplerate)
+                tresp_ms = pr.tresp_s * 1000.0
+                f0 = pr.mean_fund_hz
+                forms = (pr.f1, pr.f2, pr.f3, pr.f4)
             except Exception:
-                forms, f0 = (), float("nan")
+                atk = analysis.attack(sig, cfg.audio.samplerate)
+                tresp_ms, f0, forms = atk.tresp_ms, float("nan"), ()
 
             pt = Point(idx=k, section_mm=sec, pressure_pa=pa, clapet_deg=clap,
-                       position=pos, f0_hz=f0, tresp_ms=atk.tresp_ms,
+                       position=pos, f0_hz=f0, tresp_ms=tresp_ms,
                        impedance=imp.impedance, pui_hydro=imp.pui_hydro,
                        formants=tuple(forms), audio=sig.astype(np.float32),
                        pressure=p_ch.astype(np.float32), flow=q_ch.astype(np.float32))

@@ -1313,6 +1313,30 @@ function exportCurveCsv() {
     lines.join('\n'), 'text/csv');
 }
 
+// Export PNG de la courbe telle qu'affichée (figure prête pour la thèse).
+// On recompose sur un fond opaque (le canvas est transparent) en lisant la
+// couleur de fond du thème courant, pour une image lisible en clair comme en
+// sombre.
+function exportCurvePng() {
+  const src = $('pitchCurve');
+  if (!src || !state.history.length) { alert('Aucune donnée : jouez d\'abord une note.'); return; }
+  const bg = getComputedStyle(document.body).getPropertyValue('--panel')
+    || getComputedStyle(document.body).backgroundColor || '#ffffff';
+  const out = document.createElement('canvas');
+  out.width = src.width; out.height = src.height;
+  const g = out.getContext('2d');
+  g.fillStyle = bg.trim() || '#ffffff';
+  g.fillRect(0, 0, out.width, out.height);
+  g.drawImage(src, 0, 0);
+  out.toBlob((blob) => {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `courbe-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.png`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }, 'image/png');
+}
+
 function clamp(x, a, b) { return Math.min(b, Math.max(a, x)); }
 
 function markAllDirty() {
@@ -1632,6 +1656,7 @@ function bindControls() {
   $('maxUnison').value = String(cfg.maxUnison || 3);
   $('maxUnison').onchange = () => { cfg.maxUnison = Number($('maxUnison').value); pushConfig(); };
   $('btnCurveCsv').onclick = exportCurveCsv;
+  $('btnCurvePng').onclick = exportCurvePng;
   updateLockButton();
   $('a4').onchange = () => { cfg.a4 = clamp(Number($('a4').value) || 440, 430, 450); $('a4').value = cfg.a4; pushConfig(); };
   tSel.onchange = () => { cfg.temperament = tSel.value; pushConfig(); };
