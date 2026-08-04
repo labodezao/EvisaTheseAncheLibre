@@ -46,7 +46,9 @@ research/
     analysis.py             Praat/parselmouth : praat_calcs (Tresp, formants, pitch, HNR)
     impedance.py            impédance P/Q, puissance P·Q
     seuil.py                seuil d'auto-entretien (rampe + hystérésis)
-    doe.py                  plan d'expériences (grille, orchestration)
+    doe.py                  plan d'expériences (grille, orchestration temps réel)
+    batch.py                analyse par lot d'une campagne HDF5 → plan_exp.csv
+    plots.py                tracés de synthèse (impédance, Tresp, formants)
     bench_link.py           lien vers le firmware ESP32 (air : soufflet, vanne, section)
     storage.py              HDF5 + export CSV (schéma `plan_exp`)
     campaigns.py            relecture des campagnes existantes (HDF5/npy de la thèse)
@@ -79,7 +81,11 @@ chacun pilotant un module :
 | Impédance | `Data_analysis` | `impedance` |
 | Seuil auto-entretien | `mes_seuil_autoentretien` | `seuil` |
 | Plan d'expériences | `Mesures` | `doe` + `storage` |
-| Campagnes | (relecture HDF5/npy) | `campaigns` |
+| Campagnes | `Data_analysis` (boucle HDF5) / `plotsmeasure` | `campaigns` + `batch` + `plots` |
+
+L'onglet **Campagnes** rejoue toute une grille déjà mesurée (`batch.analyse_campaign`) :
+il reconstruit chaque son, applique `praat_calcs`, calcule l'impédance et écrit
+`plan_exp.csv` — exactement les 16 colonnes de l'ancien `Data_analysis.py`.
 
 ## Pourquoi Python (et pas Java)
 

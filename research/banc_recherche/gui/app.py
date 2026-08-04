@@ -296,13 +296,14 @@ def _tab_doe(state):
 # ---- 7. Campagnes (campaigns) ----------------------------------------------
 def _tab_campaigns(state):
     from PyQt6 import QtWidgets
-    from .. import campaigns, analysis
+    from .. import campaigns, analysis, batch
 
     page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
     info = QtWidgets.QLabel("Ouvrir un HDF5 de campagne (Mesures.py).")
     idx = QtWidgets.QLineEdit("0,0,0,0")   # Ppos,Section,Pression,Clapet
     out = QtWidgets.QLabel("—")
-    state["_camp"] = {"f": None}
+    prog = QtWidgets.QProgressBar()
+    state["_camp"] = {"f": None, "path": None}
 
     def open_h5():
         fn, _ = QtWidgets.QFileDialog.getOpenFileName(page, "HDF5", "", "HDF5 (*.hdf5 *.h5)")
@@ -311,9 +312,26 @@ def _tab_campaigns(state):
         try:
             f, present = campaigns.open_campaign(fn)
             state["_camp"]["f"] = f
+            state["_camp"]["path"] = fn
             info.setText(f"{fn} — datasets : {', '.join(present.keys())}")
         except Exception as e:
             info.setText("erreur : " + str(e))
+
+    def batch_run():
+        path = state["_camp"]["path"]
+        if not path:
+            out.setText("aucun HDF5 ouvert"); return
+
+        def on_prog(k, tot, msg):
+            prog.setMaximum(tot); prog.setValue(k)
+            out.setText(f"{k}/{tot} — {msg}")
+            QtWidgets.QApplication.processEvents()
+
+        try:
+            df = batch.analyse_campaign(path, csv_path=state["cfg"].csv_path, progress=on_prog)
+            out.setText(f"campagne analysée : {len(df)} points → {state['cfg'].csv_path}")
+        except Exception as e:
+            out.setText("erreur : " + str(e))
 
     def analyse_point():
         f = state["_camp"]["f"]
@@ -330,8 +348,10 @@ def _tab_campaigns(state):
 
     b1 = QtWidgets.QPushButton("Ouvrir HDF5"); b1.clicked.connect(open_h5)
     b2 = QtWidgets.QPushButton("Analyser le point"); b2.clicked.connect(analyse_point)
+    b3 = QtWidgets.QPushButton("Analyser toute la campagne → CSV"); b3.clicked.connect(batch_run)
     lay.addWidget(_row(b1)); lay.addWidget(info)
     lay.addWidget(_row("Ppos,Sec,Pres,Clap", idx, b2)); lay.addWidget(out)
+    lay.addWidget(_row(b3)); lay.addWidget(prog)
     lay.addStretch(1)
     return page
 
