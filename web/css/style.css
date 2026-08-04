@@ -412,6 +412,9 @@ dialog h2 { margin-top: 0; }
 .bench-telem td { padding: 3px 4px; color: var(--dim); }
 .bench-telem td:last-child { text-align: right; color: var(--text); font-family: var(--mono); }
 .bench-telem b { font-size: 15px; }
+.doe-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px 14px; margin: 6px 0; }
+.doe-grid label { display: block; font-size: 13px; color: var(--dim); }
+#doeProgress { font-family: var(--mono); }
 #bcLogWrap { overflow-x: auto; margin-top: 8px; }
 .bench-log { width: 100%; border-collapse: collapse; font: 12px var(--mono); white-space: nowrap; }
 .bench-log th, .bench-log td { padding: 3px 6px; border-bottom: 1px solid var(--line); text-align: right; }

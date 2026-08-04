@@ -108,11 +108,10 @@ function renderTelem() {
   set('bt_p', num(telem.p / 100, 2));       // Pa → hPa
   set('bt_q', num(telem.q, 3));
   set('bt_t', num(telem.T, 2));
-  set('bt_blow', telem.blow ?? '—');
-  set('bt_em', telem.emHz ? `${telem.emHz} Hz / ${telem.emA}` : '—');
+  set('bt_bellv', telem.bellv ?? '—');
   set('bt_surf', num(telem.surf, 1));
   set('bt_clap', num(telem.clap, 1));
-  set('bt_pos', telem.pos === 1 ? '＋' : '－');
+  set('bt_btn', telem.btn ?? '—');
   set('bt_state', telem.st ?? '—');
 }
 
@@ -138,12 +137,10 @@ async function capturePoint() {
   const puiHydro = (pMean != null && qMean != null) ? pMean * qMean : null; // P·Q
   const row = {
     n: logRows.length + 1,
-    surf: telem.surf ?? null, clap: telem.clap ?? null, pos: telem.pos ?? null,
-    blow: telem.blow ?? null,
+    surf: telem.surf ?? null, clap: telem.clap ?? null, bellv: telem.bellv ?? null,
     p: pMean, q: qMean, T: tMean, imp: impedance, puiHydro,
     note: ac.note ?? '', f0: ac.f0 ?? null, cents: ac.cents ?? null,
     level: ac.level_db ?? null, tresp: ac.attack_ms ?? null, sigma: ac.sigma ?? null,
-    emHz: telem.emHz ?? 0,
   };
   logRows.push(row);
   renderLog();
@@ -155,19 +152,82 @@ function renderLog() {
   if (!tb) return;
   tb.innerHTML = logRows.map((r) => `<tr>
     <td>${r.n}</td><td>${num(r.surf, 0)}</td><td>${num(r.clap, 0)}</td>
-    <td>${r.pos === 1 ? '＋' : '－'}</td><td>${r.blow ?? ''}</td>
+    <td>${num(r.bellv, 0)}</td>
     <td>${num(r.p, 0)}</td><td>${num(r.q, 3)}</td><td>${num(r.imp, 1)}</td>
     <td>${r.note} ${r.cents != null ? (r.cents >= 0 ? '+' : '') + num(r.cents, 1) + '¢' : ''}</td>
     <td>${num(r.f0, 2)}</td><td>${num(r.tresp, 0)}</td><td>${num(r.sigma, 1)}</td>
   </tr>`).join('');
 }
 
+// ---- Plan d'expériences automatique (DOE) -----------------------------------
+let doeRunning = false;
+
+function parseGrid(str) {
+  return (str || '').split(',').map((s) => parseFloat(s.trim())).filter((x) => !isNaN(x));
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function settleFor(sec) {   // attend, en restant interruptible
+  const end = Date.now() + sec * 1000;
+  while (Date.now() < end) {
+    if (!doeRunning) return false;
+    await sleep(100);
+  }
+  return true;
+}
+
+async function runDoe() {
+  if (doeRunning || mode == null) { if (mode == null) setStatus('non connecté', false); return; }
+  const sections = parseGrid($('doeSection').value);
+  const presses = parseGrid($('doePress').value);
+  const claps = parseGrid($('doeClap').value);
+  const btn = parseInt($('doeBtn').value, 10);
+  const settle = +($('doeSettle').value || 4);
+  const dur = +($('doeDur').value || 3);
+  if (!sections.length || !presses.length || !claps.length) {
+    setStatus('DOE : grille incomplète', false); return;
+  }
+  const total = sections.length * presses.length * claps.length;
+  doeRunning = true;
+  $('doeRun').disabled = true; $('doeStop').disabled = false;
+  if (btn >= 0) send(`PRESS ${btn} 1`);
+  let k = 0;
+  try {
+    for (const s of sections) {
+      if (!doeRunning) break;
+      send(`SECTION ${s}`);
+      for (const c of claps) {
+        if (!doeRunning) break;
+        send(`CLAP ${c}`);
+        for (const p of presses) {
+          if (!doeRunning) break;
+          k++;
+          $('doeProgress').textContent =
+            `point ${k}/${total} — S=${s} C=${c}° P=${p} Pa`;
+          send(`PRESSURE ${p}`);
+          if (!(await settleFor(settle))) break;   // interrompu
+          await capturePoint();
+        }
+      }
+    }
+  } finally {
+    if (btn >= 0) send(`PRESS ${btn} 0`);
+    send('PRESSURE 0');
+    doeRunning = false;
+    $('doeRun').disabled = false; $('doeStop').disabled = true;
+    $('doeProgress').textContent = k >= total ? `terminé (${k} points)` : `arrêté (${k}/${total})`;
+  }
+}
+
+function stopDoe() { doeRunning = false; setStatus('DOE arrêté', mode != null); }
+
 function exportCsv() {
-  const cols = ['n', 'surf', 'clap', 'pos', 'blow', 'p', 'q', 'T', 'imp', 'puiHydro',
-    'note', 'f0', 'cents', 'level', 'tresp', 'sigma', 'emHz'];
-  const head = ['point', 'surface_mm2', 'clapet_deg', 'sens', 'turbine',
+  const cols = ['n', 'surf', 'clap', 'bellv', 'p', 'q', 'T', 'imp', 'puiHydro',
+    'note', 'f0', 'cents', 'level', 'tresp', 'sigma'];
+  const head = ['point', 'surface_mm2', 'clapet_deg', 'soufflet_pas_s',
     'pression_Pa', 'debit_slm', 'temp_C', 'impedance', 'pui_hydro',
-    'note', 'f0_Hz', 'cents', 'niveau_dB', 'tresp_ms', 'sigma_s-1', 'em_Hz'];
+    'note', 'f0_Hz', 'cents', 'niveau_dB', 'tresp_ms', 'sigma_s-1'];
   const lines = [head.join(',')];
   for (const r of logRows) lines.push(cols.map((c) => r[c] ?? '').join(','));
   const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
@@ -190,23 +250,23 @@ export function initBench(acousticFn) {
   on('bcTare', 'onclick', () => send('TARE'));
   on('bcStop', 'onclick', () => send('STOP'));
 
-  const blow = $('bcBlow');
-  if (blow) blow.oninput = () => { $('bcBlowVal').textContent = blow.value; send(`BLOW ${blow.value}`); };
+  const bell = $('bcBell');
+  if (bell) bell.oninput = () => { $('bcBellVal').textContent = bell.value; send(`BELLOWS ${bell.value}`); };
+  on('bcPressGo', 'onclick', () => send(`PRESSURE ${$('bcPress').value || 0}`));
   on('bcSectionGo', 'onclick', () => send(`SECTION ${$('bcSection').value || 0}`));
   on('bcClapGo', 'onclick', () => send(`CLAP ${$('bcClap').value || 0}`));
-  on('bcPosPlus', 'onclick', () => send('PRESSPOS 1'));
-  on('bcPosMinus', 'onclick', () => send('PRESSPOS 0'));
   on('bcValveOpen', 'onclick', () => send('VALVE 1'));
   on('bcValveClose', 'onclick', () => send('VALVE 0'));
   on('bcValvePulse', 'onclick', () => send(`VALVE PULSE ${$('bcPulseMs').value || 500}`));
   on('bcClamp', 'onchange', () => send(`CLAMP ${$('bcClamp').checked ? 1 : 0}`));
 
-  on('bcEmGo', 'onclick', () => send(`EM ${$('bcEmF').value || 0} ${$('bcEmA').value || 0}`));
-  on('bcEmOff', 'onclick', () => send('EM 0 0'));
-  on('bcSweepGo', 'onclick', () =>
-    send(`SWEEP ${$('bcSweepF0').value} ${$('bcSweepF1').value} ${$('bcSweepDur').value} ${$('bcSweepA').value || 500}`));
-  on('bcRampGo', 'onclick', () =>
-    send(`PRAMP ${$('bcRampL0').value} ${$('bcRampL1').value} ${$('bcRampDur').value}`));
+  // Électro-aimants (boutons) : presse/relâche un canal (0..70).
+  on('bcBtnPress', 'onclick', () => send(`PRESS ${$('bcBtnCh').value || 0} 1`));
+  on('bcBtnRelease', 'onclick', () => send(`PRESS ${$('bcBtnCh').value || 0} 0`));
+  on('bcAllOff', 'onclick', () => send('ALLOFF'));
+
+  on('doeRun', 'onclick', runDoe);
+  on('doeStop', 'onclick', stopDoe);
 
   on('bcCapture', 'onclick', capturePoint);
   on('bcCsv', 'onclick', exportCsv);

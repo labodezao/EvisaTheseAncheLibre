@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "banc-recherche"
+version = "0.1.0"
+description = "Banc de mesure haute précision pour anches libres (excitation EM, impédance, DOE)"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "pandas>=2.0",
+    "h5py>=3.8",
+    "sounddevice>=0.4.6",
+    "praat-parselmouth>=0.4.3",
+    "PyQt6>=6.5",
+    "pyqtgraph>=0.13",
+]
+
+[project.scripts]
+banc-recherche = "banc_recherche.gui.app:main"
+
+[tool.setuptools.packages.find]
+include = ["banc_recherche*"]
