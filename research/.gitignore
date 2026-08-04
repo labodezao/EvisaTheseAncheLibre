@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+*.h5
+plan_exp.csv
+mesures.h5
+.pytest_cache/
+*.egg-info/
+build/
+dist/

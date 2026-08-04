@@ -37,6 +37,7 @@
     <div id="levelBar"></div>
   </div>
   <div class="top-actions">
+    <button id="orientToggle" title="Verrouiller l'orientation de l'écran">🔄 Auto</button>
     <button id="themeToggle" title="Thème sombre">🌙</button>
     <button id="btnStart" class="primary">▶ Démarrer</button>
     <button id="btnFreeze" disabled>❄ Geler</button>
@@ -49,6 +50,7 @@
   <button class="tab" data-tab="analyse" role="tab" aria-selected="false">📊 Analyse</button>
   <button class="tab" data-tab="settings" role="tab" aria-selected="false">⚙ Réglages</button>
   <button class="tab" data-tab="report" role="tab" aria-selected="false">📋 Rapport</button>
+  <button class="tab" data-tab="bench" role="tab" aria-selected="false">🔬 Banc</button>
 </nav>
 
 <main>
@@ -88,8 +90,8 @@
         <div id="readoutCards" class="readout-cards"></div>
       </div>
       <div class="panel">
-        <h2>Stroboscope <span class="hint">immobile = juste</span></h2>
-        <canvas id="strobe" width="420" height="90"></canvas>
+        <h2>Stroboscope multi-harmonique <span class="hint">bande immobile = harmonique juste · les hautes bandes réagissent plus fin</span></h2>
+        <canvas id="strobe" width="420" height="150"></canvas>
       </div>
     </div>
   </div>
@@ -305,6 +307,95 @@
       </div>
       <div id="tuneGrid"></div>
       <div id="reportTableWrap"><table id="reportTable"></table></div>
+    </div>
+  </div>
+
+  <div class="tabpage" id="tabpage-bench" role="tabpanel">
+    <div class="panel">
+      <h2>Banc d'accordage <span class="hint">soufflet motorisé + électro-aimants — synchronisé avec l'analyse acoustique</span></h2>
+      <div class="bench-grid">
+        <div class="bench-card">
+          <h3>Connexion</h3>
+          <label>Adresse ESP32 <input type="text" id="bcIp" placeholder="192.168.1.42" size="14"></label>
+          <div class="row">
+            <button id="bcConnectWs" class="primary">Connecter (WiFi)</button>
+            <button id="bcConnectSerial">USB (Web Serial)</button>
+          </div>
+          <div id="bcStatus" class="bc-status">non connecté</div>
+          <div class="row">
+            <button id="bcHome">⌂ Homing</button>
+            <button id="bcTare">Tare pression</button>
+            <button id="bcStop" class="danger">■ STOP</button>
+          </div>
+        </div>
+
+        <div class="bench-card">
+          <h3>Télémétrie</h3>
+          <table class="bench-telem">
+            <tr><td>Pression</td><td><b id="bt_p">—</b> hPa</td></tr>
+            <tr><td>Débit</td><td><b id="bt_q">—</b> slm</td></tr>
+            <tr><td>Température</td><td><b id="bt_t">—</b> °C</td></tr>
+            <tr><td>Soufflet</td><td><b id="bt_bellv">—</b> pas/s</td></tr>
+            <tr><td>Surface</td><td><b id="bt_surf">—</b> mm²</td></tr>
+            <tr><td>Clapet</td><td><b id="bt_clap">—</b> °</td></tr>
+            <tr><td>Boutons actifs</td><td><b id="bt_btn">—</b></td></tr>
+            <tr><td>État</td><td><b id="bt_state">—</b></td></tr>
+          </table>
+        </div>
+
+        <div class="bench-card">
+          <h3>Soufflet & air</h3>
+          <label>Soufflet (vitesse) <input type="range" id="bcBell" min="0" max="8000" value="0"><span id="bcBellVal">0</span> pas/s</label>
+          <label>Pression cible <input type="number" id="bcPress" value="800" step="50" size="5"> Pa <button id="bcPressGo">→ asservir</button></label>
+          <label>Section <input type="number" id="bcSection" value="4" step="0.5" size="4"> mm <button id="bcSectionGo">→</button></label>
+          <label>Clapet <input type="number" id="bcClap" value="10" step="1" size="4"> ° <button id="bcClapGo">→</button></label>
+          <div class="row">Vanne <button id="bcValveOpen">ouvrir</button><button id="bcValveClose">fermer</button>
+            <button id="bcValvePulse">impulsion</button><input type="number" id="bcPulseMs" value="500" size="4"> ms</div>
+          <label class="inline"><input type="checkbox" id="bcClamp"> bridage</label>
+        </div>
+
+        <div class="bench-card">
+          <h3>Boutons (électro-aimants)</h3>
+          <label>Canal <input type="number" id="bcBtnCh" value="0" min="0" max="70" size="4">
+            <button id="bcBtnPress" class="primary">presser</button><button id="bcBtnRelease">relâcher</button></label>
+          <div class="row"><button id="bcAllOff" class="danger">tout relâcher</button></div>
+          <p class="hint">0–23 : main gauche · 24–70 : main droite. Une note à la fois pour l'accordage (maintien PWM).</p>
+        </div>
+      </div>
+
+      <div class="bench-card wide">
+        <h3>Plan d'expériences automatique <span class="hint">grille Section × Pression × Clapet — rejoue l'ancien <code>Mesures.py</code></span></h3>
+        <div class="doe-grid">
+          <label>Section (mm) <input type="text" id="doeSection" value="2,4,6" size="12"></label>
+          <label>Pression (Pa) <input type="text" id="doePress" value="600,900,1200" size="14"></label>
+          <label>Clapet (°) <input type="text" id="doeClap" value="6,12" size="10"></label>
+          <label>Bouton (canal) <input type="number" id="doeBtn" value="0" min="-1" max="70" size="4"></label>
+        </div>
+        <div class="row">
+          <label>Stabilisation <input type="number" id="doeSettle" value="4" step="0.5" size="3"> s</label>
+          <label>Acquisition <input type="number" id="doeDur" value="3" size="3"> s</label>
+          <button id="doeRun" class="primary">▶ Lancer le DOE</button>
+          <button id="doeStop" class="danger" disabled>■ Arrêter</button>
+          <span id="doeProgress" class="hint">—</span>
+        </div>
+        <p class="hint">Valeurs séparées par des virgules. À chaque point : Section→Clapet→Pression asservie
+          →bouton pressé→stabilisation→acquisition (pneumatique + acoustique). <b>Bouton = -1</b> : anche déjà en jeu.</p>
+      </div>
+
+      <div class="bench-card wide">
+        <h3>Journal de mesures <span class="hint">chaque point = pneumatique (rafale) + lecture acoustique fusionnés</span></h3>
+        <div class="row">
+          Acquisition <input type="number" id="bcAcqDur" value="3" size="3"> s à <input type="number" id="bcAcqHz" value="100" size="4"> Hz
+          <button id="bcCapture" class="primary">● Capturer un point</button>
+          <button id="bcCsv">Export CSV</button>
+          <button id="bcClearLog" class="danger">Effacer</button>
+        </div>
+        <div id="bcLogWrap"><table class="bench-log">
+          <thead><tr><th>#</th><th>Surf</th><th>Clap</th><th>V.souf</th>
+            <th>P (Pa)</th><th>Q (slm)</th><th>Z=P/Q</th><th>Note/¢</th><th>f0 (Hz)</th><th>Tresp (ms)</th><th>σ</th></tr></thead>
+          <tbody id="bcLogBody"></tbody>
+        </table></div>
+      </div>
     </div>
   </div>
 </main>
