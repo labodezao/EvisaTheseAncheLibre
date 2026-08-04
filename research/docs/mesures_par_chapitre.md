@@ -14,6 +14,8 @@ vis-à-vis des deux modules du dépôt.
 > physique à brancher) :
 > - **Impédance 2 micros** → `research/banc_recherche/transfer.py` + onglet GUI
 >   « Impédance 2 micros » (ISO 10534-2 : R, Z/ρc, absorption).
+> - **Transmission 4 micros** → `transfer.py` (décomposition d'ondes, matrice de
+>   transfert 2 terminaisons ASTM E2611, TL) + onglet « Transmission 4 micros ».
 > - **Amortissement / Q** → `ringdown.py` + onglet « Ring-down Q ».
 > - **Module d'Young** → `material.py` + onglet « Matériau E ».
 > - **Test de fuite** → firmware `LEAKTEST` + `leak.py` + bouton « Test de fuite »

@@ -48,7 +48,7 @@ research/
     analysis.py             Praat/parselmouth : praat_calcs (Tresp, formants, pitch, HNR)
     impedance.py            impédance P/Q, puissance P·Q
     seuil.py                seuil d'auto-entretien (rampe + hystérésis)
-    transfer.py             2 microphones : impédance acoustique, absorption, TL
+    transfer.py             2 micros (impédance/absorption) + 4 micros (matrice de transfert, TL)
     ringdown.py             amortissement / facteur Q par décroissance (Matrix Pencil-like)
     material.py             module d'Young par résonance cantilever
     leak.py                 détection de fuite par décroissance de pression

@@ -114,6 +114,7 @@ def _build(cfg: Config):
     tabs.addTab(_tab_analysis(state, plot_widget), "Analyse anche")
     tabs.addTab(_tab_impedance(state), "Impédance")
     tabs.addTab(_tab_transfer(state, plot_widget), "Impédance 2 micros")
+    tabs.addTab(_tab_fourmic(state, plot_widget), "Transmission 4 micros")
     tabs.addTab(_tab_ringdown(state, plot_widget), "Ring-down Q")
     tabs.addTab(_tab_material(state), "Matériau E")
     tabs.addTab(_tab_leak(state, plot_widget), "Fuite")
@@ -507,6 +508,45 @@ def _tab_transfer(state, plot_widget):
     b1 = QtWidgets.QPushButton("Charger WAV 2 voies"); b1.clicked.connect(load)
     b2 = QtWidgets.QPushButton("Calculer α / Z"); b2.clicked.connect(run)
     lay.addWidget(_row("Écart micros (m)", spacing, "Dist. micro1→éch. (m)", x1))
+    lay.addWidget(_row(b1, b2)); lay.addWidget(plot); lay.addWidget(out)
+    return page
+
+
+# ---- Transmission 4 microphones (matrice de transfert) ---------------------
+def _tab_fourmic(state, plot_widget):
+    from PyQt6 import QtWidgets
+    from .. import transfer
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    pos = QtWidgets.QLineEdit("-0.10,-0.07,0.07,0.10")   # x1,x2,x3,x4 (m)
+    plot = plot_widget("Perte par transmission TL(f)")
+    out = QtWidgets.QLabel("Charger un WAV 4 voies (micros 1-2 amont, 3-4 aval).")
+    st = {"wav": None}
+
+    def load():
+        r = _load_wav(page, channels=4)
+        if r:
+            st["wav"] = r; out.setText(f"{r[0]} ({r[1]} Hz)")
+
+    def run():
+        if not st["wav"]:
+            out.setText("aucun WAV"); return
+        _, sr, chans = st["wav"]
+        try:
+            positions = tuple(float(x) for x in pos.text().split(","))
+            freqs, A, B, C, D, tl, alpha = transfer.four_mic_analyze(
+                chans[0], chans[1], chans[2], chans[3], positions, sr)
+            band = (freqs > 50) & (freqs < 4000)
+            if hasattr(plot, "plot"):
+                plot.clear(); plot.plot(freqs[band], tl[band])
+            import numpy as np
+            out.setText(f"TL moyen (50–4000 Hz) = {np.nanmean(tl[band]):.1f} dB")
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
+    b1 = QtWidgets.QPushButton("Charger WAV 4 voies"); b1.clicked.connect(load)
+    b2 = QtWidgets.QPushButton("Calculer TL"); b2.clicked.connect(run)
+    lay.addWidget(_row("Positions x1,x2,x3,x4 (m)", pos))
     lay.addWidget(_row(b1, b2)); lay.addWidget(plot); lay.addWidget(out)
     return page
 
