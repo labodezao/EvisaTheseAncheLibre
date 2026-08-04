@@ -52,7 +52,7 @@ research/
     ringdown.py             amortissement / facteur Q par décroissance (Matrix Pencil-like)
     material.py             module d'Young par résonance cantilever
     leak.py                 détection de fuite par décroissance de pression
-    doe.py                  plan d'expériences (grille, orchestration temps réel)
+    doe.py                  plan d'expériences (2 modes : pression, ou soufflet STROKE pousser/tirer)
     batch.py                analyse par lot d'une campagne HDF5 → plan_exp.csv
     plots.py                tracés de synthèse (impédance, Tresp, formants)
     bench_link.py           lien vers le firmware ESP32 (air : soufflet, vanne, section)

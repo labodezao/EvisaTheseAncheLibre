@@ -341,24 +341,42 @@ def _tab_doe(state):
     sec = QtWidgets.QLineEdit(",".join(str(x) for x in d.sections_mm))
     pre = QtWidgets.QLineEdit(",".join(str(x) for x in d.pressures_pa))
     cla = QtWidgets.QLineEdit(",".join(str(x) for x in d.clapets_deg))
+    stroke = QtWidgets.QCheckBox("Mode soufflet (course pousser/tirer)")
+    stroke.setChecked(d.use_stroke)
+    speeds = QtWidgets.QLineEdit(",".join(str(x) for x in d.stroke_speeds))
     prog = QtWidgets.QProgressBar()
     table = QtWidgets.QTableWidget(0, 6)
-    table.setHorizontalHeaderLabels(["#", "S", "P", "Clap", "Tresp", "Z"])
+    table.setHorizontalHeaderLabels(["#", "S", "P/sens", "Clap", "Tresp", "Z"])
     status = QtWidgets.QLabel("")
+
+    def _sync_mode():
+        # En mode soufflet, le champ « Pression » devient « Vitesse » (pas/s).
+        pre.setEnabled(not stroke.isChecked())
+        speeds.setEnabled(stroke.isChecked())
+    stroke.toggled.connect(_sync_mode)
 
     def parse(le):
         return tuple(float(x) for x in le.text().split(",") if x.strip())
 
     def add_row(pt):
         r = table.rowCount(); table.insertRow(r)
-        vals = (pt.idx, pt.section_mm, pt.pressure_pa, pt.clapet_deg,
+        # En mode soufflet la colonne « P/sens » montre le sens (pousser/tirer).
+        col2 = ("pousser" if pt.position == 0 else "tirer") if d.use_stroke else f"{pt.pressure_pa:.0f}"
+        vals = (pt.idx, pt.section_mm, col2, pt.clapet_deg,
                 f"{pt.tresp_ms:.1f}", f"{pt.impedance:.1f}")
         for j, v in enumerate(vals):
             table.setItem(r, j, QtWidgets.QTableWidgetItem(str(v)))
 
     def run():
-        d.sections_mm, d.pressures_pa, d.clapets_deg = parse(sec), parse(pre), parse(cla)
-        total = len(d.sections_mm) * len(d.pressures_pa) * len(d.clapets_deg)
+        d.use_stroke = stroke.isChecked()
+        d.sections_mm, d.clapets_deg = parse(sec), parse(cla)
+        if d.use_stroke:
+            d.stroke_speeds = parse(speeds)
+            axis2 = len(d.stroke_speeds) * len(d.stroke_directions)
+        else:
+            d.pressures_pa = parse(pre)
+            axis2 = len(d.pressures_pa) * len(d.positions)
+        total = len(d.sections_mm) * len(d.clapets_deg) * axis2
         prog.setMaximum(total); table.setRowCount(0); btn.setEnabled(False)
 
         def work(emit):
@@ -382,7 +400,9 @@ def _tab_doe(state):
         _run_async(state, work, on_prog, on_done, on_failed)
 
     btn = QtWidgets.QPushButton("Lancer le DOE"); btn.clicked.connect(run)
-    lay.addWidget(_row("Section", sec, "Pression", pre, "Clapet", cla, btn))
+    _sync_mode()
+    lay.addWidget(_row("Section", sec, "Pression", pre, "Vitesse", speeds, "Clapet", cla))
+    lay.addWidget(_row(stroke, btn))
     lay.addWidget(prog); lay.addWidget(table); lay.addWidget(status)
     return page
 

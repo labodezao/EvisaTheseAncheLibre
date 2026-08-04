@@ -20,3 +20,19 @@ def test_grid_is_full_factorial():
 def test_grid_covers_every_combo_once():
     combos = list(doe.grid(_cfg()))
     assert len(set(combos)) == len(combos)     # pas de doublon
+
+
+def test_stroke_grid_fills_both_directions():
+    c = _cfg()
+    c.doe.use_stroke = True
+    c.doe.stroke_speeds = (400.0, 800.0)
+    c.doe.stroke_directions = (1, -1)
+    combos = list(doe.grid(c))
+    # Section(2) × Vitesse(2) × Clapet(2) × Sens(2) = 16
+    assert len(combos) == 2 * 2 * 2 * 2
+    dirs = {combo[3] for combo in combos}
+    assert dirs == {1, -1}                      # pousser ET tirer présents
+    # chaque (section, vitesse, clapet) apparaît dans les deux sens
+    from collections import Counter
+    base = Counter((s, v, c_) for s, v, c_, _ in combos)
+    assert all(n == 2 for n in base.values())
