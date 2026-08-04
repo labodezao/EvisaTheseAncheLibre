@@ -49,6 +49,60 @@ def tresp_map(df):
     return fig
 
 
+# ---- Graphes de bifurcation / stochastique ---------------------------------
+def bifurcation_diagram(bd):
+    """Diagramme de bifurcation : amplitude vs paramètre, branches montée/
+    descente, seuils μ_on/μ_off marqués."""
+    plt = _lazy_plt()
+    fig, ax = plt.subplots(figsize=(7, 4.5))
+    ax.plot(bd.param_up, bd.amp_up, ".-", label="montée", ms=3)
+    if len(bd.param_down):
+        ax.plot(bd.param_down, bd.amp_down, ".-", label="descente", ms=3)
+    for mu, lab in ((bd.mu_on, "μ_on"), (bd.mu_off, "μ_off")):
+        if mu == mu:
+            ax.axvline(mu, ls="--", lw=0.8)
+            ax.text(mu, ax.get_ylim()[1] * 0.9, lab, fontsize=8)
+    ax.set_xlabel("paramètre de contrôle (pression / vitesse)")
+    ax.set_ylabel("amplitude (paramètre d'ordre)")
+    ax.set_title(f"Bifurcation — {bd.kind} (hystérésis {bd.hysteresis:.3g})")
+    ax.legend(fontsize=8); ax.grid(alpha=0.3)
+    return fig
+
+
+def potential_plot(x, phi):
+    """Potentiel effectif Φ(x) : un puits = monostable, deux = bistable."""
+    plt = _lazy_plt()
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.plot(x, phi)
+    ax.set_xlabel("paramètre d'ordre x"); ax.set_ylabel("Φ(x)")
+    ax.set_title("Potentiel effectif"); ax.grid(alpha=0.3)
+    return fig
+
+
+def drift_diffusion_plot(km):
+    """Coefficients de Kramers-Moyal : drift D₁(x) (zéros = points fixes) et
+    diffusion D₂(x)."""
+    plt = _lazy_plt()
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(9, 4))
+    a1.plot(km.x, km.drift, "o-"); a1.axhline(0, color="grey", lw=0.8)
+    a1.set_xlabel("x"); a1.set_ylabel("D₁ (drift)"); a1.grid(alpha=0.3)
+    a2.plot(km.x, km.diffusion, "o-")
+    a2.set_xlabel("x"); a2.set_ylabel("D₂ (diffusion)"); a2.grid(alpha=0.3)
+    return fig
+
+
+def early_warning_plot(ew):
+    """Précurseurs : variance et autocorrélation (AR1) vs paramètre."""
+    plt = _lazy_plt()
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(9, 4))
+    a1.plot(ew.param, ew.variance, "o-"); a1.set_ylabel("variance")
+    a1.set_xlabel("paramètre"); a1.grid(alpha=0.3)
+    a2.plot(ew.param, ew.autocorr1, "o-"); a2.set_ylabel("autocorr. (AR1)")
+    a2.set_xlabel("paramètre"); a2.grid(alpha=0.3)
+    fig.suptitle("Signaux précurseurs (ralentissement critique)")
+    return fig
+
+
 # ---- Graphes d'analyse DOE (façon Minitab) ---------------------------------
 def main_effects_plot(df, response, factors):
     """Graphe des effets principaux : moyenne de la réponse par niveau de chaque

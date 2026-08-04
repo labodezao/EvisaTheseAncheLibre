@@ -122,6 +122,7 @@ def _build(cfg: Config):
     tabs.addTab(_tab_doe(state), "Plan d'expériences")
     tabs.addTab(_tab_campaigns(state), "Campagnes")
     tabs.addTab(_tab_doe_analysis(state), "Analyse DOE")
+    tabs.addTab(_tab_bifurcation(state, plot_widget), "Bifurcation")
 
     win.setCentralWidget(tabs)
     win.resize(1100, 720)
@@ -473,6 +474,72 @@ def _tab_campaigns(state):
     lay.addWidget(_row("Ppos,Sec,Pres,Clap", idx, b2)); lay.addWidget(out)
     lay.addWidget(_row(b3)); lay.addWidget(prog)
     lay.addStretch(1)
+    return page
+
+
+# ---- Bifurcation / physique stochastique -----------------------------------
+def _tab_bifurcation(state, plot_widget):
+    from PyQt6 import QtWidgets
+    import os
+    import numpy as np
+    from .. import bifurcation as bif, stochastic as st, plots
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    plot = plot_widget("Diagramme de bifurcation / potentiel")
+    out = QtWidgets.QLabel("Diagramme : CSV (param,amp_up[,amp_down]). "
+                           "Stochastique : WAV/CSV série temporelle.")
+    st_data = {"path": None}
+
+    def _savefig(fig, name):
+        d = os.path.dirname(st_data["path"] or ".") or "."
+        p = os.path.join(d, name); fig.savefig(p, dpi=150)
+        out.setText(out.text() + f"  · figure → {p}")
+
+    def diagram():
+        fn, _ = QtWidgets.QFileDialog.getOpenFileName(page, "CSV param,amp", "", "CSV (*.csv)")
+        if not fn:
+            return
+        try:
+            st_data["path"] = fn
+            arr = np.genfromtxt(fn, delimiter=",", names=True)
+            names = arr.dtype.names
+            pu = arr[names[0]]; au = arr[names[1]]
+            pd_ = ad = None
+            if len(names) >= 4:
+                pd_, ad = arr[names[2]], arr[names[3]]
+            bd = bif.diagram(pu, au, pd_, ad)
+            if hasattr(plot, "plot"):
+                plot.clear(); plot.plot(pu, au)
+            out.setText(f"μ_on={bd.mu_on:.3g} · μ_off={bd.mu_off:.3g} · "
+                        f"hystérésis={bd.hysteresis:.3g} · {bd.kind} · "
+                        f"seuil Hopf={bd.hopf.threshold:.3g}")
+            _savefig(plots.bifurcation_diagram(bd), "bifurcation.png")
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
+    def stochastic():
+        r = _load_wav(page, channels=1) if True else None
+        # accepte aussi un CSV à une colonne
+        try:
+            if r is None:
+                return
+            _, sr, (sig,) = r
+            st_data["path"] = r[0]
+            km = st.kramers_moyal(sig, 1.0 / sr, bins=25)
+            xx, phi = st.potential_from_drift(km)
+            mins = st.potential_minima(xx, phi)
+            if hasattr(plot, "plot"):
+                plot.clear(); plot.plot(xx, phi)
+            out.setText(f"états stables (minima du potentiel) : {len(mins)} "
+                        f"→ {'bistable (bifurcation)' if len(mins) >= 2 else 'monostable'}")
+            _savefig(plots.drift_diffusion_plot(km), "kramers_moyal.png")
+            _savefig(plots.potential_plot(xx, phi), "potentiel.png")
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
+    b1 = QtWidgets.QPushButton("Diagramme (CSV rampe)"); b1.clicked.connect(diagram)
+    b2 = QtWidgets.QPushButton("Kramers-Moyal / potentiel (WAV)"); b2.clicked.connect(stochastic)
+    lay.addWidget(_row(b1, b2)); lay.addWidget(plot); lay.addWidget(out)
     return page
 
 

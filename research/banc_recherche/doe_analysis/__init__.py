@@ -8,7 +8,7 @@
 Analyse depuis une DataFrame (`plan_exp.csv`) via `analyze_csv`, ou directement
 avec des tableaux via `model.fit`.
 """
-from . import model, design, optimize, stats
+from . import model, design, optimize, stats, taguchi
 
 
 def analyze(df, response: str, factors: list, interactions: bool = True,

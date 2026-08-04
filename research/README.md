@@ -48,6 +48,8 @@ research/
     analysis.py             Praat/parselmouth : praat_calcs (Tresp, formants, pitch, HNR)
     impedance.py            impédance P/Q, puissance P·Q
     seuil.py                seuil d'auto-entretien (rampe + hystérésis)
+    bifurcation.py          diagrammes de bifurcation, forme normale de Hopf, hystérésis
+    stochastic.py           Kramers-Moyal (drift/diffusion), potentiel effectif, précurseurs
     transfer.py             2 micros (impédance/absorption) + 4 micros (matrice de transfert, TL)
     ringdown.py             amortissement / facteur Q par décroissance (Matrix Pencil-like)
     material.py             module d'Young par résonance cantilever
@@ -59,6 +61,7 @@ research/
       model.py              ajustement factoriel/RSM, ANOVA, effets, R²/R²aj/R²préd
       design.py             générateurs (factoriel, fractionnaire, Plackett-Burman, CCD, Box-Behnken)
       optimize.py           optimiseur de réponses par désirabilité
+      taguchi.py            rapports signal/bruit (robustesse)
       stats.py              distributions t/F (p-valeurs) sans scipy
     bench_link.py           lien vers le firmware ESP32 (air : soufflet, vanne, section)
     storage.py              HDF5 + export CSV (schéma `plan_exp`)
@@ -113,9 +116,33 @@ il reconstruit chaque son, applique `praat_calcs`, calcule l'impédance et écri
   composite centré (CCD), Box-Behnken (`design.*`).
 - **Optimiseur** de réponses par **désirabilité** (`optimize`).
 
+- **Taguchi** (`taguchi`) : rapports signal/bruit (plus-grand/plus-petit/
+  nominal = mieux) pour la **robustesse** des anches.
+
 Onglet GUI **« Analyse DOE »** : charge un `plan_exp.csv`, choisis facteurs et
 réponse → résumé type Minitab (coefficients + ANOVA), boutons effets/Pareto/
 optimiseur. En ligne : `da.analyze(df, "Freq0", ["S_plus","P_plus","i_Clap"])`.
+
+## Bifurcation & physique stochastique des anches
+
+L'anche est un **oscillateur auto-entretenu non linéaire** : son seuil
+d'oscillation est une **bifurcation de Hopf** (sous-critique ⇒ hystérésis
+`p_on > p_off`, typique des anches). Modules dédiés :
+
+- **`bifurcation`** : diagramme amplitude(paramètre) montée/descente, seuils
+  `μ_on`/`μ_off`, classification **super/sous-critique**, ajustement de la forme
+  normale de Hopf/Stuart-Landau (`A² ∝ μ − μc`).
+- **`stochastic`** : reconstruction de la dynamique de Langevin par les
+  coefficients de **Kramers-Moyal** (drift `D₁`, diffusion `D₂` — approche
+  Friedrich-Peinke), **potentiel effectif** (un puits = monostable, deux =
+  bistable), **signaux précurseurs** (ralentissement critique : variance et
+  autocorrélation croissantes, tau de Kendall), et **statistiques de seuil
+  stochastique** (le bruit rend le point de bifurcation distribué).
+
+Onglet GUI **« Bifurcation »** : diagramme depuis une rampe CSV (param, amp), ou
+analyse Kramers-Moyal + potentiel depuis une série temporelle (WAV). Les seuils
+mesurés (via `seuil.detect`) et leur dépendance aux facteurs (section, clapet…)
+s'analysent ensuite avec `doe_analysis`.
 
 ## Pourquoi Python (et pas Java)
 
