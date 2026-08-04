@@ -43,21 +43,43 @@ research/
     config.py               constantes (voies audio, calibrations, grille DOE)
     audio.py                acquisition + génération (Behringer, sounddevice)
     excitation.py           sweep EM, diagramme de phase, résonances
-    analysis.py             Praat/parselmouth : Tresp, enveloppe, formants, pitch
+    analysis.py             Praat/parselmouth : praat_calcs (Tresp, formants, pitch, HNR)
     impedance.py            impédance P/Q, puissance P·Q
     seuil.py                seuil d'auto-entretien (rampe + hystérésis)
     doe.py                  plan d'expériences (grille, orchestration)
     bench_link.py           lien vers le firmware ESP32 (air : soufflet, vanne, section)
     storage.py              HDF5 + export CSV (schéma `plan_exp`)
+    campaigns.py            relecture des campagnes existantes (HDF5/npy de la thèse)
     gui/
       __init__.py
-      app.py                fenêtre principale PyQt6 (entry point)
+      app.py                GUI UNIQUE PyQt6 à onglets (entry point `banc-recherche`)
+  docs/
+    design_theory.lyx       manuscrit « Conceptual accordion design : Theory »
+    design_practical.lyx     manuscrit (pratique)
+    DATA.md                 manifeste : dépôt vs Drive, gros .npy, CAO, fileIds
   scripts/
-    legacy/                 anciens scripts, gardés pour référence (non exécutés)
+    legacy/                 sources d'origine vendorisées (référence, non exécutées)
   tests/
     test_analysis.py
     test_impedance.py
 ```
+
+## Une seule GUI (remplace la constellation de scripts)
+
+Avant : une dizaine de scripts séparés lancés à la main (`MesAnche`, `Mesures`,
+`Data_analysis`, `enveloppepraat`, `mes_seuil_autoentretien`, `plotsmeasure`,
+`valvecontrol`…). Maintenant : **une** application (`banc-recherche`) à onglets,
+chacun pilotant un module :
+
+| Onglet | Ancien script | Module |
+|---|---|---|
+| Connexion / air | `ValControl`/`valvecontrol` | `bench_link` |
+| Excitation EM | (AD9833 firmware → PC) | `excitation` |
+| Analyse anche | `Data_analysis` / `enveloppepraat` | `analysis.praat_calcs` |
+| Impédance | `Data_analysis` | `impedance` |
+| Seuil auto-entretien | `mes_seuil_autoentretien` | `seuil` |
+| Plan d'expériences | `Mesures` | `doe` + `storage` |
+| Campagnes | (relecture HDF5/npy) | `campaigns` |
 
 ## Pourquoi Python (et pas Java)
 

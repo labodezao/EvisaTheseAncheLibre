@@ -1,0 +1,988 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass book
+\begin_preamble
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% The Legrand Orange Book
+% LaTeX Template
+% Version 2.1.1 (14/2/16)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% Original author:
+% Mathias Legrand (legrand.mathias@gmail.com) with modifications by:
+% Vel (vel@latextemplates.com)
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+% Compiling this template:
+% This template uses biber for its bibliography and makeindex for its index.
+% When you first open the template, compile it from the command line with the 
+% commands below to make sure your LaTeX distribution is configured correctly:
+%
+% 1) pdflatex main
+% 2) makeindex main.idx -s StyleInd.ist
+% 3) biber main
+% 4) pdflatex main x 2
+%
+% After this, when you wish to update the bibliography/index use the appropriate
+% command above and make sure to compile with pdflatex several times 
+% afterwards to propagate your changes to the document.
+%
+% This template also uses a number of packages which may need to be
+% updated to the newest versions for the template to compile. It is strongly
+% recommended you update your LaTeX distribution if you have any
+% compilation errors.
+%
+% Important note:
+% Chapter heading images should have a 2:1 width:height ratio,
+% e.g. 920px width and 460px height.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+% Default font size and left-justified equations
+
+%----------------------------------------------------------------------------------------
+
+\input{structure} % Insert the commands.tex file which contains the majority of the structure behind the template
+\end_preamble
+\use_default_options false
+\maintain_unincluded_children false
+\language english
+\language_package none
+\inputencoding default
+\fontencoding default
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize 11
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 2
+\use_package amssymb 0
+\use_package cancel 0
+\use_package esint 1
+\use_package mathdots 0
+\use_package mathtools 0
+\use_package mhchem 0
+\use_package stackrel 0
+\use_package stmaryrd 0
+\use_package undertilde 0
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 0
+\use_minted 0
+\branch Music
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\branch Lutherie
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\branch Sciences
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\branch Biomeca
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\branch Articles
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 1
+\math_indentation default
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 2
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begingroup
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+thispagestyle{empty}
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{tikzpicture}[remember picture,overlay]
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+coordinate [below=12cm] (midpoint) at (current page.north);
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+node at (current page.north west)
+\end_layout
+
+\begin_layout Plain Layout
+
+{
+\backslash
+begin{tikzpicture}[remember picture,overlay]
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+node[anchor=north west,inner sep=0pt] at (0,0) {
+\backslash
+includegraphics[width=
+\backslash
+paperwidth]{background}}; % Background image
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+draw[anchor=north] (midpoint) node [fill=ocre!30!white,fill opacity=0.6,text
+ opacity=1,inner sep=1cm]{
+\backslash
+Huge
+\backslash
+centering
+\backslash
+bfseries
+\backslash
+sffamily
+\backslash
+parbox[c][][t]{
+\backslash
+paperwidth}{
+\backslash
+centering Conceptual accordion design : Theory
+\backslash
+
+\backslash
+[15pt] % Book title
+\end_layout
+
+\begin_layout Plain Layout
+
+{
+\backslash
+Large An engineering approch}
+\backslash
+
+\backslash
+[20pt] % Subtitle
+\end_layout
+
+\begin_layout Plain Layout
+
+{
+\backslash
+huge Ewen d'Aviau de Ternay}}}; % Author name
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{tikzpicture}};
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{tikzpicture}
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset VSpace vfill
+\end_inset
+
+ 
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+
+\backslash
+endgroup
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage newpage
+\end_inset
+
+
+\begin_inset space ~
+\end_inset
+
+
+\begin_inset VSpace vfill
+\end_inset
+
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+thispagestyle{empty}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Copyright 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+copyright
+\end_layout
+
+\end_inset
+
+
+\begin_inset space \space{}
+\end_inset
+
+2020 Ewen d'Aviau de Ternay de Piolant
+\begin_inset Newline newline
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+
+\shape smallcaps
+Published by ewen d'aviau
+\shape default
+
+\begin_inset Newline newline
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+
+\shape smallcaps
+www.ewendaviau.com
+\shape default
+
+\begin_inset Newline newline
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Licensed under the Creative Commons Attribution-NonCommercial 3.0 Unported
+ License (the 
+\begin_inset Quotes eld
+\end_inset
+
+License
+\begin_inset Quotes erd
+\end_inset
+
+).
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+http://creativecommons.org/licenses/by-nc/3.0
+\end_layout
+
+\end_inset
+
+.
+ Unless required by applicable law or agreed to in writing, software distributed
+ under the License is distributed on an 
+\shape smallcaps
+
+\begin_inset Quotes eld
+\end_inset
+
+as is
+\begin_inset Quotes erd
+\end_inset
+
+ basis, without warranties or conditions of any kind
+\shape default
+, either express or implied.
+ See the License for the specific language governing permissions and limitations
+ under the License.
+\begin_inset Newline newline
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+
+\shape italic
+First printing, 
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+usechapterimagefalse
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+% If you don't want to include a chapter image, use this to toggle images
+ off - it can be enabled later with 
+\backslash
+usechapterimagetrue
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+chapterimage
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+chapter_head_1.pdf
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+pagestyle
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+empty
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset toc
+LatexCommand tableofcontents
+
+\end_inset
+
+
+\begin_inset Newpage cleardoublepage
+\end_inset
+
+
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+
+\backslash
+pagestyle
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+fancy
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Part
+Reeds
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+
+\backslash
+chapterimage
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+chapter_head_2.pdf
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Chapter
+Static and modal analysis
+\end_layout
+
+\begin_layout Section
+Static analysis of free reeds
+\end_layout
+
+\begin_layout Subsection
+Static shape
+\end_layout
+
+\begin_layout Section
+Modal analysis of free reeds
+\end_layout
+
+\begin_layout Section
+A physical model for reed design
+\end_layout
+
+\begin_layout Chapter
+Self-sustained conditions
+\end_layout
+
+\begin_layout Section
+Stored energy
+\end_layout
+
+\begin_layout Section
+Dissipation
+\end_layout
+
+\begin_layout Part
+Reed blocks
+\end_layout
+
+\begin_layout Section
+Dissipation
+\end_layout
+
+\begin_layout Subsection
+modal
+\end_layout
+
+\begin_layout Part
+Box
+\end_layout
+
+\begin_layout Section
+Dissipation
+\end_layout
+
+\begin_layout Subsection
+modal
+\end_layout
+
+\begin_layout Part
+Bellows
+\end_layout
+
+\begin_layout Section
+Dissipation
+\end_layout
+
+\begin_layout Subsection
+modal
+\end_layout
+
+\begin_layout Part
+Timbral elements
+\end_layout
+
+\begin_layout Section
+Dissipation
+\end_layout
+
+\begin_layout Subsection
+modal
+\end_layout
+
+\begin_layout Part
+Instrumented accordion for 
+\begin_inset Quotes eld
+\end_inset
+
+In-vivo
+\begin_inset Quotes erd
+\end_inset
+
+ measurements
+\end_layout
+
+\begin_layout Section
+Dissipation
+\end_layout
+
+\begin_layout Subsection
+modal
+\end_layout
+
+\begin_layout Part
+Experiment table for 
+\begin_inset Quotes eld
+\end_inset
+
+In-vitro
+\begin_inset Quotes erd
+\end_inset
+
+ measurement
+\end_layout
+
+\begin_layout Section
+Dissipation
+\end_layout
+
+\begin_layout Subsection
+modal
+\end_layout
+
+\begin_layout Part
+Study : Influent parameters on accordion sound
+\end_layout
+
+\begin_layout Section
+Dissipation
+\end_layout
+
+\begin_layout Subsection
+modal
+\end_layout
+
+\begin_layout Part
+Appendix
+\end_layout
+
+\begin_layout Chapter
+Leaks detection
+\end_layout
+
+\begin_layout Chapter
+Leaks detection
+\end_layout
+
+\begin_layout Chapter*
+Bibliography
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+addcontentsline{toc}{chapter}{
+\backslash
+textcolor{ocre}
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+Bibliography
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Section*
+Books
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+addcontentsline{toc}{section}{Books}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Section*
+Articles
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+addcontentsline{toc}{section}{Articles}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage cleardoublepage
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+phantomsection
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+setlength{
+\backslash
+columnsep}{0.75cm}
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+addcontentsline{toc}{chapter}{
+\backslash
+textcolor{ocre}
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+Index
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset CommandInset index_print
+LatexCommand printindex
+type "idx"
+name "Index"
+literal "true"
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document
