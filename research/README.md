@@ -138,6 +138,16 @@ d'oscillation est une **bifurcation de Hopf** (sous-critique ⇒ hystérésis
   bistable), **signaux précurseurs** (ralentissement critique : variance et
   autocorrélation croissantes, tau de Kendall), et **statistiques de seuil
   stochastique** (le bruit rend le point de bifurcation distribué).
+  - **Fit direct de Stuart-Landau** (`stuart_landau_fit`) : sur l'amplitude
+    complexe (signal analytique), régression de `dz/dt = (μ+iω)z − (a+ib)|z|²z`
+    → **coefficient de Landau complexe** `a+ib` (a = saturation d'amplitude,
+    b = glissement de fréquence dépendant de l'amplitude = « frequency pulling »).
+  - **Résonance cohérente** (`coherence_resonance`) : la cohérence (temps de
+    corrélation) passe par un **maximum à un bruit intermédiaire** optimal.
+  - **Temps de résidence / échappement de Kramers** (`residence_times`,
+    `kramers_rate`, `kramers_from_potential`) : près du seuil sous-critique, le
+    bruit fait sauter entre l'anche muette et l'anche qui sonne ; taux
+    d'échappement `r = (1/2π)√(U″_min·|U″_barr|)·e^{−ΔU/D}`.
 
 Onglet GUI **« Bifurcation »** : diagramme depuis une rampe CSV (param, amp), ou
 analyse Kramers-Moyal + potentiel depuis une série temporelle (WAV). Les seuils

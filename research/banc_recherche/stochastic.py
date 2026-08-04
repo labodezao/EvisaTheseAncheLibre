@@ -15,6 +15,59 @@ from dataclasses import dataclass
 import numpy as np
 
 
+def analytic_signal(sig: np.ndarray) -> np.ndarray:
+    """Signal analytique complexe z(t) = x + i·H[x] (Hilbert via FFT, numpy)."""
+    x = np.asarray(sig, dtype="float64")
+    n = x.size
+    X = np.fft.fft(x)
+    h = np.zeros(n)
+    if n % 2 == 0:
+        h[0] = h[n // 2] = 1
+        h[1:n // 2] = 2
+    else:
+        h[0] = 1
+        h[1:(n + 1) // 2] = 2
+    return np.fft.ifft(X * h)
+
+
+# ---- Fit direct de Stuart-Landau (coefficient de Landau complexe) ----------
+@dataclass
+class StuartLandau:
+    mu: float            # taux de croissance linéaire Re(λ)  (≈ 0 sur cycle limite)
+    omega: float         # pulsation Im(λ)  (≈ 2π f₀)
+    a: float             # partie réelle du coefficient de Landau (saturation d'amplitude)
+    b: float             # partie imaginaire (glissement de fréquence dépendant de l'amplitude)
+    r_limit: float       # amplitude du cycle limite √(μ/a) si μ,a > 0
+
+
+def fit_complex_amplitude(z: np.ndarray, dt: float) -> StuartLandau:
+    """Ajuste la forme normale de Stuart-Landau sur l'amplitude complexe `z(t)` :
+
+        dz/dt = (μ + iω)·z − (a + ib)·|z|²·z
+
+    par régression linéaire complexe. Le **coefficient de Landau** g = a + ib
+    donne la saturation (a) et le glissement de fréquence avec l'amplitude (b) —
+    c'est ce dernier qui explique le « frequency pulling » de l'anche.
+    """
+    z = np.asarray(z, dtype="complex128")
+    dz = (z[1:] - z[:-1]) / dt
+    zc = z[:-1]
+    X = np.column_stack([zc, zc * np.abs(zc) ** 2])
+    coef, *_ = np.linalg.lstsq(X, dz, rcond=None)
+    c1, c2 = coef
+    mu, omega = float(c1.real), float(c1.imag)
+    a, b = float(-c2.real), float(-c2.imag)
+    r = float(np.sqrt(mu / a)) if (a > 0 and mu > 0) else float("nan")
+    return StuartLandau(mu, omega, a, b, r)
+
+
+def stuart_landau_fit(signal, fs: float) -> StuartLandau:
+    """Fit de Stuart-Landau depuis un signal réel : passe par le signal
+    analytique (amplitude + phase) puis `fit_complex_amplitude`."""
+    z = analytic_signal(signal)
+    return fit_complex_amplitude(z, 1.0 / fs)
+
+
 @dataclass
 class KramersMoyal:
     x: np.ndarray        # centres des classes (bins)
@@ -155,3 +208,98 @@ def threshold_stats(mu_on_samples, mu_off_samples) -> ThresholdStats:
         float(np.nanmean(on)), float(np.nanstd(on)),
         float(np.nanmean(off)), float(np.nanstd(off)),
         float(np.nanmean(on) - np.nanmean(off)))
+
+
+# ---- Résonance cohérente (SNR maximal à bruit optimal) ---------------------
+def coherence_measure(signal, fs: float = 1.0) -> float:
+    """Cohérence = **temps de corrélation** normalisé Σ C(τ)² (C = autocorrélation
+    normalisée). Une oscillation régulière garde une autocorrélation persistante
+    (valeur élevée) ; un signal désordonné la perd vite (valeur faible). Robuste
+    au bruit (contrairement au facteur Q d'un pic, qu'un pic de bruit fausse)."""
+    x = np.asarray(signal, dtype="float64")
+    x = x - x.mean()
+    n = x.size
+    F = np.fft.rfft(x, 2 * n)
+    ac = np.fft.irfft(np.abs(F) ** 2)[:n]
+    if ac[0] <= 0:
+        return 0.0
+    ac = ac / ac[0]
+    return float(np.sum(ac ** 2))
+
+
+# Alias historique
+spectral_coherence = coherence_measure
+
+
+@dataclass
+class CoherenceResonance:
+    noise: np.ndarray
+    coherence: np.ndarray
+    optimal_noise: float
+    max_coherence: float
+
+
+def coherence_resonance(noise_levels, series_list, fs: float) -> CoherenceResonance:
+    """Balaye l'intensité de bruit et cherche le **maximum de cohérence** (le
+    propre de la résonance cohérente : un bruit intermédiaire rend l'oscillation
+    la plus régulière). `series_list` : une série par niveau de bruit."""
+    noise = np.asarray(noise_levels, dtype="float64")
+    coh = np.array([coherence_measure(s, fs) for s in series_list])
+    k = int(np.nanargmax(coh))
+    return CoherenceResonance(noise, coh, float(noise[k]), float(coh[k]))
+
+
+# ---- Temps de résidence / échappement de Kramers ---------------------------
+def residence_times(state, dt: float):
+    """Durées de séjour dans chaque état d'une série binaire (0 = muet, 1 = sonne).
+
+    Renvoie {0: [durées], 1: [durées]} en secondes. Près d'un seuil sous-critique,
+    le bruit fait sauter entre les deux états (bistabilité)."""
+    s = (np.asarray(state) > 0).astype(int)
+    out = {0: [], 1: []}
+    if s.size == 0:
+        return out
+    start = 0
+    for i in range(1, s.size):
+        if s[i] != s[start]:
+            out[s[start]].append((i - start) * dt)
+            start = i
+    out[s[start]].append((s.size - start) * dt)
+    return out
+
+
+def kramers_rate(barrier_dU: float, curv_min: float, curv_barrier: float,
+                 D: float) -> float:
+    """Taux d'échappement de Kramers (régime suramorti) :
+
+        r = (1/2π)·√(U''(min)·|U''(barrière)|)·exp(−ΔU / D)
+
+    `barrier_dU` = hauteur de barrière ΔU, `D` = intensité du bruit (diffusion)."""
+    if D <= 0 or curv_min <= 0 or curv_barrier <= 0:
+        return float("nan")
+    return (np.sqrt(curv_min * curv_barrier) / (2.0 * np.pi)) * np.exp(-barrier_dU / D)
+
+
+def _curvature(x, phi, i):
+    """Courbure locale U''(x_i) par différence finie centrée."""
+    if i <= 0 or i >= len(x) - 1:
+        return float("nan")
+    h1, h2 = x[i] - x[i - 1], x[i + 1] - x[i]
+    return float(2 * (phi[i - 1] / (h1 * (h1 + h2)) - phi[i] / (h1 * h2)
+                      + phi[i + 1] / (h2 * (h1 + h2))))
+
+
+def kramers_from_potential(x, phi, D: float, from_left: bool = True):
+    """Taux de Kramers depuis un potentiel double-puits échantillonné : trouve
+    le puits de départ, la barrière et calcule ΔU + courbures → `kramers_rate`."""
+    x = np.asarray(x, dtype="float64"); phi = np.asarray(phi, dtype="float64")
+    mins = potential_minima(x, phi)
+    if len(mins) < 2:
+        return float("nan")
+    left, right = mins[0], mins[-1]
+    barrier = left + int(np.argmax(phi[left:right + 1]))
+    start = left if from_left else right
+    dU = phi[barrier] - phi[start]
+    cv_min = _curvature(x, phi, start)
+    cv_bar = abs(_curvature(x, phi, barrier))
+    return kramers_rate(dU, cv_min, cv_bar, D)

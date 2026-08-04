@@ -528,18 +528,38 @@ def _tab_bifurcation(state, plot_widget):
             km = st.kramers_moyal(sig, 1.0 / sr, bins=25)
             xx, phi = st.potential_from_drift(km)
             mins = st.potential_minima(xx, phi)
+            msg = (f"états stables (minima) : {len(mins)} → "
+                   f"{'bistable (bifurcation)' if len(mins) >= 2 else 'monostable'}")
+            if len(mins) >= 2:
+                D = float(np.nanmedian(km.diffusion[np.isfinite(km.diffusion)]))
+                rate = st.kramers_from_potential(xx, phi, D)
+                if rate == rate and rate > 0:
+                    msg += f" · taux d'échappement Kramers ≈ {rate:.3g}/s (τ≈{1/rate:.3g} s)"
             if hasattr(plot, "plot"):
                 plot.clear(); plot.plot(xx, phi)
-            out.setText(f"états stables (minima du potentiel) : {len(mins)} "
-                        f"→ {'bistable (bifurcation)' if len(mins) >= 2 else 'monostable'}")
+            out.setText(msg)
             _savefig(plots.drift_diffusion_plot(km), "kramers_moyal.png")
             _savefig(plots.potential_plot(xx, phi), "potentiel.png")
         except Exception as e:
             out.setText("erreur : " + str(e))
 
+    def stuart_landau():
+        r = _load_wav(page, channels=1)
+        if r is None:
+            return
+        try:
+            _, sr, (sig,) = r
+            sl = st.stuart_landau_fit(sig, sr)
+            out.setText(f"Stuart-Landau : μ={sl.mu:.3g} · f₀={sl.omega/(2*np.pi):.2f} Hz · "
+                        f"Landau a={sl.a:.3g} (saturation), b={sl.b:.3g} "
+                        f"(glissement de fréquence) · amplitude cycle limite≈{sl.r_limit:.3g}")
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
     b1 = QtWidgets.QPushButton("Diagramme (CSV rampe)"); b1.clicked.connect(diagram)
     b2 = QtWidgets.QPushButton("Kramers-Moyal / potentiel (WAV)"); b2.clicked.connect(stochastic)
-    lay.addWidget(_row(b1, b2)); lay.addWidget(plot); lay.addWidget(out)
+    b3 = QtWidgets.QPushButton("Fit Stuart-Landau (WAV)"); b3.clicked.connect(stuart_landau)
+    lay.addWidget(_row(b1, b2, b3)); lay.addWidget(plot); lay.addWidget(out)
     return page
 
 
