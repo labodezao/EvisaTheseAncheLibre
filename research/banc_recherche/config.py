@@ -28,9 +28,10 @@ class SweepConfig:
 @dataclass
 class DoeConfig:
     # Reprise de Mesures.py : grille Section × Pression × Clapet × Position.
-    sections_mm: tuple[float, ...] = (2.0, 4.0, 6.0)
+    # Plages d'origine : section 4→12 mm, clapet 2→22°, RECORD_SECONDS = 3.
+    sections_mm: tuple[float, ...] = (4.0, 8.0, 12.0)
     pressures_pa: tuple[float, ...] = (600.0, 900.0, 1200.0)
-    clapets_deg: tuple[float, ...] = (6.0, 12.0)
+    clapets_deg: tuple[float, ...] = (2.0, 12.0, 22.0)
     positions: tuple[int, ...] = (0,)
     settle_s: float = 4.0
     acquire_s: float = 3.0
