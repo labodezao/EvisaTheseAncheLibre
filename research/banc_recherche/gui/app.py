@@ -113,6 +113,10 @@ def _build(cfg: Config):
     tabs.addTab(_tab_excitation(state, plot_widget), "Excitation EM")
     tabs.addTab(_tab_analysis(state, plot_widget), "Analyse anche")
     tabs.addTab(_tab_impedance(state), "Impédance")
+    tabs.addTab(_tab_transfer(state, plot_widget), "Impédance 2 micros")
+    tabs.addTab(_tab_ringdown(state, plot_widget), "Ring-down Q")
+    tabs.addTab(_tab_material(state), "Matériau E")
+    tabs.addTab(_tab_leak(state, plot_widget), "Fuite")
     tabs.addTab(_tab_seuil(state, plot_widget), "Seuil auto-entretien")
     tabs.addTab(_tab_doe(state), "Plan d'expériences")
     tabs.addTab(_tab_campaigns(state), "Campagnes")
@@ -447,6 +451,158 @@ def _tab_campaigns(state):
     lay.addWidget(_row("Ppos,Sec,Pres,Clap", idx, b2)); lay.addWidget(out)
     lay.addWidget(_row(b3)); lay.addWidget(prog)
     lay.addStretch(1)
+    return page
+
+
+def _load_wav(page, channels=1):
+    """Ouvre un WAV, renvoie (sr, list de voies float64 normalisées) ou None."""
+    from PyQt6 import QtWidgets
+    from scipy.io.wavfile import read
+    import numpy as np
+    fn, _ = QtWidgets.QFileDialog.getOpenFileName(page, "Ouvrir un WAV", "", "WAV (*.wav)")
+    if not fn:
+        return None
+    sr, data = read(fn)
+    data = data.astype("float64")
+    if data.ndim == 1:
+        data = data[:, None]
+    chans = [data[:, min(i, data.shape[1] - 1)] for i in range(channels)]
+    chans = [c / (abs(c).max() or 1) for c in chans]
+    return fn, int(sr), chans
+
+
+# ---- Impédance 2 microphones (transfer) ------------------------------------
+def _tab_transfer(state, plot_widget):
+    from PyQt6 import QtWidgets
+    from .. import transfer
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    spacing = QtWidgets.QDoubleSpinBox(); spacing.setDecimals(4); spacing.setRange(0.001, 1); spacing.setValue(0.03)
+    x1 = QtWidgets.QDoubleSpinBox(); x1.setDecimals(4); x1.setRange(0.001, 2); x1.setValue(0.10)
+    plot = plot_widget("Absorption α(f)")
+    out = QtWidgets.QLabel("Charger un WAV stéréo (micro1, micro2).")
+    st = {"wav": None}
+
+    def load():
+        r = _load_wav(page, channels=2)
+        if r:
+            st["wav"] = r
+            out.setText(f"{r[0]} ({r[1]} Hz)")
+
+    def run():
+        if not st["wav"]:
+            out.setText("aucun WAV"); return
+        _, sr, (m1, m2) = st["wav"]
+        try:
+            f, H, _ = transfer.estimate_H12(m1, m2, sr)
+            R, Z, alpha = transfer.reflection_impedance(f, H, spacing.value(), x1.value())
+            band = (f > 50) & (f < 4000)
+            if hasattr(plot, "plot"):
+                plot.clear(); plot.plot(f[band], alpha[band])
+            import numpy as np
+            out.setText(f"α moyen (50–4000 Hz) = {np.nanmean(alpha[band]):.3f}")
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
+    b1 = QtWidgets.QPushButton("Charger WAV 2 voies"); b1.clicked.connect(load)
+    b2 = QtWidgets.QPushButton("Calculer α / Z"); b2.clicked.connect(run)
+    lay.addWidget(_row("Écart micros (m)", spacing, "Dist. micro1→éch. (m)", x1))
+    lay.addWidget(_row(b1, b2)); lay.addWidget(plot); lay.addWidget(out)
+    return page
+
+
+# ---- Ring-down / facteur Q -------------------------------------------------
+def _tab_ringdown(state, plot_widget):
+    from PyQt6 import QtWidgets
+    from .. import ringdown
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    plot = plot_widget("Enveloppe de décroissance")
+    out = QtWidgets.QLabel("Charger un WAV de décroissance (anche excitée puis coupée).")
+    st = {"wav": None}
+
+    def load():
+        r = _load_wav(page, channels=1)
+        if r:
+            st["wav"] = r; out.setText(f"{r[0]} ({r[1]} Hz)")
+
+    def run():
+        if not st["wav"]:
+            out.setText("aucun WAV"); return
+        _, sr, (sig,) = st["wav"]
+        try:
+            r = ringdown.estimate(sig, sr)
+            out.setText(f"f₀ = {r.freq_hz:.2f} Hz · α = {r.alpha:.2f} /s · "
+                        f"ζ = {r.zeta:.2e} · Q = {r.q:.0f}")
+            if hasattr(plot, "plot"):
+                import numpy as np
+                env = ringdown.analytic_envelope(sig)
+                plot.clear(); plot.plot(np.arange(env.size) / sr, env)
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
+    b1 = QtWidgets.QPushButton("Charger WAV"); b1.clicked.connect(load)
+    b2 = QtWidgets.QPushButton("Estimer Q / amortissement"); b2.clicked.connect(run)
+    lay.addWidget(_row(b1, b2)); lay.addWidget(plot); lay.addWidget(out)
+    return page
+
+
+# ---- Matériau : module d'Young ---------------------------------------------
+def _tab_material(state):
+    from PyQt6 import QtWidgets
+    from .. import material
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    fn = QtWidgets.QDoubleSpinBox(); fn.setRange(1, 20000); fn.setValue(440); fn.setSuffix(" Hz")
+    L = QtWidgets.QDoubleSpinBox(); L.setDecimals(4); L.setRange(0.001, 0.5); L.setValue(0.020); L.setSuffix(" m")
+    th = QtWidgets.QDoubleSpinBox(); th.setDecimals(5); th.setRange(0.0001, 0.01); th.setValue(0.0005); th.setSuffix(" m")
+    rho = QtWidgets.QDoubleSpinBox(); rho.setRange(100, 20000); rho.setValue(7850); rho.setSuffix(" kg/m³")
+    mode = QtWidgets.QSpinBox(); mode.setRange(1, 4); mode.setValue(1)
+    out = QtWidgets.QLabel("—")
+
+    def run():
+        try:
+            E = material.youngs_modulus(fn.value(), L.value(), th.value(), rho.value(), mode.value())
+            out.setText(f"E = {E/1e9:.1f} GPa")
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
+    b = QtWidgets.QPushButton("Calculer E"); b.clicked.connect(run)
+    lay.addWidget(_row("f_n", fn, "mode", mode))
+    lay.addWidget(_row("Longueur", L, "Épaisseur", th, "ρ", rho))
+    lay.addWidget(_row(b)); lay.addWidget(out); lay.addStretch(1)
+    return page
+
+
+# ---- Fuite : décroissance de pression --------------------------------------
+def _tab_leak(state, plot_widget):
+    from PyQt6 import QtWidgets
+    from .. import leak
+    import numpy as np
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    plot = plot_widget("Décroissance de pression p(t)")
+    vol = QtWidgets.QDoubleSpinBox(); vol.setDecimals(6); vol.setRange(0, 1); vol.setValue(0.0)
+    out = QtWidgets.QLabel("Charger un CSV (colonnes t,p) — sortie LEAKTEST.")
+
+    def load_csv():
+        fn, _ = QtWidgets.QFileDialog.getOpenFileName(page, "CSV t,p", "", "CSV (*.csv)")
+        if not fn:
+            return
+        try:
+            arr = np.genfromtxt(fn, delimiter=",", names=True)
+            t, p = arr["t"], arr["p"]
+            v = vol.value() or None
+            r = leak.fit_decay(t, p, volume_m3=v)
+            out.setText(f"τ = {r.tau:.1f} s · demi-vie {r.half_life:.1f} s"
+                        + (f" · G = {r.conductance:.2e} m³/s" if v else ""))
+            if hasattr(plot, "plot"):
+                plot.clear(); plot.plot(t, p)
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
+    b = QtWidgets.QPushButton("Charger CSV décroissance"); b.clicked.connect(load_csv)
+    lay.addWidget(_row("Volume (m³, opt.)", vol, b)); lay.addWidget(plot); lay.addWidget(out)
     return page
 
 

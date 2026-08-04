@@ -9,6 +9,19 @@ vis-à-vis des deux modules du dépôt.
 - 🟡 **partiel** : la brique existe, il manque un capteur ou un traitement
 - ➕ **à ajouter** : nouvel outil proposé (voir §« Nouveaux outils » en bas)
 
+> **Mise à jour — briques logicielles implémentées.** Le traitement de plusieurs
+> propositions est désormais dans le dépôt (il ne reste que le capteur/montage
+> physique à brancher) :
+> - **Impédance 2 micros** → `research/banc_recherche/transfer.py` + onglet GUI
+>   « Impédance 2 micros » (ISO 10534-2 : R, Z/ρc, absorption).
+> - **Amortissement / Q** → `ringdown.py` + onglet « Ring-down Q ».
+> - **Module d'Young** → `material.py` + onglet « Matériau E ».
+> - **Test de fuite** → firmware `LEAKTEST` + `leak.py` + bouton « Test de fuite »
+>   de l'onglet Banc (accordeur) et onglet « Fuite » (GUI recherche).
+>
+> Restent purement matériels : capteur laser de forme, cellule de charge/encodeur
+> clavier, voie accéléromètre, imagerie stroboscopique, chaîne FEM/FSI.
+
 Principe directeur : **réutiliser le matériel déjà là** (table X à pas-à-pas,
 excitation EM Behringer/OUTTA, capteurs P/Q, stroboscope multi-harmonique,
 estimateur Matrix Pencil) avant d'acheter.

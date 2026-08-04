@@ -159,6 +159,35 @@ function renderLog() {
   </tr>`).join('');
 }
 
+// ---- Test de fuite (décroissance de pression) -------------------------------
+// Ajuste p(t) = p0·e^(−t/τ) par régression linéaire sur ln(p). Renvoie τ (s).
+function fitLeakTau(rows) {
+  const pts = rows.filter((r) => r[1] > 0);        // t_ms, p, q, T ; p > 0
+  if (pts.length < 3) return null;
+  let n = 0, st = 0, sy = 0, stt = 0, sty = 0;
+  for (const r of pts) {
+    const t = r[0] / 1000, y = Math.log(r[1]);
+    n++; st += t; sy += y; stt += t * t; sty += t * y;
+  }
+  const slope = (n * sty - st * sy) / (n * stt - st * st);
+  if (!(slope < 0)) return { tau: Infinity, p0: Math.exp(sy / n) };
+  return { tau: -1 / slope, p0: Math.exp((sy - slope * st) / n) };
+}
+
+async function leakTest() {
+  const dur = +($('bcLeakDur').value || 10);
+  setStatus('test de fuite…', true);
+  const a = await new Promise((resolve) => { acqResolve = resolve; send(`LEAKTEST ${dur} 20`); });
+  const fit = fitLeakTau(a.rows);
+  const el = $('bcLeakRes');
+  if (el) {
+    if (!fit) el.textContent = 'données insuffisantes';
+    else if (!isFinite(fit.tau)) el.textContent = 'aucune fuite décelable (τ→∞)';
+    else el.textContent = `τ = ${fit.tau.toFixed(1)} s · demi-vie ${(fit.tau * Math.LN2).toFixed(1)} s`;
+  }
+  setStatus(`fuite : ${a.rows.length} points`, true);
+}
+
 // ---- Plan d'expériences automatique (DOE) -----------------------------------
 let doeRunning = false;
 
@@ -267,6 +296,8 @@ export function initBench(acousticFn) {
 
   on('doeRun', 'onclick', runDoe);
   on('doeStop', 'onclick', stopDoe);
+
+  on('bcLeak', 'onclick', leakTest);
 
   on('bcCapture', 'onclick', capturePoint);
   on('bcCsv', 'onclick', exportCsv);
