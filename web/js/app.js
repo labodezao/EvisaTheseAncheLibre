@@ -7,6 +7,7 @@ import {
   midiToFreq, voiceTargetFreq, beatTarget, centsClass, overlappingAllan,
 } from './music.js';
 import { Report } from './report.js';
+import { initBench } from './bench.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -1805,6 +1806,22 @@ $('orientToggle').onclick = () => { orientIdx = (orientIdx + 1) % ORIENTS.length
 applyTheme(currentTheme()); // synchronise le libellé du bouton avec l'attribut posé au chargement
 bindControls();
 drawBeatCurve();
+
+// Onglet Banc : fournit à la liaison matérielle un instantané de la lecture
+// acoustique courante, fusionné à chaque point de mesure du banc.
+initBench(() => {
+  const t = state.tick;
+  const v = selectedVoice(t);
+  const a = state.attacks[0];
+  return {
+    note: t?.playedMidi != null ? noteLabel(t.playedMidi + (cfg.transpose || 0)).full : '',
+    f0: v?.tracked ? v.fMeas : null,
+    cents: v?.tracked ? v.dTargetCents : null,
+    level_db: (t && !t.quiet) ? 20 * Math.log10(t.level + 1e-9) : null,
+    attack_ms: a?.riseMs ?? null,
+    sigma: a?.sigma ?? null,
+  };
+});
 refreshReport();
 updateReadout(null);
 requestAnimationFrame(renderLoop);

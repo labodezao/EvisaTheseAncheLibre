@@ -37,16 +37,29 @@ def make_app(bench):
     @app.route("/ws")
     @with_websocket
     async def ws(request, sock):
+        # File d'émission : le contrôleur diffuse (télémétrie ET rafales
+        # d'acquisition) via bench._bcast → un writer qui empile ici ; une
+        # tâche vide la file vers la socket. Ainsi le WebSocket reçoit la même
+        # chose que l'UART (sinon les lignes 'A ...' d'ACQUIRE n'arrivaient pas).
+        q = []
+
+        def writer(s):
+            q.append(s)
+            if len(q) > 500:        # borne : on lâche le plus ancien
+                del q[0]
+
+        bench.add_writer(writer)
         bench.link = "WiFi"
 
         async def sender():
             while True:
-                if bench.stream:
+                if q:
                     try:
-                        await sock.send(bench.telem())
+                        await sock.send(q.pop(0))
                     except Exception:
                         return
-                await asyncio.sleep_ms(max(20, 1000 // max(1, bench.telem_hz)))
+                else:
+                    await asyncio.sleep_ms(15)
 
         st = asyncio.create_task(sender())
         try:
@@ -56,9 +69,13 @@ def make_app(bench):
                     break
                 resp = bench.handle(msg if isinstance(msg, str) else msg.decode())
                 if resp:
-                    await sock.send(resp)
+                    q.append(resp + "\n")
         finally:
             st.cancel()
+            try:
+                bench._writers.remove(writer)
+            except ValueError:
+                pass
             bench.link = "-"
 
     return app

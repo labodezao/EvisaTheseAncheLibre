@@ -50,6 +50,7 @@
   <button class="tab" data-tab="analyse" role="tab" aria-selected="false">📊 Analyse</button>
   <button class="tab" data-tab="settings" role="tab" aria-selected="false">⚙ Réglages</button>
   <button class="tab" data-tab="report" role="tab" aria-selected="false">📋 Rapport</button>
+  <button class="tab" data-tab="bench" role="tab" aria-selected="false">🔬 Banc</button>
 </nav>
 
 <main>
@@ -306,6 +307,80 @@
       </div>
       <div id="tuneGrid"></div>
       <div id="reportTableWrap"><table id="reportTable"></table></div>
+    </div>
+  </div>
+
+  <div class="tabpage" id="tabpage-bench" role="tabpanel">
+    <div class="panel">
+      <h2>Banc d'accordage <span class="hint">excitation pneumatique / EM — synchronisé avec l'analyse acoustique</span></h2>
+      <div class="bench-grid">
+        <div class="bench-card">
+          <h3>Connexion</h3>
+          <label>Adresse ESP32 <input type="text" id="bcIp" placeholder="192.168.1.42" size="14"></label>
+          <div class="row">
+            <button id="bcConnectWs" class="primary">Connecter (WiFi)</button>
+            <button id="bcConnectSerial">USB (Web Serial)</button>
+          </div>
+          <div id="bcStatus" class="bc-status">non connecté</div>
+          <div class="row">
+            <button id="bcHome">⌂ Homing</button>
+            <button id="bcTare">Tare pression</button>
+            <button id="bcStop" class="danger">■ STOP</button>
+          </div>
+        </div>
+
+        <div class="bench-card">
+          <h3>Télémétrie</h3>
+          <table class="bench-telem">
+            <tr><td>Pression</td><td><b id="bt_p">—</b> hPa</td></tr>
+            <tr><td>Débit</td><td><b id="bt_q">—</b> slm</td></tr>
+            <tr><td>Température</td><td><b id="bt_t">—</b> °C</td></tr>
+            <tr><td>Turbine</td><td><b id="bt_blow">—</b> /4095</td></tr>
+            <tr><td>Surface</td><td><b id="bt_surf">—</b> mm²</td></tr>
+            <tr><td>Clapet</td><td><b id="bt_clap">—</b> °</td></tr>
+            <tr><td>Sens soufflet</td><td><b id="bt_pos">—</b></td></tr>
+            <tr><td>Excitation EM</td><td><b id="bt_em">—</b></td></tr>
+            <tr><td>État</td><td><b id="bt_state">—</b></td></tr>
+          </table>
+        </div>
+
+        <div class="bench-card">
+          <h3>Actionneurs</h3>
+          <label>Turbine <input type="range" id="bcBlow" min="0" max="4095" value="0"><span id="bcBlowVal">0</span></label>
+          <label>Section <input type="number" id="bcSection" value="4" step="0.5" size="4"> mm <button id="bcSectionGo">→</button></label>
+          <label>Clapet <input type="number" id="bcClap" value="10" step="1" size="4"> ° <button id="bcClapGo">→</button></label>
+          <div class="row">Sens <button id="bcPosPlus">＋</button><button id="bcPosMinus">－</button></div>
+          <div class="row">Vanne <button id="bcValveOpen">ouvrir</button><button id="bcValveClose">fermer</button>
+            <button id="bcValvePulse">impulsion</button><input type="number" id="bcPulseMs" value="500" size="4"> ms</div>
+          <label class="inline"><input type="checkbox" id="bcClamp"> bridage</label>
+        </div>
+
+        <div class="bench-card">
+          <h3>Excitation & rampes</h3>
+          <label>EM <input type="number" id="bcEmF" value="440" size="5"> Hz ·
+            <input type="number" id="bcEmA" value="500" size="4"> <button id="bcEmGo">→</button><button id="bcEmOff">off</button></label>
+          <label>Sweep <input type="number" id="bcSweepF0" value="50" size="4">→<input type="number" id="bcSweepF1" value="2000" size="5"> Hz
+            en <input type="number" id="bcSweepDur" value="10" size="3"> s <input type="hidden" id="bcSweepA" value="500"><button id="bcSweepGo">▶</button></label>
+          <label>Rampe P <input type="number" id="bcRampL0" value="300" size="5">→<input type="number" id="bcRampL1" value="3000" size="5">
+            en <input type="number" id="bcRampDur" value="10" size="3"> s <button id="bcRampGo">▶</button>
+            <span class="hint">seuil d'auto-entretien</span></label>
+        </div>
+      </div>
+
+      <div class="bench-card wide">
+        <h3>Journal de mesures <span class="hint">chaque point = pneumatique (rafale) + lecture acoustique fusionnés</span></h3>
+        <div class="row">
+          Acquisition <input type="number" id="bcAcqDur" value="3" size="3"> s à <input type="number" id="bcAcqHz" value="100" size="4"> Hz
+          <button id="bcCapture" class="primary">● Capturer un point</button>
+          <button id="bcCsv">Export CSV</button>
+          <button id="bcClearLog" class="danger">Effacer</button>
+        </div>
+        <div id="bcLogWrap"><table class="bench-log">
+          <thead><tr><th>#</th><th>Surf</th><th>Clap</th><th>Sens</th><th>Turb</th>
+            <th>P (Pa)</th><th>Q (slm)</th><th>Z=P/Q</th><th>Note/¢</th><th>f0 (Hz)</th><th>Tresp (ms)</th><th>σ</th></tr></thead>
+          <tbody id="bcLogBody"></tbody>
+        </table></div>
+      </div>
     </div>
   </div>
 </main>

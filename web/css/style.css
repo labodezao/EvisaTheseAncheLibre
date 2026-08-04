@@ -397,3 +397,22 @@ dialog h2 { margin-top: 0; }
 .tune-grid td.g-warn { background: var(--warn); }
 .tune-grid td.g-bad { background: var(--bad); }
 .tune-grid td.cur { outline: 2px solid var(--accent); }
+
+/* ---- Onglet Banc -------------------------------------------------------- */
+.bench-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.bench-card { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--panel); }
+.bench-card.wide { margin-top: 12px; }
+.bench-card h3 { margin: 0 0 8px; font-size: 14px; color: var(--text); }
+.bench-card label { display: block; margin: 6px 0; font-size: 13px; color: var(--dim); }
+.bench-card .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 6px 0; font-size: 13px; color: var(--dim); }
+.bench-card input[type="range"] { vertical-align: middle; width: 55%; }
+.bc-status { margin: 8px 0; padding: 5px 8px; border-radius: 6px; font: 12.5px var(--mono); background: var(--panel2); color: var(--dim); }
+.bc-status.on { background: color-mix(in srgb, var(--ok) 20%, var(--panel)); color: var(--text); }
+.bench-telem { width: 100%; border-collapse: collapse; font-size: 13px; }
+.bench-telem td { padding: 3px 4px; color: var(--dim); }
+.bench-telem td:last-child { text-align: right; color: var(--text); font-family: var(--mono); }
+.bench-telem b { font-size: 15px; }
+#bcLogWrap { overflow-x: auto; margin-top: 8px; }
+.bench-log { width: 100%; border-collapse: collapse; font: 12px var(--mono); white-space: nowrap; }
+.bench-log th, .bench-log td { padding: 3px 6px; border-bottom: 1px solid var(--line); text-align: right; }
+.bench-log th { color: var(--dim); position: sticky; top: 0; background: var(--panel); }
