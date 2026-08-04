@@ -54,7 +54,12 @@ research/
     leak.py                 détection de fuite par décroissance de pression
     doe.py                  plan d'expériences (2 modes : pression, ou soufflet STROKE pousser/tirer)
     batch.py                analyse par lot d'une campagne HDF5 → plan_exp.csv
-    plots.py                tracés de synthèse (impédance, Tresp, formants)
+    plots.py                tracés de synthèse + graphes DOE (effets, interactions, Pareto, contour)
+    doe_analysis/           analyse de plans d'expériences (équivalent Minitab)
+      model.py              ajustement factoriel/RSM, ANOVA, effets, R²/R²aj/R²préd
+      design.py             générateurs (factoriel, fractionnaire, Plackett-Burman, CCD, Box-Behnken)
+      optimize.py           optimiseur de réponses par désirabilité
+      stats.py              distributions t/F (p-valeurs) sans scipy
     bench_link.py           lien vers le firmware ESP32 (air : soufflet, vanne, section)
     storage.py              HDF5 + export CSV (schéma `plan_exp`)
     campaigns.py            relecture des campagnes existantes (HDF5/npy de la thèse)
@@ -92,6 +97,25 @@ chacun pilotant un module :
 L'onglet **Campagnes** rejoue toute une grille déjà mesurée (`batch.analyse_campaign`) :
 il reconstruit chaque son, applique `praat_calcs`, calcule l'impédance et écrit
 `plan_exp.csv` — exactement les 16 colonnes de l'ancien `Data_analysis.py`.
+
+## Analyse DOE (équivalent Minitab)
+
+`banc_recherche.doe_analysis` reproduit l'essentiel de la suite DOE de Minitab,
+**sans dépendance lourde** (p-valeurs t/F via bêta incomplète maison) :
+
+- **Ajuster le modèle** (`model.fit` / `analyze`) : effets principaux +
+  interactions [+ termes quadratiques pour surface de réponse], coefficients,
+  erreurs-types, T, P, **effets**, **ANOVA** (SS/df/MS/F/P, manque d'ajustement
+  + erreur pure si réplicats), **R² / R²-ajusté / R²-prédit (PRESS)**.
+- **Graphes** : effets principaux, interactions, **Pareto des effets**, contour
+  de réponse (`plots.*`).
+- **Générateurs de plans** : factoriel complet/fractionnaire, Plackett-Burman,
+  composite centré (CCD), Box-Behnken (`design.*`).
+- **Optimiseur** de réponses par **désirabilité** (`optimize`).
+
+Onglet GUI **« Analyse DOE »** : charge un `plan_exp.csv`, choisis facteurs et
+réponse → résumé type Minitab (coefficients + ANOVA), boutons effets/Pareto/
+optimiseur. En ligne : `da.analyze(df, "Freq0", ["S_plus","P_plus","i_Clap"])`.
 
 ## Pourquoi Python (et pas Java)
 

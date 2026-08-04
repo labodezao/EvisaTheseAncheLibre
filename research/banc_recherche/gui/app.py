@@ -121,6 +121,7 @@ def _build(cfg: Config):
     tabs.addTab(_tab_seuil(state, plot_widget), "Seuil auto-entretien")
     tabs.addTab(_tab_doe(state), "Plan d'expériences")
     tabs.addTab(_tab_campaigns(state), "Campagnes")
+    tabs.addTab(_tab_doe_analysis(state), "Analyse DOE")
 
     win.setCentralWidget(tabs)
     win.resize(1100, 720)
@@ -472,6 +473,97 @@ def _tab_campaigns(state):
     lay.addWidget(_row("Ppos,Sec,Pres,Clap", idx, b2)); lay.addWidget(out)
     lay.addWidget(_row(b3)); lay.addWidget(prog)
     lay.addStretch(1)
+    return page
+
+
+# ---- Analyse DOE (façon Minitab) -------------------------------------------
+def _tab_doe_analysis(state):
+    from PyQt6 import QtWidgets
+    import os
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    factors = QtWidgets.QLineEdit("S_plus,P_plus,i_Clap")
+    response = QtWidgets.QLineEdit("Freq0")
+    inter = QtWidgets.QCheckBox("interactions"); inter.setChecked(True)
+    quad = QtWidgets.QCheckBox("termes quadratiques (surface de réponse)")
+    goal = QtWidgets.QComboBox(); goal.addItems(["maximiser", "minimiser"])
+    txt = QtWidgets.QPlainTextEdit(); txt.setReadOnly(True)
+    txt.setStyleSheet("font-family: monospace;")
+    info = QtWidgets.QLabel("Charger un plan_exp.csv (sortie du DOE / batch).")
+    st = {"df": None, "res": None, "path": None}
+
+    def load():
+        fn, _ = QtWidgets.QFileDialog.getOpenFileName(page, "plan_exp.csv", "", "CSV (*.csv)")
+        if not fn:
+            return
+        try:
+            import pandas as pd
+            st["df"] = pd.read_csv(fn); st["path"] = fn
+            info.setText(f"{fn} — colonnes : {', '.join(st['df'].columns)}")
+        except Exception as e:
+            info.setText("erreur : " + str(e))
+
+    def analyse():
+        if st["df"] is None:
+            info.setText("aucun CSV"); return
+        try:
+            from .. import doe_analysis as da
+            facs = [f.strip() for f in factors.text().split(",") if f.strip()]
+            st["res"] = da.analyze(st["df"], response.text().strip(), facs,
+                                   interactions=inter.isChecked(), quadratic=quad.isChecked())
+            txt.setPlainText(da.summary(st["res"]))
+        except Exception as e:
+            txt.setPlainText("erreur : " + str(e))
+
+    def _savefig(fig, name):
+        d = os.path.dirname(st["path"] or ".") or "."
+        p = os.path.join(d, name)
+        fig.savefig(p, dpi=150); info.setText("figure → " + p)
+
+    def plot_effects():
+        if st["df"] is None:
+            return
+        from .. import plots
+        facs = [f.strip() for f in factors.text().split(",") if f.strip()]
+        _savefig(plots.main_effects_plot(st["df"], response.text().strip(), facs),
+                 "doe_effets_principaux.png")
+
+    def plot_pareto():
+        if st["res"] is None:
+            analyse()
+        if st["res"] is not None:
+            from .. import plots
+            _savefig(plots.pareto_plot(st["res"]), "doe_pareto.png")
+
+    def run_optim():
+        if st["res"] is None:
+            analyse()
+        if st["res"] is None:
+            return
+        try:
+            from ..doe_analysis import optimize as opt
+            import numpy as np
+            res, df = st["res"], st["df"]
+            facs = res.factors
+            bounds = {f: (float(df[f].min()), float(df[f].max())) for f in facs}
+            y = df[response.text().strip()]
+            g = opt.Goal(predict=res.predict, kind="max" if goal.currentIndex() == 0 else "min",
+                         low=float(y.min()), high=float(y.max()))
+            r = opt.optimize([g], bounds, grid=11)
+            best = ", ".join(f"{k}={v:.3g}" for k, v in r.best.items())
+            info.setText(f"Optimum ({goal.currentText()}) : {best} · D = {r.composite:.3f}")
+        except Exception as e:
+            info.setText("erreur : " + str(e))
+
+    b_load = QtWidgets.QPushButton("Charger CSV"); b_load.clicked.connect(load)
+    b_fit = QtWidgets.QPushButton("Ajuster le modèle"); b_fit.clicked.connect(analyse)
+    b_eff = QtWidgets.QPushButton("Effets principaux"); b_eff.clicked.connect(plot_effects)
+    b_par = QtWidgets.QPushButton("Pareto"); b_par.clicked.connect(plot_pareto)
+    b_opt = QtWidgets.QPushButton("Optimiser"); b_opt.clicked.connect(run_optim)
+    lay.addWidget(_row("Facteurs", factors, "Réponse", response))
+    lay.addWidget(_row(inter, quad, b_load, b_fit))
+    lay.addWidget(_row(b_eff, b_par, goal, b_opt))
+    lay.addWidget(info); lay.addWidget(txt)
     return page
 
 
