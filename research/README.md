@@ -40,6 +40,8 @@ research/
   requirements.txt          pip (numpy/scipy/parselmouth/h5py/pandas/sounddevice/PyQt6/pyqtgraph)
   banc_recherche/
     __init__.py
+    __main__.py             `python -m banc_recherche` → CLI
+    cli.py                  ligne de commande (batch, devices, gui)
     config.py               constantes (voies audio, calibrations, grille DOE)
     audio.py                acquisition + génération (Behringer, sounddevice)
     excitation.py           sweep EM, diagramme de phase, résonances
@@ -104,6 +106,27 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt          # ou : pip install -e .
 banc-recherche                           # lance la GUI
 ```
+
+### En ligne de commande (sans GUI)
+
+Pour rejouer une campagne en lot (serveur, reproductibilité) :
+
+```bash
+banc-recherche-cli batch data/Measure_dataset_….hdf5 --plots out/   # → plan_exp.csv + figures
+banc-recherche-cli devices                                          # liste les entrées audio (Behringer)
+banc-recherche-cli gui                                              # équivaut à `banc-recherche`
+python -m banc_recherche batch camp.hdf5                            # même CLI via -m
+```
+
+### Tests
+
+```bash
+pip install pytest && pytest        # impédance, enveloppe/Tresp, DOE, seuil, batch, CLI
+```
+
+Les modules à dépendances lourdes (`pandas`, `scipy`, `parselmouth`, `PyQt6`)
+sont importés **paresseusement** : le package s'importe et les tests numériques
+tournent avec `numpy` seul.
 
 `parselmouth` (Praat) : `pip install praat-parselmouth`. L'interface Behringer
 est vue comme un périphérique **ASIO/CoreAudio/ALSA** standard par `sounddevice` ;

@@ -18,8 +18,12 @@ dependencies = [
     "pyqtgraph>=0.13",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
 [project.scripts]
 banc-recherche = "banc_recherche.gui.app:main"
+banc-recherche-cli = "banc_recherche.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["banc_recherche*"]
