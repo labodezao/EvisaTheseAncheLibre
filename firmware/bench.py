@@ -158,6 +158,31 @@ class Bench:
         self.state = "pret"
         self._busy = False
 
+    async def leak_test(self, dur_s, hz):
+        """Test de fuite : coupe le soufflet, ferme la vanne, enregistre la
+        décroissance de pression. Mêmes trames « A » que ACQUIRE (analysées
+        côté PC par research/leak.py)."""
+        self._busy = True
+        self.state = "leak"
+        self.press_sp = None
+        self.bell_v = 0.0
+        self.valve.set(False)
+        await asyncio.sleep_ms(200)          # laisse la vanne se fermer
+        hz = max(5, min(C.ACQ_HZ, int(hz)))
+        dt = 1000 // hz
+        t0 = _ms()
+        self._bcast("A BEGIN %d %d\n" % (hz, int(dur_s * 1000)))
+        while time.ticks_diff(t0 + int(dur_s * 1000), _ms()) > 0:
+            p, t, qf = self._read()
+            pr = (p - self.p0) if p is not None else 0.0
+            self._bcast("A %d %.1f %.3f %.2f\n" % (
+                time.ticks_diff(_ms(), t0), pr, qf if qf is not None else 0.0,
+                t if t is not None else 0.0))
+            await asyncio.sleep_ms(dt)
+        self._bcast("A END\n")
+        self.state = "pret"
+        self._busy = False
+
     # ---- Tâches ---------------------------------------------------------------
     async def task_sample(self):
         dt = 1000 // C.SAMPLE_HZ
@@ -271,6 +296,9 @@ class Bench:
             if cmd == "ACQUIRE":
                 hz = int(a[1]) if len(a) > 1 else C.ACQ_HZ
                 asyncio.create_task(self.acquire(float(a[0]), hz)); return "OK"
+            if cmd == "LEAKTEST":           # décroissance de pression, vanne fermée
+                hz = int(a[1]) if len(a) > 1 else 20
+                asyncio.create_task(self.leak_test(float(a[0]), hz)); return "OK"
             if cmd == "STREAM":
                 self.stream = bool(int(a[0]))
                 if len(a) > 1:

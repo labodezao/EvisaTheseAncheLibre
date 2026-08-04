@@ -86,6 +86,7 @@ Pour le WiFi, renseigne `WIFI_SSID` / `WIFI_PASS` dans `config.py`
 | `VALVE 0\|1` / `VALVE PULSE ms` | électrovanne (état ou impulsion) |
 | `CLAMP 0\|1` | bridage de l'anche |
 | `ACQUIRE dur [hz]` | rafale P/Q/T horodatée streamée (`A t p q temp`) |
+| `LEAKTEST dur [hz]` | test de fuite : vanne fermée + soufflet coupé, décroissance P streamée (`A …`) |
 | `STREAM 0\|1 [hz]` | télémétrie live (JSON) on/off + cadence |
 | `STOP` | met tous les actionneurs en sécurité (soufflet, vanne, aimants) |
 

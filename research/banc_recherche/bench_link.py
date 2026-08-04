@@ -65,3 +65,24 @@ class BenchLink:
                 except ValueError:
                     pass
         return None
+
+    def collect_telem(self, duration_s: float) -> list[dict]:
+        """Collecte les trames de télémétrie pendant `duration_s` (pour synchro
+        avec un enregistrement audio simultané)."""
+        frames = []
+        t0 = time.time()
+        while time.time() - t0 < duration_s:
+            fr = self.telem(timeout=max(0.05, duration_s))
+            if fr is not None:
+                frames.append(fr)
+        return frames
+
+    @staticmethod
+    def mean_pq(frames: list[dict]):
+        """Moyenne pression `p` (Pa) et débit `q` sur des trames de télémétrie."""
+        import numpy as np
+        if not frames:
+            return float("nan"), float("nan")
+        p = np.array([f.get("p", np.nan) for f in frames], dtype="float64")
+        q = np.array([f.get("q", np.nan) for f in frames], dtype="float64")
+        return float(np.nanmean(p)), float(np.nanmean(q))

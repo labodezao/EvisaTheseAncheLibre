@@ -40,13 +40,21 @@ research/
   requirements.txt          pip (numpy/scipy/parselmouth/h5py/pandas/sounddevice/PyQt6/pyqtgraph)
   banc_recherche/
     __init__.py
+    __main__.py             `python -m banc_recherche` → CLI
+    cli.py                  ligne de commande (batch, devices, gui)
     config.py               constantes (voies audio, calibrations, grille DOE)
     audio.py                acquisition + génération (Behringer, sounddevice)
     excitation.py           sweep EM, diagramme de phase, résonances
     analysis.py             Praat/parselmouth : praat_calcs (Tresp, formants, pitch, HNR)
     impedance.py            impédance P/Q, puissance P·Q
     seuil.py                seuil d'auto-entretien (rampe + hystérésis)
-    doe.py                  plan d'expériences (grille, orchestration)
+    transfer.py             2 micros (impédance/absorption) + 4 micros (matrice de transfert, TL)
+    ringdown.py             amortissement / facteur Q par décroissance (Matrix Pencil-like)
+    material.py             module d'Young par résonance cantilever
+    leak.py                 détection de fuite par décroissance de pression
+    doe.py                  plan d'expériences (grille, orchestration temps réel)
+    batch.py                analyse par lot d'une campagne HDF5 → plan_exp.csv
+    plots.py                tracés de synthèse (impédance, Tresp, formants)
     bench_link.py           lien vers le firmware ESP32 (air : soufflet, vanne, section)
     storage.py              HDF5 + export CSV (schéma `plan_exp`)
     campaigns.py            relecture des campagnes existantes (HDF5/npy de la thèse)
@@ -79,7 +87,11 @@ chacun pilotant un module :
 | Impédance | `Data_analysis` | `impedance` |
 | Seuil auto-entretien | `mes_seuil_autoentretien` | `seuil` |
 | Plan d'expériences | `Mesures` | `doe` + `storage` |
-| Campagnes | (relecture HDF5/npy) | `campaigns` |
+| Campagnes | `Data_analysis` (boucle HDF5) / `plotsmeasure` | `campaigns` + `batch` + `plots` |
+
+L'onglet **Campagnes** rejoue toute une grille déjà mesurée (`batch.analyse_campaign`) :
+il reconstruit chaque son, applique `praat_calcs`, calcule l'impédance et écrit
+`plan_exp.csv` — exactement les 16 colonnes de l'ancien `Data_analysis.py`.
 
 ## Pourquoi Python (et pas Java)
 
@@ -98,6 +110,27 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt          # ou : pip install -e .
 banc-recherche                           # lance la GUI
 ```
+
+### En ligne de commande (sans GUI)
+
+Pour rejouer une campagne en lot (serveur, reproductibilité) :
+
+```bash
+banc-recherche-cli batch data/Measure_dataset_….hdf5 --plots out/   # → plan_exp.csv + figures
+banc-recherche-cli devices                                          # liste les entrées audio (Behringer)
+banc-recherche-cli gui                                              # équivaut à `banc-recherche`
+python -m banc_recherche batch camp.hdf5                            # même CLI via -m
+```
+
+### Tests
+
+```bash
+pip install pytest && pytest        # impédance, enveloppe/Tresp, DOE, seuil, batch, CLI
+```
+
+Les modules à dépendances lourdes (`pandas`, `scipy`, `parselmouth`, `PyQt6`)
+sont importés **paresseusement** : le package s'importe et les tests numériques
+tournent avec `numpy` seul.
 
 `parselmouth` (Praat) : `pip install praat-parselmouth`. L'interface Behringer
 est vue comme un périphérique **ASIO/CoreAudio/ALSA** standard par `sounddevice` ;

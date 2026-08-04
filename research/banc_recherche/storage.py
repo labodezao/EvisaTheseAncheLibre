@@ -9,7 +9,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field, asdict
 
 import numpy as np
-import pandas as pd
 
 try:
     import h5py
@@ -63,6 +62,7 @@ class Store:
 
 def export_csv(points: list[Point], path: str):
     """Table scalaire des points (sans signaux) → plan_exp.csv."""
+    import pandas as pd
     rows = []
     for p in points:
         rows.append({
