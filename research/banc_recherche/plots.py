@@ -91,6 +91,69 @@ def drift_diffusion_plot(km):
     return fig
 
 
+def coherence_resonance_plot(cr):
+    """Cohérence vs intensité de bruit, avec l'optimum (résonance cohérente)."""
+    plt = _lazy_plt()
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.plot(cr.noise, cr.coherence, "o-")
+    ax.axvline(cr.optimal_noise, ls="--", lw=0.8, color="red")
+    ax.text(cr.optimal_noise, cr.max_coherence, " optimum", fontsize=8, color="red")
+    ax.set_xlabel("intensité de bruit"); ax.set_ylabel("cohérence (temps de corrél.)")
+    ax.set_title("Résonance cohérente"); ax.grid(alpha=0.3)
+    return fig
+
+
+def phase_3d(ps, stride: int = 1):
+    """Espace des phases 3D : Position × Vitesse × Accélération."""
+    plt = _lazy_plt()
+    fig = plt.figure(figsize=(7, 6))
+    ax = fig.add_subplot(111, projection="3d")
+    sl = slice(None, None, stride)
+    ax.plot(ps.position[sl], ps.velocity[sl], ps.acceleration[sl], lw=0.4)
+    ax.set_xlabel("Position [m]"); ax.set_ylabel("Vitesse [SI]")
+    ax.set_zlabel("Accélération [SI]"); ax.set_title("Espace phase 3D")
+    return fig
+
+
+def phase_portrait(ps):
+    """Portrait de phase 2-DDL : Position vs Vitesse + Position vs temps."""
+    plt = _lazy_plt()
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(10, 4))
+    a1.plot(ps.position, ps.velocity, lw=0.5)
+    a1.set_xlabel("Position [m]"); a1.set_ylabel("Vitesse [m/s]")
+    a1.set_title("Portrait de phase"); a1.grid(alpha=0.3)
+    a2.plot(ps.t, ps.position, lw=0.6)
+    a2.set_xlabel("Temps [s]"); a2.set_ylabel("Position [m]")
+    a2.set_title("Position vs temps"); a2.grid(alpha=0.3)
+    return fig
+
+
+def bode_plot(freqs, H, fmax=5000):
+    """Bode de la FRF (module dB + phase)."""
+    from . import frf as _frf
+    plt = _lazy_plt()
+    mag, ph = _frf.bode(freqs, H)
+    band = freqs <= fmax
+    fig, (a1, a2) = plt.subplots(2, 1, figsize=(7, 6), sharex=True)
+    a1.semilogx(freqs[band], mag[band]); a1.set_ylabel("|H| [dB]"); a1.grid(alpha=0.3, which="both")
+    a2.semilogx(freqs[band], np.unwrap(ph[band])); a2.set_ylabel("phase [rad]")
+    a2.set_xlabel("fréquence [Hz]"); a2.grid(alpha=0.3, which="both")
+    fig.suptitle("FRF (balayage sinus synchronisé)")
+    return fig
+
+
+def profile_plot(pr):
+    """Profil statique d'anche (déflexion) et sa courbure."""
+    plt = _lazy_plt()
+    fig, (a1, a2) = plt.subplots(2, 1, figsize=(6, 6), sharex=True)
+    a1.plot(pr.position_mm, pr.deflection_mm); a1.set_ylabel("déflexion [mm]")
+    a1.grid(alpha=0.3)
+    a2.plot(pr.position_mm, pr.curvature); a2.set_ylabel("courbure [1/mm]")
+    a2.set_xlabel("position [mm]"); a2.grid(alpha=0.3)
+    fig.suptitle(f"Profil — déflexion max {pr.max_deflection:.3g} mm")
+    return fig
+
+
 def early_warning_plot(ew):
     """Précurseurs : variance et autocorrélation (AR1) vs paramètre."""
     plt = _lazy_plt()

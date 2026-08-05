@@ -51,3 +51,15 @@ def play_record(cfg: AudioConfig, out: np.ndarray) -> np.ndarray:
 def to_pascals(cfg: AudioConfig, channel: np.ndarray) -> np.ndarray:
     """Convertit une voie pleine échelle en Pa selon l'étalonnage."""
     return channel * cfg.pa_per_fs
+
+
+def channel(rec: np.ndarray, idx) -> np.ndarray:
+    """Extrait une voie d'un enregistrement multi-canaux (idx borné)."""
+    if idx is None or rec.ndim == 1:
+        return rec if rec.ndim == 1 else rec[:, 0]
+    return rec[:, min(int(idx), rec.shape[1] - 1)]
+
+
+def accel(cfg: AudioConfig, rec: np.ndarray):
+    """Voie accéléromètre si configurée, sinon None."""
+    return channel(rec, cfg.accel_channel) if cfg.accel_channel is not None else None

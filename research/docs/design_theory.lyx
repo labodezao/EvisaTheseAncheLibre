@@ -252,7 +252,7 @@ parbox[c][][t]{
 \backslash
 paperwidth}{
 \backslash
-centering Conceptual accordion design : Theory
+centering Au seuil de l'anche
 \backslash
 
 \backslash
@@ -263,7 +263,7 @@ centering Conceptual accordion design : Theory
 
 {
 \backslash
-Large An engineering approch}
+Large Physique des bifurcations et observation des sensations}
 \backslash
 
 \backslash
@@ -611,6 +611,90 @@ status collapsed
 
 \end_layout
 
+\begin_layout Chapter*
+Prélude — Le souffle avant le son
+\end_layout
+
+\begin_layout Standard
+On souffle dans l'accordéon.
+ D'abord rien : le silence, l'air qui pousse sans que rien ne chante.
+ Puis, à un instant précis, ça prend : l'anche s'anime, et une note naît.
+ Ce seuil — ce basculement d'un état muet à un état vivant — est le sujet
+ de ce livre.
+\end_layout
+
+\begin_layout Standard
+Ce seuil n'est pas qu'un fait mécanique.
+ C'est une bifurcation, une loi de la nature qui gouverne aussi bien l'anche
+ de métal que ce qui se transforme, à l'intérieur du cadre d'un corps, quand
+ une sensation devient perception, quand un souffle devient parole, quand
+ quelque chose « prend » en soi.
+ Je ne crois pas qu'on puisse comprendre l'un sans regarder l'autre.
+\end_layout
+
+\begin_layout Standard
+Ce livre est donc écrit à la manière de Roger Penrose dans
+\begin_inset space ~
+\end_inset
+
+« À la découverte des lois de l'univers » : la science au niveau de l'expérience
+ humaine.
+ Pas des équations froides et sans chair, mais un savoir chaud — un savoir
+ qu'on a d'abord senti avant de l'écrire.
+\end_layout
+
+\begin_layout Chapter*
+Note sur la méthode
+\end_layout
+
+\begin_layout Standard
+Trois fils sont tressés, chapitre après chapitre.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Le dehors
+\series default
+ — la physique de l'anche libre : l'oscillateur auto-entretenu, la bifurcation
+ de Hopf, le transitoire d'attaque, la résonance, l'hystérésis, le bruit,
+ l'espace des phases.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Le dedans
+\series default
+ — l'observation des sensations, dans l'esprit de Vipassana : le souffle,
+ la vibration, l'impermanence (anicca), les conditionnements (sankhara),
+ l'équanimité, la vérité de ce qui est (sacca).
+ Le Bouddha, en observant la matière se dissoudre en vibrations jusqu'au
+ grain le plus fin (le kalāpa), touchait le même fondamental que Penrose
+ atteint par les quanta.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Le vivant
+\series default
+ — mon histoire, les transitions, les ruptures, l'organique.
+ Ces passages restent parfois en creux, comme des seuils que je n'ai pas
+ encore franchis ou pas encore écrits.
+\end_layout
+
+\begin_layout Standard
+Le principe qui tient l'ensemble tient en une phrase : la nature ne ment
+ pas.
+ Quand on fait une expérience, l'anche répond ce qu'elle est, pas ce qu'on
+ voudrait ; on laisse la mesure contredire l'hypothèse.
+ C'est exactement l'honnêteté que demande l'observation d'une sensation :
+ ne rien ajouter, ne rien retrancher.
+ On peut mentir avec ses mots, ses gestes, ses relations — pas avec ce qu'on
+ sent vraiment, si on l'observe assez honnêtement.
+\end_layout
+
 \begin_layout Part
 Reeds
 \end_layout
@@ -763,6 +847,36 @@ Harmonic Saturation
 
 \begin_layout Section
 Hysteresis vs self sustained conditions
+\end_layout
+
+\begin_layout Section*
+Résonance intérieure — l'hystérésis comme sankhara
+\end_layout
+
+\begin_layout Standard
+La bifurcation de l'anche est le plus souvent sous-critique : il faut une
+ pression plus forte pour la faire démarrer (p_on) que pour l'éteindre (p_off).
+ Entre les deux, deux états coexistent — l'anche muette et l'anche qui chante
+ — et le système « reste » dans celui où il se trouve.
+ C'est, littéralement, la structure d'un conditionnement : le sankhara.
+\end_layout
+
+\begin_layout Standard
+Une habitude, une réaction, un pli du caractère obéissent à la même loi :
+ il en coûte davantage pour amorcer un état intérieur que pour le maintenir,
+ et l'on y demeure accroché bien après que la cause a disparu.
+ Sortir de cet état — franchir la barrière entre les deux vallées du potentiel
+ — demande de l'énergie, ou du bruit : parfois c'est l'agitation de la vie,
+ parfois la patience de l'observation qui finit par faire basculer.
+ La largeur de l'hystérésis, p_on moins p_off, se mesure au banc ; elle
+ dit quelque chose de la ténacité d'un pli.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+⟢ ton expérience : une hystérésis intime — un état dont il fut plus dur
+ d'entrer que d'y rester, ou plus dur d'en sortir que d'y demeurer.
 \end_layout
 
 \begin_layout Chapter

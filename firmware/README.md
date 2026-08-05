@@ -48,6 +48,8 @@ qu'acheminer des **commandes texte** et diffuser la **télémétrie JSON**.
   `PRESS canal 0|1`, maintien basse conso par PWM sur `/OE`.
 - **Axes** section-vis (`SECTION`, surface = x·15 mm) et clapet (`CLAP`, °).
 - **Électrovanne**, **bridage**, capteurs **BMP280** (P/T) + **SFM3000** (débit).
+- **Capteur laser de déplacement** (ADC) pour le **profil statique de l'anche**
+  (`SCAN`, balayage sur l'axe section).
 - **Acquisition rapide** P/Q/T (≤150 Hz) streamée pour synchro audio.
 
 ## Câblage (défauts `config.py`, à vérifier)
@@ -91,6 +93,7 @@ Pour le WiFi, renseigne `WIFI_SSID` / `WIFI_PASS` dans `config.py`
 | `CLAMP 0\|1` | bridage de l'anche |
 | `ACQUIRE dur [hz]` | rafale P/Q/T horodatée streamée (`A t p q temp`) |
 | `LEAKTEST dur [hz]` | test de fuite : vanne fermée + soufflet coupé, décroissance P streamée (`A …`) |
+| `SCAN mm [pas_mm]` | balayage laser : déplace l'axe section, lit le capteur laser (ADC), streame `S position valeur` (profil d'anche) |
 | `STREAM 0\|1 [hz]` | télémétrie live (JSON) on/off + cadence |
 | `STOP` | met tous les actionneurs en sécurité (soufflet, vanne, aimants) |
 

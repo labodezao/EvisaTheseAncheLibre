@@ -49,7 +49,9 @@ research/
     impedance.py            impédance P/Q, puissance P·Q
     seuil.py                seuil d'auto-entretien (rampe + hystérésis)
     bifurcation.py          diagrammes de bifurcation, forme normale de Hopf, hystérésis
-    stochastic.py           Kramers-Moyal (drift/diffusion), potentiel effectif, précurseurs
+    stochastic.py           Kramers-Moyal, potentiel, précurseurs, Stuart-Landau, cohérence, Kramers
+    ramp.py                 rampes de bifurcation au banc (seuils répétés → diagramme stochastique)
+    profile.py              profil statique d'anche au laser (courbure, déflexion)
     transfer.py             2 micros (impédance/absorption) + 4 micros (matrice de transfert, TL)
     ringdown.py             amortissement / facteur Q par décroissance (Matrix Pencil-like)
     material.py             module d'Young par résonance cantilever
@@ -153,6 +155,21 @@ Onglet GUI **« Bifurcation »** : diagramme depuis une rampe CSV (param, amp), 
 analyse Kramers-Moyal + potentiel depuis une série temporelle (WAV). Les seuils
 mesurés (via `seuil.detect`) et leur dépendance aux facteurs (section, clapet…)
 s'analysent ensuite avec `doe_analysis`.
+
+### Intégration banc & capture matérielle
+
+- **`ramp`** : `run_threshold_sweep` répète des rampes montée (pousser) /
+  descente (tirer) au banc, détecte `μ_on`/`μ_off` par rampe et agrège en
+  `threshold_stats` (seuil de bifurcation **stochastique**, moyenne ± écart-type)
+  + diagrammes. Onglet **« Bifurcation »** côté acquisition.
+- **`profile`** + firmware `SCAN` + onglet **« Profil laser »** : balayage d'un
+  **capteur laser de déplacement** sur la table X → forme statique de l'anche,
+  **courbure** et déflexion max (validation FEM, chapitre « Static shape »).
+- **Voie accéléromètre** : `AudioConfig.accel_channel` + `audio.accel` ;
+  capturée et stockée par le DOE (`Point.accel`) — réactive le
+  `Mesures_Accelerations` des campagnes historiques.
+- **Résonance cohérente** : onglet **« Résonance cohérente »** (charge plusieurs
+  WAV, un par intensité de bruit → cohérence vs bruit, optimum).
 
 ## Pourquoi Python (et pas Java)
 

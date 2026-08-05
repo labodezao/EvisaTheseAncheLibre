@@ -33,6 +33,7 @@ class Point:
     audio: np.ndarray | None = field(default=None, repr=False)
     pressure: np.ndarray | None = field(default=None, repr=False)
     flow: np.ndarray | None = field(default=None, repr=False)
+    accel: np.ndarray | None = field(default=None, repr=False)   # voie accéléromètre
 
 
 class Store:

@@ -123,6 +123,11 @@ def _build(cfg: Config):
     tabs.addTab(_tab_campaigns(state), "Campagnes")
     tabs.addTab(_tab_doe_analysis(state), "Analyse DOE")
     tabs.addTab(_tab_bifurcation(state, plot_widget), "Bifurcation")
+    tabs.addTab(_tab_coherence(state, plot_widget), "Résonance cohérente")
+    tabs.addTab(_tab_profile(state, plot_widget), "Profil laser")
+    tabs.addTab(_tab_phase(state, plot_widget), "Espace des phases")
+    tabs.addTab(_tab_frf(state, plot_widget), "FRF (swept-sine)")
+    tabs.addTab(_tab_model(state, plot_widget), "Modèle anche")
 
     win.setCentralWidget(tabs)
     win.resize(1100, 720)
@@ -474,6 +479,229 @@ def _tab_campaigns(state):
     lay.addWidget(_row("Ppos,Sec,Pres,Clap", idx, b2)); lay.addWidget(out)
     lay.addWidget(_row(b3)); lay.addWidget(prog)
     lay.addStretch(1)
+    return page
+
+
+# ---- Espace des phases (accéléromètre → Position/Vitesse/Accélération) -----
+def _tab_phase(state, plot_widget):
+    from PyQt6 import QtWidgets
+    import os
+    from .. import phase_space as psx, plots
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    hp = QtWidgets.QDoubleSpinBox(); hp.setRange(0.1, 500); hp.setValue(20.0); hp.setSuffix(" Hz")
+    plot = plot_widget("Portrait de phase (Position × Vitesse)")
+    out = QtWidgets.QLabel("Charger un WAV d'accélération (accéléromètre).")
+    stq = {"path": None}
+
+    def run():
+        r = _load_wav(page, channels=1)
+        if r is None:
+            return
+        _, sr, (a,) = r; stq["path"] = r[0]
+        try:
+            ps = psx.from_acceleration(a, sr, hp_hz=hp.value())
+            if hasattr(plot, "plot"):
+                plot.clear(); plot.plot(ps.position, ps.velocity)
+            out.setText(f"pos max {abs(ps.position).max():.3g} m · "
+                        f"vit max {abs(ps.velocity).max():.3g} m/s")
+            d = os.path.dirname(stq["path"]) or "."
+            plots.phase_3d(ps).savefig(os.path.join(d, "phase_3d.png"), dpi=150)
+            plots.phase_portrait(ps).savefig(os.path.join(d, "phase_portrait.png"), dpi=150)
+            out.setText(out.text() + f"  · figures → {d}/phase_*.png")
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
+    b = QtWidgets.QPushButton("Charger accéléro WAV → phase"); b.clicked.connect(run)
+    lay.addWidget(_row("Passe-haut", hp, b)); lay.addWidget(plot); lay.addWidget(out)
+    return page
+
+
+# ---- FRF par balayage sinus synchronisé ------------------------------------
+def _tab_frf(state, plot_widget):
+    from PyQt6 import QtWidgets
+    import os
+    import numpy as np
+    from scipy.io.wavfile import write as wavwrite, read as wavread
+    from .. import frf, plots
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    f1 = QtWidgets.QDoubleSpinBox(); f1.setRange(1, 20000); f1.setValue(20)
+    f2 = QtWidgets.QDoubleSpinBox(); f2.setRange(1, 20000); f2.setValue(5000)
+    dur = QtWidgets.QDoubleSpinBox(); dur.setRange(0.5, 30); dur.setValue(3.0)
+    sr = QtWidgets.QSpinBox(); sr.setRange(8000, 96000); sr.setValue(48000)
+    plot = plot_widget("FRF |H| (dB)")
+    out = QtWidgets.QLabel("Générer un balayage à émettre, puis analyser l'enregistrement.")
+    stq = {"sweep": None}
+
+    def gen():
+        stq["sweep"] = frf.exponential_sweep(f1.value(), f2.value(), dur.value(), sr.value())
+        fn, _ = QtWidgets.QFileDialog.getSaveFileName(page, "Enregistrer le balayage", "sweep.wav", "WAV (*.wav)")
+        if fn:
+            wavwrite(fn, sr.value(), (stq["sweep"].x * 32767).astype("int16"))
+            out.setText("balayage enregistré : " + fn)
+
+    def analyse():
+        if stq["sweep"] is None:
+            stq["sweep"] = frf.exponential_sweep(f1.value(), f2.value(), dur.value(), sr.value())
+        fn, _ = QtWidgets.QFileDialog.getOpenFileName(page, "Enregistrement", "", "WAV (*.wav)")
+        if not fn:
+            return
+        try:
+            _sr, data = wavread(fn)
+            rec = data.astype("float64"); rec = rec[:, 0] if rec.ndim > 1 else rec
+            ir, _ = frf.linear_ir(rec, stq["sweep"])
+            f, H = frf.frf(ir, stq["sweep"].fs)
+            res = frf.resonances(f, H)
+            if hasattr(plot, "plot"):
+                mag, _ = frf.bode(f, H); band = f <= f2.value()
+                plot.clear(); plot.plot(f[band], mag[band])
+            out.setText("résonances : " + ", ".join(f"{r:.0f}" for r in res) + " Hz")
+            plots.bode_plot(f, H).savefig(os.path.join(os.path.dirname(fn) or ".", "frf_bode.png"), dpi=150)
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
+    b1 = QtWidgets.QPushButton("Générer balayage (WAV)"); b1.clicked.connect(gen)
+    b2 = QtWidgets.QPushButton("Analyser enregistrement → FRF"); b2.clicked.connect(analyse)
+    lay.addWidget(_row("f1", f1, "f2", f2, "durée", dur, "fs", sr))
+    lay.addWidget(_row(b1, b2)); lay.addWidget(plot); lay.addWidget(out)
+    return page
+
+
+# ---- Modèle non linéaire anche-cavité --------------------------------------
+def _tab_model(state, plot_widget):
+    from PyQt6 import QtWidgets
+    import os
+    from .. import reed_model, modal, plots, phase_space as psx
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    qin = QtWidgets.QDoubleSpinBox(); qin.setDecimals(7); qin.setRange(0, 1e-2); qin.setValue(3e-5)
+    dur = QtWidgets.QDoubleSpinBox(); dur.setRange(0.005, 1.0); dur.setValue(0.05)
+    plot = plot_widget("Portrait de phase (modèle)")
+    out = QtWidgets.QLabel("Simule le modèle anche+cavité (RK4) → portraits de phase.")
+
+    def run():
+        try:
+            rm = reed_model.ReedModel(n_modes=2)
+            freqs = modal.natural_frequencies_np(rm.sec, 2)
+            res = rm.simulate(dur.value(), fs=max(20000.0, 8 * freqs[0]), q_in=qin.value())
+            ps = psx.PhaseSpace(res.t, res.position, res.velocity, res.acceleration)
+            if hasattr(plot, "plot"):
+                plot.clear(); plot.plot(res.position, res.velocity)
+            out.setText(f"fréquences propres : {freqs[0]:.0f}, {freqs[1]:.0f} Hz · "
+                        f"pos max {abs(res.position).max():.3g} m")
+            plots.phase_3d(ps).savefig("modele_phase_3d.png", dpi=150)
+            plots.phase_portrait(ps).savefig("modele_phase_portrait.png", dpi=150)
+            out.setText(out.text() + "  · figures → modele_phase_*.png")
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
+    b = QtWidgets.QPushButton("Simuler (RK4)"); b.clicked.connect(run)
+    lay.addWidget(_row("Débit d'entrée (m³/s)", qin, "durée (s)", dur, b))
+    lay.addWidget(plot); lay.addWidget(out)
+    return page
+
+
+# ---- Résonance cohérente (balayage multi-enregistrements) ------------------
+def _tab_coherence(state, plot_widget):
+    from PyQt6 import QtWidgets
+    import os
+    import numpy as np
+    from scipy.io.wavfile import read
+    from .. import stochastic as st, plots
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    levels = QtWidgets.QLineEdit()
+    levels.setPlaceholderText("intensités de bruit, séparées par virgules (optionnel)")
+    plot = plot_widget("Cohérence vs bruit")
+    out = QtWidgets.QLabel("Charger plusieurs WAV (un par intensité de bruit, ordre croissant).")
+    stq = {"files": []}
+
+    def load():
+        fns, _ = QtWidgets.QFileDialog.getOpenFileNames(page, "WAV (un par niveau)", "", "WAV (*.wav)")
+        if fns:
+            stq["files"] = sorted(fns)
+            out.setText(f"{len(fns)} fichiers")
+
+    def run():
+        if len(stq["files"]) < 2:
+            out.setText("au moins 2 WAV requis"); return
+        try:
+            series, sr = [], None
+            for fn in stq["files"]:
+                sr, data = read(fn)
+                s = data.astype("float64")
+                series.append(s[:, 0] if s.ndim > 1 else s)
+            lv = levels.text().strip()
+            noise = ([float(x) for x in lv.split(",")] if lv
+                     else list(range(len(series))))
+            cr = st.coherence_resonance(noise, series, float(sr))
+            if hasattr(plot, "plot"):
+                plot.clear(); plot.plot(cr.noise, cr.coherence)
+            out.setText(f"optimum : bruit = {cr.optimal_noise:.3g} · "
+                        f"cohérence max = {cr.max_coherence:.3g}")
+            d = os.path.dirname(stq["files"][0]) or "."
+            plots.coherence_resonance_plot(cr).savefig(os.path.join(d, "coherence_resonance.png"), dpi=150)
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
+    b1 = QtWidgets.QPushButton("Charger WAV (multi)"); b1.clicked.connect(load)
+    b2 = QtWidgets.QPushButton("Analyser la cohérence"); b2.clicked.connect(run)
+    lay.addWidget(_row(b1, b2)); lay.addWidget(_row("Niveaux", levels))
+    lay.addWidget(plot); lay.addWidget(out)
+    return page
+
+
+# ---- Profil laser (balayage de forme d'anche) ------------------------------
+def _tab_profile(state, plot_widget):
+    from PyQt6 import QtWidgets
+    import os
+    import numpy as np
+    from .. import profile as prof, plots
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    cal = QtWidgets.QDoubleSpinBox(); cal.setDecimals(6); cal.setRange(1e-6, 1e3); cal.setValue(1.0)
+    plot = plot_widget("Profil d'anche (déflexion)")
+    out = QtWidgets.QLabel("Depuis le banc (SCAN) ou un CSV (position,valeur).")
+
+    def _show(pos, val, src):
+        pr = prof.from_scan(pos, val, mm_per_unit=cal.value())
+        if hasattr(plot, "plot"):
+            plot.clear(); plot.plot(pr.position_mm, pr.deflection_mm)
+        out.setText(f"déflexion max = {pr.max_deflection:.3g} mm · "
+                    f"courbure max = {pr.max_curvature:.3g}/mm · RMS = {pr.rms_curvature:.3g}")
+        d = os.path.dirname(src) if src else "."
+        plots.profile_plot(pr).savefig(os.path.join(d or ".", "profil.png"), dpi=150)
+
+    def from_csv():
+        fn, _ = QtWidgets.QFileDialog.getOpenFileName(page, "CSV position,valeur", "", "CSV (*.csv)")
+        if not fn:
+            return
+        try:
+            arr = np.genfromtxt(fn, delimiter=",", names=True)
+            names = arr.dtype.names
+            _show(arr[names[0]], arr[names[1]], fn)
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
+    def from_bench():
+        link = state.get("link")
+        if link is None:
+            out.setText("banc non connecté (onglet Connexion / air)"); return
+        try:
+            lines = link.scan(20.0, 0.2)
+            pos, val = prof.parse_scan_lines(lines)
+            if pos.size:
+                _show(pos, val, None)
+            else:
+                out.setText("aucune donnée (capteur laser ?)")
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
+    b1 = QtWidgets.QPushButton("Charger CSV"); b1.clicked.connect(from_csv)
+    b2 = QtWidgets.QPushButton("Balayer au banc (SCAN)"); b2.clicked.connect(from_bench)
+    lay.addWidget(_row("Étalonnage mm/unité", cal, b1, b2))
+    lay.addWidget(plot); lay.addWidget(out)
     return page
 
 

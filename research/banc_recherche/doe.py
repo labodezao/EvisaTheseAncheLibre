@@ -37,7 +37,7 @@ def grid(cfg: Config):
 
 
 def _acquire(cfg: Config, link: BenchLink | None):
-    """Acquisition synchrone audio + pneumatique. Renvoie (sig, p_ch, q_ch)."""
+    """Acquisition synchrone audio + pneumatique. Renvoie (sig, p_ch, q_ch, accel)."""
     if link is not None:
         if hasattr(link, "send"):
             link.send(f"ACQUIRE {cfg.doe.acquire_s}")
@@ -51,10 +51,11 @@ def _acquire(cfg: Config, link: BenchLink | None):
         sig = rec[:, 0]
         p_ch = audio.to_pascals(cfg.audio, rec[:, min(1, rec.shape[1] - 1)])
         q_ch = rec[:, min(2, rec.shape[1] - 1)]
-    return sig, p_ch, q_ch
+    acc = audio.accel(cfg.audio, rec)      # voie accéléromètre si configurée
+    return sig, p_ch, q_ch, acc
 
 
-def _analyse(cfg: Config, sig, p_ch, q_ch, **point_kw) -> Point:
+def _analyse(cfg: Config, sig, p_ch, q_ch, accel=None, **point_kw) -> Point:
     """Analyse acoustique (Praat sinon enveloppe) + impédance → `Point`."""
     imp = impedance.compute(p_ch, q_ch)
     try:
@@ -67,7 +68,9 @@ def _analyse(cfg: Config, sig, p_ch, q_ch, **point_kw) -> Point:
     return Point(f0_hz=f0, tresp_ms=tresp_ms, impedance=imp.impedance,
                  pui_hydro=imp.pui_hydro, formants=tuple(forms),
                  audio=sig.astype(np.float32), pressure=p_ch.astype(np.float32),
-                 flow=q_ch.astype(np.float32), **point_kw)
+                 flow=q_ch.astype(np.float32),
+                 accel=accel.astype(np.float32) if accel is not None else None,
+                 **point_kw)
 
 
 def run(cfg: Config, link: BenchLink | None = None,
@@ -98,8 +101,8 @@ def run(cfg: Config, link: BenchLink | None = None,
                         link.press_btn(d.button, True)
                     link.stroke(direction, speed)        # lance la passe
                     time.sleep(0.2)                      # laisse la pression monter
-                sig, p_ch, q_ch = _acquire(cfg, link)
-                pt = _analyse(cfg, sig, p_ch, q_ch, idx=k, section_mm=sec,
+                sig, p_ch, q_ch, acc = _acquire(cfg, link)
+                pt = _analyse(cfg, sig, p_ch, q_ch, accel=acc, idx=k, section_mm=sec,
                               pressure_pa=float("nan"), clapet_deg=clap, position=pos)
                 if link and d.button >= 0:
                     link.press_btn(d.button, False)
@@ -114,8 +117,8 @@ def run(cfg: Config, link: BenchLink | None = None,
                     if pos >= 0:
                         link.press_btn(pos, True)
                 time.sleep(d.settle_s)
-                sig, p_ch, q_ch = _acquire(cfg, link)
-                pt = _analyse(cfg, sig, p_ch, q_ch, idx=k, section_mm=sec,
+                sig, p_ch, q_ch, acc = _acquire(cfg, link)
+                pt = _analyse(cfg, sig, p_ch, q_ch, accel=acc, idx=k, section_mm=sec,
                               pressure_pa=pa, clapet_deg=clap, position=pos)
                 if link and pos >= 0:
                     link.press_btn(pos, False)
