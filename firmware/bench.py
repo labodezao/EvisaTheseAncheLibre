@@ -52,6 +52,9 @@ class Bench:
         self.bell_travel = self.ax["bellows"].steps_for_mm(C.BELLOWS_TRAVEL_MM) or 20000
         self.press_sp = None    # consigne de pression (Pa) → asservit la vitesse
         self.kp = 0.02
+        # Course unique (mesure) : pas restants + sens, sans auto-inversion.
+        self.stroke_steps_left = 0
+        self.stroke_dir = 1
 
         self.valve = Digital(C.PIN_VANNE, init=False)
         self.clamp = Digital(C.PIN_CLAMP, init=False)
@@ -209,21 +212,35 @@ class Bench:
                     self.q[name] -= n
                     if self.q[name] == 0:
                         self.ax[name].release()
-            # Asservissement de pression → vitesse du soufflet.
-            if self.press_sp is not None:
-                self.bell_v = max(0.0, self.bell_v + self.kp * (self.press_sp - self.p))
-            # Déplacement continu du soufflet à la vitesse voulue (auto-inversion
-            # aux bornes de course — comme un joueur qui pousse puis tire).
-            if self.bell_v > 0:
-                bax = self.ax["bellows"]
-                steps = int(self.bell_v * dt) * self.bell_dir
-                if steps:
-                    steps = max(-60, min(60, steps))
-                    bax.step_block(steps)
-                    if bax.pos >= self.bell_travel:
-                        self.bell_dir = -1
-                    elif bax.pos <= 0:
-                        self.bell_dir = 1
+            bax = self.ax["bellows"]
+            if self.stroke_steps_left > 0:
+                # Course unique de mesure : une seule passe (pousser OU tirer),
+                # à vitesse contrôlée, SANS auto-inversion. S'arrête au bout de
+                # la distance demandée ou en butée.
+                n = max(1, int(self.bell_v * dt))
+                n = min(n, 60, self.stroke_steps_left) * self.stroke_dir
+                if n:
+                    bax.step_block(n)
+                    self.stroke_steps_left -= abs(n)
+                if bax.pos >= self.bell_travel or bax.pos <= 0 or self.stroke_steps_left <= 0:
+                    self.stroke_steps_left = 0
+                    self.bell_v = 0.0
+                    self.state = "pret"
+            else:
+                # Asservissement de pression → vitesse du soufflet.
+                if self.press_sp is not None:
+                    self.bell_v = max(0.0, self.bell_v + self.kp * (self.press_sp - self.p))
+                # Déplacement continu à la vitesse voulue (auto-inversion aux
+                # bornes de course — comme un joueur qui pousse puis tire).
+                if self.bell_v > 0:
+                    steps = int(self.bell_v * dt) * self.bell_dir
+                    if steps:
+                        steps = max(-60, min(60, steps))
+                        bax.step_block(steps)
+                        if bax.pos >= self.bell_travel:
+                            self.bell_dir = -1
+                        elif bax.pos <= 0:
+                            self.bell_dir = 1
             await asyncio.sleep_ms(15)
 
     def telem(self):
@@ -251,6 +268,7 @@ class Bench:
     def safe_stop(self):
         self.press_sp = None
         self.bell_v = 0.0
+        self.stroke_steps_left = 0
         self.valve.set(False)
         self.buttons.all_off()
         for ax in self.ax.values():
@@ -274,7 +292,16 @@ class Bench:
             if cmd == "TARE":
                 asyncio.create_task(self.tare()); return "OK"
             if cmd == "BELLOWS":            # vitesse directe (pas/s), coupe l'asserv.
-                self.press_sp = None; self.bell_v = max(0.0, float(a[0])); return "OK"
+                self.press_sp = None; self.stroke_steps_left = 0
+                self.bell_v = max(0.0, float(a[0])); return "OK"
+            if cmd == "STROKE":             # STROKE sens[+1/-1] [vitesse] [mm] : passe unique
+                self.stroke_dir = 1 if int(a[0]) >= 0 else -1
+                self.bell_v = float(a[1]) if len(a) > 1 else 800.0
+                mm = float(a[2]) if len(a) > 2 else C.BELLOWS_TRAVEL_MM
+                self.press_sp = None
+                self.stroke_steps_left = self.ax["bellows"].steps_for_mm(mm) or self.bell_travel
+                self.state = "stroke"
+                return "OK"
             if cmd == "PRESSURE":           # consigne de pression (Pa) → asserv soufflet
                 self.press_sp = float(a[0]); return "OK"
             if cmd == "SECTION":

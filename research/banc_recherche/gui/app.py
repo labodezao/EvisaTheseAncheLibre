@@ -121,6 +121,8 @@ def _build(cfg: Config):
     tabs.addTab(_tab_seuil(state, plot_widget), "Seuil auto-entretien")
     tabs.addTab(_tab_doe(state), "Plan d'expériences")
     tabs.addTab(_tab_campaigns(state), "Campagnes")
+    tabs.addTab(_tab_doe_analysis(state), "Analyse DOE")
+    tabs.addTab(_tab_bifurcation(state, plot_widget), "Bifurcation")
 
     win.setCentralWidget(tabs)
     win.resize(1100, 720)
@@ -341,24 +343,42 @@ def _tab_doe(state):
     sec = QtWidgets.QLineEdit(",".join(str(x) for x in d.sections_mm))
     pre = QtWidgets.QLineEdit(",".join(str(x) for x in d.pressures_pa))
     cla = QtWidgets.QLineEdit(",".join(str(x) for x in d.clapets_deg))
+    stroke = QtWidgets.QCheckBox("Mode soufflet (course pousser/tirer)")
+    stroke.setChecked(d.use_stroke)
+    speeds = QtWidgets.QLineEdit(",".join(str(x) for x in d.stroke_speeds))
     prog = QtWidgets.QProgressBar()
     table = QtWidgets.QTableWidget(0, 6)
-    table.setHorizontalHeaderLabels(["#", "S", "P", "Clap", "Tresp", "Z"])
+    table.setHorizontalHeaderLabels(["#", "S", "P/sens", "Clap", "Tresp", "Z"])
     status = QtWidgets.QLabel("")
+
+    def _sync_mode():
+        # En mode soufflet, le champ « Pression » devient « Vitesse » (pas/s).
+        pre.setEnabled(not stroke.isChecked())
+        speeds.setEnabled(stroke.isChecked())
+    stroke.toggled.connect(_sync_mode)
 
     def parse(le):
         return tuple(float(x) for x in le.text().split(",") if x.strip())
 
     def add_row(pt):
         r = table.rowCount(); table.insertRow(r)
-        vals = (pt.idx, pt.section_mm, pt.pressure_pa, pt.clapet_deg,
+        # En mode soufflet la colonne « P/sens » montre le sens (pousser/tirer).
+        col2 = ("pousser" if pt.position == 0 else "tirer") if d.use_stroke else f"{pt.pressure_pa:.0f}"
+        vals = (pt.idx, pt.section_mm, col2, pt.clapet_deg,
                 f"{pt.tresp_ms:.1f}", f"{pt.impedance:.1f}")
         for j, v in enumerate(vals):
             table.setItem(r, j, QtWidgets.QTableWidgetItem(str(v)))
 
     def run():
-        d.sections_mm, d.pressures_pa, d.clapets_deg = parse(sec), parse(pre), parse(cla)
-        total = len(d.sections_mm) * len(d.pressures_pa) * len(d.clapets_deg)
+        d.use_stroke = stroke.isChecked()
+        d.sections_mm, d.clapets_deg = parse(sec), parse(cla)
+        if d.use_stroke:
+            d.stroke_speeds = parse(speeds)
+            axis2 = len(d.stroke_speeds) * len(d.stroke_directions)
+        else:
+            d.pressures_pa = parse(pre)
+            axis2 = len(d.pressures_pa) * len(d.positions)
+        total = len(d.sections_mm) * len(d.clapets_deg) * axis2
         prog.setMaximum(total); table.setRowCount(0); btn.setEnabled(False)
 
         def work(emit):
@@ -382,7 +402,9 @@ def _tab_doe(state):
         _run_async(state, work, on_prog, on_done, on_failed)
 
     btn = QtWidgets.QPushButton("Lancer le DOE"); btn.clicked.connect(run)
-    lay.addWidget(_row("Section", sec, "Pression", pre, "Clapet", cla, btn))
+    _sync_mode()
+    lay.addWidget(_row("Section", sec, "Pression", pre, "Vitesse", speeds, "Clapet", cla))
+    lay.addWidget(_row(stroke, btn))
     lay.addWidget(prog); lay.addWidget(table); lay.addWidget(status)
     return page
 
@@ -452,6 +474,183 @@ def _tab_campaigns(state):
     lay.addWidget(_row("Ppos,Sec,Pres,Clap", idx, b2)); lay.addWidget(out)
     lay.addWidget(_row(b3)); lay.addWidget(prog)
     lay.addStretch(1)
+    return page
+
+
+# ---- Bifurcation / physique stochastique -----------------------------------
+def _tab_bifurcation(state, plot_widget):
+    from PyQt6 import QtWidgets
+    import os
+    import numpy as np
+    from .. import bifurcation as bif, stochastic as st, plots
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    plot = plot_widget("Diagramme de bifurcation / potentiel")
+    out = QtWidgets.QLabel("Diagramme : CSV (param,amp_up[,amp_down]). "
+                           "Stochastique : WAV/CSV série temporelle.")
+    st_data = {"path": None}
+
+    def _savefig(fig, name):
+        d = os.path.dirname(st_data["path"] or ".") or "."
+        p = os.path.join(d, name); fig.savefig(p, dpi=150)
+        out.setText(out.text() + f"  · figure → {p}")
+
+    def diagram():
+        fn, _ = QtWidgets.QFileDialog.getOpenFileName(page, "CSV param,amp", "", "CSV (*.csv)")
+        if not fn:
+            return
+        try:
+            st_data["path"] = fn
+            arr = np.genfromtxt(fn, delimiter=",", names=True)
+            names = arr.dtype.names
+            pu = arr[names[0]]; au = arr[names[1]]
+            pd_ = ad = None
+            if len(names) >= 4:
+                pd_, ad = arr[names[2]], arr[names[3]]
+            bd = bif.diagram(pu, au, pd_, ad)
+            if hasattr(plot, "plot"):
+                plot.clear(); plot.plot(pu, au)
+            out.setText(f"μ_on={bd.mu_on:.3g} · μ_off={bd.mu_off:.3g} · "
+                        f"hystérésis={bd.hysteresis:.3g} · {bd.kind} · "
+                        f"seuil Hopf={bd.hopf.threshold:.3g}")
+            _savefig(plots.bifurcation_diagram(bd), "bifurcation.png")
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
+    def stochastic():
+        r = _load_wav(page, channels=1) if True else None
+        # accepte aussi un CSV à une colonne
+        try:
+            if r is None:
+                return
+            _, sr, (sig,) = r
+            st_data["path"] = r[0]
+            km = st.kramers_moyal(sig, 1.0 / sr, bins=25)
+            xx, phi = st.potential_from_drift(km)
+            mins = st.potential_minima(xx, phi)
+            msg = (f"états stables (minima) : {len(mins)} → "
+                   f"{'bistable (bifurcation)' if len(mins) >= 2 else 'monostable'}")
+            if len(mins) >= 2:
+                D = float(np.nanmedian(km.diffusion[np.isfinite(km.diffusion)]))
+                rate = st.kramers_from_potential(xx, phi, D)
+                if rate == rate and rate > 0:
+                    msg += f" · taux d'échappement Kramers ≈ {rate:.3g}/s (τ≈{1/rate:.3g} s)"
+            if hasattr(plot, "plot"):
+                plot.clear(); plot.plot(xx, phi)
+            out.setText(msg)
+            _savefig(plots.drift_diffusion_plot(km), "kramers_moyal.png")
+            _savefig(plots.potential_plot(xx, phi), "potentiel.png")
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
+    def stuart_landau():
+        r = _load_wav(page, channels=1)
+        if r is None:
+            return
+        try:
+            _, sr, (sig,) = r
+            sl = st.stuart_landau_fit(sig, sr)
+            out.setText(f"Stuart-Landau : μ={sl.mu:.3g} · f₀={sl.omega/(2*np.pi):.2f} Hz · "
+                        f"Landau a={sl.a:.3g} (saturation), b={sl.b:.3g} "
+                        f"(glissement de fréquence) · amplitude cycle limite≈{sl.r_limit:.3g}")
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
+    b1 = QtWidgets.QPushButton("Diagramme (CSV rampe)"); b1.clicked.connect(diagram)
+    b2 = QtWidgets.QPushButton("Kramers-Moyal / potentiel (WAV)"); b2.clicked.connect(stochastic)
+    b3 = QtWidgets.QPushButton("Fit Stuart-Landau (WAV)"); b3.clicked.connect(stuart_landau)
+    lay.addWidget(_row(b1, b2, b3)); lay.addWidget(plot); lay.addWidget(out)
+    return page
+
+
+# ---- Analyse DOE (façon Minitab) -------------------------------------------
+def _tab_doe_analysis(state):
+    from PyQt6 import QtWidgets
+    import os
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    factors = QtWidgets.QLineEdit("S_plus,P_plus,i_Clap")
+    response = QtWidgets.QLineEdit("Freq0")
+    inter = QtWidgets.QCheckBox("interactions"); inter.setChecked(True)
+    quad = QtWidgets.QCheckBox("termes quadratiques (surface de réponse)")
+    goal = QtWidgets.QComboBox(); goal.addItems(["maximiser", "minimiser"])
+    txt = QtWidgets.QPlainTextEdit(); txt.setReadOnly(True)
+    txt.setStyleSheet("font-family: monospace;")
+    info = QtWidgets.QLabel("Charger un plan_exp.csv (sortie du DOE / batch).")
+    st = {"df": None, "res": None, "path": None}
+
+    def load():
+        fn, _ = QtWidgets.QFileDialog.getOpenFileName(page, "plan_exp.csv", "", "CSV (*.csv)")
+        if not fn:
+            return
+        try:
+            import pandas as pd
+            st["df"] = pd.read_csv(fn); st["path"] = fn
+            info.setText(f"{fn} — colonnes : {', '.join(st['df'].columns)}")
+        except Exception as e:
+            info.setText("erreur : " + str(e))
+
+    def analyse():
+        if st["df"] is None:
+            info.setText("aucun CSV"); return
+        try:
+            from .. import doe_analysis as da
+            facs = [f.strip() for f in factors.text().split(",") if f.strip()]
+            st["res"] = da.analyze(st["df"], response.text().strip(), facs,
+                                   interactions=inter.isChecked(), quadratic=quad.isChecked())
+            txt.setPlainText(da.summary(st["res"]))
+        except Exception as e:
+            txt.setPlainText("erreur : " + str(e))
+
+    def _savefig(fig, name):
+        d = os.path.dirname(st["path"] or ".") or "."
+        p = os.path.join(d, name)
+        fig.savefig(p, dpi=150); info.setText("figure → " + p)
+
+    def plot_effects():
+        if st["df"] is None:
+            return
+        from .. import plots
+        facs = [f.strip() for f in factors.text().split(",") if f.strip()]
+        _savefig(plots.main_effects_plot(st["df"], response.text().strip(), facs),
+                 "doe_effets_principaux.png")
+
+    def plot_pareto():
+        if st["res"] is None:
+            analyse()
+        if st["res"] is not None:
+            from .. import plots
+            _savefig(plots.pareto_plot(st["res"]), "doe_pareto.png")
+
+    def run_optim():
+        if st["res"] is None:
+            analyse()
+        if st["res"] is None:
+            return
+        try:
+            from ..doe_analysis import optimize as opt
+            import numpy as np
+            res, df = st["res"], st["df"]
+            facs = res.factors
+            bounds = {f: (float(df[f].min()), float(df[f].max())) for f in facs}
+            y = df[response.text().strip()]
+            g = opt.Goal(predict=res.predict, kind="max" if goal.currentIndex() == 0 else "min",
+                         low=float(y.min()), high=float(y.max()))
+            r = opt.optimize([g], bounds, grid=11)
+            best = ", ".join(f"{k}={v:.3g}" for k, v in r.best.items())
+            info.setText(f"Optimum ({goal.currentText()}) : {best} · D = {r.composite:.3f}")
+        except Exception as e:
+            info.setText("erreur : " + str(e))
+
+    b_load = QtWidgets.QPushButton("Charger CSV"); b_load.clicked.connect(load)
+    b_fit = QtWidgets.QPushButton("Ajuster le modèle"); b_fit.clicked.connect(analyse)
+    b_eff = QtWidgets.QPushButton("Effets principaux"); b_eff.clicked.connect(plot_effects)
+    b_par = QtWidgets.QPushButton("Pareto"); b_par.clicked.connect(plot_pareto)
+    b_opt = QtWidgets.QPushButton("Optimiser"); b_opt.clicked.connect(run_optim)
+    lay.addWidget(_row("Facteurs", factors, "Réponse", response))
+    lay.addWidget(_row(inter, quad, b_load, b_fit))
+    lay.addWidget(_row(b_eff, b_par, goal, b_opt))
+    lay.addWidget(info); lay.addWidget(txt)
     return page
 
 

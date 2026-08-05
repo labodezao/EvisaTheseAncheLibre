@@ -38,9 +38,12 @@ qu'acheminer des **commandes texte** et diffuser la **télémétrie JSON**.
 
 ## Rig couvert
 
-- **Soufflet motorisé** (axe pas-à-pas + table X) : source d'air, en
-  **vitesse** (`BELLOWS`) ou en **pression asservie** (`PRESSURE`) ; auto-
-  inversion aux bornes de course (pousser/tirer).
+- **Soufflet motorisé** (axe pas-à-pas + table X) : **seule source d'air, pas de
+  turbine/soufflerie**. Piloté en **vitesse** (`BELLOWS`) ou en **pression
+  asservie** (`PRESSURE`) avec auto-inversion aux bornes de course (jeu continu),
+  ou en **course unique** (`STROKE`) pour mesurer pendant une passe propre.
+  La course étant **finie**, une mesure se fait dans une passe ; pousser/tirer =
+  les deux **sens de pression** (l'ancien `P_pos` du plan d'expériences).
 - **Matrice d'électro-aimants** (74HC595 → TPL7407) : **24 boutons MG + 47 MD**,
   `PRESS canal 0|1`, maintien basse conso par PWM sur `/OE`.
 - **Axes** section-vis (`SECTION`, surface = x·15 mm) et clapet (`CLAP`, °).
@@ -79,6 +82,7 @@ Pour le WiFi, renseigne `WIFI_SSID` / `WIFI_PASS` dans `config.py`
 | `TARE` | capture la pression ambiante (référence) |
 | `BELLOWS n` | vitesse directe du soufflet `n` pas/s (0 = arrêt), coupe l'asserv |
 | `PRESSURE p` | consigne de pression `p` Pa → asservit la vitesse du soufflet |
+| `STROKE sens [v] [mm]` | **course unique** de mesure : une passe (pousser `+1` / tirer `−1`), vitesse `v` pas/s, sur `mm` (défaut = course complète), **sans auto-inversion** |
 | `SECTION mm` | amène la vis de section à `mm` (surface = mm·15) |
 | `CLAP deg` | amène le clapet à l'angle `deg` |
 | `PRESS canal 0\|1` | électro-aimant du bouton `canal` (0..70) relâché/pressé |

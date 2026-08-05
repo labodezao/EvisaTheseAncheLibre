@@ -50,6 +50,17 @@ class BenchLink:
     def clap(self, deg):       return self.send(f"CLAP {deg}")
     def pressure(self, pa):    return self.send(f"PRESSURE {pa}")
     def bellows(self, sps):    return self.send(f"BELLOWS {sps}")
+
+    def stroke(self, direction, speed=800, mm=None):
+        """Course unique du soufflet (mesure) : +1 = pousser (pression +),
+        −1 = tirer (aspiration). Une seule passe, sans auto-inversion — pour
+        acquérir pendant une pression stable. `mm` : distance (défaut = course
+        complète). Correspond aux deux sens de pression (l'ancien `P_pos`)."""
+        d = 1 if direction >= 0 else -1
+        cmd = f"STROKE {d} {speed}"
+        if mm is not None:
+            cmd += f" {mm}"
+        return self.send(cmd)
     def press_btn(self, ch, on): return self.send(f"PRESS {ch} {1 if on else 0}")
     def all_off(self):         return self.send("ALLOFF")
     def stop(self):            return self.send("STOP")

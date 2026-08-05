@@ -35,6 +35,14 @@ class DoeConfig:
     positions: tuple[int, ...] = (0,)
     settle_s: float = 4.0
     acquire_s: float = 3.0
+    # --- Mode « soufflet » (banc sans soufflerie) --------------------------
+    # Au lieu d'asservir une pression, on lance une COURSE unique (STROKE) et on
+    # mesure pendant. Chaque point est mesuré en poussant PUIS en tirant → les
+    # deux sens de pression (l'ancien P_pos) sont remplis automatiquement.
+    use_stroke: bool = False
+    stroke_speeds: tuple[float, ...] = (400.0, 800.0, 1200.0)   # pas/s (remplace pressures_pa)
+    stroke_directions: tuple[int, ...] = (1, -1)                # +1 pousser, −1 tirer
+    button: int = 0            # canal d'électro-aimant pressé (−1 = anche déjà en jeu)
 
 
 @dataclass

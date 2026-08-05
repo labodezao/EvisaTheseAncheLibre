@@ -281,6 +281,8 @@ export function initBench(acousticFn) {
 
   const bell = $('bcBell');
   if (bell) bell.oninput = () => { $('bcBellVal').textContent = bell.value; send(`BELLOWS ${bell.value}`); };
+  on('bcStrokePush', 'onclick', () => send(`STROKE 1 ${$('bcStrokeSpeed').value || 800}`));
+  on('bcStrokeDraw', 'onclick', () => send(`STROKE -1 ${$('bcStrokeSpeed').value || 800}`));
   on('bcPressGo', 'onclick', () => send(`PRESSURE ${$('bcPress').value || 0}`));
   on('bcSectionGo', 'onclick', () => send(`SECTION ${$('bcSection').value || 0}`));
   on('bcClapGo', 'onclick', () => send(`CLAP ${$('bcClap').value || 0}`));
