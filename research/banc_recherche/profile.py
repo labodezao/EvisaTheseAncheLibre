@@ -1,10 +1,13 @@
-"""Profil statique d'anche mesuré au **capteur laser de déplacement** monté sur
-la table X (balayage), et sa **courbure**.
+"""Profil statique d'anche par **balayage d'un capteur de déplacement** monté sur
+la table X, et sa **courbure**.
 
-Le firmware `SCAN` déplace un axe pas-à-pas et lit le capteur laser (ADC) à
-chaque position → lignes `S position valeur`. Ici on convertit en déplacement
-(mm), on calcule la **courbure** (dérivée seconde) et la **déflexion maximale**
-au repos — entrées du chapitre « Static shape of free reeds » et validation FEM.
+Le capteur n'a pas à être un vibromètre laser (hors de prix) : n'importe quelle
+mesure de position par pas convient — **comparateur digital** (dial indicator)
+relevé à la main, capteur de distance analogique bon marché (Sharp GP2Y,
+inductif), ou même une **méthode photo** (contour de l'anche détecté par
+OpenCV). Le firmware `SCAN` lit une entrée analogique à chaque position ; sinon
+on charge un simple CSV `position,valeur`. On calcule la **courbure** (dérivée
+seconde) et la **déflexion maximale** au repos (chapitre « Static shape »).
 """
 from __future__ import annotations
 
