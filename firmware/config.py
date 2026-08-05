@@ -33,6 +33,9 @@ SECTION_WIDTH_MM = 15.0
 PIN_VANNE = 12
 PIN_CLAMP = 40
 
+# --- Capteur laser de déplacement (profil d'anche, balayage) ----------------
+PIN_LASER_ADC = 1          # entrée analogique (ADC) du capteur laser ; None = absent
+
 # --- Matrice d'électro-aimants (boutons) : chaîne de 74HC595 → TPL7407 ------
 PIN_SR_DATA = 35            # SER
 PIN_SR_CLOCK = 36           # SRCLK

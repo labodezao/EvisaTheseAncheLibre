@@ -59,6 +59,19 @@ class Bench:
         self.valve = Digital(C.PIN_VANNE, init=False)
         self.clamp = Digital(C.PIN_CLAMP, init=False)
 
+        # Capteur laser de déplacement (profil d'anche) sur entrée analogique.
+        self.laser = None
+        if getattr(C, "PIN_LASER_ADC", None) is not None:
+            try:
+                from machine import ADC
+                self.laser = ADC(Pin(C.PIN_LASER_ADC))
+                try:
+                    self.laser.atten(ADC.ATTN_11DB)     # pleine échelle ESP32
+                except Exception:
+                    pass
+            except Exception:
+                self.laser = None
+
         # Matrice d'électro-aimants (boutons).
         self.buttons = Buttons(C.PIN_SR_DATA, C.PIN_SR_CLOCK, C.PIN_SR_LATCH,
                                C.BTN_LH + C.BTN_RH, C.PIN_SR_OE,
@@ -183,6 +196,32 @@ class Bench:
                 t if t is not None else 0.0))
             await asyncio.sleep_ms(dt)
         self._bcast("A END\n")
+        self.state = "pret"
+        self._busy = False
+
+    async def scan_profile(self, mm, step_mm):
+        """Balayage laser : déplace l'axe de section par pas de `step_mm` sur
+        `mm`, lit le capteur laser à chaque position, streame `S pos val`."""
+        if self.laser is None:
+            self._bcast("S END\n"); return
+        self._busy = True
+        self.state = "scan"
+        ax = self.ax["screw"]
+        n_steps = ax.steps_for_mm(step_mm) or 1
+        n_pts = int(abs(mm) / step_mm) if step_mm else 0
+        pos_mm = self.xpos_mm
+        for _ in range(n_pts):
+            try:
+                val = self.laser.read_u16()
+            except Exception:
+                val = self.laser.read() if self.laser else 0
+            self._bcast("S %.3f %d\n" % (pos_mm, val))
+            ax.step_block(n_steps)
+            pos_mm += step_mm
+            await asyncio.sleep_ms(15)
+        ax.release()
+        self.xpos_mm = pos_mm
+        self._bcast("S END\n")
         self.state = "pret"
         self._busy = False
 
@@ -326,6 +365,9 @@ class Bench:
             if cmd == "LEAKTEST":           # décroissance de pression, vanne fermée
                 hz = int(a[1]) if len(a) > 1 else 20
                 asyncio.create_task(self.leak_test(float(a[0]), hz)); return "OK"
+            if cmd == "SCAN":               # SCAN mm [pas_mm] : balayage laser (profil)
+                step = float(a[1]) if len(a) > 1 else 0.2
+                asyncio.create_task(self.scan_profile(float(a[0]), step)); return "OK"
             if cmd == "STREAM":
                 self.stream = bool(int(a[0]))
                 if len(a) > 1:

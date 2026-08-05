@@ -91,6 +91,30 @@ def drift_diffusion_plot(km):
     return fig
 
 
+def coherence_resonance_plot(cr):
+    """Cohérence vs intensité de bruit, avec l'optimum (résonance cohérente)."""
+    plt = _lazy_plt()
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.plot(cr.noise, cr.coherence, "o-")
+    ax.axvline(cr.optimal_noise, ls="--", lw=0.8, color="red")
+    ax.text(cr.optimal_noise, cr.max_coherence, " optimum", fontsize=8, color="red")
+    ax.set_xlabel("intensité de bruit"); ax.set_ylabel("cohérence (temps de corrél.)")
+    ax.set_title("Résonance cohérente"); ax.grid(alpha=0.3)
+    return fig
+
+
+def profile_plot(pr):
+    """Profil statique d'anche (déflexion) et sa courbure."""
+    plt = _lazy_plt()
+    fig, (a1, a2) = plt.subplots(2, 1, figsize=(6, 6), sharex=True)
+    a1.plot(pr.position_mm, pr.deflection_mm); a1.set_ylabel("déflexion [mm]")
+    a1.grid(alpha=0.3)
+    a2.plot(pr.position_mm, pr.curvature); a2.set_ylabel("courbure [1/mm]")
+    a2.set_xlabel("position [mm]"); a2.grid(alpha=0.3)
+    fig.suptitle(f"Profil — déflexion max {pr.max_deflection:.3g} mm")
+    return fig
+
+
 def early_warning_plot(ew):
     """Précurseurs : variance et autocorrélation (AR1) vs paramètre."""
     plt = _lazy_plt()

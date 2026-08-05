@@ -65,6 +65,24 @@ class BenchLink:
     def all_off(self):         return self.send("ALLOFF")
     def stop(self):            return self.send("STOP")
 
+    def scan(self, mm: float, step_mm: float = 0.2, timeout: float = 30.0):
+        """Balayage laser : déplace l'axe de section sur `mm` par pas de
+        `step_mm` en lisant le capteur laser (ADC). Renvoie les lignes brutes
+        `S position valeur` (parse via `profile.parse_scan_lines`)."""
+        if not self._ser:
+            raise RuntimeError("lien fermé")
+        self._ser.write((f"SCAN {mm} {step_mm}\n").encode())
+        lines, t0 = [], time.time()
+        while time.time() - t0 < timeout:
+            ln = self._ser.readline().decode(errors="replace").strip()
+            if not ln:
+                continue
+            if ln == "S END":
+                break
+            if ln.startswith("S "):
+                lines.append(ln)
+        return lines
+
     def telem(self, timeout=2.0) -> dict | None:
         """Attend une trame de télémétrie JSON."""
         t0 = time.time()

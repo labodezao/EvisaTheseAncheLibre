@@ -14,6 +14,9 @@ class AudioConfig:
     out_channels: tuple[int, ...] = (0,)       # sortie EM (OUTTA)
     # Étalonnage : Pa par unité pleine échelle sur la voie pression.
     pa_per_fs: float = 1000.0
+    # Voie accéléromètre (piézo sur la plaque), None = absente. Réactive le
+    # `Mesures_Accelerations` des campagnes historiques.
+    accel_channel: int | None = None
 
 
 @dataclass

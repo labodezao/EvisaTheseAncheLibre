@@ -123,6 +123,8 @@ def _build(cfg: Config):
     tabs.addTab(_tab_campaigns(state), "Campagnes")
     tabs.addTab(_tab_doe_analysis(state), "Analyse DOE")
     tabs.addTab(_tab_bifurcation(state, plot_widget), "Bifurcation")
+    tabs.addTab(_tab_coherence(state, plot_widget), "Résonance cohérente")
+    tabs.addTab(_tab_profile(state, plot_widget), "Profil laser")
 
     win.setCentralWidget(tabs)
     win.resize(1100, 720)
@@ -474,6 +476,109 @@ def _tab_campaigns(state):
     lay.addWidget(_row("Ppos,Sec,Pres,Clap", idx, b2)); lay.addWidget(out)
     lay.addWidget(_row(b3)); lay.addWidget(prog)
     lay.addStretch(1)
+    return page
+
+
+# ---- Résonance cohérente (balayage multi-enregistrements) ------------------
+def _tab_coherence(state, plot_widget):
+    from PyQt6 import QtWidgets
+    import os
+    import numpy as np
+    from scipy.io.wavfile import read
+    from .. import stochastic as st, plots
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    levels = QtWidgets.QLineEdit()
+    levels.setPlaceholderText("intensités de bruit, séparées par virgules (optionnel)")
+    plot = plot_widget("Cohérence vs bruit")
+    out = QtWidgets.QLabel("Charger plusieurs WAV (un par intensité de bruit, ordre croissant).")
+    stq = {"files": []}
+
+    def load():
+        fns, _ = QtWidgets.QFileDialog.getOpenFileNames(page, "WAV (un par niveau)", "", "WAV (*.wav)")
+        if fns:
+            stq["files"] = sorted(fns)
+            out.setText(f"{len(fns)} fichiers")
+
+    def run():
+        if len(stq["files"]) < 2:
+            out.setText("au moins 2 WAV requis"); return
+        try:
+            series, sr = [], None
+            for fn in stq["files"]:
+                sr, data = read(fn)
+                s = data.astype("float64")
+                series.append(s[:, 0] if s.ndim > 1 else s)
+            lv = levels.text().strip()
+            noise = ([float(x) for x in lv.split(",")] if lv
+                     else list(range(len(series))))
+            cr = st.coherence_resonance(noise, series, float(sr))
+            if hasattr(plot, "plot"):
+                plot.clear(); plot.plot(cr.noise, cr.coherence)
+            out.setText(f"optimum : bruit = {cr.optimal_noise:.3g} · "
+                        f"cohérence max = {cr.max_coherence:.3g}")
+            d = os.path.dirname(stq["files"][0]) or "."
+            plots.coherence_resonance_plot(cr).savefig(os.path.join(d, "coherence_resonance.png"), dpi=150)
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
+    b1 = QtWidgets.QPushButton("Charger WAV (multi)"); b1.clicked.connect(load)
+    b2 = QtWidgets.QPushButton("Analyser la cohérence"); b2.clicked.connect(run)
+    lay.addWidget(_row(b1, b2)); lay.addWidget(_row("Niveaux", levels))
+    lay.addWidget(plot); lay.addWidget(out)
+    return page
+
+
+# ---- Profil laser (balayage de forme d'anche) ------------------------------
+def _tab_profile(state, plot_widget):
+    from PyQt6 import QtWidgets
+    import os
+    import numpy as np
+    from .. import profile as prof, plots
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    cal = QtWidgets.QDoubleSpinBox(); cal.setDecimals(6); cal.setRange(1e-6, 1e3); cal.setValue(1.0)
+    plot = plot_widget("Profil d'anche (déflexion)")
+    out = QtWidgets.QLabel("Depuis le banc (SCAN) ou un CSV (position,valeur).")
+
+    def _show(pos, val, src):
+        pr = prof.from_scan(pos, val, mm_per_unit=cal.value())
+        if hasattr(plot, "plot"):
+            plot.clear(); plot.plot(pr.position_mm, pr.deflection_mm)
+        out.setText(f"déflexion max = {pr.max_deflection:.3g} mm · "
+                    f"courbure max = {pr.max_curvature:.3g}/mm · RMS = {pr.rms_curvature:.3g}")
+        d = os.path.dirname(src) if src else "."
+        plots.profile_plot(pr).savefig(os.path.join(d or ".", "profil.png"), dpi=150)
+
+    def from_csv():
+        fn, _ = QtWidgets.QFileDialog.getOpenFileName(page, "CSV position,valeur", "", "CSV (*.csv)")
+        if not fn:
+            return
+        try:
+            arr = np.genfromtxt(fn, delimiter=",", names=True)
+            names = arr.dtype.names
+            _show(arr[names[0]], arr[names[1]], fn)
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
+    def from_bench():
+        link = state.get("link")
+        if link is None:
+            out.setText("banc non connecté (onglet Connexion / air)"); return
+        try:
+            lines = link.scan(20.0, 0.2)
+            pos, val = prof.parse_scan_lines(lines)
+            if pos.size:
+                _show(pos, val, None)
+            else:
+                out.setText("aucune donnée (capteur laser ?)")
+        except Exception as e:
+            out.setText("erreur : " + str(e))
+
+    b1 = QtWidgets.QPushButton("Charger CSV"); b1.clicked.connect(from_csv)
+    b2 = QtWidgets.QPushButton("Balayer au banc (SCAN)"); b2.clicked.connect(from_bench)
+    lay.addWidget(_row("Étalonnage mm/unité", cal, b1, b2))
+    lay.addWidget(plot); lay.addWidget(out)
     return page
 
 
