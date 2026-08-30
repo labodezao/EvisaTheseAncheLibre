@@ -75,7 +75,11 @@ research/
     design_theory.lyx       manuscrit « Conceptual accordion design : Theory »
     design_practical.lyx     manuscrit (pratique)
     DATA.md                 manifeste : dépôt vs Drive, gros .npy, CAO, fileIds
+    analyse_acoustique_osso.md  étude annexe : analyse acoustique du duo OSSO
+    references.bib          bibliographie BibTeX (docs + manuscrits LyX)
+    figures/                figures générées par les scripts (cf. son README)
   scripts/
+    analyse_osso.py         étude OSSO : script reproductible (librosa + Praat)
     legacy/                 sources d'origine vendorisées (référence, non exécutées)
   tests/
     test_analysis.py
@@ -171,6 +175,22 @@ s'analysent ensuite avec `doe_analysis`.
 - **Résonance cohérente** : onglet **« Résonance cohérente »** (charge plusieurs
   WAV, un par intensité de bruit → cohérence vs bruit, optimum).
 
+## Étude annexe — analyse acoustique d'enregistrements (corpus OSSO)
+
+En marge du banc, `scripts/analyse_osso.py` analyse deux pièces du duo breton
+**OSSO**, qui transpose le couple biniou-bombarde à des synthétiseurs analogiques
+— un cas témoin pour la **répartition des rôles en formation réduite**, question
+directement pertinente pour l'accordéon (mélodie, bourdon, harmonie et conduite
+rythmique portés par deux sources). Résultats et discussion :
+[`docs/analyse_acoustique_osso.md`](docs/analyse_acoustique_osso.md) ; synthèse
+d'une page dans `design_practical.lyx` (partie « Timbral elements »).
+
+Ce script est **autonome** : il n'est pas importé par `banc_recherche` et ne
+participe pas aux tests (qui restent numpy seul). Il demande l'extra
+`pip install -e ".[musique]"` (librosa, parselmouth, soundfile, matplotlib).
+Les **enregistrements ne sont pas versionnés** (droits d'auteur) : le script
+s'arrête proprement s'ils sont absents.
+
 ## Pourquoi Python (et pas Java)
 
 L'ancienne chaîne est **entièrement en Python scientifique** : `numpy`, `scipy`,
@@ -186,6 +206,7 @@ réel rapides), tests. Si une distribution binaire s'avère nécessaire,
 cd research
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt          # ou : pip install -e .
+pip install -e ".[musique]"              # optionnel : étude OSSO (librosa…)
 banc-recherche                           # lance la GUI
 ```
 

@@ -733,6 +733,109 @@ Dissipation
 modal
 \end_layout
 
+\begin_layout Section
+Acoustic analysis of a reduced electro-traditional duo (OSSO)
+\end_layout
+
+\begin_layout Standard
+An accordion playing in a reduced ensemble has to carry melody, harmony,
+ a possible drone and the rhythmic drive of the dance with two sources only.
+ The Breton duo OSSO transposes the traditional biniou/bombarde couple to
+ analogue synthesisers, which makes it a useful control case for the sharing
+ of roles discussed in this part: the functions are the same, the sound
+ production is not.
+\end_layout
+
+\begin_layout Standard
+Two pieces were analysed (Ordre etant, hanter-dro, 296.9 s; Duderc'h,
+ scottish, 240.4 s), through mid/side decomposition, spectral descriptors,
+ a per-band envelope modulation spectrum and Praat measurements, computed
+ with librosa 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "mcfee2015librosa"
+literal "true"
+
+\end_inset
+
+ and parselmouth 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "jadoul2018parselmouth"
+literal "true"
+
+\end_inset
+
+; key estimation follows the Krumhansl-Schmuckler profiles 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "krumhansl1990"
+literal "true"
+
+\end_inset
+
+.
+ Three results are relevant to accordion design.
+\end_layout
+
+\begin_layout Itemize
+Stereophony encodes the functional split rather than a mere widening: the
+ mid/side energy ratio reaches 9.2 below 60 Hz (a strictly centred monophonic
+ bass) and drops to 0.76 in the 1-2 kHz band (a spatialised mid-range).
+ The traditional couple separated the same roles by register and timbre.
+\end_layout
+
+\begin_layout Itemize
+Amplitude modulations are locked to the metric grid within 0.1 to 0.3 percent
+ over four distinct subdivisions (0.52, 1.57, 3.13 and 6.27 Hz against a
+ 94.0 BPM beat): tremolo and filter movements act as rhythmic agents.
+ The modulation spectrum also gives an independent check on the metric level,
+ and corrects a metric octave error of the beat tracker 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "ellis2007beat"
+literal "true"
+
+\end_inset
+
+ on the second piece: 120.2 BPM estimated, 90.0 BPM confirmed.
+\end_layout
+
+\begin_layout Itemize
+A progressive filter opening structures one piece only: spectral centroid
+ slope +5.17 Hz/s, coefficient of determination 0.298, p below 0.001, against
+ -0.33 Hz/s (not significant) for the other.
+ Timbre alone carries a directional dramaturgy over a cyclic dance form,
+ without touching the melodic material or the metre.
+\end_layout
+
+\begin_layout Standard
+The measured continuity of the texture (crest factor 10.8 and 13.2 dB,
+ dynamic range 10.5 and 7.9 dB) is obtained here by compression, where the
+ traditional instruments obtain it from the air reserve of the bag and the
+ accordion from its bellows.
+ The parallel suggests two transposable controls for the accordion player:
+ locking any periodic modulation (alternating basses, bellows effects) to a
+ subdivision of the beat, and using registers, bellows pressure and
+ accompaniment density as a trajectory rather than as an alternation.
+\end_layout
+
+\begin_layout Standard
+The complete study, with all tables, statistics and methodological limits,
+ is kept in French in research/docs/analyse_acoustique_osso.md; the
+ reproducible script is research/scripts/analyse_osso.py.
+ The recordings themselves are not distributed with this work (copyright);
+ only derived acoustic descriptors are reported.
+\end_layout
+
 \begin_layout Part
 Instrumented accordion for 
 \begin_inset Quotes eld
@@ -890,6 +993,18 @@ addcontentsline{toc}{section}{Articles}
 \end_inset
 
  
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset bibtex
+LatexCommand bibtex
+btprint "btPrintCited"
+bibfiles "references"
+options "plain"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
