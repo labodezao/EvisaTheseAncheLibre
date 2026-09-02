@@ -20,6 +20,16 @@ Chaque fonction correspond à une section du document :
     section 3.7  ->  estimation_tonalite()
     section 3.8  ->  analyse_dynamique()
 
+Les calculs strictement identiques à ceux de `banc_recherche.timbre` (bandes
+spectrales, spectre de modulation, correction d'octave métrique) délèguent à
+ce module au lieu de dupliquer la logique — cf. `timbre.py` pour la version
+généralisée, applicable à n'importe quel enregistrement (pas seulement le
+corpus OSSO). Les autres sections (platitude, HPSS, tonalité, tempo) restent
+sur les appels `librosa`/`parselmouth` d'origine : reproduire ces mesures avec
+une implémentation maison en numpy pur donnerait des valeurs légèrement
+différentes de celles publiées dans l'article (fenêtrage, marge HPSS) — voir
+la note de reproductibilité en tête de `timbre.py`.
+
 --------------------------------------------------------------------------------
 DÉPENDANCES
 --------------------------------------------------------------------------------
@@ -67,12 +77,18 @@ import sys
 import warnings
 from pathlib import Path
 
+# Script autonome (cf. en-tête) : rend `banc_recherche` importable même sans
+# `pip install -e .`, en ajoutant la racine `research/` à sys.path.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
 import numpy as np
 import librosa
 import soundfile as sf
 import parselmouth
 from parselmouth.praat import call
 from scipy import stats
+
+from banc_recherche import timbre
 
 warnings.filterwarnings('ignore')
 
@@ -136,17 +152,22 @@ def preparer(fichier, prefixe):
 # SECTION 3.1 — organisation stéréophonique
 # ==============================================================================
 
-BANDES = [(20, 60), (60, 120), (120, 250), (250, 500), (500, 1000),
-          (1000, 2000), (2000, 4000), (4000, 8000), (8000, 16000)]
+# Bandes reprises de `banc_recherche.timbre` (alias local pour ne pas changer
+# la signature des fonctions ci-dessous).
+BANDES = timbre.SPECTRAL_BANDS
 
 
 def repartition_bandes(y, sr, n_fft=4096):
-    """Pourcentage d'énergie spectrale par bande de fréquence."""
+    """Pourcentage d'énergie spectrale par bande de fréquence.
+
+    STFT via librosa (identique à la version d'origine, pour préserver les
+    chiffres publiés) ; la répartition par bande elle-même délègue à
+    `banc_recherche.timbre.spectral_bands` (calcul strictement identique,
+    évite de dupliquer la boucle).
+    """
     S = np.abs(librosa.stft(y, n_fft=n_fft))
     f = librosa.fft_frequencies(sr=sr, n_fft=n_fft)
-    total = S.sum() + 1e-12
-    return {(lo, hi): 100 * S[(f >= lo) & (f < hi)].sum() / total
-            for lo, hi in BANDES}
+    return timbre.spectral_bands(S, f, BANDES)
 
 
 def analyse_mid_side(mid, side, sr):
@@ -251,8 +272,7 @@ def analyse_resonances(fichier_wav):
 # SECTION 3.4 — spectre de modulation
 # ==============================================================================
 
-BANDES_MOD = [(20, 120, 'grave'), (120, 800, 'bas-médium'),
-              (800, 3000, 'médium'), (3000, 10000, 'aigu')]
+BANDES_MOD = timbre.MODULATION_BANDS
 
 
 def spectre_modulation(y, sr, n_fft=2048, hop=256, fmin=0.3, fmax=15, n_pics=3):
@@ -269,27 +289,17 @@ def spectre_modulation(y, sr, n_fft=2048, hop=256, fmin=0.3, fmax=15, n_pics=3):
     sur la grille métrique.
 
     Le calcul est mené séparément par bande, car des modulations différentes
-    peuvent affecter le grave et l'aigu (filtrage, trémolo sélectif).
+    peuvent affecter le grave et l'aigu (filtrage, trémolo sélectif). STFT via
+    librosa (identique à la version d'origine) ; la détection des pics de
+    modulation délègue à `banc_recherche.timbre.modulation_spectrum`.
     """
     S = np.abs(librosa.stft(y, n_fft=n_fft, hop_length=hop))
     f = librosa.fft_frequencies(sr=sr, n_fft=n_fft)
     fps = sr / hop
 
-    resultats = {}
-    for lo, hi, nom in BANDES_MOD:
-        env = S[(f >= lo) & (f < hi)].sum(axis=0)
-        env = env - env.mean()                       # retrait de la composante continue
-
-        spec  = np.abs(np.fft.rfft(env * np.hanning(len(env))))
-        freqs = np.fft.rfftfreq(len(env), 1 / fps)
-
-        masque = (freqs > fmin) & (freqs < fmax)
-        idx = np.argsort(spec[masque])[::-1][:n_pics]
-        pics = np.unique(np.round(freqs[masque][idx], 2))[::-1]
-
-        resultats[nom] = pics
+    resultats = timbre.modulation_spectrum(S, f, fps, BANDES_MOD, fmin, fmax, n_pics)
+    for nom, pics in resultats.items():
         print(f"  {nom:<12} {', '.join(f'{p:.2f} Hz' for p in pics)}")
-
     return resultats
 
 
@@ -297,8 +307,7 @@ def spectre_modulation(y, sr, n_fft=2048, hop=256, fmin=0.3, fmax=15, n_pics=3):
 # SECTION 3.5 — correction de l'octave métrique
 # ==============================================================================
 
-SUBDIVISIONS = {0.25: 'ronde', 0.333: 'blanche pointée', 0.5: 'blanche',
-                1.0: 'noire', 2.0: 'croche', 4.0: 'double-croche'}
+SUBDIVISIONS = timbre.SUBDIVISIONS
 
 
 def correction_metrique(pics, bpm_candidats):
@@ -312,23 +321,17 @@ def correction_metrique(pics, bpm_candidats):
 
     L'hypothèse de 90 BPM résout exactement la discordance (rapports 1/2/4).
 
-    Cette fonction teste plusieurs tempos candidats et retourne celui qui
-    minimise l'erreur d'alignement des pics sur les subdivisions métriques.
-    Elle constitue un test indépendant de validation du niveau métrique.
+    Le choix du tempo lui-même délègue à
+    `banc_recherche.timbre.correct_metric_octave` (même algorithme : minimise
+    l'erreur d'alignement des pics sur les subdivisions métriques parmi
+    plusieurs candidats) ; cette fonction n'ajoute que l'affichage. Constitue
+    un test indépendant de validation du niveau métrique.
     """
-    meilleur, err_min = None, float('inf')
+    meilleur, err_min, erreurs_par_bpm = timbre.correct_metric_octave(
+        pics, bpm_candidats, SUBDIVISIONS)
 
-    for bpm in bpm_candidats:
-        noire = bpm / 60
-        erreurs = []
-        for p in pics:
-            r = p / noire
-            cible = min(SUBDIVISIONS, key=lambda k: abs(k - r))
-            erreurs.append(abs(r - cible) / cible)
-        err = float(np.mean(erreurs))
+    for bpm, err in erreurs_par_bpm.items():
         print(f"  {bpm:>7.1f} BPM  ->  erreur moyenne {100*err:>6.2f} %")
-        if err < err_min:
-            meilleur, err_min = bpm, err
 
     print(f"\n  Tempo retenu : {meilleur:.1f} BPM (erreur {100*err_min:.2f} %)")
     noire = meilleur / 60

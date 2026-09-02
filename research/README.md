@@ -56,6 +56,9 @@ research/
     ringdown.py             amortissement / facteur Q par décroissance (Matrix Pencil-like)
     material.py             module d'Young par résonance cantilever
     leak.py                 détection de fuite par décroissance de pression
+    timbre.py                descripteurs de timbre génériques (bandes, platitude,
+                             HPSS, spectre de modulation, bourdon, partiels/inharmonicité) —
+                             généralise l'étude OSSO à tout enregistrement (numpy+scipy seuls)
     doe.py                  plan d'expériences (2 modes : pression, ou soufflet STROKE pousser/tirer)
     batch.py                analyse par lot d'une campagne HDF5 → plan_exp.csv
     plots.py                tracés de synthèse + graphes DOE (effets, interactions, Pareto, contour)
@@ -190,6 +193,32 @@ participe pas aux tests (qui restent numpy seul). Il demande l'extra
 `pip install -e ".[musique]"` (librosa, parselmouth, soundfile, matplotlib).
 Les **enregistrements ne sont pas versionnés** (droits d'auteur) : le script
 s'arrête proprement s'ils sont absents.
+
+### Descripteurs de timbre génériques (`timbre.py`)
+
+`banc_recherche.timbre` généralise les calculs de l'étude OSSO qui n'ont pas
+besoin de `librosa` (bandes spectrales, spectre de modulation, correction
+d'octave métrique, platitude/rolloff/largeur de bande, HPSS par filtrage
+médian) en un module **numpy + scipy seuls**, testé (`tests/test_timbre.py`),
+applicable à **n'importe quel enregistrement** — pas seulement OSSO :
+`scripts/analyse_osso.py` y délègue désormais ces calculs plutôt que de les
+dupliquer. Deux fonctions nouvelles visent la caractérisation d'instruments à
+**bourdon** (vielle à roue, cornemuse, accordéon) en vue d'un futur modèle
+physique de synthèse (cf. `reed_model.py` pour l'anche libre) :
+
+- `bourdon_strength(S, freqs, bande)` : à quel point une bande est « tenue »
+  (stable dans le temps, concentrée en fréquence) — repère automatiquement où
+  se trouve le bourdon d'un instrument.
+- `harmonic_partials(S, freqs, f0, ...)` : série de partiels mesurée autour de
+  `n·f0`, écart en cents à l'harmonique idéale — l'inharmonicité renseigne la
+  raideur/l'amortissement du résonateur physique à modéliser.
+
+**Note de reproductibilité** : `timbre.py` ne réimplémente pas les fonctions
+`librosa.feature.*`/`librosa.effects.hpss` utilisées pour produire les
+chiffres *publiés* de l'article OSSO (fenêtrage et marges différents) —
+`analyse_osso.py` ne délègue que les calculs strictement identiques bit à
+bit. Pour un nouvel enregistrement, sans chiffre publié à reproduire,
+`timbre.py` est la voie recommandée.
 
 ## Pourquoi Python (et pas Java)
 
