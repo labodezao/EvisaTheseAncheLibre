@@ -6,3 +6,8 @@ sounddevice>=0.4.6
 praat-parselmouth>=0.4.3
 PyQt6>=6.5
 pyqtgraph>=0.13
+
+# Analyse d'enregistrements musicaux (scripts/analyse_osso.py)
+librosa>=0.10
+soundfile>=0.12
+matplotlib>=3.7

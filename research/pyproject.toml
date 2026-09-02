@@ -20,6 +20,16 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
+# Analyse d'enregistrements musicaux (scripts/analyse_osso.py) :
+#   pip install -e ".[musique]"
+musique = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "librosa>=0.10",
+    "praat-parselmouth>=0.4.3",
+    "soundfile>=0.12",
+    "matplotlib>=3.7",
+]
 
 [project.scripts]
 banc-recherche = "banc_recherche.gui.app:main"
