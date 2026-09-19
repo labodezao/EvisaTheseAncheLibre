@@ -59,6 +59,9 @@ research/
     timbre.py                descripteurs de timbre génériques (bandes, platitude,
                              HPSS, spectre de modulation, bourdon, partiels/inharmonicité) —
                              généralise l'étude OSSO à tout enregistrement (numpy+scipy seuls)
+    sample_extract.py        sample monophonique -> paramètres de modèle physique
+                             (f0/vibrato, partiels, résonateur, source, attaque)
+    synth_export.py          export du modèle : JSON, en-tête C (STM32), wavetable
     doe.py                  plan d'expériences (2 modes : pression, ou soufflet STROKE pousser/tirer)
     batch.py                analyse par lot d'une campagne HDF5 → plan_exp.csv
     plots.py                tracés de synthèse + graphes DOE (effets, interactions, Pareto, contour)
@@ -79,6 +82,7 @@ research/
     design_practical.lyx     manuscrit (pratique)
     DATA.md                 manifeste : dépôt vs Drive, gros .npy, CAO, fileIds
     analyse_acoustique_osso.md  étude annexe : analyse acoustique du duo OSSO
+    sample_vers_modele_physique.md  sample -> modèle physique -> STM32 / Dream
     references.bib          bibliographie BibTeX (docs + manuscrits LyX)
     figures/                figures générées par les scripts (cf. son README)
   scripts/
@@ -219,6 +223,32 @@ chiffres *publiés* de l'article OSSO (fenêtrage et marges différents) —
 `analyse_osso.py` ne délègue que les calculs strictement identiques bit à
 bit. Pour un nouvel enregistrement, sans chiffre publié à reproduire,
 `timbre.py` est la voie recommandée.
+
+## Du sample au modèle physique (STM32 / Dream)
+
+Onglet **« Sample → modèle »** : on importe un **sample monophonique**, on en
+extrait les paramètres d'un modèle **source → résonateur** (hauteur et
+vibrato, niveaux et attaques des partiels, inharmonicité, biquads du
+résonateur, pente de source, part de bruit, loi brillance ↔ niveau), et on
+exporte vers une cible embarquée — c'est la démarche des instruments à modèle
+physique type SWAM : le sample n'est pas le produit final, c'est une
+**mesure**.
+
+- `sample_extract.extract(y, sr)` → `SampleModel` (numpy + scipy seuls).
+- `synth_export` → **JSON** (pivot), **en-tête C** pour un modèle tournant sur
+  STM32 (biquads, flottant ou Q15), **wavetable** pour un moteur sampleur.
+
+Le point critique est la séparation **source / résonateur** : le résonateur
+doit être *invariant avec la note jouée*, sans quoi ce n'en est pas un —
+d'où l'enveloppe estimée par les sommets des partiels, et un test dédié.
+Fournis **plusieurs notes** du même instrument pour une identification
+sérieuse.
+
+`DreamAdapter` est délibérément **non implémenté** : le protocole du firmware
+SAM5716 relève de la documentation constructeur, et inventer des registres
+donnerait du code qui a l'air juste et ne pilote rien. Voir
+[`docs/sample_vers_modele_physique.md`](docs/sample_vers_modele_physique.md)
+pour les trois architectures possibles et les questions à poser à Dream.
 
 ## Pourquoi Python (et pas Java)
 

@@ -18,6 +18,7 @@ Onglets :
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 from ..config import DEFAULT, Config
 
@@ -128,6 +129,7 @@ def _build(cfg: Config):
     tabs.addTab(_tab_phase(state, plot_widget), "Espace des phases")
     tabs.addTab(_tab_frf(state, plot_widget), "FRF (swept-sine)")
     tabs.addTab(_tab_model(state, plot_widget), "Modèle anche")
+    tabs.addTab(_tab_sample_model(state, plot_widget), "Sample → modèle")
 
     win.setCentralWidget(tabs)
     win.resize(1100, 720)
@@ -1071,6 +1073,157 @@ def _tab_leak(state, plot_widget):
     b = QtWidgets.QPushButton("Charger CSV décroissance"); b.clicked.connect(load_csv)
     lay.addWidget(_row("Volume (m³, opt.)", vol, b)); lay.addWidget(plot); lay.addWidget(out)
     return page
+
+
+# ---- Sample -> modèle physique (sample_extract + synth_export) -------------
+def _tab_sample_model(state, plot_widget):
+    """Importer un sample monophonique, en extraire les paramètres d'un modèle
+    physique, exporter vers une cible embarquée (STM32 / Dream)."""
+    from PyQt6 import QtWidgets
+    import numpy as np
+    from .. import sample_extract, synth_export
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    info = QtWidgets.QLabel("Charger un sample **monophonique** (une note tenue, un seul instrument).")
+    plot = plot_widget("Enveloppes des partiels")
+    out = QtWidgets.QPlainTextEdit(); out.setReadOnly(True)
+    out.setPlaceholderText("Les paramètres extraits s'afficheront ici.")
+
+    n_part = QtWidgets.QSpinBox(); n_part.setRange(1, 64); n_part.setValue(12)
+    n_res = QtWidgets.QSpinBox(); n_res.setRange(1, 16); n_res.setValue(6)
+
+    def load_sample():
+        fn, _ = QtWidgets.QFileDialog.getOpenFileName(
+            page, "Ouvrir un sample", "", "Audio (*.wav *.flac *.aiff *.aif *.mp3 *.m4a);;Tous (*)")
+        if not fn:
+            return
+        try:
+            sig, sr = _read_audio(fn)
+            state["sample"], state["sample_sr"] = sig, sr
+            state["sample_name"] = Path(fn).stem
+            info.setText(f"{fn}\n{sr} Hz · {len(sig)} éch. · {len(sig)/sr:.2f} s · mono")
+        except Exception as e:
+            info.setText("échec lecture : " + str(e))
+
+    def run():
+        if state.get("sample") is None:
+            out.setPlainText("aucun sample chargé"); return
+        btn_run.setEnabled(False); out.setPlainText("extraction…")
+        sig, sr = state["sample"], state["sample_sr"]
+        name = state.get("sample_name", "voice")
+        npar, nres = n_part.value(), n_res.value()
+
+        def work(emit):
+            m = sample_extract.extract(sig, sr, name=name, n_partials=npar, n_resonators=nres)
+            amps, times = (sample_extract.partial_envelopes(sig, sr, m.f0_hz, n_partials=npar)
+                           if np.isfinite(m.f0_hz) else (None, None))
+            return m, amps, times
+
+        def on_done(res):
+            m, amps, times = res
+            btn_run.setEnabled(True)
+            state["model"] = m
+            out.setPlainText(_format_model(m))
+            if hasattr(plot, "plot") and amps is not None:
+                plot.clear()
+                for k in range(min(amps.shape[0], 8)):
+                    peak = amps[k].max() or 1.0
+                    plot.plot(times, amps[k] / peak, pen=(k, 8))
+
+        def on_failed(msg):
+            btn_run.setEnabled(True); out.setPlainText("erreur : " + msg)
+
+        _run_async(state, work, None, on_done, on_failed)
+
+    def export(kind):
+        m = state.get("model")
+        if m is None:
+            out.setPlainText("lance d'abord l'extraction"); return
+        filt = {"json": "JSON (*.json)", "c": "En-tête C (*.h)", "wt": "En-tête C (*.h)"}[kind]
+        default = {"json": f"{m.name}.json", "c": f"{m.name}.h", "wt": f"{m.name}_wavetable.h"}[kind]
+        fn, _ = QtWidgets.QFileDialog.getSaveFileName(page, "Exporter", default, filt)
+        if not fn:
+            return
+        try:
+            if kind == "json":
+                synth_export.to_json(m, fn)
+            elif kind == "c":
+                synth_export.to_c_header(m, fn, fixed_point=True)
+            else:
+                synth_export.wavetable_to_c(synth_export.to_wavetable(m), m.name, fn)
+            out.appendPlainText(f"\n→ écrit : {fn}")
+        except Exception as e:
+            out.appendPlainText(f"\nerreur export : {e}")
+
+    btn_load = QtWidgets.QPushButton("Charger un sample"); btn_load.clicked.connect(load_sample)
+    btn_run = QtWidgets.QPushButton("Extraire le modèle"); btn_run.clicked.connect(run)
+    btn_json = QtWidgets.QPushButton("Export JSON"); btn_json.clicked.connect(lambda: export("json"))
+    btn_c = QtWidgets.QPushButton("Export .h (STM32)"); btn_c.clicked.connect(lambda: export("c"))
+    btn_wt = QtWidgets.QPushButton("Export wavetable .h"); btn_wt.clicked.connect(lambda: export("wt"))
+
+    lay.addWidget(_row(btn_load, "Partiels", n_part, "Résonances", n_res, btn_run))
+    lay.addWidget(info)
+    lay.addWidget(plot)
+    lay.addWidget(out)
+    lay.addWidget(_row(btn_json, btn_c, btn_wt))
+    return page
+
+
+def _read_audio(path):
+    """Lit un fichier audio en mono float64. WAV via scipy ; autres formats via
+    `soundfile`/`librosa` s'ils sont installés (extra « musique »)."""
+    import numpy as np
+    p = str(path)
+    if p.lower().endswith(".wav"):
+        from scipy.io.wavfile import read
+        sr, data = read(p)
+        sig = data.astype("float64")
+        if np.issubdtype(data.dtype, np.integer):
+            sig /= float(np.iinfo(data.dtype).max)
+    else:
+        try:
+            import soundfile as sf
+            sig, sr = sf.read(p, dtype="float64", always_2d=False)
+        except Exception:
+            import librosa
+            sig, sr = librosa.load(p, sr=None, mono=True)
+            sig = np.asarray(sig, dtype="float64")
+    sig = np.asarray(sig, dtype="float64")
+    if sig.ndim > 1:
+        sig = sig.mean(axis=1)
+    return sig, int(sr)
+
+
+def _format_model(m):
+    """Résumé lisible d'un `SampleModel`."""
+    import numpy as np
+    L = [f"Sample « {m.name} » — {m.samplerate} Hz, {m.duration_s:.2f} s", ""]
+    if not np.isfinite(m.f0_hz):
+        L.append("Aucune hauteur franche détectée : sample non monophonique,")
+        L.append("trop bruité, ou trop court. Rien n'est extrapolé.")
+        return "\n".join(L)
+
+    L.append(f"Hauteur      f0 = {m.f0_hz:.2f} Hz")
+    if np.isfinite(m.vibrato_rate_hz):
+        L.append(f"Vibrato      {m.vibrato_rate_hz:.2f} Hz, {m.vibrato_depth_cents:.1f} cents crête")
+    L.append(f"Source       pente {m.source_slope_db_per_oct:+.2f} dB/octave de rang")
+    L.append(f"Bruit        {m.percussive_pct:.1f} % (harmonique {m.harmonic_pct:.1f} %)")
+    L.append(f"Dynamique    {m.brightness_slope_hz_per_db:+.1f} Hz de centroïde par dB")
+    L.append("")
+    L.append("Partiels (niveau dB / attaque s / inharmonicité cents) :")
+    for k, lvl in enumerate(m.partial_levels_db):
+        att = m.partial_attack_s[k] if k < len(m.partial_attack_s) else float("nan")
+        inh = m.inharmonicity_cents[k] if k < len(m.inharmonicity_cents) else float("nan")
+        L.append(f"  n={k+1:2d}   {lvl:+7.1f}   {att:6.3f}   {inh:+7.1f}")
+    L.append("")
+    L.append("Résonateur (biquads à générer) :")
+    for r in m.resonators:
+        L.append(f"  {r['freq_hz']:8.0f} Hz   Q={r['q']:5.1f}   {r['gain_db']:+6.1f} dB")
+    if m.adsr:
+        L.append("")
+        L.append(f"ADSR (repli)  A={m.adsr['attack_s']:.3f}s  D={m.adsr['decay_s']:.3f}s  "
+                 f"S={m.adsr['sustain_level']:.2f}  R={m.adsr['release_s']:.3f}s")
+    return "\n".join(L)
 
 
 def main() -> int:
