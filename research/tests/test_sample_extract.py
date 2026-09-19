@@ -288,3 +288,87 @@ def test_dream_adapter_refuses_to_invent_protocol():
     m = sx.extract(_tone(220.0, dur=0.5), SR, name="dream")
     with pytest.raises(NotImplementedError):
         se.DreamAdapter(m).to_sysex()
+
+
+# ---- séparation multi-notes ------------------------------------------------
+
+def _body_tone(f0, f_res=1400.0, q_res=3.0, dur=1.2, sr=SR, seed=0):
+    """Note jouée dans un corps résonant fixe, source plate."""
+    return _formant_tone(f0, f_res, q_res, n_partials=20, dur=dur, sr=sr)
+
+
+def test_extract_multi_needs_several_notes():
+    m = sx.extract_multi([_body_tone(220.0)], SR)
+    assert m.resonators == []                 # une seule note : on ne prétend pas séparer
+    assert not np.isfinite(m.source_slope_db_per_oct)
+
+
+def test_extract_multi_separates_flat_source():
+    """Source plate + corps résonant : la source identifiée doit être plate."""
+    notes = [_body_tone(f0) for f0 in (165.0, 196.0, 247.0, 294.0, 349.0)]
+    m = sx.extract_multi(notes, SR, n_partials=14, n_resonators=3)
+    assert len(m.f0_list) == 5
+    assert abs(m.source_slope_db_per_oct) < 1.5      # vérité : 0 dB/octave
+    assert m.residual_db < 4.0
+
+
+def test_extract_multi_locates_body_better_than_one_note():
+    """Plusieurs notes doivent localiser la résonance mieux qu'une seule."""
+    from banc_recherche import timbre
+    f_res = 1400.0
+    notes = [_body_tone(f0, f_res) for f0 in (165.0, 196.0, 247.0, 294.0, 349.0, 415.0)]
+
+    S, freqs, _ = timbre.stft_mag(notes[0], SR, n_fft=4096)
+    one = sx.resonator_peaks(S, freqs, n_peaks=3, f0_hz=165.0)
+    err_one = min(abs(p['freq_hz'] - f_res) for p in one) if one else 1e9
+
+    m = sx.extract_multi(notes, SR, n_partials=14, n_resonators=3)
+    assert m.resonators
+    err_multi = min(abs(p['freq_hz'] - f_res) for p in m.resonators)
+    assert err_multi < 200.0
+    assert err_multi <= err_one
+
+
+def test_peaks_from_envelope_on_smooth_curve():
+    """Une courbe déjà lissée ne doit pas repasser par l'estimation d'enveloppe."""
+    freqs = np.linspace(100, 5000, 200)
+    env = 1.0 / np.sqrt((1 - (freqs / 1200.0) ** 2) ** 2 + (freqs / (1200.0 * 4)) ** 2)
+    peaks = sx.peaks_from_envelope(env, freqs, n_peaks=2, min_freq=0.0)
+    assert peaks
+    assert abs(peaks[0]['freq_hz'] - 1200.0) < 100.0
+    assert abs(peaks[0]['q'] - 4.0) < 2.0
+
+
+# ---- resynthèse ------------------------------------------------------------
+
+def test_resynthesis_additive_matches_original():
+    """Rejouer les partiels mesurés doit redonner un spectre très proche."""
+    y = _formant_tone(220.0, 1500.0, 3.0, dur=2.0)
+    m = sx.extract(y, SR, name="resyn", n_partials=16)
+    r = se.resynthesize(m, samplerate=SR, mode='additive', noise=False)
+    assert abs(np.max(np.abs(r)) - 1.0) < 1e-6
+    assert se.spectral_distance_db(y, r, SR) < 6.0
+
+
+def test_resynthesis_without_pitch_is_silent():
+    m = sx.extract(np.zeros(int(SR)), SR, name="vide")
+    r = se.resynthesize(m, duration_s=0.5, samplerate=SR)
+    assert np.all(r == 0.0)                  # pas de hauteur : on n'invente rien
+
+
+def test_resynthesis_rejects_unknown_mode():
+    import pytest
+    m = sx.extract(_tone(220.0, dur=0.5), SR, name="x")
+    with pytest.raises(ValueError):
+        se.resynthesize(m, mode='magique')
+
+
+def test_spectral_distance_zero_for_identical_signals():
+    y = _tone(220.0, dur=1.0, partials=(1.0, 0.5))
+    assert se.spectral_distance_db(y, y, SR) < 1e-9
+
+
+def test_spectral_distance_large_for_different_timbres():
+    a = _tone(220.0, dur=1.0, partials=(1.0,))
+    b = _tone(880.0, dur=1.0, partials=(1.0, 1.0, 1.0, 1.0))
+    assert se.spectral_distance_db(a, b, SR) > 5.0

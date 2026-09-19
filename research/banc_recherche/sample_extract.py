@@ -373,6 +373,18 @@ def resonator_peaks(S, freqs, n_peaks=6, min_freq=80.0, f0_hz=None):
     """
     freqs = np.asarray(freqs, dtype='float64')
     env = spectral_envelope(S, freqs, f0_hz=f0_hz)
+    return peaks_from_envelope(env, freqs, n_peaks=n_peaks, min_freq=min_freq)
+
+
+def peaks_from_envelope(env, freqs, n_peaks=6, min_freq=80.0):
+    """Cherche les pics (fréquence, gain, Q) sur une enveloppe **déjà estimée**.
+
+    Séparé de `resonator_peaks` parce qu'une courbe de filtre déjà lissée
+    (celle de `extract_multi`, par exemple) ne doit surtout pas repasser par
+    une estimation d'enveloppe : on l'aplatirait et on perdrait les pics.
+    """
+    env = np.asarray(env, dtype='float64').ravel()
+    freqs = np.asarray(freqs, dtype='float64')
     if env.size < 3:
         return []
 
@@ -394,15 +406,25 @@ def resonator_peaks(S, freqs, n_peaks=6, min_freq=80.0, f0_hz=None):
     out = []
     for i in cand:
         f_c = float(freqs[i])
-        # largeur à -3 dB autour du pic -> facteur Q
+        # largeur à -3 dB autour du pic -> facteur Q.
+        # On **interpole** le croisement du seuil entre deux points : prendre
+        # brutalement le premier point passé sous le seuil dépasserait d'un pas
+        # de chaque côté, élargirait la bande et sous-estimerait Q de façon
+        # systématique.
         target = env_db[i] - 3.0
-        lo = i
-        while lo > 0 and env_db[lo] > target:
-            lo -= 1
-        hi = i
-        while hi < env.size - 1 and env_db[hi] > target:
-            hi += 1
-        bw = float(freqs[hi] - freqs[lo])
+
+        def _cross(idx, step):
+            j = idx
+            while 0 < j < env.size - 1 and env_db[j] > target:
+                j += step
+            if j == idx or env_db[j] > target:
+                return float(freqs[j])
+            j_prev = j - step
+            d = env_db[j_prev] - env_db[j]
+            frac = (env_db[j_prev] - target) / d if abs(d) > 1e-12 else 0.0
+            return float(freqs[j_prev] + frac * (freqs[j] - freqs[j_prev]))
+
+        bw = float(_cross(i, +1) - _cross(i, -1))
         q = f_c / bw if bw > 1e-9 else 10.0
         out.append(dict(freq_hz=f_c, gain_db=float(env_db[i]), q=float(np.clip(q, 0.5, 40.0))))
     return out
@@ -488,6 +510,143 @@ class SampleModel:
 
     def to_dict(self):
         return asdict(self)
+
+
+@dataclass
+class MultiNoteModel:
+    """Modèle identifié sur **plusieurs notes** du même instrument.
+
+    C'est la seule façon de séparer honnêtement la source du résonateur (voir
+    `extract_multi`).
+    """
+    name: str = ""
+    samplerate: int = 0
+    f0_list: list = field(default_factory=list)
+
+    # filtre : le corps, fixe en fréquence **absolue**
+    filter_freq_hz: list = field(default_factory=list)
+    filter_gain_db: list = field(default_factory=list)
+    resonators: list = field(default_factory=list)
+
+    # source : l'excitation, fixe en fonction du **rang** harmonique
+    source_levels_db: list = field(default_factory=list)
+    source_slope_db_per_oct: float = float('nan')
+
+    residual_db: float = float('nan')     # écart-type résiduel du modèle
+
+    def to_dict(self):
+        return asdict(self)
+
+
+def extract_multi(samples, sr, name="", n_partials=16, n_resonators=6,
+                  n_filter_bins=40, n_iter=8):
+    """Sépare **source** et **résonateur** à partir de plusieurs notes.
+
+    Le problème posé par une note unique : l'enveloppe spectrale observée
+    contient le produit `source × résonateur`, sans moyen de les départager.
+    Avec plusieurs notes, chacune devient identifiable par son comportement :
+
+    - le **résonateur** est fixe en **fréquence absolue** (le corps ne bouge
+      pas quand on change de note) ;
+    - la **source** est fixe en fonction du **rang harmonique** (l'anche
+      produit la même forme de spectre relative, transposée).
+
+    En décibels, le modèle est additif :
+
+        niveau(note i, rang n) ≈ H(n·f0ᵢ) + S(n) + cᵢ
+
+    où `H` est le filtre, `S` la source et `cᵢ` le niveau global de la note.
+    On le résout par **moyennes alternées** (même logique additive que
+    l'ANOVA de `doe_analysis`) : quelques itérations suffisent.
+
+    Bénéfice supplémentaire : les notes échantillonnent des fréquences
+    absolues différentes, donc mises en commun elles **comblent les trous**
+    entre harmoniques — la résonance est localisée bien plus finement qu'avec
+    une seule note.
+
+    `samples` : liste de signaux mono (notes différentes, même instrument,
+    même chaîne de prise de son).
+    """
+    obs_f, obs_db, obs_rank, obs_note = [], [], [], []
+    f0_list = []
+
+    for idx, y in enumerate(samples):
+        m = extract(y, sr, n_partials=n_partials, n_resonators=0)
+        if not np.isfinite(m.f0_hz) or m.f0_hz <= 0:
+            continue
+        f0_list.append(float(m.f0_hz))
+        levels = np.asarray(m.partial_levels_db, dtype='float64')
+        valid = np.isfinite(levels) & (levels > -80)
+        for n in np.nonzero(valid)[0]:
+            obs_f.append((n + 1) * m.f0_hz)
+            obs_db.append(levels[n])
+            obs_rank.append(n + 1)
+            obs_note.append(idx)
+
+    out = MultiNoteModel(name=name, samplerate=int(sr), f0_list=f0_list)
+    if len(f0_list) < 2 or len(obs_f) < 12:
+        return out      # pas de quoi séparer : on ne prétend pas le contraire
+
+    obs_f = np.array(obs_f); obs_db = np.array(obs_db)
+    obs_rank = np.array(obs_rank); obs_note = np.array(obs_note)
+
+    # grille du filtre, régulière en log-fréquence
+    lo, hi = np.log2(obs_f.min()), np.log2(obs_f.max())
+    edges = np.linspace(lo, hi, n_filter_bins + 1)
+    centers = 2 ** (0.5 * (edges[:-1] + edges[1:]))
+    bin_idx = np.clip(np.digitize(np.log2(obs_f), edges) - 1, 0, n_filter_bins - 1)
+
+    H = np.zeros(n_filter_bins)
+    S = np.zeros(int(obs_rank.max()) + 1)
+    C = np.zeros(len(f0_list))
+
+    for _ in range(int(n_iter)):
+        resid = obs_db - S[obs_rank] - C[obs_note]
+        for b in range(n_filter_bins):
+            sel = bin_idx == b
+            if np.any(sel):
+                H[b] = resid[sel].mean()
+
+        resid = obs_db - H[bin_idx] - C[obs_note]
+        for r in np.unique(obs_rank):
+            sel = obs_rank == r
+            S[r] = resid[sel].mean()
+
+        resid = obs_db - H[bin_idx] - S[obs_rank]
+        for i in range(len(f0_list)):
+            sel = obs_note == i
+            if np.any(sel):
+                C[i] = resid[sel].mean()
+
+        # lever l'indétermination additive (H + k / S − k donne le même modèle)
+        S[1:] -= S[1:].mean() if S[1:].size else 0.0
+
+    # Lissage **unique**, après convergence : une résonance physique n'a pas de
+    # dents, mais lisser à chaque itération élargirait les pics de façon
+    # cumulative et sous-estimerait les facteurs Q.
+    H = np.convolve(H, np.array([0.25, 0.5, 0.25]), mode='same')
+
+    out.filter_freq_hz = [float(f) for f in centers]
+    out.filter_gain_db = [float(v) for v in (H - H.max())]
+    out.source_levels_db = [float(S[r]) for r in range(1, int(obs_rank.max()) + 1)]
+    out.residual_db = float(np.std(obs_db - H[bin_idx] - S[obs_rank] - C[obs_note]))
+
+    # pente de source : sur les niveaux de source, pas sur la sortie
+    ranks = np.arange(1, len(out.source_levels_db) + 1, dtype='float64')
+    vals = np.asarray(out.source_levels_db)
+    good = np.isfinite(vals)
+    if good.sum() >= 3:
+        slope, _ = np.polyfit(np.log2(ranks[good]), vals[good], 1)
+        out.source_slope_db_per_oct = float(slope)
+
+    # résonances du filtre seul — sans le peigne harmonique, cette fois
+    # résonances du filtre seul — la courbe est déjà une enveloppe, on cherche
+    # ses pics directement (la repasser dans une estimation d'enveloppe
+    # l'aplatirait).
+    out.resonators = peaks_from_envelope(
+        10 ** (np.asarray(out.filter_gain_db) / 20.0), centers,
+        n_peaks=n_resonators, min_freq=0.0)
+    return out
 
 
 def extract(y, sr, name="", n_partials=12, n_resonators=6, max_env_points=8):

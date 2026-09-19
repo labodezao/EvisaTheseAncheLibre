@@ -243,6 +243,119 @@ def to_wavetable(model, table_size=256):
     return wave.astype('float32')
 
 
+# ==============================================================================
+# Resynthèse — le contrôle de cohérence du modèle
+# ==============================================================================
+
+def _envelope_at(breakpoints, t):
+    """Évalue une enveloppe en points de rupture sur une grille temporelle."""
+    if not breakpoints:
+        return np.zeros_like(t)
+    bt = np.array([p[0] for p in breakpoints], dtype='float64')
+    bv = np.array([p[1] for p in breakpoints], dtype='float64')
+    return np.interp(t, bt, bv)
+
+
+def resynthesize(model, duration_s=None, samplerate=None, mode='additive',
+                 noise=True, seed=0):
+    """Reconstruit un signal **depuis le modèle** — pour vérifier l'extraction.
+
+    C'est le contrôle honnête : si les paramètres extraits décrivent vraiment
+    le son, une resynthèse doit y ressembler. Deux modes, qui ne testent pas
+    la même chose :
+
+    - `'additive'` : rejoue chaque partiel avec son enveloppe mesurée. Les
+      niveaux des partiels **contiennent déjà** l'effet du résonateur (ils ont
+      été mesurés en sortie), donc on ne réapplique **pas** les biquads —
+      sinon on filtrerait deux fois. Valide l'extraction des partiels.
+
+    - `'source_filter'` : fabrique une source à la pente spectrale mesurée,
+      puis la passe dans le banc de biquads du résonateur. Valide la
+      **séparation source / résonateur** — c'est le vrai test du modèle
+      physique, et le plus sévère.
+
+    Renvoie un tableau float64 normalisé à ±1.
+    """
+    sr = int(samplerate or model.samplerate)
+    dur = float(duration_s or model.duration_s or 1.0)
+    n = max(1, int(dur * sr))
+    t = np.arange(n) / sr
+    rng = np.random.default_rng(seed)
+
+    f0 = model.f0_hz
+    if not np.isfinite(f0) or f0 <= 0:
+        return np.zeros(n)
+
+    # hauteur instantanée : vibrato mesuré (cents -> facteur multiplicatif)
+    if np.isfinite(model.vibrato_rate_hz) and model.vibrato_depth_cents > 0:
+        dev = (model.vibrato_depth_cents / 1200.0) * np.sin(
+            2 * np.pi * model.vibrato_rate_hz * t)
+        f_inst = f0 * (2.0 ** dev)
+    else:
+        f_inst = np.full(n, f0)
+    phase = 2 * np.pi * np.cumsum(f_inst) / sr
+
+    if mode == 'additive':
+        y = np.zeros(n)
+        for k, bps in enumerate(model.partial_envelopes, start=1):
+            if k * f0 >= sr / 2:
+                break
+            env = _envelope_at(bps, t)
+            y += env * np.sin(k * phase + rng.uniform(0, 2 * np.pi))
+
+    elif mode == 'source_filter':
+        from scipy import signal as _sig
+        # source : partiels à la pente spectrale mesurée (amplitude ∝ n^(slope/6))
+        slope = model.source_slope_db_per_oct
+        slope = slope if np.isfinite(slope) else -6.0
+        src = np.zeros(n)
+        k = 1
+        while k * f0 < sr / 2:
+            amp = 10 ** ((slope * np.log2(k)) / 20.0)
+            src += amp * np.sin(k * phase + rng.uniform(0, 2 * np.pi))
+            k += 1
+        # résonateur : le corps de l'instrument
+        y = src
+        for bq in resonator_biquads(model, sr):
+            y = _sig.lfilter([bq['b0'], bq['b1'], bq['b2']],
+                             [1.0, bq['a1'], bq['a2']], y)
+        # enveloppe globale mesurée
+        y = y * _envelope_at(model.amplitude_envelope, t)
+
+    else:
+        raise ValueError("mode doit être 'additive' ou 'source_filter'")
+
+    # part de bruit mesurée (souffle, frottement) — en proportion d'énergie
+    if noise and np.isfinite(model.percussive_pct) and model.percussive_pct > 0:
+        rms = np.sqrt(np.mean(y ** 2)) or 1.0
+        frac = np.sqrt(min(model.percussive_pct, 50.0) / 100.0)
+        nz = rng.standard_normal(n) * rms * frac
+        nz *= _envelope_at(model.amplitude_envelope, t) / (
+            np.max(_envelope_at(model.amplitude_envelope, t)) or 1.0)
+        y = y + nz
+
+    peak = np.max(np.abs(y))
+    return y / peak if peak > 0 else y
+
+
+def spectral_distance_db(a, b, samplerate, n_fft=4096):
+    """Distance log-spectrale moyenne (dB) entre deux signaux.
+
+    Mesure de cohérence : 0 dB = spectres moyens identiques. Compare les
+    **spectres moyens**, pas les formes d'onde — deux sons peuvent être
+    perceptivement identiques avec des phases différentes.
+    """
+    from . import timbre
+    Sa, fa, _ = timbre.stft_mag(np.asarray(a, dtype='float64'), samplerate, n_fft=n_fft)
+    Sb, fb, _ = timbre.stft_mag(np.asarray(b, dtype='float64'), samplerate, n_fft=n_fft)
+    ma, mb = Sa.mean(axis=1), Sb.mean(axis=1)
+    ref_a, ref_b = ma.max() or 1.0, mb.max() or 1.0
+    la = 20 * np.log10(np.maximum(ma / ref_a, 1e-6))
+    lb = 20 * np.log10(np.maximum(mb / ref_b, 1e-6))
+    band = fa < samplerate / 2 * 0.9
+    return float(np.mean(np.abs(la[band] - lb[band])))
+
+
 def wavetable_to_c(wave, name="voice", path=None, fixed_point=True):
     """Émet une wavetable en tableau C (`int16_t` Q15 par défaut)."""
     ident = _c_ident(name)
