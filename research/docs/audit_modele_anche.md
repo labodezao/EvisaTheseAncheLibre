@@ -194,3 +194,96 @@ marcher.
 4. **Recalage** seulement ensuite : `doe_analysis` (Plackett-Burman) pour
    savoir *quels* paramètres comptent, avant d'optimiser à l'aveugle dans dix
    dimensions. C'est le recalage que tu n'avais pas pu faire.
+
+---
+
+# Suite : le modèle reformulé et l'outil de seuil (`reed_oscillator.py`)
+
+## Ce qui est livré et fonctionne
+
+`banc_recherche/reed_oscillator.py` — `FreeReedModel`, reformulation complète :
+
+- **pression en variable d'état** (la cavité rigide ne gonfle plus) ;
+- **ouverture asymétrique** : seul le déplacement qui dégage la fente ouvre le
+  passage, et la soupape bloque le débit inverse ;
+- **aire bornée des deux côtés** : fermeture nette avec fuite résiduelle (toute
+  plaque réelle en a une), saturation une fois la languette sortie ;
+- **amortissement modal correct**, symétrique ;
+- **intégration suréchantillonnée** (×8 par défaut).
+
+Vérifications (9 tests dans `tests/test_reed_oscillator.py`) :
+
+| Contrôle | Résultat |
+|---|---|
+| Conservation de la masse à l'équilibre | débit sortant = `q_in` à 10⁻⁶ près |
+| L'équilibre est bien un point fixe | dérivée < 10⁻⁶ |
+| Course du bout en simulation | **+0,649 mm** (sous le millimètre) |
+| Surpression | 616 Pa |
+| Ouverture | bornée entre fuite et saturation |
+| Divergence numérique | aucune |
+
+Le modèle est **bien posé et physique**. Il ne s'auto-entretient pas encore.
+
+## L'outil qui fait gagner du temps : `growth_rate` / `hopf_threshold`
+
+Plutôt que de simuler une demi-seconde et de regarder si ça décroît, on
+linéarise autour de l'équilibre statique et on lit les valeurs propres. Le
+taux de croissance maximal donne directement la réponse :
+
+- négatif → l'équilibre est stable, l'anche ne démarre pas ;
+- positif → il est instable, l'anche démarre ; la partie imaginaire donne la
+  fréquence de démarrage.
+
+`hopf_threshold` cherche le changement de signe par dichotomie et renvoie
+`(q_on, p_on, f_on)` — **le seuil de Hopf prédit**, la grandeur même que
+`seuil.py` et `bifurcation.py` mesurent au banc. Modèle et mesure parlent
+enfin de la même chose.
+
+**1 ms par évaluation, contre ~1 seconde de simulation.** C'est ce qui rend
+possible de tester une variante de modèle en quelques secondes au lieu d'une
+après-midi.
+
+## Les résultats négatifs, et ce qu'ils éliminent
+
+Tous obtenus avec l'outil ci-dessus, donc vérifiables en quelques secondes.
+
+| Variante testée | Taux de croissance | Conclusion |
+|---|---|---|
+| Bernoulli quasi statique + compliance | −14 à −64 s⁻¹ | stable partout |
+| + **inertance de fente** (0,5 / 1,2 / 3,0 mm) | −47,5 (vs −46,8) | **sans effet** |
+| + force dépendante de la position, anche ouvrante | −33 à −2,6 s⁻¹ | stable |
+| + force dépendante de la position, anche fermante | **+88 s⁻¹ à 30 Hz** | instable, mais **pas la note** |
+
+Deux enseignements solides :
+
+1. **Le couplage à l'écoulement ajoute de l'amortissement**, il n'en retire
+   pas. À 5·10⁻⁵ m³/s, le taux vaut ≈ −40 s⁻¹ contre −2,6 s⁻¹ pour l'anche
+   seule : l'écoulement dissipe **quinze fois** plus que l'anche. La boucle
+   est à rétroaction négative — l'anche s'ouvre, le débit sort, la pression
+   tombe, la force diminue, l'anche revient.
+
+2. **L'inertance de fente n'est pas le déphasage manquant.** C'était
+   l'hypothèse la plus naturelle ; elle est éliminée par la mesure.
+
+Le seul cas instable trouvé sort à **30 Hz pour une anche à 102 Hz** : c'est
+une instabilité lente de type claquement, pas l'auto-oscillation acoustique.
+Je ne la présente pas comme un succès.
+
+## Ce qu'il reste à trouver — et comment le chercher vite
+
+Le mécanisme d'entretien d'une anche **libre** n'est pas dans les ingrédients
+testés. Les pistes qui restent, par ordre de vraisemblance :
+
+1. **La force de pression pendant la traversée de la fente.** La languette
+   passe *à travers* la plaque ; la distribution de pression sur sa surface
+   change de signe selon qu'elle est au-dessus, dans, ou sous la fente. C'est
+   le point où les modèles de la littérature sur l'anche libre se séparent de
+   ceux de l'anche battante.
+2. **Le temps de transit de l'air** dans la fente, qui n'est pas l'inertance
+   (déjà éliminée) mais un retard pur.
+3. **Le couplage aux modes de la chambre**, si sa fréquence propre approche
+   celle de l'anche.
+
+La méthode, elle, est acquise : coder la variante, appeler `growth_rate` sur
+une plage de débits, lire le signe. Chaque hypothèse se teste en une minute.
+C'est précisément l'outil qui manquait pour faire le recalage.
