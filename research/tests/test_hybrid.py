@@ -407,3 +407,124 @@ def test_identification_retrouve_la_perce_et_l_archet():
         0.4, fs=22050.0, level=0.25, oversample=8, settle=0.25)
     niv = idf.harmonic_levels(r.response, r.fs, 440.0, 16)
     assert idf.bow_position_from_sound(niv) == pytest.approx(1.0 / 7.0)
+
+
+# =============================================================================
+# Perce réelle : pertes visco-thermiques, coupure, registre, justesse
+# =============================================================================
+
+def test_pertes_viscothermiques_suivent_racine_de_f():
+    """Couche limite en 1/√f : `Q ∝ √f` et `Z ∝ 1/√f`, sans paramètre libre."""
+    m = hybrid.bore_modes(100.0, n_modes=4, kind='conique', q=30.0, z_peak=1e7)
+    for i, mode in enumerate(m):
+        r = i + 1.0
+        assert mode.q == pytest.approx(30.0 * np.sqrt(r), rel=1e-6)
+        assert mode.peak == pytest.approx(1e7 / np.sqrt(r), rel=1e-6)
+
+
+def test_la_coupure_de_reseau_eteint_les_aigus():
+    """Benade : au-dessus de la coupure le réseau de trous laisse fuir.
+
+    C'est ce mécanisme-là qui éteint les aigus d'un instrument à vent, pas la
+    viscosité — qui les rend au contraire plus sélectifs.
+    """
+    libre = hybrid.bore_modes(200.0, 8, 'conique', z_peak=1e7)
+    coupe = hybrid.bore_modes(200.0, 8, 'conique', z_peak=1e7, cutoff_hz=600.0)
+    assert coupe[0].peak == pytest.approx(libre[0].peak, rel=0.05)   # sous la coupure
+    assert coupe[-1].peak < 0.1 * libre[-1].peak                     # bien au-dessus
+
+
+def test_les_modes_negligeables_sont_ecartes():
+    """Un mode inaudible coûte un biquad sur la carte sans rien apporter."""
+    beaucoup = hybrid.bore_modes(200.0, 16, 'conique', z_peak=1e7,
+                                 cutoff_hz=500.0, prune_db=30.0)
+    assert len(beaucoup) < 16
+    pics = [m.peak for m in beaucoup]
+    assert min(pics) >= max(pics) * 10 ** (-30.0 / 20.0)
+
+
+def test_le_registre_donne_la_douzieme_ou_l_octave():
+    """La perce décide du registre, et le modèle le retrouve seul.
+
+    Cylindrique : résonances f0, 3f0, 5f0 → étouffer la première laisse 3f0,
+    la douzième. Conique : f0, 2f0, 3f0 → l'octave. C'est ce qui sépare le
+    doigté d'une clarinette de celui d'un saxophone.
+    """
+    for kind, attendu in (('cylindrique', 3.0), ('conique', 2.0)):
+        modes = hybrid.bore_modes(200.0, 6, kind)
+        ouvert = hybrid.register_vent(modes, kill=1)
+        fort = max(range(len(ouvert)), key=lambda i: ouvert[i].peak)
+        assert ouvert[fort].freq_hz / modes[0].freq_hz == pytest.approx(attendu)
+        assert ouvert[0].peak < 0.1 * modes[0].peak
+
+
+# -- le pont vers un calcul de perce (Tutti) ----------------------------------
+
+def test_modes_from_cents_et_retour():
+    """Aller-retour exact : la justesse entrée est la justesse relue."""
+    cents = [0.0, -12.0, 7.0, 3.0, -5.0]
+    m = hybrid.modes_from_cents(147.0, cents, kind='cylindrique')
+    assert hybrid.inharmonicity_cents(m) == pytest.approx(cents, abs=1e-6)
+
+
+def test_un_ecart_en_cents_est_un_rapport_pas_une_difference():
+    """Piège classique : +1200 cents doit doubler la fréquence."""
+    m = hybrid.modes_from_cents(100.0, [0.0, 1200.0], kind='conique')
+    assert m[1].freq_hz == pytest.approx(400.0)      # 2·100 Hz, une octave au-dessus
+
+
+def test_modes_from_partials_accepte_une_perce_quelconque():
+    """Aucune série idéale imposée : on prend les résonances telles quelles."""
+    mesure = [143.0, 431.0, 742.0, 1015.0]
+    m = hybrid.modes_from_partials(mesure, q=40.0, z_peak=5e7)
+    assert [round(x.freq_hz) for x in m] == mesure
+    assert m[1].q > m[0].q                           # visco-thermique appliquée
+    assert m[1].peak < m[0].peak
+
+
+def test_modes_from_partials_accepte_des_Q_et_sommets_mesures():
+    """Avec une mesure d'impédance complète, plus rien n'est supposé."""
+    m = hybrid.modes_from_partials([100.0, 300.0], qs=[11.0, 22.0],
+                                   peaks=[3e7, 1e7])
+    assert [x.q for x in m] == [11.0, 22.0]
+    assert [x.peak for x in m] == [3e7, 1e7]
+
+
+def test_modes_from_partials_trie_et_refuse_le_vide():
+    m = hybrid.modes_from_partials([300.0, 100.0, 200.0])
+    assert [round(x.freq_hz) for x in m] == [100, 200, 300]
+    with pytest.raises(ValueError):
+        hybrid.modes_from_partials([0.0, -5.0, float('nan')])
+
+
+def test_inharmonicity_devine_la_serie():
+    conique = hybrid.bore_modes(100.0, 4, 'conique')
+    cylindrique = hybrid.bore_modes(100.0, 4, 'cylindrique')
+    assert hybrid.inharmonicity_cents(conique) == pytest.approx(np.zeros(4), abs=1e-6)
+    assert hybrid.inharmonicity_cents(cylindrique) == pytest.approx(np.zeros(4), abs=1e-6)
+
+
+@LENT
+def test_la_hauteur_du_registre_suit_la_deuxieme_resonance():
+    """La prédiction qui rend un calcul de perce utile ici.
+
+    Au registre, c'est la **deuxième** résonance qui fait la note : la
+    désaccorder de n cents décale la note jouée de n cents. C'est exactement
+    le problème de justesse sur lequel travaille un facteur, et c'est ce qu'un
+    calcul de perce (Tutti) sait chiffrer.
+    """
+    ex = hybrid.SingleReedExciter()
+    z = 20 * hybrid.z_char(14.6e-3)
+
+    def joue(c2):
+        modes = hybrid.modes_from_cents(147.0, [0.0, c2] + [0.0] * 6,
+                                        kind='cylindrique', q=40.0, z_peak=z,
+                                        cutoff_hz=1500.0)
+        v = hybrid.HybridVoice(ex, hybrid.Resonator(hybrid.register_vent(modes)))
+        r = v.simulate(0.3, fs=22050.0, level=2500.0, oversample=8, settle=0.2)
+        return hybrid.playing_frequency(r.response, r.fs)
+
+    ref = joue(0.0)
+    for c2 in (-20.0, 20.0, 40.0):
+        ecart = 1200 * np.log2(joue(c2) / ref)
+        assert abs(ecart - c2) < 5.0        # suivi au cent près, 5 de tolérance

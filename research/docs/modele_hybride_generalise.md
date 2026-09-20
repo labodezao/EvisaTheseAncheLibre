@@ -247,3 +247,92 @@ Les expériences qui recaleraient tout ça sont dans
   zone de Helmholtz stable (F ≤ 0,3 N pour les paramètres actuels) et le
   décrochage chaotique au-dessus. C'est le diagramme de Schelleng, et il est
   mesurable avec une roue, un dynamomètre et un micro.
+
+---
+
+## 7. La perce réelle — et le pont vers un calcul de perce
+
+Trois corrections au résonateur, toutes remplaçant un réglage au jugé par de
+la physique.
+
+### Les pertes visco-thermiques ne sont pas ce qu'on croit
+
+Le modèle faisait décroître les sommets en `1/rang`. C'était un paramètre
+libre déguisé. L'air qui frotte contre la paroi perd son énergie dans une
+couche limite d'épaisseur `∝ 1/√f`, d'où, sans rien à régler :
+
+    Q_n = q·√(f_n/f_0)        Z_n = z_peak/√(f_n/f_0)
+
+Les résonances aiguës sont donc **plus sélectives** et bien moins faibles
+qu'on ne le supposait : au rang 9 d'une clarinette, +4,4 dB d'écart avec
+l'ancienne loi.
+
+### Ce n'est donc pas la viscosité qui éteint les aigus
+
+C'était l'erreur de mécanisme du modèle précédent. Le vrai responsable est le
+**réseau de trous latéraux** : sous sa fréquence de coupure il réfléchit
+l'onde et fabrique des résonances, au-dessus il devient transparent et
+l'énergie s'échappe (Benade). C'est une grandeur propre à l'instrument, et
+mesurable :
+
+| instrument | `cutoff_hz` |
+|---|---|
+| basson | ~450 |
+| saxophone alto | ~700 |
+| hautbois, cornemuse | ~1100 |
+| clarinette | ~1500 |
+
+Effet immédiat, non recherché : la **bombarde** donne enfin +2,7 dB d'écart
+impairs/pairs, c'est-à-dire la série complète d'un cône. Elle était coincée
+sur un régime dégénéré à ~50 % de rapport cyclique. Et les modes devenus
+négligeables sont écartés — un biquad de moins sur la carte.
+
+### Le registre, que le modèle retrouve seul
+
+`register_vent` étouffe la première résonance, comme le fait une clé de
+registre. L'oscillation se rabat sur la suivante disponible, et la perce
+décide laquelle :
+
+| perce | résonances | registre obtenu |
+|---|---|---|
+| cylindrique | f0, 3f0, 5f0… | **×2,997** — la douzième |
+| conique | f0, 2f0, 3f0… | **×2,000** — l'octave |
+
+Rien dans le code ne l'impose. C'est ce qui sépare le doigté d'une clarinette
+de celui d'un saxophone, et il sort de la structure modale.
+
+### Aucune perce réelle n'est harmonique
+
+`bore_modes` fabrique une série idéale. Aucun tuyau ne fait ça : la perce, le
+bec, les trous ouverts et le pavillon écartent les résonances de la série
+exacte, et c'est cet écart qui décide si l'instrument est **juste** d'un
+registre à l'autre. Un facteur passe sa vie dessus.
+
+D'où trois fonctions qui n'inventent rien :
+
+- `modes_from_partials(freqs)` — les résonances telles qu'elles sortent d'un
+  calcul de perce ou d'une mesure d'impédance. Accepte aussi les `Q` et les
+  sommets mesurés, auquel cas **plus rien n'est supposé** ;
+- `modes_from_cents(f0, cents)` — la forme sous laquelle on parle justesse :
+  « la douzième est 12 cents trop basse » ;
+- `inharmonicity_cents(modes)` — la relecture, pour confronter le modèle au
+  calcul.
+
+### Pourquoi ce pont vaut la peine : le modèle y est maximalement sensible
+
+Mesuré, en désaccordant la **deuxième** résonance d'une clarinette :
+
+| désaccord de r2 | note au grave | note au registre |
+|---|---|---|
+| −20 cents | −0,4 cent | **−19,9 cents** |
+| +20 cents | +2,1 cents | **+19,8 cents** |
+| +40 cents | +1,5 cent | **+40,2 cents** |
+
+Au registre, la hauteur suit la deuxième résonance **au cent près** : c'est
+elle qui fait la note. Au grave elle bouge à peine, mais pas de zéro — la
+douzième *tire* la fondamentale, exactement le phénomène que connaît un
+facteur. L'écart impairs/pairs bouge aussi de 3 dB : le timbre suit.
+
+Le modèle est donc maximalement sensible à la grandeur qu'un calcul de perce
+produit. Ce n'est pas un raffinement cosmétique : sans les vraies résonances,
+tout ce qui touche à la justesse d'un registre à l'autre est faux.

@@ -158,7 +158,7 @@ def z_char(bore_diameter_m):
 
 
 def bore_modes(f0_hz, n_modes=8, kind='conique', q=35.0, z_peak=2.0e7,
-               decay=1.0):
+               cutoff_hz=None, cutoff_order=3.0, stretch=0.0, prune_db=45.0):
     """Modes d'une perce dont la note fondamentale est `f0_hz`.
 
     `kind` change **la série harmonique elle-même**, et c'est la différence
@@ -177,21 +177,186 @@ def bore_modes(f0_hz, n_modes=8, kind='conique', q=35.0, z_peak=2.0e7,
     valent 20 à 30 × l'impédance caractéristique `ρc/S`, ce que donnent les
     mesures d'impédance publiées.
 
-    `decay` étale la décroissance des sommets avec le rang (1/n par défaut) :
-    une perce réelle perd ses résonances aiguës par rayonnement et pertes
-    visco-thermiques. Ordre de grandeur à recaler sur une mesure d'impédance ;
-    `transfer.py` sait la faire.
+    Pertes visco-thermiques
+    -----------------------
+    L'air qui frotte contre la paroi perd de l'énergie dans une couche limite
+    d'épaisseur `∝ 1/√f`. Il en découle, sans paramètre libre :
+
+        Q_n = q·√(f_n/f_0)        et        Z_n = z_peak/√(f_n/f_0)
+
+    Les résonances aiguës sont donc **plus sélectives** et un peu plus
+    faibles, mais bien moins faibles que ce qu'une décroissance en `1/rang`
+    laissait croire : au rang 9 d'une clarinette, l'écart est de +4,4 dB.
+
+    La coupure de réseau de trous
+    -----------------------------
+    Ce n'est donc pas la viscosité qui éteint les aigus d'un instrument à
+    vent, et c'est là que le modèle précédent se trompait de mécanisme. Le
+    vrai responsable est le **réseau de trous latéraux** : en dessous de sa
+    fréquence de coupure il réfléchit l'onde et fabrique des résonances,
+    au-dessus il devient transparent et l'énergie s'échappe (Benade).
+
+    C'est une grandeur physique, propre à l'instrument et mesurable :
+
+    | instrument            | `cutoff_hz` |
+    |-----------------------|-------------|
+    | basson                | ~450        |
+    | saxophone alto        | ~700        |
+    | hautbois, cornemuse   | ~1100       |
+    | clarinette            | ~1500       |
+
+    Elle explique d'un coup pourquoi un saxophone sonne plus sombre qu'une
+    clarinette dans l'aigu, et pourquoi le pavillon change le timbre sans
+    changer la note. `cutoff_hz=None` la désactive.
+
+    `stretch` écarte les résonances aiguës de la série exacte :
+    `f_n = f_0·r·(1 + stretch·(r−1))`. Une perce réelle n'est jamais
+    exactement harmonique — le volume du bec et celui de l'anche déplacent
+    les résonances hautes, et c'est pourquoi un clarinettiste doit « placer »
+    sa douzième. Défaut 0, à mesurer (E14).
+
+    `prune_db` écarte les modes plus de tant de dB sous le plus fort. Un mode
+    négligeable coûte un biquad sur la carte sans rien apporter au son.
     """
     n = np.arange(1, int(n_modes) + 1)
+    if kind == 'cylindrique':
+        ratios = (2 * n - 1).astype('float64')
+    elif kind == 'conique':
+        ratios = n.astype('float64')
+    else:
+        raise ValueError("kind doit valoir 'cylindrique' ou 'conique'")
+
+    ratios = ratios * (1.0 + float(stretch) * (ratios - 1.0))
+    freqs = float(f0_hz) * ratios
+
+    racine = np.sqrt(ratios)
+    qs = float(q) * racine                     # visco-thermique : Q ∝ √f
+    pics = float(z_peak) / racine              # visco-thermique : Z ∝ 1/√f
+
+    if cutoff_hz:
+        # au-dessus de la coupure le réseau laisse fuir : le sommet s'effondre
+        # et la résonance s'élargit, les deux pour la même raison.
+        transp = 1.0 / (1.0 + (freqs / float(cutoff_hz)) ** float(cutoff_order))
+        pics = pics * transp
+        qs = np.maximum(qs * transp, 1.0)
+
+    garde = pics >= pics.max() * 10 ** (-abs(float(prune_db)) / 20.0)
+    return [Mode(freq_hz=float(f), q=float(qq), peak=float(pk))
+            for f, qq, pk, ok in zip(freqs, qs, pics, garde) if ok]
+
+
+def modes_from_partials(freqs_hz, q=35.0, z_peak=2.0e7, cutoff_hz=None,
+                        cutoff_order=3.0, prune_db=45.0, peaks=None, qs=None):
+    """Résonateur bâti sur des fréquences de résonance **réelles**.
+
+    `bore_modes` fabrique une série idéale — harmonique ou impaire. Aucune
+    perce ne fait ça. Les résonances d'un tuyau réel s'écartent de la série
+    exacte à cause de la perce elle-même, du bec, des trous ouverts et du
+    pavillon, et c'est cet écart qui décide si l'instrument est **juste** d'un
+    registre à l'autre. Un facteur passe sa vie dessus.
+
+    Cette fonction prend donc la liste telle qu'elle sort d'un calcul de perce
+    (Tutti) ou d'une mesure d'impédance (`transfer.py`), et n'invente rien.
+
+    Ce qui reste calculé plutôt que fourni, faute de mieux : `Q` et le sommet
+    de chaque résonance, par les lois visco-thermiques `Q ∝ √f`, `Z ∝ 1/√f`
+    rapportées à la plus grave. Passer `qs` et `peaks` si on les a — auquel cas
+    plus rien n'est supposé.
+    """
+    f = np.asarray(freqs_hz, dtype='float64').ravel()
+    f = np.sort(f[np.isfinite(f) & (f > 0)])
+    if f.size == 0:
+        raise ValueError("aucune fréquence de résonance exploitable")
+
+    ratios = f / f[0]
+    racine = np.sqrt(ratios)
+    qq = np.asarray(qs, dtype='float64') if qs is not None else float(q) * racine
+    pk = np.asarray(peaks, dtype='float64') if peaks is not None else float(z_peak) / racine
+    qq = np.broadcast_to(qq, f.shape).astype('float64').copy()
+    pk = np.broadcast_to(pk, f.shape).astype('float64').copy()
+
+    if cutoff_hz:
+        transp = 1.0 / (1.0 + (f / float(cutoff_hz)) ** float(cutoff_order))
+        pk *= transp
+        qq = np.maximum(qq * transp, 1.0)
+
+    garde = pk >= pk.max() * 10 ** (-abs(float(prune_db)) / 20.0)
+    return [Mode(float(a), float(b), float(c))
+            for a, b, c, ok in zip(f, qq, pk, garde) if ok]
+
+
+def modes_from_cents(f0_hz, cents, kind='conique', **kw):
+    """Série idéale **corrigée note à note** par un écart en cents.
+
+    C'est la forme sous laquelle un calcul de perce rend naturellement sa
+    justesse : « la douzième est 12 cents trop basse ». `cents[i]` s'applique
+    au i-ème mode de la série choisie.
+
+        modes_from_cents(147.0, [0, -12, +7, +3], kind='cylindrique')
+
+    Un écart en cents est un rapport de fréquences, pas une différence : on
+    multiplie par `2^(c/1200)`, on n'ajoute pas.
+    """
+    c = np.asarray(cents, dtype='float64').ravel()
+    n = np.arange(1, c.size + 1, dtype='float64')
     if kind == 'cylindrique':
         ratios = 2 * n - 1
     elif kind == 'conique':
         ratios = n
     else:
         raise ValueError("kind doit valoir 'cylindrique' ou 'conique'")
-    return [Mode(freq_hz=float(f0_hz * r), q=float(q),
-                 peak=float(z_peak / (i + 1) ** decay))
-            for i, r in enumerate(ratios)]
+    return modes_from_partials(float(f0_hz) * ratios * 2.0 ** (c / 1200.0), **kw)
+
+
+def inharmonicity_cents(modes, kind=None):
+    """Écart de chaque résonance à la série idéale, en cents.
+
+    L'inverse de `modes_from_cents` : ce que le modèle **a**, dit dans l'unité
+    où on juge la justesse. `kind=None` devine la série d'après le rapport de
+    la deuxième résonance à la première (≈2 → conique, ≈3 → cylindrique).
+
+    Sert à confronter un jeu de modes mesuré au calcul de perce, et à vérifier
+    qu'on n'a pas perdu la justesse en route.
+    """
+    f = np.array([m.freq_hz for m in modes], dtype='float64')
+    if f.size == 0:
+        return np.zeros(0)
+    if kind is None:
+        kind = 'cylindrique' if (f.size > 1 and f[1] / f[0] > 2.4) else 'conique'
+    n = np.arange(1, f.size + 1, dtype='float64')
+    ideal = f[0] * ((2 * n - 1) if kind == 'cylindrique' else n)
+    return 1200.0 * np.log2(f / ideal)
+
+
+def register_vent(modes, kill=1, strength=0.02):
+    """Étouffe les `kill` premières résonances — c'est ce que fait une clé de
+    registre, et rien d'autre.
+
+    Le trou de registre s'ouvre près d'un nœud de pression de la résonance
+    qu'on veut garder, et près d'un ventre de celle qu'on veut tuer : la
+    première cesse de réfléchir, l'oscillation se rabat sur la suivante
+    disponible.
+
+    Le modèle en tire la hauteur du registre **sans qu'on la lui donne**, et
+    c'est une des plus jolies vérifications du cadre :
+
+    | perce        | résonances       | registre obtenu |
+    |--------------|------------------|-----------------|
+    | cylindrique  | f0, 3f0, 5f0…    | **×3,00** — la douzième |
+    | conique      | f0, 2f0, 3f0…    | **×2,00** — l'octave |
+
+    C'est précisément ce qui distingue le doigté d'une clarinette de celui
+    d'un saxophone, et le modèle le retrouve à la troisième décimale.
+
+    `strength` est ce qu'il reste du sommet étouffé (0,02 = −34 dB).
+    """
+    out = []
+    for i, m in enumerate(modes):
+        if i < int(kill):
+            out.append(Mode(m.freq_hz, max(m.q * 0.1, 1.0), m.peak * float(strength)))
+        else:
+            out.append(Mode(m.freq_hz, m.q, m.peak))
+    return out
 
 
 def string_modes(f0_hz, n_modes=16, beta=1.0 / 7.0, mass_kg=3.5e-4, q=500.0,
@@ -651,10 +816,19 @@ def playing_frequency(signal, fs, fmin=40.0, fmax=4000.0):
 # Préréglages — un point de départ par instrument
 # =============================================================================
 
-def _wind(exciter, f0, kind, n_modes, q, bore_mm, peak_ratio, name):
-    """Assemble une voix à vent. `bore_mm` = diamètre de perce côté anche."""
+def _wind(exciter, f0, kind, n_modes, q, bore_mm, peak_ratio, name,
+          cutoff_hz=None, stretch=0.0, register=0):
+    """Assemble une voix à vent. `bore_mm` = diamètre de perce côté anche.
+
+    `register=0` joue le registre grave ; `1` ouvre la clé de registre et
+    laisse le modèle trouver lui-même la douzième ou l'octave selon la perce.
+    """
     z_peak = peak_ratio * z_char(bore_mm * 1e-3)
-    res = Resonator(bore_modes(f0, n_modes, kind, q, z_peak), name=name)
+    modes = bore_modes(f0, n_modes, kind, q, z_peak,
+                       cutoff_hz=cutoff_hz, stretch=stretch)
+    if register:
+        modes = register_vent(modes, kill=int(register))
+    res = Resonator(modes, name=name)
     return HybridVoice(exciter, res, name=name)
 
 
@@ -672,7 +846,7 @@ def accordeon(f0_hz=110.0, volume_m3=40e-6, **kw):
 
 
 def clarinette(f0_hz=147.0, n_modes=10, q=40.0, bore_mm=14.6, peak_ratio=20.0,
-               **kw):
+               cutoff_hz=1500.0, register=0, **kw):
     """Perce cylindrique : harmoniques impairs, registre à la douzième.
 
     Le son « creux » de la clarinette n'est pas une métaphore : le modèle
@@ -680,11 +854,11 @@ def clarinette(f0_hz=147.0, n_modes=10, q=40.0, bore_mm=14.6, peak_ratio=20.0,
     qui le décide, pas l'anche.
     """
     return _wind(SingleReedExciter(**kw), f0_hz, 'cylindrique', n_modes, q,
-                 bore_mm, peak_ratio, "clarinette")
+                 bore_mm, peak_ratio, "clarinette", cutoff_hz, register=register)
 
 
 def saxophone(f0_hz=233.0, n_modes=12, q=30.0, bore_mm=10.0, peak_ratio=20.0,
-              **kw):
+              cutoff_hz=700.0, register=0, **kw):
     """Perce conique : série harmonique complète, registre à l'octave.
 
     Même anche simple que la clarinette, même excitateur — seule la perce
@@ -694,11 +868,11 @@ def saxophone(f0_hz=233.0, n_modes=12, q=30.0, bore_mm=10.0, peak_ratio=20.0,
     kw.setdefault('closing_pressure_pa', 3000.0)
     kw.setdefault('freq_hz', 2000.0)
     return _wind(SingleReedExciter(**kw), f0_hz, 'conique', n_modes, q,
-                 bore_mm, peak_ratio, "saxophone")
+                 bore_mm, peak_ratio, "saxophone", cutoff_hz, register=register)
 
 
 def bombarde(f0_hz=294.0, n_modes=12, q=28.0, bore_mm=5.0, peak_ratio=20.0,
-             **kw):
+             cutoff_hz=1100.0, register=0, **kw):
     """Anche double, perce conique étroite : la voix qui porte au fest-noz.
 
     L'impédance de perce y est huit fois celle d'une clarinette, ce qui
@@ -707,11 +881,11 @@ def bombarde(f0_hz=294.0, n_modes=12, q=28.0, bore_mm=5.0, peak_ratio=20.0,
     couple avec le biniou et qu'on se relaie.
     """
     return _wind(DoubleReedExciter(**kw), f0_hz, 'conique', n_modes, q,
-                 bore_mm, peak_ratio, "bombarde")
+                 bore_mm, peak_ratio, "bombarde", cutoff_hz, register=register)
 
 
 def cornemuse(f0_hz=233.0, n_modes=12, q=30.0, bore_mm=4.0, peak_ratio=20.0,
-              **kw):
+              cutoff_hz=1100.0, register=0, **kw):
     """Chalumeau de cornemuse : anche double alimentée par le **sac**.
 
     Le sac est un réservoir : la pression y est lissée, et le musicien ne peut
@@ -720,7 +894,7 @@ def cornemuse(f0_hz=233.0, n_modes=12, q=30.0, bore_mm=4.0, peak_ratio=20.0,
     un maniérisme de style.
     """
     return _wind(DoubleReedExciter(**kw), f0_hz, 'conique', n_modes, q,
-                 bore_mm, peak_ratio, "cornemuse")
+                 bore_mm, peak_ratio, "cornemuse", cutoff_hz, register=register)
 
 
 def violon(f0_hz=440.0, n_modes=16, beta=1.0 / 7.0, mass_kg=3.5e-4, q=500.0,
