@@ -68,6 +68,7 @@ class BoreDat:
     hole_d0: np.ndarray = field(default_factory=lambda: np.zeros(0))
     hole_dl: np.ndarray = field(default_factory=lambda: np.zeros(0))
     hole_len: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    ofilib: np.ndarray = field(default_factory=lambda: np.zeros(0))
     temperature_c: tuple = (20.0, 20.0)   # (pavillon, embouchure)
     a4_hz: float = 440.0
     embouchure: dict = field(default_factory=dict)
@@ -78,37 +79,73 @@ class BoreDat:
         return float(np.sum(self.lengths))
 
     @property
-    def is_flute(self):
-        return bool(self.embouchure.get('IFLUTE', 0))
+    def solid_reed(self):
+        """`True` si l'excitateur est une **anche solide** (roseau, métal).
+
+        Le source de TUTT tranche : `IF(IFLUTE.EQ.1) GO TO 2` puis
+        `IF(IFLUTE.EQ.2) GO TO 2`, et l'étiquette 2 porte le commentaire
+        « ON A AFFAIRE A UNE ANCHE SOLIDE ». Donc `IFLUTE ∈ {1, 2}` désigne
+        une anche solide, et **toute autre valeur une anche aérienne** — un
+        jet de flûte.
+
+        Le nom du champ dit donc l'inverse de ce qu'il vaut, et je m'y étais
+        laissé prendre : ma première version appelait « flûte » exactement ce
+        qui est une anche.
+        """
+        return int(self.embouchure.get('IFLUTE', 0)) in (1, 2)
 
     @property
-    def v0_raw(self):
-        """`V0` tel qu'écrit dans le fichier, **sans interprétation**."""
-        return float(self.embouchure.get('V0', 0.0) or 0.0)
+    def air_reed(self):
+        """`True` pour une anche **aérienne** : flûte à bec, traversière."""
+        return not self.solid_reed
 
-    def reed_volume_m3(self, unit_cm3=True):
-        """Volume équivalent d'anche déduit de `V0`. **À demander explicitement.**
+    @property
+    def jet_velocity_ms(self):
+        """`(V0, V1)` — **vitesses de jet**, en m/s. Pas des volumes.
 
-        Ninob montre (*Modes propres d'un tronc de cône*) qu'une anche solide
-        au petit bout d'un cône se comporte comme une **cavité ajoutée** :
-        elle abaisse les fréquences de jeu et corrige les octaves. C'est ce
-        qui permet à un saxophone, un hautbois ou un basson d'avoir des
-        octaves justes, et ce qui fait qu'un changement d'anche les dérègle.
+        Piège dans lequel je suis tombé : j'avais lu `V0` comme un volume de
+        cavité d'anche, en cm³. Le source dit `V EST LA VITESSE DU JET`, et
+        `V = V0 + V1·(ω/ωc − 1)` avec `ωc = α·V0/LA`. Les 26 du fichier de
+        flûte à bec sont donc 26 **m/s**, ce qui est une vitesse de souffle
+        tout à fait ordinaire — et non 26 cm³.
 
-        Mais deux choses me manquent pour l'appliquer sans risque : l'**unité**
-        de `V0`, et le sens des valeurs sentinelles (`1.e10`). Une hypothèse
-        d'unité fausse ne donne pas un résultat un peu décalé — testé, `V0=26`
-        lu en cm³ traîne la fondamentale d'un tube de 50 cm de 167 à 131 Hz.
-
-        C'est pourquoi rien n'est appliqué par défaut : il faut passer
-        `reed_volume_m3=` explicitement à `input_impedance` ou `resonances`.
-        Brancher d'office une interprétation incertaine, c'est se fabriquer
-        des résultats faux qui ont l'air justes.
+        Ces deux paramètres ne servent qu'aux anches aériennes ; pour une
+        anche solide, TUTT saute le calcul et prend `MREED`/`KREED`. C'est
+        pourquoi les fichiers d'anche portent `V0 = 1.e10` : la valeur n'est
+        jamais lue.
         """
-        v = self.v0_raw
-        if v <= 0.0 or v >= 1e6:          # sentinelle « pas de cavité »
-            return 0.0
-        return v * (1e-6 if unit_cm3 else 1.0)
+        return (float(self.embouchure.get('V0', 0.0) or 0.0),
+                float(self.embouchure.get('V1', 0.0) or 0.0))
+
+    @property
+    def reed_oscillator(self):
+        """`(masse, raideur)` de l'anche solide — `MREED`, `KREED`.
+
+        C'est ainsi que TUTT pose l'anche : un oscillateur masse-ressort
+        couplé au tube, et non une cavité. La « cavité équivalente » de
+        l'article *Modes propres d'un tronc de cône* est un résultat
+        analytique séparé, pas la façon dont le logiciel calcule.
+        """
+        return (float(self.embouchure.get('MREED', 0.0) or 0.0),
+                float(self.embouchure.get('KREED', 0.0) or 0.0))
+
+    @property
+    def roughness(self):
+        """`OFILIB` — rapport périmètre réel / périmètre géométrique.
+
+        Le commentaire du source est sans ambiguïté : « TABLEAU PERIMETRE
+        MICROSCOPIQUE DE LA PERCE / PERIMETRE OFFICIEL », et le calcul fait
+        `PERI = π·OFILIB(I)·DM`. C'est donc la **rugosité** : une perce en
+        bois poreux ou corrodée offre plus de paroi mouillée qu'un tube lisse
+        de même section, donc plus de pertes de couche limite.
+
+        Conséquence rassurante : `OFILIB` n'entre **que** dans les pertes. Un
+        1,5 sur une bombarde ne décale pas ses résonances de 50 %, il abaisse
+        son Q d'autant. Ninob y a consacré un article entier (*Dissipation
+        viscothermique… influence de la rugosité de la paroi*), qui montre que
+        la corrosion interne dégrade l'instrument avec le temps.
+        """
+        return self.ofilib if self.ofilib.size else np.ones(len(self.lengths))
 
     def __repr__(self):
         return (f"<BoreDat {self.title[:40]!r} {len(self.lengths)} tronçons, "
@@ -116,7 +153,12 @@ class BoreDat:
                 f"{len(self.fingerings)} doigtés>")
 
 
-_NOMBRE = re.compile(r'[-+]?\d*\.?\d+(?:[eEdD][-+]?\d+)?')
+#: Un nombre tel que Fortran l'écrit — et il l'écrit plus librement que la
+#: plupart des langages : `10.e-3` et `1.e10` ont un point sans décimale
+#: derrière, `.5` n'a pas de chiffre devant. Une regex qui l'ignore ne
+#: renvoie pas une erreur : elle découpe `10.e-3` en `10` puis `-3`, décale
+#: toutes les colonnes du tableau, et on lit un paramètre pour un autre.
+_NOMBRE = re.compile(r'[-+]?(?:\d+\.?\d*|\.\d+)(?:[eEdD][-+]?\d+)?')
 
 
 def _floats(ligne):
@@ -173,6 +215,8 @@ def read_dat(chemin):
             out.dl, _ = _valeurs_apres(lignes, i + 1, n1)
         elif 'TRONCONS DE LA LIGNE PRINCIPALE' in l:
             out.lengths, _ = _valeurs_apres(lignes, i + 1, n1)
+        elif 'OFILIB' in l:
+            out.ofilib, _ = _valeurs_apres(lignes, i + 1, n1)
         elif 'LATERAUX D0P' in l:
             out.hole_d0, _ = _valeurs_apres(lignes, i + 1, n)
         elif 'LATERAUX DLP' in l:
@@ -260,28 +304,70 @@ def read_out(chemin):
 # Impédance d'entrée d'une perce
 # =============================================================================
 
-def _propagation(freqs, radius_m, temp_c=20.0):
+def celerite(temp_c):
+    """Célérité du son, formule de TUTT : `329,95 + 0,69·T` (T en °C).
+
+    Elle suppose l'air **saturé d'humidité et à 2,5 % de CO₂** — c'est-à-dire
+    l'air expiré, pas l'air ambiant (réf. Coltman, JASA 65, 1979, 499). À
+    20 °C elle donne 343,75 m/s, un peu au-dessus de la valeur sèche
+    habituelle : le souffle du musicien est plus rapide que l'air de la pièce.
+    """
+    return 329.95 + 0.69 * float(temp_c)
+
+
+def _gamma_prime():
+    """Facteur de pertes de Mason : `(1 + 1,581·(√γ − 1/√γ))·√η`.
+
+    Vaut 1,534·√η, là où la forme usuelle `1 + (γ−1)/√Pr` donne 1,475 — 4 %
+    d'écart, sans conséquence pratique, mais autant prendre celle du logiciel
+    auquel on se compare.
+    """
+    sg = np.sqrt(GAMMA)
+    return (1.0 + 1.581 * (sg - 1.0 / sg)) * np.sqrt(ETA)
+
+
+def _propagation(freqs, radius_m, temp_c=20.0, roughness=1.0):
     """Constante de propagation et impédance caractéristique, avec pertes.
 
-    Pertes visco-thermiques de couche limite (Kirchhoff) : l'atténuation
-    croît en `√f` et décroît avec le rayon. C'est ce qui rend une perce
-    étroite bien plus amortie qu'une large, et pourquoi un piccolo demande
-    plus de souffle qu'une flûte basse.
+    Formule de Kirchhoff telle que TUTT l'implémente (réf. Mason, *Phys. Rev.*
+    31, 1928, 283), reprise ici terme pour terme :
+
+        P = périmètre·γ' / (2·section·√(2ωρ))
+        k = (ω/c)·[(1 + P) − jP]
+
+    `P` est à la fois l'atténuation **et** le ralentissement de l'onde : les
+    pertes de couche limite ne font pas qu'amortir, elles freinent. C'est ce
+    qui explique qu'un tuyau sonne plus grave que sa longueur ne le dit — sur
+    un cylindre Ø 15 mm à 167 Hz, `P = 1,7 %`, soit 30 cents.
+
+    `roughness` est le `OFILIB` de TUTT : le rapport du périmètre réel au
+    périmètre géométrique. Une perce en bois poreux ou corrodée frotte plus
+    qu'un tube lisse de même section. Il n'entre **que** dans les pertes : un
+    OFILIB de 1,5 abaisse le Q de moitié, il ne déplace pas les résonances de
+    50 %.
+
+    Vérification croisée : la valeur de `P` calculée ici (0,0173) coïncide à
+    1 % près avec celle qu'on tire à la main de la formule de couche limite,
+    et la première résonance du cylindre d'essai de TUTT tombe à 0,6 cent de
+    ce que TUTT lui-même annonce.
     """
-    c = CELERITE * np.sqrt((273.15 + temp_c) / 293.15)
+    c = celerite(temp_c)
     w = 2 * np.pi * np.asarray(freqs, dtype='float64')
     r = max(float(radius_m), 1e-5)
+    d = 2.0 * r
 
-    # épaisseur de couche limite visqueuse
-    delta = np.sqrt(2.0 * ETA / (RHO * np.maximum(w, 1e-9)))
-    alpha = (delta / (r * 2.0)) * (1.0 + (GAMMA - 1.0) / np.sqrt(PRANDTL))
+    peri = np.pi * float(roughness) * d
+    sm = np.pi * d * d / 4.0
+    prov = peri * _gamma_prime() / (2.0 * sm * np.sqrt(2.0 * np.maximum(w, 1e-9) * RHO))
+
     k = w / c
-    gamma = alpha * k + 1j * k * (1.0 + alpha)
+    gamma = prov * k + 1j * k * (1.0 + prov)
     zc = RHO * c / (np.pi * r * r)
     return gamma, zc
 
 
-def _matrice_troncon(freqs, d0, dl, length, temp_c=20.0, n_slices=None):
+def _matrice_troncon(freqs, d0, dl, length, temp_c=20.0, n_slices=None,
+                     roughness=1.0):
     """Matrice de transfert d'un tronçon, conique ou cylindrique.
 
     Un cône est découpé en tranches cylindriques. C'est moins élégant qu'une
@@ -309,7 +395,7 @@ def _matrice_troncon(freqs, d0, dl, length, temp_c=20.0, n_slices=None):
     zero = np.zeros_like(un)
     A, B, C, D = un.copy(), zero.copy(), zero.copy(), un.copy()
     for r in rayons:
-        g, zc = _propagation(freqs, r, temp_c)
+        g, zc = _propagation(freqs, r, temp_c, roughness)
         gl = g * dl_slice
         ch, sh = np.cosh(gl), np.sinh(gl)
         a, b, c_, d = ch, zc * sh, sh / zc, ch
@@ -368,12 +454,20 @@ def input_impedance(dat: BoreDat, freqs, n_slices=None,
     else:
         Z = _impedance_rayonnement(freqs, r_bout).astype('complex128')
 
+    # Profil de température **exponentiel**, constante 0,25 m, comme TUTT :
+    # le souffle chaud du musicien ne pénètre pas loin dans le tuyau. Une
+    # interpolation linéaire réchaufferait tout le corps de l'instrument.
+    xtot = float(np.sum(dat.lengths))
+    rug = dat.roughness
+    x = 0.0
     for i in range(n):
-        frac = (i + 0.5) / n
-        temp = t_pav + (t_emb - t_pav) * frac
+        x += dat.lengths[i]
+        milieu = x - dat.lengths[i] / 2.0          # abscisse depuis le pavillon
+        temp = t_pav + (t_emb - t_pav) * np.exp(-(xtot - milieu) / 0.25)
         # on remonte du côté pavillon (DL) vers le côté embouchure (D0)
         M = _matrice_troncon(freqs, dat.dl[i], dat.d0[i], dat.lengths[i],
-                             temp, n_slices)
+                             temp, n_slices,
+                             float(rug[i]) if i < len(rug) else 1.0)
         A, B, C, D = M[0, 0], M[0, 1], M[1, 0], M[1, 1]
         Z = (A * Z + B) / (C * Z + D)
 

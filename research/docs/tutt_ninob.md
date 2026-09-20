@@ -109,26 +109,101 @@ fabrique des résultats faux qui ont l'air justes.
 
 ---
 
-## 3. Les questions pour Ninob
+## 3. Les questions — répondues par le source
 
-Elles me feraient gagner beaucoup, et il y répondrait en une phrase.
+Le paquet TUTT contient **`Tutt43.for`**, 2383 lignes de Fortran. Il compile
+tel quel sous Linux (`gfortran -std=legacy -O2`) et il répond lui-même à
+quatre des cinq questions. Une seule reste pour Ninob.
 
-1. **`OFILIB`** — que corrige exactement ce rapport « surface libre / surface
-   officielle », et comment entre-t-il dans le calcul ? C'est le champ dont
-   l'effet serait le plus grand et que je comprends le moins.
-2. **`V0` / `V1`** — quelle unité, et comment se rapportent-ils au volume de
-   cavité équivalente de l'article sur le tronc de cône ? Le hautbois
-   d'exemple existe en « model MK » et « model Veff » : sont-ce les deux
-   manières de poser l'anche ?
-3. **Les valeurs sentinelles** `1.e10` sur `V0` — « pas de cavité », ou un
-   volume réellement infini ?
-4. **TUTT sait-il sortir les partiels d'un doigté**, et pas seulement la note
-   jouée ? Le `.out` que j'ai lu donne un `OTUBE` par doigté ; c'est la série
-   des résonances qui alimenterait le modèle.
-5. **Le raccordement tudel/anche** — les deux derniers tronçons d'une bombarde
-   ne suivent pas la continuité des autres. Convention particulière ?
+### `OFILIB` — c'est la rugosité, et elle n'agit que sur les pertes ✅
+
+Le commentaire du source est sans ambiguïté : « TABLEAU PERIMETRE
+MICROSCOPIQUE DE LA PERCE / PERIMETRE OFFICIEL », et le calcul fait
+`PERI = π·OFILIB(I)·DM`, un **périmètre**. Une perce en bois poreux ou
+corrodée offre plus de paroi mouillée qu'un tube lisse de même section.
+
+Conséquence rassurante : `OFILIB = 1,49775` sur la bombarde ne décale pas ses
+résonances de 50 %, il abaisse son Q d'autant. J'avais craint une erreur de
+section ; c'était une erreur de pertes, bien moins grave.
+
+### `V0`/`V1` — des **vitesses de jet**, pas des volumes ✅
+
+```fortran
+V = V0 + V1*(OMEGA/omegac - 1.)
+C...V EST LA VITESSE DU JET
+```
+
+Les 26 du fichier de flûte à bec sont **26 m/s**, une vitesse de souffle
+ordinaire — et non 26 cm³ comme je l'avais lu. Ma prudence à ne jamais
+l'appliquer par défaut a évité exactement le résultat faux qu'elle visait.
+
+### `IFLUTE` dit l'inverse de son nom ✅
+
+```fortran
+IF(IFLUTE.EQ.1) GO TO 2
+IF(IFLUTE.EQ.2) GO TO 2
+...
+2  CONTINUE
+C...ON A AFFAIRE A UNE ANCHE SOLIDE
+```
+
+`IFLUTE ∈ {1, 2}` désigne une **anche solide** ; toute autre valeur une anche
+**aérienne** (un jet de flûte). Ma propriété `is_flute` disait exactement le
+contraire — corrigée en `solid_reed` / `air_reed`.
+
+### Les sentinelles `1.e10` ✅
+
+Simplement **jamais lues** : pour une anche solide, TUTT saute le calcul du
+jet et prend `MREED`/`KREED`. Aucun volume infini, aucun court-circuit.
+
+### L'anche, chez TUTT, est un oscillateur — pas une cavité ✅
+
+`MA = MREED`, `KA = KREED` : masse et raideur couplées au tube. La « cavité
+équivalente » de *Modes propres d'un tronc de cône* est un résultat
+analytique séparé, pas la façon dont le logiciel calcule.
+
+### Reste pour Ninob ❓
+
+**TUTT sait-il sortir les partiels d'un doigté**, et pas seulement la note
+jouée ? Le `.out` donne un `OTUBE` par doigté. `zim.out` existe dans le code
+(unité 9) mais reste vide dans mes essais — y a-t-il un réglage pour l'écrire ?
+C'est la série des résonances qui alimenterait le modèle.
 
 ---
+
+## 3 bis. Validation croisée contre TUTT lui-même
+
+TUTT compilé et exécuté sur son propre cylindre d'essai (Ø 15 mm, 532 mm) :
+
+| | fréquence | Q |
+|---|---|---|
+| TUTT (`OTUBE = 985,8` rad/s) | 156,895 Hz | 26 |
+| `tutt.py` | 157,033 Hz | 26,5 |
+| **écart** | **+1,52 cent** | — |
+
+Deux implémentations indépendantes — la sienne en Fortran, la mienne en
+matrices de transfert — se rejoignent à un cent et demi, amortissement
+compris. C'est la meilleure garantie que j'aie sur cette partie du modèle.
+
+Trois formules reprises du source au passage :
+
+- **pertes de Kirchhoff/Mason** : `γ' = (1 + 1,581(√γ − 1/√γ))·√η`, puis
+  `P = périmètre·γ'/(2·section·√(2ωρ))` et `k = (ω/c)[(1+P) − jP]`. `P` est à
+  la fois l'atténuation **et** le ralentissement de l'onde ;
+- **profil de température exponentiel**, constante 0,25 m : le souffle chaud
+  ne pénètre pas loin dans le tuyau. Une interpolation linéaire réchaufferait
+  tout le corps de l'instrument ;
+- **célérité `329,95 + 0,69·T`**, pour de l'air saturé d'humidité à 2,5 % de
+  CO₂ (Coltman, JASA 65, 1979, 499) — l'air du musicien, pas celui de la
+  pièce.
+
+### Un bug de lecture trouvé au passage
+
+Fortran écrit `10.e-3` et `1.e10` — un point sans décimale derrière. Ma regex
+l'ignorait, découpait `10.e-3` en `10` puis `-3`, décalait toutes les colonnes
+du tableau d'embouchure, et me faisait lire `V0 = 1,0` là où le fichier dit
+`1.e10`. Pas d'erreur levée : juste un paramètre pris pour un autre. Corrigé,
+avec test de non-régression.
 
 ## 4. Les articles, et ce qu'ils changent
 

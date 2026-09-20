@@ -63,16 +63,41 @@ def test_read_dat_lit_la_geometrie(tmp_path):
 
 
 def test_read_dat_lit_l_embouchure(tmp_path):
-    """`V0`/`V1` et `MREED`/`KREED` portent la physique de l'anche.
+    """`IFLUTE` dit l'inverse de son nom, et `V0` n'est pas un volume.
 
-    C'est par eux que passe le volume équivalent d'anche, qui corrige les
-    octaves d'une perce conique (Ninob, *Modes propres d'un tronc de cône*).
+    Le source de TUTT tranche les deux : `IFLUTE ∈ {1,2}` désigne une anche
+    **solide**, toute autre valeur une anche aérienne (un jet de flûte) ; et
+    `V EST LA VITESSE DU JET`, donc `V0`/`V1` sont des **m/s**.
+
+    Je m'étais trompé sur les deux, et le second m'aurait fait poser une
+    cavité de 26 cm³ là où le fichier dit 26 m/s.
     """
     d = tutt.read_dat(_dat_cylindre(tmp_path))
-    assert d.embouchure['V0'] == pytest.approx(26.0)
-    assert d.embouchure['V1'] == pytest.approx(17.0)
-    assert d.embouchure['KREED'] == pytest.approx(800.0)
-    assert d.is_flute is False
+    assert d.solid_reed is False        # IFLUTE = 0 -> anche aérienne
+    assert d.air_reed is True
+    assert d.jet_velocity_ms == pytest.approx((26.0, 17.0))
+    assert d.reed_oscillator == pytest.approx((0.0, 800.0))   # MREED, KREED
+
+
+def test_iflute_1_est_une_anche_solide(tmp_path):
+    p = _dat_cylindre(tmp_path)
+    p.write_text(p.read_text(encoding='latin-1').replace(
+        "0 1.4 0. 9.5e-3", "1 1.4 0. 9.5e-3"), encoding='latin-1')
+    assert tutt.read_dat(p).solid_reed is True
+
+
+def test_les_nombres_fortran_libres_sont_lus(tmp_path):
+    """Régression : `10.e-3` et `1.e10` ont un point sans décimale derrière.
+
+    Une regex qui l'ignore ne lève pas d'erreur — elle découpe `10.e-3` en
+    `10` puis `-3`, décale toutes les colonnes du tableau, et on lit un
+    paramètre pour un autre. C'est ainsi que j'avais lu `V0 = 1,0` là où le
+    fichier dit `1.e10`.
+    """
+    assert tutt._floats('10.e-3') == pytest.approx([1e-2])
+    assert tutt._floats('1.e10') == pytest.approx([1e10])
+    assert tutt._floats('.5') == pytest.approx([0.5])
+    assert tutt._floats('-2.4E-02 3.69E-02') == pytest.approx([-0.024, 0.0369])
 
 
 def test_read_out_convertit_les_pulsations_en_frequences(tmp_path):
@@ -224,26 +249,38 @@ def test_les_resonances_sortent_dans_l_ordre_des_frequences(tmp_path):
         assert f / freqs[0] == pytest.approx(2 * i + 1, rel=0.04)
 
 
-def test_le_volume_d_anche_n_est_jamais_applique_tout_seul(tmp_path):
-    """`V0` est lu mais **pas** interprété par défaut.
+def test_la_rugosite_agit_sur_le_Q_et_pas_sur_la_note(tmp_path):
+    """`OFILIB` est un rapport de **périmètres**, pas de sections.
 
-    Son unité n'est pas confirmée, et une hypothèse fausse ne décale pas un
-    peu : lue en cm³, la valeur 26 du fichier d'exemple traîne la fondamentale
-    d'un tube de 50 cm de 167 à 131 Hz. Tant que ce n'est pas tranché, il faut
-    le demander explicitement.
+    Le source le dit (« PERIMETRE MICROSCOPIQUE / PERIMETRE OFFICIEL ») et le
+    calcul fait `PERI = π·OFILIB·DM`. Donc un OFILIB de 1,5 sur une bombarde
+    n'en décale pas les résonances de 50 % : il en abaisse le Q. C'est la
+    rugosité de la paroi, à laquelle Ninob a consacré un article entier.
     """
     d = tutt.read_dat(_dat_cylindre(tmp_path, 0.5, 0.015))
-    assert d.v0_raw == pytest.approx(26.0)
-    assert d.reed_volume_m3() == pytest.approx(26e-6)
+    f_lisse, q_lisse, _ = tutt.resonances(d, 50, 1200, n_peaks=1)
 
-    sans = tutt.resonances(d, 50, 2000, n_peaks=1)[0][0]
-    avec = tutt.resonances(d, 50, 2000, n_peaks=1, reed_volume_m3=26e-6)[0][0]
-    assert sans == pytest.approx(343.0 / (4 * 0.5), rel=0.06)   # non appliqué
-    assert avec < 0.9 * sans                                    # et il change tout
+    d.ofilib = np.full(len(d.lengths), 2.0)
+    f_rug, q_rug, _ = tutt.resonances(d, 50, 1200, n_peaks=1)
+
+    assert q_rug[0] < 0.7 * q_lisse[0]                       # bien plus amorti
+    assert f_rug[0] == pytest.approx(f_lisse[0], rel=0.03)   # mais presque la même note
 
 
-def test_la_cavite_d_anche_abaisse_les_frequences(tmp_path):
-    """Sens vérifié contre Ninob : l'anche « abaisse les fréquences en jeu »."""
+def test_celerite_suppose_de_l_air_expire(tmp_path):
+    """`329,95 + 0,69·T` : air saturé d'humidité, 2,5 % de CO₂.
+
+    C'est l'air du musicien, pas celui de la pièce — d'où une célérité un peu
+    plus haute que la valeur sèche usuelle.
+    """
+    assert tutt.celerite(20.0) == pytest.approx(343.75, abs=0.01)
+    assert tutt.celerite(25.0) > tutt.celerite(15.0)
+
+
+def test_une_cavite_au_bec_abaisse_les_frequences(tmp_path):
+    """Sens vérifié contre Ninob : une cavité au petit bout « abaisse les
+    fréquences en jeu ». Posée en parallèle au nœud du bec, et toujours sur
+    demande explicite — elle ne se déduit d'aucun champ du fichier."""
     d = tutt.read_dat(_dat_cylindre(tmp_path, 0.5, 0.015))
     ref = tutt.resonances(d, 50, 2000, n_peaks=1)[0][0]
     for v in (1e-8, 1e-7, 1e-6):
