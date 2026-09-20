@@ -430,3 +430,68 @@ par la géométrie de saturation, pas par la source. Cohérent.
 `R` est la pente de la caractéristique (p, q) de ta turbine — celle que le
 balayage du facteur `Section` de `Mesures.py` mesure directement. **C'est le
 premier paramètre à recaler.**
+
+---
+
+# Hystérésis : la bifurcation est sous-critique
+
+## Le résultat
+
+En repartant d'un **cycle limite établi** et en baissant la consigne :
+
+| q / q_on | Pression d'équilibre | Course | |
+|---|---|---|---|
+| 0,95 | — | 0,498 mm | oscille encore |
+| 0,85 | — | 0,379 mm | oscille encore |
+| 0,82 | 19,44 Pa | 0,292 mm | **oscille encore** |
+| 0,79 | 18,40 Pa | 0,001 mm | s'éteint |
+| 0,70 | 16,35 Pa | 0,000 | s'éteint |
+
+- **p_on = 25,76 Pa** (démarrage)
+- **p_off ≈ 19,44 Pa** (extinction)
+- **hystérésis p_on / p_off ≈ 1,33**
+
+L'oscillation **persiste en dessous du seuil de démarrage** : la bifurcation
+est **sous-critique**. C'est le comportement des anches réelles, et c'est le
+cœur de la thèse — `p_on > p_off`, ce que `seuil.py` mesure au banc par rampe
+montante puis descendante. **Le modèle et la mesure sont désormais
+comparables sur cette grandeur.**
+
+`extinction_threshold()` rend la mesure reproductible, et un test la fige
+(hors suite par défaut, ~40 s : `BANC_TESTS_LENTS=1`).
+
+## Correction : j'avais d'abord conclu au supercritique, à tort
+
+Deux erreurs successives, qu'il vaut la peine de consigner :
+
+1. **Reconstruction d'état bancale.** Pour repartir d'un cycle établi,
+   j'avais tenté de reconstruire l'état modal (N modes) à partir du seul
+   déplacement du bout (un scalaire). C'est **sous-déterminé**, et ça donnait
+   une extinction systématique — donc « supercritique ». `simulate()` renvoie
+   maintenant `final_state`, et ne perturbe plus l'état quand on lui en
+   fournit un : la reprise est exacte.
+
+2. **La loi en racine m'a induit en erreur.** `A ∝ √(q − q_on)` est
+   effectivement mesurée (rapports 1,35 / 1,29 / 1,35 / 1,45), et c'est la
+   signature *attendue* d'un supercritique. Mais elle est **nécessaire, pas
+   suffisante** : une bifurcation faiblement sous-critique présente la même
+   loi au-dessus du seuil, avec en plus une petite zone d'hystérésis. Seul le
+   test de persistance tranche.
+
+À retenir : **pour distinguer super- de sous-critique, il faut redescendre**,
+pas seulement monter. C'est exactement pourquoi `seuil.py` fait une rampe
+dans les deux sens.
+
+## Ce que ça donne à comparer au banc
+
+Trois nombres, et une manière de les obtenir des deux côtés :
+
+| Grandeur | Modèle | Au banc |
+|---|---|---|
+| Seuil de démarrage `p_on` | 25,8 Pa | `seuil.detect`, rampe montante |
+| Seuil d'extinction `p_off` | 19,4 Pa | rampe descendante |
+| Rapport d'hystérésis | 1,33 | le rapport des deux |
+
+Si le rapport mesuré diffère nettement de 1,33, c'est le **volume acoustique
+effectif** et l'**impédance de source** qu'il faut recaler en premier : ce
+sont les deux paramètres dont dépend le plus la largeur de l'hystérésis.

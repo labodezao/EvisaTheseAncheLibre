@@ -348,6 +348,53 @@ class FreeReedModel:
         bas, _ = self.instability_band(q_lo, q_hi, n_scan)
         return bas
 
+    # ---- hystérésis : le seuil d'extinction --------------------------------
+    def extinction_threshold(self, q_on=None, start_mult=2.5, mults=None,
+                             fs=44100.0, dur=2.5, oversample=16, tol_mm=0.05):
+        """Seuil d'**extinction** `p_off`, et rapport d'hystérésis `p_on/p_off`.
+
+        On établit d'abord un cycle limite bien au-dessus du seuil, puis on
+        **repart de cet état exact** en baissant la consigne. Si l'oscillation
+        persiste en dessous du seuil de démarrage, la bifurcation est
+        **sous-critique** : `p_on > p_off`, avec hystérésis. C'est le
+        comportement attendu d'une anche réelle, et c'est ce que `seuil.py`
+        mesure au banc par rampe montante puis descendante.
+
+        Le point crucial est la **reprise exacte de l'état** : reconstruire
+        approximativement l'état modal à partir du seul déplacement du bout
+        est sous-déterminé (N modes pour un scalaire) et donne une réponse
+        fausse — testé, ça concluait à tort au supercritique.
+
+        Renvoie `{p_on, p_off, ratio, q_off}` ; `p_off` vaut `nan` si
+        l'oscillation ne survit à aucune des consignes essayées.
+        """
+        if q_on is None:
+            bas = self.hopf_threshold()
+            if bas is None:
+                return dict(p_on=float('nan'), p_off=float('nan'),
+                            ratio=float('nan'), q_off=float('nan'))
+            q_on = bas[0]
+        p_on = float(self.equilibrium(q_on)[2 * self.N])
+
+        base = self.simulate(dur, fs=fs, q_in=q_on * start_mult, oversample=oversample)
+        n_tail = int(0.2 * dur * fs)
+
+        if mults is None:
+            mults = (0.95, 0.90, 0.85, 0.82, 0.79, 0.76, 0.70)
+
+        q_off = p_off = float('nan')
+        for m in mults:
+            r = self.simulate(dur, fs=fs, q_in=q_on * m, oversample=oversample,
+                              state0=base.final_state)
+            course_mm = float(np.ptp(r.tip[-n_tail:])) * 1e3
+            if course_mm <= tol_mm:
+                break
+            q_off = q_on * m
+            p_off = float(self.equilibrium(q_off)[2 * self.N])
+
+        ratio = p_on / p_off if np.isfinite(p_off) and p_off > 0 else float('nan')
+        return dict(p_on=p_on, p_off=p_off, ratio=ratio, q_off=q_off)
+
     # ---- simulation ---------------------------------------------------------
     def simulate(self, dur, fs=44100.0, q_in=1e-5, oversample=8, state0=None):
         """Intègre le modèle (RK4 suréchantillonné) et renvoie les signaux.

@@ -10,7 +10,10 @@ languette est soufflée hors de la fente et cesse de moduler le débit).
 teste la présence et l'ordre des seuils, pas leur précision — sinon la suite
 passe de 2 à 80 secondes.
 """
+import os
+
 import numpy as np
+import pytest
 
 from banc_recherche.reed_oscillator import FreeReedModel, Chamber, Slot
 
@@ -170,3 +173,24 @@ def test_chambre_trop_petite_ne_demarre_pas():
     from banc_recherche.reed_oscillator import Chamber
     rm = FreeReedModel(n_modes=2, zeta=0.004, chamber=Chamber(volume_m3=7.9e-6))
     assert rm.instability_band(n_scan=14)[0] is None
+
+
+@pytest.mark.skipif(not os.environ.get("BANC_TESTS_LENTS"),
+                    reason="~40 s : lancer avec BANC_TESTS_LENTS=1")
+def test_hysterese_sous_critique():
+    """La bifurcation est **sous-critique** : en repartant d'un cycle établi et
+    en baissant la consigne, l'oscillation persiste EN DESSOUS du seuil de
+    démarrage. C'est `p_on > p_off`, ce que mesure `seuil.py` au banc par
+    rampe montante puis descendante — et ce que font les anches réelles.
+
+    Coûteux (il faut établir un cycle limite, ~1,5 s de signal simulé) : hors
+    suite par défaut, qui tient en 5 s. Chiffres de référence d'un calcul
+    complet : p_on 25,8 Pa, p_off 19,4 Pa, rapport 1,33
+    (cf. docs/audit_modele_anche.md).
+    """
+    rm = _rm()
+    h = rm.extinction_threshold(mults=(0.90,), dur=1.0, oversample=8, start_mult=2.5)
+    assert np.isfinite(h["p_on"]) and h["p_on"] > 0
+    assert np.isfinite(h["p_off"]), "le cycle doit survivre sous le seuil de démarrage"
+    assert h["p_off"] < h["p_on"]
+    assert h["ratio"] > 1.0
