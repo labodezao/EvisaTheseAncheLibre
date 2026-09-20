@@ -48,8 +48,22 @@ from .reed_model import SECTIONS_DEFAULT
 
 @dataclass
 class Chamber:
-    """Chambre d'anche alimentée en débit."""
-    volume_m3: float = 7.9e-6      # volume de la chambre (≈ 35×15×15 mm)
+    """Chambre d'anche alimentée en débit.
+
+    `volume_m3` est le **volume acoustique effectif**, pas la seule géométrie
+    de la chambre : il inclut le canal du sommier et le couplage au réservoir
+    du soufflet, qui participent tous à la compliance vue par l'anche. C'est
+    un paramètre à **recaler** sur ton banc, pas une cote à mesurer au pied à
+    coulisse.
+
+    Il est décisif : la condition d'auto-oscillation (cf. `growth_rate`)
+    s'écrit `V₀ > γ_m · γ_air · P_atm · h / (2·p)`. Sous ce volume, le ressort
+    d'air est trop raide, le balayage de la languette écrase la modulation de
+    pression, et l'anche ne démarre pas. Avec la seule chambre géométrique
+    (≈ 7,9 cm³ pour 35×15×15 mm) le modèle reste stable ; il démarre vers
+    ≈ 12 cm³ et au-delà.
+    """
+    volume_m3: float = 40e-6       # volume acoustique effectif (chambre + canal + couplage)
     patm: float = 1e5
     gamma: float = 1.4             # exposant adiabatique de l'air
     rho: float = 1.2
@@ -208,31 +222,83 @@ class FreeReedModel:
     def growth_rate(self, q_in):
         """Taux de croissance maximal (partie réelle) à l'équilibre, et la
         fréquence associée. Positif = l'équilibre est instable, donc l'anche
-        démarre : c'est la condition d'auto-oscillation."""
+        démarre : c'est la condition d'auto-oscillation.
+
+        **Critère analytique approché** — utile pour comprendre et pour
+        dimensionner, mais c'est cette fonction qui fait foi. L'anche démarre
+        quand
+
+            ∂q_out/∂y  >  γ_m · (γ_air·P_atm/V₀) · ∂q_out/∂p
+
+        soit, en explicitant Bernoulli, `V₀ ≳ γ_m·γ_air·P_atm·h / (2p)`.
+
+        Obtenu par une linéarisation **scalaire à un mode** ; le système réel
+        en a plusieurs, et la comparaison numérique montre un écart d'un
+        facteur ~2 (le critère demande 78 cm³ là où le modèle démarre déjà à
+        40 cm³). À prendre comme un ordre de grandeur, pas comme une égalité.
+
+        À gauche, ce qui **entretient** : la modulation du débit par le
+        mouvement de la languette. À droite, ce qui **dissipe** : la réaction
+        du ressort d'air au balayage de la languette.
+
+        Conséquence à ne pas manquer : si l'ouverture **sature** (languette
+        soufflée hors de la fente), alors `∂h/∂y = 0`, donc `∂q_out/∂y = 0` —
+        le terme d'entretien s'annule et l'oscillation cesse, quelle que soit
+        la pression. C'est l'étouffement, et c'est ce qui borne la bande
+        d'instabilité par le haut (cf. `instability_band`).
+        """
         st = self.equilibrium(q_in)
         ev = np.linalg.eigvals(self.jacobian(st, q_in))
         i = int(np.argmax(ev.real))
         return float(ev[i].real), float(abs(ev[i].imag) / (2 * np.pi)), st[2 * self.N]
 
-    def hopf_threshold(self, q_lo=1e-7, q_hi=1e-3, n_iter=60):
-        """Débit d'entrée seuil `q_on` où l'équilibre devient instable.
-
-        Dichotomie sur le signe du taux de croissance. Renvoie
-        `(q_on, p_on, f_on)` — débit, surpression et fréquence au seuil —
-        ou `None` si aucun changement de signe dans l'intervalle.
-        """
-        r_lo = self.growth_rate(q_lo)[0]
-        r_hi = self.growth_rate(q_hi)[0]
-        if r_lo > 0 or r_hi < 0:
-            return None
+    def _bisect(self, q_a, q_b, want_positive_at_b, n_iter=50):
+        """Dichotomie géométrique sur le changement de signe du taux."""
         for _ in range(n_iter):
-            q_mid = np.sqrt(q_lo * q_hi)        # dichotomie géométrique
-            if self.growth_rate(q_mid)[0] < 0:
-                q_lo = q_mid
+            q_mid = np.sqrt(q_a * q_b)
+            pos = self.growth_rate(q_mid)[0] > 0
+            if pos == want_positive_at_b:
+                q_b = q_mid
             else:
-                q_hi = q_mid
-        r, f, p = self.growth_rate(q_hi)
-        return float(q_hi), float(p), float(f)
+                q_a = q_mid
+        return q_b
+
+    def instability_band(self, q_lo=1e-7, q_hi=1e-2, n_scan=40):
+        """Bande de débit où l'anche s'auto-entretient.
+
+        L'instabilité n'est **pas** un demi-axe : elle est bornée des deux
+        côtés. En dessous du seuil bas, il n'y a pas assez d'énergie pour
+        démarrer. Au-dessus du seuil haut, la languette est soufflée
+        grande ouverte, l'ouverture **sature**, `∂h/∂y` s'annule — elle ne
+        module plus le débit et l'oscillation s'éteint. C'est
+        l'**étouffement** que tout accordéoniste connaît en poussant trop
+        fort.
+
+        Renvoie `(seuil_bas, seuil_haut)`, chacun `(q, p, f)` ou `None`.
+        """
+        qs = np.geomspace(q_lo, q_hi, int(n_scan))
+        signs = [self.growth_rate(q)[0] > 0 for q in qs]
+
+        bas = haut = None
+        for i in range(len(qs) - 1):
+            if not signs[i] and signs[i + 1] and bas is None:
+                q = self._bisect(qs[i], qs[i + 1], True)
+                r, f, p = self.growth_rate(q)
+                bas = (float(q), float(p), float(f))
+            elif signs[i] and not signs[i + 1] and bas is not None and haut is None:
+                q = self._bisect(qs[i], qs[i + 1], False)
+                r, f, p = self.growth_rate(q)
+                haut = (float(q), float(p), float(f))
+        return bas, haut
+
+    def hopf_threshold(self, q_lo=1e-7, q_hi=1e-2, n_scan=40):
+        """Seuil de démarrage `(q_on, p_on, f_on)`, ou `None` s'il n'y en a pas.
+
+        C'est le seuil **bas** de `instability_band` : la grandeur que
+        `seuil.py` et `bifurcation.py` mesurent au banc.
+        """
+        bas, _ = self.instability_band(q_lo, q_hi, n_scan)
+        return bas
 
     # ---- simulation ---------------------------------------------------------
     def simulate(self, dur, fs=44100.0, q_in=1e-5, oversample=8, state0=None):

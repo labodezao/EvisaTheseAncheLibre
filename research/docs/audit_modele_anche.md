@@ -287,3 +287,78 @@ testés. Les pistes qui restent, par ordre de vraisemblance :
 La méthode, elle, est acquise : coder la variante, appeler `growth_rate` sur
 une plage de débits, lire le signe. Chaque hypothèse se teste en une minute.
 C'est précisément l'outil qui manquait pour faire le recalage.
+
+---
+
+# Percée : le modèle auto-oscille
+
+## Ce qui bloquait, et que l'analyse de stabilité a révélé
+
+En linéarisant, la condition d'entretien s'écrit
+
+    ∂q_out/∂y  >  γ_m · (γ_air·P_atm/V₀) · ∂q_out/∂p
+
+À gauche ce qui **entretient** — la modulation du débit par le mouvement de la
+languette. À droite ce qui **dissipe** — la réaction du ressort d'air au
+balayage de la languette.
+
+D'où le piège, invisible en simulation : **si l'ouverture sature**, alors
+`∂h/∂y = 0`, donc `∂q_out/∂y = 0`. Le terme d'entretien s'annule **quelle que
+soit la pression**. Or c'était exactement le cas : le bout se stabilisait à
++0,649 mm pour une saturation à 0,4 mm. La languette était soufflée hors de sa
+zone de travail, et ne modulait plus rien.
+
+Le second levier est le **volume acoustique effectif** `V₀`. Le critère
+approché donne `V₀ ≳ γ_m·γ_air·P_atm·h/(2p)`. Avec la seule chambre géométrique
+(7,9 cm³) le ressort d'air est trop raide et rien ne démarre ; à 40 cm³ ça
+démarre. (Le critère scalaire demande 78 cm³ là où le modèle démarre à 40 :
+c'est un ordre de grandeur, pas une égalité — la fonction `growth_rate` fait
+foi.)
+
+Ce volume n'est pas une cote à mesurer : il inclut le canal du sommier et le
+couplage au réservoir du soufflet. **C'est un paramètre à recaler sur ton
+banc.**
+
+## Ce que le modèle prédit maintenant
+
+Valeurs par défaut (anche sol2 à 102,1 Hz, V₀ = 40 cm³, saturation 0,5 mm) :
+
+| | q_in (m³/s) | Pression | Fréquence |
+|---|---|---|---|
+| **Seuil de démarrage** | 2,40·10⁻⁶ | **23,0 Pa** | 119,2 Hz |
+| **Seuil d'étouffement** | 3,93·10⁻⁵ | **379,8 Pa** | 119,2 Hz |
+
+Trois prédictions testables au banc :
+
+1. **L'oscillation est bornée des deux côtés.** Trop peu de pression : rien.
+   Trop de pression : la languette est soufflée hors de la fente, l'ouverture
+   sature, et le son s'éteint. C'est l'étouffement que connaît tout
+   accordéoniste — et le modèle le produit sans qu'on le lui ait demandé.
+2. **La fréquence de jeu dépasse la fréquence propre** de ~17 % (119 Hz pour
+   une anche à 102 Hz) : c'est le ressort d'air qui raidit le système. Le
+   rapport dépend de `V₀` — donc **mesurer ce décalage, c'est mesurer `V₀`**.
+3. **La fréquence monte avec la pression** (119 → 131 Hz sur la bande, avec
+   une saturation plus large). Facile à vérifier avec ton accordeur.
+
+## Ce qui reste à faire
+
+- **L'amplitude ne sature pas proprement.** À 1,5× le seuil, la course vaut
+  0,836 mm — une valeur d'accordéon. Mais à 2,5× elle atteint 2,5 mm et à 5×
+  plus de 5 mm, en croissant encore. Il manque un mécanisme de limitation :
+  butée mécanique, raidissement géométrique de la languette à grande
+  amplitude, ou impédance finie de la source (ta turbine n'est pas une source
+  de débit idéale — c'est l'impédance qu'il faut mesurer).
+- **Le spectre est pauvre** : 2 harmoniques au-dessus de −30 dB. Un vrai son
+  d'anche en a une dizaine. La richesse viendra de la fermeture franche, donc
+  du point précédent.
+- **Hopf supercritique ou sous-critique ?** Près du seuil, l'amplitude part
+  de zéro continûment — ça ressemble à un supercritique. Or les anches sont
+  réputées sous-critiques, avec hystérésis `p_on > p_off`. C'est précisément
+  ce que `seuil.py` mesure : **la comparaison modèle/mesure sur l'hystérésis
+  est le prochain test décisif**, et il porte au cœur de ta thèse.
+
+## La méthode, maintenant acquise
+
+`growth_rate` répond en 1 ms, `instability_band` en une seconde. Tester une
+variante de modèle ne coûte plus une après-midi de simulations mais le temps
+d'écrire la variante. C'est ce qui manquait pour recaler.
