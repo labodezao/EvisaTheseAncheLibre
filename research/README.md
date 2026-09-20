@@ -56,6 +56,12 @@ research/
     ringdown.py             amortissement / facteur Q par décroissance (Matrix Pencil-like)
     material.py             module d'Young par résonance cantilever
     leak.py                 détection de fuite par décroissance de pression
+    reed_oscillator.py       anche libre AUTO-OSCILLANTE alimentée en débit :
+                             seuil de Hopf prédit par stabilité linéaire,
+                             bande d'instabilité (démarrage + étouffement),
+                             cycle limite, hystérésis sous-critique
+    calibrate.py             calage d'une anche du modèle sur un son mesuré
+                             (inverse le décalage dû au ressort d'air)
     timbre.py                descripteurs de timbre génériques (bandes, platitude,
                              HPSS, spectre de modulation, bourdon, partiels/inharmonicité) —
                              généralise l'étude OSSO à tout enregistrement (numpy+scipy seuls)
@@ -83,10 +89,14 @@ research/
     DATA.md                 manifeste : dépôt vs Drive, gros .npy, CAO, fileIds
     analyse_acoustique_osso.md  étude annexe : analyse acoustique du duo OSSO
     sample_vers_modele_physique.md  sample -> modèle physique -> STM32 / Dream
+    audit_modele_anche.md    audit complet du modèle physique + corrections
+    experiences_a_mener.md   liste des expériences à faire au banc
     references.bib          bibliographie BibTeX (docs + manuscrits LyX)
     figures/                figures générées par les scripts (cf. son README)
   scripts/
     analyse_osso.py         étude OSSO : script reproductible (librosa + Praat)
+    diagnostic_reed_model.py  le modèle d'anche auto-oscille-t-il ? (code retour)
+    valider_extraction.py   boucle extraction -> resynthèse -> écart spectral
     legacy/                 sources d'origine vendorisées (référence, non exécutées)
   tests/
     test_analysis.py
@@ -249,6 +259,41 @@ SAM5716 relève de la documentation constructeur, et inventer des registres
 donnerait du code qui a l'air juste et ne pilote rien. Voir
 [`docs/sample_vers_modele_physique.md`](docs/sample_vers_modele_physique.md)
 pour les trois architectures possibles et les questions à poser à Dream.
+
+## Modèle physique d'anche jouable (`reed_oscillator`)
+
+Anche libre **alimentée en débit** (le soufflet impose une vitesse volumique,
+la pression en résulte), couplée à une chambre. Le modèle **auto-oscille** et
+prédit, pour l'anche de référence (sol2, premier mode 102,1 Hz) :
+
+| Grandeur | Prédiction | À mesurer avec |
+|---|---|---|
+| Seuil de démarrage `p_on` | 25,8 Pa à 119 Hz | `seuil.detect`, rampe montante |
+| Seuil d'extinction `p_off` | 19,4 Pa | rampe descendante |
+| **Hystérésis** `p_on/p_off` | **1,33** (sous-critique) | le rapport des deux |
+| Seuil d'étouffement | 379,8 Pa | pousser jusqu'à extinction |
+| Excursion du bout | 0,96 mm à 1,5× le seuil | stroboscope de l'accordeur |
+
+Le **seuil est prédit** par analyse de stabilité linéaire (`growth_rate`,
+`instability_band`) : 1 ms par évaluation contre ~1 s de simulation. Tester
+une variante de modèle coûte le temps de l'écrire, plus une après-midi.
+
+Deux mécanismes que le modèle produit sans qu'on les lui demande :
+l'**étouffement** quand on pousse trop fort (la languette soufflée hors de la
+fente ne module plus le débit), et l'**hystérésis** sous-critique.
+
+La liste des expériences de validation est dans
+[`docs/experiences_a_mener.md`](docs/experiences_a_mener.md) ; l'audit qui a
+mené là — y compris les erreurs commises et corrigées — dans
+[`docs/audit_modele_anche.md`](docs/audit_modele_anche.md).
+
+### Onglet « Synthèse physique »
+On injecte des sons, on en extrait la hauteur, on cale une languette dont la
+**fréquence de jeu** vaut celle du son (le ressort d'air décale la note :
++2,7 demi-tons sur une grosse anche de basse, +0,14 dans le médium), puis on
+fait sonner le modèle et on compare les spectres. Sortie = `dq/dt`, le
+rayonnement en champ lointain — une anche rayonne par le débit modulé, pas
+par la pression de chambre.
 
 ## Pourquoi Python (et pas Java)
 
