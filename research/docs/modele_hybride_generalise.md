@@ -336,3 +336,70 @@ facteur. L'écart impairs/pairs bouge aussi de 3 dB : le timbre suit.
 Le modèle est donc maximalement sensible à la grandeur qu'un calcul de perce
 produit. Ce n'est pas un raffinement cosmétique : sans les vraies résonances,
 tout ce qui touche à la justesse d'un registre à l'autre est faux.
+
+---
+
+## 8. TUTT — des vraies perces dans le modèle
+
+[TUTT](http://la.trompette.online.fr/Ninob/Ninob.php) est le logiciel de
+B.B. Ninob : à partir des longueurs et diamètres des tronçons d'un instrument
+à vent, il calcule la hauteur de chaque doigté et simule l'effet d'une
+modification. Cuivres et bois. Il vient avec une bibliothèque de perces
+réelles — Stanesby, Martinlot, Van Eyck, Kynsecker, traversos, chalumeaux.
+
+`banc_recherche/tutt.py` lit ses fichiers et calcule l'impédance d'entrée de
+la perce, dont les sommets alimentent `hybrid.modes_from_partials`.
+
+### Ce que le module lit
+
+- **`.dat`** — géométrie des tronçons, trous latéraux, embouchure (dont les
+  volumes `V0`/`V1` et la masse et la raideur de l'anche), table des doigtés ;
+- **`.out`** — par doigté : la pulsation visée `OREF`, la pulsation obtenue
+  `OTUBE`, l'écart en `CENTS`, le facteur `Q`.
+
+Un piège vérifié par test : `OREF` et `OTUBE` sont des **pulsations**, pas des
+fréquences. 3100,9 rad/s = 493,5 Hz, soit do5 au diapason 415 — les lire comme
+des fréquences coûterait près de cinq octaves.
+
+### Ce que le module calcule
+
+L'impédance d'entrée par matrices de transfert : chaque tronçon est découpé en
+tranches cylindriques, avec pertes visco-thermiques de couche limite et charge
+de rayonnement au bout ouvert. Le découpage plutôt qu'une matrice conique
+analytique, parce qu'on peut le **vérifier** en affinant jusqu'à stabilité,
+sans formule à se tromper.
+
+Contrôle sur un cylindre de 50 cm : quarts d'onde, structure impaire exacte,
+premier mode à 6 % près de `c/4L` — l'écart venant de la charge de
+rayonnement et du ralentissement visco-thermique de l'onde, tous deux
+légitimes.
+
+### Le résultat qui justifie tout le module
+
+Sur le tube d'essai de TUTT (cylindre de 52 cm, Ø 15 mm) :
+
+| résonance | fréquence | rang réel | idéal | écart |
+|---|---|---|---|---|
+| 1 | 156,84 Hz | 1,000 | 1 | 0 |
+| 2 | 473,94 Hz | 3,022 | 3 | **+12,5 cents** |
+| 3 | 791,65 Hz | 5,047 | 5 | +16,3 |
+| 4 | 1109,62 Hz | 7,075 | 7 | +18,4 |
+| 5 | 1427,75 Hz | 9,103 | 9 | +19,7 |
+
+La série idéale donnait des zéros partout. Or la hauteur du registre suit la
+deuxième résonance **au cent près** (§7) : le modèle idéal jouait donc sa
+douzième 12,5 cents faux, sans aucun moyen de le savoir.
+
+### Ce qui reste à faire
+
+Les **trous latéraux** ne sont pas encore posés dans le calcul d'impédance :
+seule la colonne principale l'est. Un doigté tous trous fermés est donc juste,
+un doigté ouvert ne l'est pas. TUTT, lui, les traite. Le module le dit dans
+son rapport (`trous_latéraux: NON POSÉS`) plutôt que de laisser croire.
+
+Et le **volume équivalent d'anche** — Ninob montre (*Modes propres d'un tronc
+de cône*) qu'une anche solide au petit bout d'un cône se comporte comme une
+cavité ajoutée, qui abaisse les fréquences et **corrige les octaves**. C'est
+ce qui permet à un saxophone, un hautbois ou un basson d'avoir des octaves
+justes. Mon `SingleReedExciter` n'a aucun volume : c'est le prochain manque à
+combler, et les champs `V0`/`V1`/`MREED`/`KREED` sont déjà lus.
