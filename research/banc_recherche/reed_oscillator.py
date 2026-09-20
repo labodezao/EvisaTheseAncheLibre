@@ -71,6 +71,23 @@ class Chamber:
 
 
 @dataclass
+class Source:
+    """Alimentation en débit, avec **impédance interne finie**.
+
+    Une source de débit idéale imposerait `q_in` quoi qu'il arrive, y compris
+    quand la languette ferme la fente : la pression y ferait alors un coup de
+    bélier sans limite, et l'amplitude de l'anche croîtrait indéfiniment.
+
+    Une turbine réelle, comme un soufflet réel, débite **moins** quand la
+    pression monte : `q = q₀ − p/R`. C'est cette pente qui borne l'amplitude.
+    `R` est la pente de la caractéristique (p, q) de ta source — celle que le
+    balayage du facteur `Section` de `Mesures.py` permet de mesurer
+    directement. `inf` redonne la source idéale.
+    """
+    impedance_pa_s_m3: float = 2.0e8     # à recaler sur la caractéristique mesurée
+
+
+@dataclass
 class Slot:
     """Fente et languette : la géométrie qui module le débit."""
     width_m: float = 4.8e-3        # largeur de la fente
@@ -86,16 +103,31 @@ class OscillationResult:
     pressure: np.ndarray           # surpression de chambre (Pa)
     opening: np.ndarray            # hauteur d'ouverture (m)
     flow_out: np.ndarray           # débit sortant (m³/s)
+    final_state: np.ndarray = None  # état final, pour enchaîner une simulation
+
+    @property
+    def radiated(self):
+        """Proxy du son rayonné en champ lointain : `dq/dt`.
+
+        Une anche libre rayonne par le **débit modulé** à travers la fente,
+        pas par la pression de chambre — et en champ lointain le rayonnement
+        d'une source de débit suit sa dérivée. C'est cette grandeur qu'il faut
+        écouter et dont il faut prendre le spectre.
+        """
+        dt = self.t[1] - self.t[0] if self.t.size > 1 else 1.0
+        return np.gradient(self.flow_out) / dt
 
 
 class FreeReedModel:
     """Anche libre multi-tronçon couplée à une chambre alimentée en débit."""
 
     def __init__(self, sections=None, chamber: Chamber | None = None,
-                 slot: Slot | None = None, n_modes: int = 2, zeta: float = 0.004):
+                 slot: Slot | None = None, source: Source | None = None,
+                 n_modes: int = 2, zeta: float = 0.004):
         self.sec = np.asarray(SECTIONS_DEFAULT if sections is None else sections, float)
         self.ch = chamber or Chamber()
         self.slot = slot or Slot()
+        self.src = source or Source()
         self.N = int(n_modes)
         self.zeta = float(zeta)
 
@@ -157,8 +189,21 @@ class FreeReedModel:
         return self.ch.cd * self.slot.width_m * h * np.sqrt(2.0 * p / self.ch.rho)
 
     # ---- dynamique ----------------------------------------------------------
+    def source_flow(self, q_command, p):
+        """Débit réellement fourni : `q₀ − p/R`. Une turbine débite moins
+        quand la pression monte — c'est ce qui empêche le coup de bélier
+        illimité lorsque la languette ferme la fente."""
+        R = self.src.impedance_pa_s_m3
+        if not np.isfinite(R):
+            return q_command
+        return q_command - p / R
+
     def deriv(self, state, q_in):
-        """Dérivée de l'état `[q̇ (N), q (N), p]`. `p` = surpression (Pa)."""
+        """Dérivée de l'état `[q̇ (N), q (N), p]`. `p` = surpression (Pa).
+
+        `q_in` est la **consigne** de la source ; le débit réellement fourni
+        tient compte de son impédance interne (cf. `source_flow`).
+        """
         N = self.N
         dq, q, p = state[:N], state[N:2 * N], state[2 * N]
 
@@ -166,6 +211,7 @@ class FreeReedModel:
         h = float(self.opening(tip))
         q_out = self._flow_out(p, h)
         q_reed = float(self.gamma @ dq)      # volume balayé par la languette
+        q_in = self.source_flow(q_in, p)
 
         # Anche : la surpression de chambre pousse la languette hors de la fente.
         ddq = self.Minv @ (p * self.gamma - self.K @ q - self.C @ dq)
@@ -193,9 +239,11 @@ class FreeReedModel:
             q_stat = np.linalg.solve(self.K, p * self.gamma)
             tip = float(self.phi_tip @ q_stat)
             h = float(self.opening(tip))
-            # p tel que le débit sortant égale le débit entrant
+            # p tel que le débit sortant égale le débit **réellement fourni**
+            # par la source (qui débite moins quand la pression monte)
             denom = self.ch.cd * self.slot.width_m * h
-            p_new = 0.5 * self.ch.rho * (q_in / denom) ** 2 if denom > 0 else p
+            q_eff = max(self.source_flow(q_in, p), 0.0)
+            p_new = 0.5 * self.ch.rho * (q_eff / denom) ** 2 if denom > 0 else p
             if abs(p_new - p) < tol * max(1.0, abs(p)):
                 p = p_new
                 break
@@ -312,8 +360,13 @@ class FreeReedModel:
         sub = max(1, int(oversample))
         dt = 1.0 / (fs * sub)
 
-        s = self.equilibrium(q_in) if state0 is None else np.array(state0, float)
-        s[:N] += 1e-6                    # petite impulsion : on cherche si ça diverge
+        if state0 is None:
+            s = self.equilibrium(q_in)
+            s[:N] += 1e-6                # petite impulsion pour révéler une instabilité
+        else:
+            # reprise exacte : surtout ne rien perturber, sinon on ne peut pas
+            # tester l'hystérésis (la persistance du cycle sous le seuil).
+            s = np.array(state0, dtype=float)
 
         tip = np.zeros(n); pres = np.zeros(n); op = np.zeros(n); fo = np.zeros(n)
         for i in range(n):
@@ -330,4 +383,5 @@ class FreeReedModel:
             h = float(self.opening(y))
             tip[i] = y; pres[i] = s[2 * N]; op[i] = h
             fo[i] = self._flow_out(s[2 * N], h)
-        return OscillationResult(np.arange(n) / fs, tip, pres, op, fo)
+        return OscillationResult(np.arange(n) / fs, tip, pres, op, fo,
+                                 final_state=s.copy())

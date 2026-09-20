@@ -362,3 +362,71 @@ Trois prédictions testables au banc :
 `growth_rate` répond en 1 ms, `instability_band` en une seconde. Tester une
 variante de modèle ne coûte plus une après-midi de simulations mais le temps
 d'écrire la variante. C'est ce qui manquait pour recaler.
+
+---
+
+# Cycle limite stable : l'impédance de source
+
+## Ce qui manquait
+
+Le modèle démarrait mais l'amplitude ne se stabilisait pas : 0,84 mm à 1,5×
+le seuil, 2,5 mm à 2,5×, 5 mm à 5×, en croissant encore. Cause identifiée :
+une **source de débit idéale** impose `q_in` quoi qu'il arrive — y compris
+quand la languette ferme la fente. La pression y fait alors un coup de bélier
+sans limite (8550 Pa mesurés), qui relance l'anche de plus belle.
+
+Or une turbine réelle, comme un soufflet réel, **débite moins quand la
+pression monte** : `q = q₀ − p/R`. C'est cette pente qui borne l'amplitude.
+
+`Source(impedance_pa_s_m3=2e8)` est désormais le défaut. `inf` redonne la
+source idéale, pour comparaison.
+
+## Le cycle limite converge
+
+Course crête-crête, tranches de 0,25 s, à 2× le seuil :
+
+| t (s) | 0,50–0,75 | 0,75–1,00 | 1,00–1,25 | 1,50–1,75 | 2,75–3,00 |
+|---|---|---|---|---|---|
+| course | 1,1047 mm | 1,1320 | 1,1358 | **1,1364** | **1,1364** |
+
+**1,1364 mm, figé sur 1,5 s**, avec σ_p ≈ 132 Pa. C'est un vrai cycle limite,
+et c'est une amplitude d'anche d'accordéon.
+
+⚠️ La convergence demande **~1,5 s** : les simulations de 0,9 s concluaient à
+tort que l'amplitude croissait sans fin. Simuler trop court fait dire
+n'importe quoi à un système lent à s'établir.
+
+## Correction : le spectre n'était pas pauvre, je le mesurais mal
+
+J'avais annoncé « 2 harmoniques au-dessus de −30 dB », donc un timbre pauvre.
+C'était faux, pour deux raisons :
+
+1. **Mauvaise grandeur.** Un accordéon rayonne par le **débit modulé** à
+   travers la fente, pas par la pression de chambre. En champ lointain le
+   rayonnement suit `dq/dt`.
+2. **Mauvais fondamental.** Je détectais `f₀` par `argmax`, qui attrape le
+   partiel le plus **fort**. Or la dérivation accentue les aigus de
+   6 dB/octave : le pic migre sur h4, et tous les « harmoniques » étaient
+   comptés par rapport à la mauvaise fréquence.
+
+En comptant les harmoniques du vrai f₀ (120 Hz) sur `dq/dt` : **12
+harmoniques** au-dessus de −30 dB. Le modèle produit bien un timbre riche.
+
+**À retenir pour la suite : la sortie sonore du modèle, c'est `dq/dt`**, pas
+`pressure`. `OscillationResult` fournit `flow_out` pour cela.
+
+## Effet de l'impédance de source sur les seuils
+
+| Source | Seuil de démarrage | Seuil d'étouffement |
+|---|---|---|
+| idéale (`inf`) | 23,0 Pa | 379,8 Pa |
+| `R = 2·10⁸` (défaut) | 25,8 Pa | 379,8 Pa |
+| `R = 5·10⁷` | 35,9 Pa | 379,8 Pa |
+
+Le seuil de démarrage **monte** quand la source est plus molle — elle aide
+moins au démarrage. Le seuil d'étouffement, lui, ne bouge pas : il est fixé
+par la géométrie de saturation, pas par la source. Cohérent.
+
+`R` est la pente de la caractéristique (p, q) de ta turbine — celle que le
+balayage du facteur `Section` de `Mesures.py` mesure directement. **C'est le
+premier paramètre à recaler.**

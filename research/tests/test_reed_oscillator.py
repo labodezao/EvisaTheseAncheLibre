@@ -51,13 +51,40 @@ def test_pas_de_debit_inverse():
 
 
 def test_equilibre_conserve_la_masse():
-    """À l'équilibre, ce qui sort doit égaler ce qui entre."""
+    """À l'équilibre, ce qui sort égale ce que la source **fournit réellement**.
+
+    Ce n'est pas la consigne `q₀` : la source a une impédance interne finie et
+    débite `q₀ − p/R`. Confondre les deux ferait croire à une fuite.
+    """
     rm = _rm()
     for q_in in (1e-5, 5e-5):
         st = rm.equilibrium(q_in)
+        p = st[2 * rm.N]
         tip = float(rm.phi_tip @ st[rm.N:2 * rm.N])
-        q_out = rm._flow_out(st[2 * rm.N], float(rm.opening(tip)))
-        assert abs(q_out - q_in) / q_in < 1e-6
+        q_out = rm._flow_out(p, float(rm.opening(tip)))
+        q_fourni = rm.source_flow(q_in, p)
+        assert abs(q_out - q_fourni) / q_fourni < 1e-6
+
+
+def test_source_ideale_fournit_la_consigne():
+    """Impédance infinie = source de débit idéale : elle fournit exactement la
+    consigne, quelle que soit la pression."""
+    from banc_recherche.reed_oscillator import Source
+    rm = _rm(source=Source(impedance_pa_s_m3=float("inf")))
+    assert rm.source_flow(1e-5, 500.0) == 1e-5
+    st = rm.equilibrium(1e-5)
+    tip = float(rm.phi_tip @ st[rm.N:2 * rm.N])
+    q_out = rm._flow_out(st[2 * rm.N], float(rm.opening(tip)))
+    assert abs(q_out - 1e-5) / 1e-5 < 1e-6
+
+
+def test_source_molle_debite_moins_sous_pression():
+    """Une source réelle débite moins quand la pression monte — c'est cette
+    pente qui borne l'amplitude de l'anche."""
+    from banc_recherche.reed_oscillator import Source
+    rm = _rm(source=Source(impedance_pa_s_m3=2.0e8))
+    assert rm.source_flow(1e-5, 0.0) == 1e-5
+    assert rm.source_flow(1e-5, 500.0) < 1e-5
 
 
 def test_equilibre_est_un_point_fixe():
