@@ -69,7 +69,7 @@ class BoreDat:
     hole_dl: np.ndarray = field(default_factory=lambda: np.zeros(0))
     hole_len: np.ndarray = field(default_factory=lambda: np.zeros(0))
     ofilib: np.ndarray = field(default_factory=lambda: np.zeros(0))
-    temperature_c: tuple = (20.0, 20.0)   # (pavillon, embouchure)
+    temperature_c: tuple = (20.0, 20.0)   # (embouchure, pavillon), comme TUTT
     a4_hz: float = 440.0
     embouchure: dict = field(default_factory=dict)
     fingerings: list = field(default_factory=list)   # [(nom, [0/1, ...]), ...]
@@ -443,7 +443,11 @@ def input_impedance(dat: BoreDat, freqs, n_slices=None,
     ⚠️ Trous latéraux non posés — cf. l'avertissement du module.
     """
     freqs = np.asarray(freqs, dtype='float64')
-    t_pav, t_emb = dat.temperature_c
+    # Le fichier donne les températures « en haut et en bas de la ligne » : en
+    # haut, c'est l'embouchure — là où souffle le musicien, donc la chaude.
+    # Les inverser refroidit le bec et réchauffe le pavillon, soit l'exact
+    # contraire de ce qui se passe.
+    t_emb, t_pav = dat.temperature_c
     n = len(dat.lengths)
     if n == 0:
         raise ValueError("géométrie vide : le fichier a-t-il été lu ?")
@@ -464,6 +468,8 @@ def input_impedance(dat: BoreDat, freqs, n_slices=None,
         x += dat.lengths[i]
         milieu = x - dat.lengths[i] / 2.0          # abscisse depuis le pavillon
         temp = t_pav + (t_emb - t_pav) * np.exp(-(xtot - milieu) / 0.25)
+        # milieu se compte depuis le pavillon : l'exponentielle vaut 1 côté
+        # embouchure (souffle chaud) et s'éteint vers le pavillon (ambiant).
         # on remonte du côté pavillon (DL) vers le côté embouchure (D0)
         M = _matrice_troncon(freqs, dat.dl[i], dat.d0[i], dat.lengths[i],
                              temp, n_slices,
@@ -565,3 +571,65 @@ def resonator_from_dat(chemin_ou_dat, fmin=50.0, fmax=4000.0, n_peaks=10,
         'trous_latéraux': 'NON POSÉS dans le calcul d\'impédance',
     }
     return Resonator(modes, name=dat.title or 'perce TUTT'), infos
+
+
+# =============================================================================
+# Conversion tutt25 → tutt43
+# =============================================================================
+
+#: Blocs que TUTT 4.3 exige et que les fichiers d'avant (tutt25, tutt40) n'ont
+#: pas. Chacun s'insère **après la ligne de valeurs** qui suit l'étiquette
+#: donnée — pas après l'étiquette elle-même, sinon on sépare une étiquette de
+#: ses valeurs et la lecture Fortran s'arrête sur « Bad real number ».
+_BLOCS_MANQUANTS = (
+    ('IFLUTE', 'MREED', ["MREED KREED LBUCC TANDELTA", "{mreed} {kreed} 0.1 1."]),
+    ('AUTO ENTRETIEN', 'IMPADM',
+     ["DONNEES CONCERNANT LE CALCUL IMPADM (-1 si impedance, 1 si admittance)",
+      "-1"]),
+)
+
+
+def to_tutt43(chemin_entree, chemin_sortie, mreed=0.0, kreed=800.0):
+    """Convertit un fichier TUTT ancien (tutt25/tutt40) au format 4.3.
+
+    Une banque de perces constituée sur des années n'est pas homogène : le
+    format a gagné des blocs en route. Trois différences, toutes mécaniques :
+
+    1. **l'en-tête de version** (deux lignes) que 4.3 lit en premier ;
+    2. le bloc **`MREED`/`KREED`** — masse et raideur de l'anche solide. Les
+       anciens fichiers ne l'ont pas. Les valeurs par défaut ne comptent que
+       pour une anche solide, et il faut les renseigner pour une justesse fine ;
+    3. le bloc **`IMPADM`** : zéros de l'impédance (−1) ou de l'admittance (+1).
+
+    Plus un détail qui bloque la lecture : dans la table des doigtés,
+    `'fa    '100` doit devenir `'fa    ' 100`. Sans séparateur après le nom,
+    Fortran s'arrête sur « Bad integer ».
+
+    Renvoie le chemin écrit.
+    """
+    import pathlib
+    lignes = _lire_lignes(chemin_entree)
+    presents = {marqueur for _, marqueur, _ in _BLOCS_MANQUANTS
+                if any(marqueur in l.upper() for l in lignes)}
+
+    out = []
+    if not (lignes and 'VERSION FORMAT' in lignes[0].upper()):
+        out += ["VERSION FORMAT DE FICHIER D'ENTREE AVEC MENTION DE LA VERSION DE TUTT",
+                "TUTT43_2024.11"]
+
+    attendu = None                      # bloc à poser après la prochaine ligne
+    for ligne in lignes:
+        out.append(re.sub(r"'(\d)", r"' \1", ligne))
+        if attendu is not None:         # on vient d'écrire la ligne de valeurs
+            out += attendu
+            attendu = None
+            continue
+        haut = ligne.upper()
+        for ancre, marqueur, bloc in _BLOCS_MANQUANTS:
+            if ancre in haut and marqueur not in presents:
+                attendu = [b.format(mreed=mreed, kreed=kreed) for b in bloc]
+                break
+
+    p = pathlib.Path(chemin_sortie)
+    p.write_text("\n".join(out) + "\n", encoding='latin-1')
+    return str(p)

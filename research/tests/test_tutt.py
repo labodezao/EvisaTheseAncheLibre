@@ -287,3 +287,73 @@ def test_une_cavite_au_bec_abaisse_les_frequences(tmp_path):
         f = tutt.resonances(d, 50, 2000, n_peaks=1, reed_volume_m3=v)[0][0]
         assert f <= ref
         ref = f
+
+
+def test_to_tutt43_ajoute_les_blocs_manquants(tmp_path):
+    """Les fichiers d'avant (tutt25/tutt40) n'ont pas tous les blocs de 4.3.
+
+    Et chacun doit se poser **après la ligne de valeurs**, pas après
+    l'étiquette : glisser un bloc entre une étiquette et ses valeurs coupe la
+    lecture Fortran sur « Bad real number », ce qui m'est arrivé.
+    """
+    vieux = tmp_path / "vieux.dat"
+    vieux.write_text(
+        "un titre\n"
+        "PARAMETRES PHYSIQUES DE L' AIR :RHOA,P0,GAMMA,CV,ETA,TONEW,DLAMBA\n"
+        "1.204 1.014E5 1.400 719. 1.8E-5 11.7 2.4E-2\n"
+        "NOMBRE DE TRONCONS DE LA LIGNE (-1) N\n0\n"
+        "BAS DE LIGNE OUVERT OU FERME C1 (0=OUVERT, 1=FERME)\n0\n"
+        "TABLEAU PERCE D0 (DIMENSION N+1)\n0.015\n"
+        "TABLEAU PERCE DL (DIMENSION N+1)\n0.015\n"
+        "TABLEAU DES TRONCONS DE LA LIGNE PRINCIPALE L (DIMENSION N+1)\n0.5\n"
+        "TEMPERATURE DE L' AIR EN HAUT ET EN BAS DE LA LIGNE (CELSIUS)\n25. 20.\n"
+        "FREQUENCE DU LA DE REFERENCE FLA\n440\n"
+        "TABLE DES DOIGTES\n"
+        " 1  1 'fa    '100\t1\t1\n"
+        "DONNEES CONCERNANT L' EMBOUCHURE\n"
+        "IFLUTE FCM FCP G0 LA0 alpha E0 V0 V1\n"
+        "1 0. 0. 10.e-3 1.4e-2 1. 1.e-4 1.e10 0.\n"
+        "DONNEES CONCERNANT L' AUTO ENTRETIEN GA GB\n700. 1.\n"
+        "COEFFICIENTS SUR LES CRITERES CJUS CTIM CVOL CEMI CLIB\n1. 0. 0. 0. 0.\n",
+        encoding='latin-1')
+
+    neuf = tutt.to_tutt43(vieux, tmp_path / "neuf.dat")
+    lignes = [l for l in open(neuf, encoding='latin-1').read().split('\n')]
+
+    assert 'VERSION FORMAT' in lignes[0].upper()
+    i_mreed = next(i for i, l in enumerate(lignes) if 'MREED' in l.upper())
+    i_iflute = next(i for i, l in enumerate(lignes) if 'IFLUTE' in l.upper())
+    assert i_mreed == i_iflute + 2          # après l'étiquette ET ses valeurs
+
+    i_imp = next(i for i, l in enumerate(lignes) if 'IMPADM' in l.upper())
+    i_auto = next(i for i, l in enumerate(lignes) if 'AUTO ENTRETIEN' in l.upper())
+    assert i_imp == i_auto + 2
+    assert lignes[i_auto + 1].strip().startswith('700')   # valeurs préservées
+
+    assert "' 100" in '\n'.join(lignes)      # séparateur après le nom du doigté
+
+
+def test_to_tutt43_ne_double_pas_un_bloc_deja_present(tmp_path):
+    d = _dat_cylindre(tmp_path)              # format 4.3, MREED déjà là
+    neuf = tutt.to_tutt43(d, tmp_path / "n.dat")
+    txt = open(neuf, encoding='latin-1').read()
+    assert txt.upper().count('MREED') == 1
+
+
+def test_le_souffle_chaud_est_du_cote_de_l_embouchure(tmp_path):
+    """Le fichier donne les températures « en haut et en bas de la ligne ».
+
+    En haut, c'est l'embouchure — là où souffle le musicien. Les inverser
+    refroidit le bec et réchauffe le pavillon, soit l'exact contraire de ce
+    qui se passe, et décale la note puisque la célérité suit la température.
+    """
+    d = tutt.read_dat(_dat_cylindre(tmp_path, 0.5, 0.015))
+    d.temperature_c = (30.0, 10.0)           # embouchure chaude, pavillon froid
+    chaud_au_bec = tutt.resonances(d, 50, 1200, n_peaks=1)[0][0]
+
+    d.temperature_c = (10.0, 30.0)           # l'inverse
+    froid_au_bec = tutt.resonances(d, 50, 1200, n_peaks=1)[0][0]
+
+    # les deux diffèrent : la température n'est pas moyennée le long du tube,
+    # elle est pondérée exponentiellement vers l'embouchure
+    assert abs(1200 * np.log2(chaud_au_bec / froid_au_bec)) > 5.0

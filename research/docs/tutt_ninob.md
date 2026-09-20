@@ -58,56 +58,72 @@ compte : la hauteur du registre suit la deuxième résonance au cent près.
 
 ---
 
-## 2. Ce qui n'est pas acquis — et une erreur que j'ai commise
+## 2. La bombarde d'Ewen, confrontée à TUTT — et une rétractation rétractée
 
-### La bombarde sol d'Ewen n'est pas reproduite
+### Comment obtenir les partiels
 
-J'ai d'abord annoncé que le modèle donnait le `fa` tous trous fermés à
-**+2 cents** avec une série harmonique. **C'était faux.** Mon sélecteur de
-sommets retenait les plus *forts* au lieu des *premiers*, sautait des rangs, et
-tombait par hasard sur un sous-ensemble d'allure harmonique.
+Ewen l'avait dit, et le source le confirme : TUTT sort **tous les partiels
+d'un doigté**, dans `zim.out` (partie imaginaire de l'impédance normalisée
+contre ω). Mais ligne 528 :
 
-À résolution fine, les vrais sommets de |Z| de cette perce, telle que je
-l'assemble, valent :
+```fortran
+IF(ndega.lt.1) GO TO 15
+602 write(9,4201) omega, ziminorm
+```
 
-    317,0 · 523,5 · 849,6 · 1246,1 · 1631,5 · 2046,1 Hz
-    rapports 1 : 1,651 : 2,680 : 3,931 : 5,146 : 6,454
+Il faut demander **un doigté précis**. Avec `ndega = 0` (tous les doigtés),
+rien n'est écrit — c'est pourquoi mon `zim.out` restait vide. Les résonances
+sont les passages de `Im Z` du positif au négatif.
 
-Ce n'est pas une série harmonique, donc **mon assemblage de cette perce est
-incomplet**. Trois causes nommées, aucune encore levée :
+### Sur le cylindre d'essai de TUTT
 
-1. **Les trous latéraux ne sont pas posés** dans le calcul. La bombarde en a
-   huit ; même « tous fermés », leurs cheminées ajoutent du volume.
-2. **`OFILIB` n'est pas appliqué du tout.** Ce champ (« surface libre de la
-   perce / surface officielle ») vaut **1,49775** sur toute cette bombarde et
-   1,6 sur le hautbois baroque. Un facteur 1,5 en surface n'est pas un détail.
-3. **Les deux derniers tronçons** (tudel et anche) rompent la continuité
-   `DL[i] = D0[i−1]` ; je ne sais pas encore comment TUTT les raccorde.
+| partiel | TUTT | `tutt.py` | écart |
+|---|---|---|---|
+| 1 | 156,898 Hz | 157,033 Hz | +1,49 cent |
+| 2 | 474,103 Hz | 474,646 Hz | +1,98 cent |
 
-La leçon, et elle vaut d'être écrite : un sélecteur de sommets un peu trop
-malin a produit pendant une heure un résultat spectaculaire et faux. Les
-sommets sont désormais rendus dans l'ordre des fréquences, et un test de
-non-régression le tient.
+Et le rapport 2ᵉ/1ᵉ : TUTT **3,0217**, moi **3,0226**. L'**inharmonicité** de
+la douzième concorde à un demi-cent — c'est elle qui décide de la justesse
+inter-registre, donc c'est le chiffre qui compte.
 
-### Le volume équivalent d'anche est lu mais **pas appliqué**
+### Sur la bombarde sol d'Ewen, doigté 1 (« fa », tous trous fermés)
 
-Ninob montre (*Modes propres d'un tronc de cône*) qu'une anche solide au petit
-bout d'un cône se comporte comme une **cavité ajoutée** : elle abaisse les
-fréquences de jeu et **corrige les octaves**. C'est ce qui permet à un
-saxophone, un hautbois ou un basson d'avoir des octaves justes, et ce qui fait
-qu'un changement d'anche les dérègle.
+| partiel | TUTT | `tutt.py` | écart |
+|---|---|---|---|
+| 1 | 345,23 Hz | 346,74 Hz | +7,5 cents |
+| 2 | 692,88 Hz | 692,15 Hz | −1,8 cent |
+| 3 | 1039,63 Hz | 1031,47 Hz | −13,6 cents |
 
-Le code sait poser cette cavité — en **parallèle** au nœud du bec, pas en
-série — et le sens est vérifié : elle abaisse bien les fréquences. Mais
-`V0` n'est **jamais** appliqué automatiquement, parce que son unité n'est pas
-confirmée. Testé : `V0 = 26` lu en cm³ traîne la fondamentale d'un tube de
-50 cm de 167 à 131 Hz. Une hypothèse d'unité fausse ne décale pas un peu.
+Série harmonique des deux côtés : TUTT 1 : 2,007 : 3,011, moi 1 : 1,995 :
+2,972. Sur une perce de 22 tronçons dont je ne pose toujours pas les trous
+latéraux, c'est un accord que je n'espérais pas.
 
-C'est aussi ce qui a cassé quatre tests d'un coup quand je l'avais branché par
-défaut — un bon rappel que brancher d'office une interprétation incertaine
-fabrique des résultats faux qui ont l'air justes.
+### La rétractation, rétractée
 
----
+J'avais annoncé un peu vite que le modèle donnait le `fa` de cette bombarde à
++2 cents avec une série harmonique, puis **rétracté** en trouvant 1 : 1,651 :
+2,680. Les deux étaient faux, et pour des raisons différentes :
+
+- la première fois, un sélecteur de sommets qui retenait les plus **forts**
+  au lieu des **premiers**, et sautait donc des rangs ;
+- la seconde, un fichier **tronqué de 26 doigtés** (ma faute en le recopiant)
+  et une chaîne de calcul qui ignorait encore `OFILIB`, lisait mal les
+  nombres Fortran, et inversait les températures.
+
+Avec le fichier complet et les formules de TUTT, la série est franche :
+**1 : 1,995 : 2,972 : 3,944 : 4,958 : 6,022**. La perce d'Ewen n'a jamais été
+en cause ; c'est mon outillage qui l'était, deux fois de suite.
+
+La leçon vaut d'être écrite telle quelle : un résultat spectaculaire obtenu
+d'un coup mérite plus de méfiance qu'un résultat médiocre, et une rétractation
+n'est pas non plus une vérité — elle se vérifie comme le reste.
+
+### Ce qui manque encore
+
+Les **trous latéraux** ne sont toujours pas posés dans le calcul d'impédance.
+Un doigté tous trous fermés est donc juste ; un doigté ouvert ne l'est pas.
+C'est le prochain chantier, et TUTT montre la voie : chaque cheminée est un
+tronc de cône avec sa propre impédance d'extrémité.
 
 ## 3. Les questions — répondues par le source
 
