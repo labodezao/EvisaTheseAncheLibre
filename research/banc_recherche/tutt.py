@@ -68,7 +68,7 @@ class BoreDat:
     hole_d0: np.ndarray = field(default_factory=lambda: np.zeros(0))
     hole_dl: np.ndarray = field(default_factory=lambda: np.zeros(0))
     hole_len: np.ndarray = field(default_factory=lambda: np.zeros(0))
-    temperature_c: tuple = (20.0, 20.0)
+    temperature_c: tuple = (20.0, 20.0)   # (pavillon, embouchure)
     a4_hz: float = 440.0
     embouchure: dict = field(default_factory=dict)
     fingerings: list = field(default_factory=list)   # [(nom, [0/1, ...]), ...]
@@ -80,6 +80,35 @@ class BoreDat:
     @property
     def is_flute(self):
         return bool(self.embouchure.get('IFLUTE', 0))
+
+    @property
+    def v0_raw(self):
+        """`V0` tel qu'écrit dans le fichier, **sans interprétation**."""
+        return float(self.embouchure.get('V0', 0.0) or 0.0)
+
+    def reed_volume_m3(self, unit_cm3=True):
+        """Volume équivalent d'anche déduit de `V0`. **À demander explicitement.**
+
+        Ninob montre (*Modes propres d'un tronc de cône*) qu'une anche solide
+        au petit bout d'un cône se comporte comme une **cavité ajoutée** :
+        elle abaisse les fréquences de jeu et corrige les octaves. C'est ce
+        qui permet à un saxophone, un hautbois ou un basson d'avoir des
+        octaves justes, et ce qui fait qu'un changement d'anche les dérègle.
+
+        Mais deux choses me manquent pour l'appliquer sans risque : l'**unité**
+        de `V0`, et le sens des valeurs sentinelles (`1.e10`). Une hypothèse
+        d'unité fausse ne donne pas un résultat un peu décalé — testé, `V0=26`
+        lu en cm³ traîne la fondamentale d'un tube de 50 cm de 167 à 131 Hz.
+
+        C'est pourquoi rien n'est appliqué par défaut : il faut passer
+        `reed_volume_m3=` explicitement à `input_impedance` ou `resonances`.
+        Brancher d'office une interprétation incertaine, c'est se fabriquer
+        des résultats faux qui ont l'air justes.
+        """
+        v = self.v0_raw
+        if v <= 0.0 or v >= 1e6:          # sentinelle « pas de cavité »
+            return 0.0
+        return v * (1e-6 if unit_cm3 else 1.0)
 
     def __repr__(self):
         return (f"<BoreDat {self.title[:40]!r} {len(self.lengths)} tronçons, "
@@ -306,53 +335,90 @@ def _impedance_rayonnement(freqs, radius_m, flanged=False):
     return zc * (0.25 * ka ** 2 + 1j * 0.6133 * ka)
 
 
-def input_impedance(dat: BoreDat, freqs, n_slices=None):
+def input_impedance(dat: BoreDat, freqs, n_slices=None,
+                    reed_volume_m3=None):
     """Impédance d'entrée de la colonne principale, vue de l'embouchure.
 
-    On remonte de la sortie vers l'entrée : le bout ouvert présente son
-    impédance de rayonnement, chaque tronçon la transforme.
+    **Sens de lecture des tableaux.** TUTT décrit l'instrument du *pavillon*
+    (indice 0) vers l'*embouchure* (indice N) — le manuel le dit : « pour le
+    tronçon N+1 décrivant l'embouchure… ». Dans chaque tronçon, `DL` est le
+    côté pavillon et `D0` le côté embouchure ; la continuité se lit
+    `DL[i] = D0[i-1]`.
+
+    On part donc du **bout ouvert** (`DL[0]`, la sortie du pavillon), qui
+    porte l'impédance de rayonnement, et on remonte tronçon par tronçon
+    jusqu'à l'embouchure.
+
+    Lire à l'envers ne donne pas un résultat « un peu faux » mais un
+    instrument qui n'existe pas : sur la bombarde sol d'Ewen, les rapports de
+    résonances passent de 1 : 1,99 : 2,96 (série harmonique, ce que doit
+    donner un cône) à 1 : 1,79 : 2,63 (rien de connu).
 
     ⚠️ Trous latéraux non posés — cf. l'avertissement du module.
     """
     freqs = np.asarray(freqs, dtype='float64')
-    t0, t1 = dat.temperature_c
+    t_pav, t_emb = dat.temperature_c
     n = len(dat.lengths)
     if n == 0:
         raise ValueError("géométrie vide : le fichier a-t-il été lu ?")
 
-    r_bout = float(dat.dl[-1]) / 2.0
+    r_bout = float(dat.dl[0]) / 2.0          # sortie du pavillon
     if dat.closed_bottom:
         Z = np.full(freqs.shape, 1e12, dtype='complex128')
     else:
         Z = _impedance_rayonnement(freqs, r_bout).astype('complex128')
 
-    for i in range(n - 1, -1, -1):
+    for i in range(n):
         frac = (i + 0.5) / n
-        temp = t0 + (t1 - t0) * frac
-        M = _matrice_troncon(freqs, dat.d0[i], dat.dl[i], dat.lengths[i],
+        temp = t_pav + (t_emb - t_pav) * frac
+        # on remonte du côté pavillon (DL) vers le côté embouchure (D0)
+        M = _matrice_troncon(freqs, dat.dl[i], dat.d0[i], dat.lengths[i],
                              temp, n_slices)
         A, B, C, D = M[0, 0], M[0, 1], M[1, 0], M[1, 1]
         Z = (A * Z + B) / (C * Z + D)
+
+    v = reed_volume_m3          # jamais déduit du fichier : cf. reed_volume_m3()
+    if v and v > 0:
+        # cavité d'anche **en parallèle** : les deux débouchent sur le même
+        # nœud, celui du bec. En série elle allongerait le tuyau ; en
+        # parallèle elle l'assouplit, ce qui n'est pas la même chose.
+        w = 2 * np.pi * freqs
+        Z = 1.0 / (1.0 / Z + 1j * w * (v / (RHO * CELERITE ** 2)))
     return Z
 
 
 def resonances(dat: BoreDat, fmin=50.0, fmax=4000.0, n_points=6000,
-               n_peaks=10, n_slices=None):
+               n_peaks=10, n_slices=None, reed_volume_m3=None,
+               prominence_db=30.0):
     """Fréquences et facteurs Q des sommets de |Z| — les vraies résonances.
 
     C'est la sortie qui alimente `hybrid.modes_from_partials`, et donc la
     raison d'être du module : des résonances **calculées sur la géométrie**
     au lieu d'une série idéale supposée.
+
+    Les sommets sont rendus dans l'**ordre des fréquences**, en partant du
+    plus grave : `prominence_db` écarte au passage les bosses trop faibles
+    pour être des résonances. Prendre les plus *forts* au lieu des premiers
+    donnerait des rangs non consécutifs, et tout calcul d'octave ou de
+    douzième fait dessus serait faux sans prévenir.
     """
     f = np.linspace(float(fmin), float(fmax), int(n_points))
-    mod = np.abs(input_impedance(dat, f, n_slices))
+    mod = np.abs(input_impedance(dat, f, n_slices, reed_volume_m3))
 
     interieur = np.arange(1, mod.size - 1)
     sommets = interieur[(mod[1:-1] > mod[:-2]) & (mod[1:-1] > mod[2:])]
     if sommets.size == 0:
         return [], [], []
-    sommets = sommets[np.argsort(mod[sommets])[::-1][:int(n_peaks)]]
-    sommets = np.sort(sommets)
+
+    # Prendre les **premiers** sommets, pas les plus forts. Une série de
+    # résonances est ordonnée en fréquence : retenir les plus hauts sommets
+    # ramasse des rangs non consécutifs, et l'« octave » calculée ensuite ne
+    # veut plus rien dire. Sur un cône nu, la fondamentale est rarement le
+    # sommet le plus fort — c'est exactement là que je me suis fait avoir.
+    garde = mod[sommets] >= mod[sommets].max() * 10 ** (-prominence_db / 20.0)
+    sommets = sommets[garde][:int(n_peaks)]
+    if sommets.size == 0:
+        return [], [], []
 
     freqs, qs, pics = [], [], []
     for k in sommets:

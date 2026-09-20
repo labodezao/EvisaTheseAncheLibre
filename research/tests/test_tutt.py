@@ -205,3 +205,48 @@ def test_le_pont_conserve_les_Q_calcules(tmp_path):
     res, _ = tutt.resonator_from_dat(d, 50, 2000, n_peaks=4)
     for mode, q in zip(res.modes, qs):
         assert mode.q == pytest.approx(q, rel=1e-6)
+
+
+def test_les_resonances_sortent_dans_l_ordre_des_frequences(tmp_path):
+    """Régression : retenir les sommets les plus **forts** casse la série.
+
+    Une série de résonances est ordonnée en fréquence. Prendre les plus forts
+    ramasse des rangs non consécutifs, et l'octave calculée dessus est fausse
+    sans prévenir — c'est ce qui m'a fait annoncer une série harmonique sur
+    une bombarde dont les résonances valent en réalité 1 : 1,65 : 2,68.
+    """
+    d = tutt.read_dat(_dat_cylindre(tmp_path, 0.5, 0.015))
+    freqs, _, pics = tutt.resonances(d, 50, 2000, n_peaks=5)
+    assert freqs == sorted(freqs)
+    # et ce sont bien les **premières**, donc des rangs consécutifs : sur un
+    # cylindre fermé à l'anche, les rapports doivent être 1, 3, 5, 7…
+    for i, f in enumerate(freqs):
+        assert f / freqs[0] == pytest.approx(2 * i + 1, rel=0.04)
+
+
+def test_le_volume_d_anche_n_est_jamais_applique_tout_seul(tmp_path):
+    """`V0` est lu mais **pas** interprété par défaut.
+
+    Son unité n'est pas confirmée, et une hypothèse fausse ne décale pas un
+    peu : lue en cm³, la valeur 26 du fichier d'exemple traîne la fondamentale
+    d'un tube de 50 cm de 167 à 131 Hz. Tant que ce n'est pas tranché, il faut
+    le demander explicitement.
+    """
+    d = tutt.read_dat(_dat_cylindre(tmp_path, 0.5, 0.015))
+    assert d.v0_raw == pytest.approx(26.0)
+    assert d.reed_volume_m3() == pytest.approx(26e-6)
+
+    sans = tutt.resonances(d, 50, 2000, n_peaks=1)[0][0]
+    avec = tutt.resonances(d, 50, 2000, n_peaks=1, reed_volume_m3=26e-6)[0][0]
+    assert sans == pytest.approx(343.0 / (4 * 0.5), rel=0.06)   # non appliqué
+    assert avec < 0.9 * sans                                    # et il change tout
+
+
+def test_la_cavite_d_anche_abaisse_les_frequences(tmp_path):
+    """Sens vérifié contre Ninob : l'anche « abaisse les fréquences en jeu »."""
+    d = tutt.read_dat(_dat_cylindre(tmp_path, 0.5, 0.015))
+    ref = tutt.resonances(d, 50, 2000, n_peaks=1)[0][0]
+    for v in (1e-8, 1e-7, 1e-6):
+        f = tutt.resonances(d, 50, 2000, n_peaks=1, reed_volume_m3=v)[0][0]
+        assert f <= ref
+        ref = f
