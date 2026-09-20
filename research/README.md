@@ -62,6 +62,14 @@ research/
                              cycle limite, hystérésis sous-critique
     calibrate.py             calage d'une anche du modèle sur un son mesuré
                              (inverse le décalage dû au ressort d'air)
+    hybrid.py                modèle physique GÉNÉRALISÉ (McIntyre-Schumacher-
+                             Woodhouse) : anche libre, anche simple, anche double,
+                             archet ; perce cylindrique/conique, corde, cavité
+    identify.py              identification hybride depuis un son : conicité,
+                             position d'archet, pente spectrale, nuance — en
+                             séparant ce qui est mesuré de ce qui est supposé
+    embedded.py              moteur TEMPS RÉEL embarquable (biquads + non-linéarité)
+                             et génération du C pour STM32, sans ordinateur
     timbre.py                descripteurs de timbre génériques (bandes, platitude,
                              HPSS, spectre de modulation, bourdon, partiels/inharmonicité) —
                              généralise l'étude OSSO à tout enregistrement (numpy+scipy seuls)
@@ -294,6 +302,76 @@ On injecte des sons, on en extrait la hauteur, on cale une languette dont la
 fait sonner le modèle et on compare les spectres. Sortie = `dq/dt`, le
 rayonnement en champ lointain — une anche rayonne par le débit modulé, pas
 par la pression de chambre.
+
+## Tous les instruments, et le temps réel sur carte (`hybrid` / `embedded`)
+
+`reed_oscillator` ne modélise qu'une chose : l'anche libre. `hybrid.py`
+reprend la même physique dans le cadre qui la dépasse — celui de McIntyre,
+Schumacher & Woodhouse (1983) : l'anche, l'archet et le jet de flûte sont
+**un seul problème**, un excitateur non linéaire couplé à un résonateur
+linéaire.
+
+| famille | excitateur | résonateur | couple |
+|---|---|---|---|
+| accordéon, harmonica | anche libre | chambre (ressort d'air) | (p, q) |
+| clarinette, saxophone | anche simple | perce | (p, q) |
+| bombarde, cornemuse | anche double | perce conique étroite | (p, q) |
+| violon, vielle à roue | frottement d'archet | corde | (v, F) |
+
+L'accordéon est le cas dégénéré : son résonateur n'a **aucun mode**, juste une
+compliance. C'est pour cette raison, et pour elle seule, qu'une anche libre
+impose sa hauteur là où une anche de clarinette la reçoit.
+
+```python
+from banc_recherche import hybrid, identify, embedded
+
+v = hybrid.build('clarinette', 147.0)        # ou saxophone, bombarde, violon…
+r = v.simulate(1.0, level=2500.0, settle=0.3)
+
+ident = identify.identify(son, sr, 'violon') # depuis un vrai enregistrement
+print(ident.rapport())                       # mesuré vs supposé, séparés
+
+p = embedded.params_from_voice(ident.voice)
+embedded.export_c(p, "firmware/voix/")       # moteur + table, prêt à compiler
+```
+
+**Ce que le modèle prédit sans qu'on le lui demande** — même excitateur, seule
+la perce change : clarinette +36,8 dB d'écart impairs/pairs (le son creux, le
+registre à la douzième), saxophone +3,7 dB (série complète). Sur les cordes,
+la loi de Helmholtz `v_archet·(1−β)/β` est retrouvée à 15 % près sans être
+codée nulle part, et au-delà de 0,5 N d'archet le modèle devient chaotique —
+la borne haute du diagramme de Schelleng, le craquement de l'archet trop
+appuyé.
+
+**Identification depuis un son.** Se mesurent vraiment : la hauteur, la
+conicité de la perce (écart pairs/impairs), la position d'archet (le creux
+dans la série harmonique donne β = 1/n — bouclage exact à 1/7 et 1/9), la
+pente spectrale, la nuance. Restent supposés : la famille d'excitateur, les
+dimensions d'anche, la masse de corde. `Identification.rapport()` imprime les
+deux colonnes séparément, parce qu'un paramètre supposé qu'on prend pour
+mesuré est la façon la plus sûre de se tromper longtemps.
+
+**Temps réel sur STM32.** Le RK4 coûte 114 MFLOP/s par voix — une voix et
+demie sur un F4. En passant la partie linéaire en biquads et en ne
+suréchantillonnant que la non-linéarité : **32 MFLOP/s**, soit ~5 voix sur un
+STM32F4 et ~15 sur un H7. Le portage préserve la hauteur à moins d'un cent
+(6,7 cents pour le violon), et le C généré calcule exactement comme la
+référence Python (corrélation 1,000000 sur les premiers échantillons). Il
+compile sans aucun avertissement en `-Wall -Wextra -Wpedantic`, sans
+allocation, sans `printf`, avec `sqrtf` pour seule dépendance à `libm`.
+
+Le Dream SAM5716 n'est pas la bonne puce pour ça : c'est un moteur de lecture
+d'échantillons, pas un DSP à boucle de rétroaction. Un STM32 + un codec, même
+boîte, même prix, et ça calcule vraiment un modèle physique.
+
+### Onglet « Instruments (hybride) »
+
+Choisir une famille, injecter un son (facultatif), écouter, exporter le WAV
+ou **le code C pour la carte**. Le rapport affiche le coût embarqué estimé et
+le nombre de voix tenables.
+
+Détails, limites assumées et expériences de recalage :
+`docs/modele_hybride_generalise.md`.
 
 ## Pourquoi Python (et pas Java)
 

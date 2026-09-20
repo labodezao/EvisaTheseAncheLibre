@@ -131,6 +131,7 @@ def _build(cfg: Config):
     tabs.addTab(_tab_model(state, plot_widget), "Modèle anche")
     tabs.addTab(_tab_sample_model(state, plot_widget), "Sample → modèle")
     tabs.addTab(_tab_physical_synth(state, plot_widget), "Synthèse physique")
+    tabs.addTab(_tab_hybrid(state, plot_widget), "Instruments (hybride)")
 
     win.setCentralWidget(tabs)
     win.resize(1100, 720)
@@ -1360,6 +1361,181 @@ def _tab_physical_synth(state, plot_widget):
     lay.addWidget(plot)
     lay.addWidget(out)
     lay.addWidget(_row(btn_exp))
+    return page
+
+
+def _tab_hybrid(state, plot_widget):
+    """Tous les instruments à excitateur non linéaire, et l'export vers STM32.
+
+    Trois gestes, dans cet ordre :
+
+    1. **choisir une famille** — le son ne dira pas s'il vient d'une anche ou
+       d'un archet, c'est l'a priori qu'on assume ;
+    2. **injecter un son** (facultatif) — il donne la hauteur, la conicité de
+       la perce, la position d'archet, la nuance. Sans son, on part du
+       préréglage d'instrument ;
+    3. **exporter le C** — moteur + table de paramètres, à compiler sur la
+       carte. Le même modèle, sans ordinateur.
+
+    Le rapport sépare toujours **ce qui a été mesuré** de **ce qui a été
+    supposé**. Un paramètre supposé qu'on prend pour mesuré est la façon la
+    plus sûre de se tromper longtemps.
+    """
+    from PyQt6 import QtWidgets
+    import numpy as np
+    from .. import hybrid, identify as idf, embedded as emb
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    plot = plot_widget("Spectre — son injecté vs modèle")
+    out = QtWidgets.QPlainTextEdit(); out.setReadOnly(True)
+    info = QtWidgets.QLabel("Aucun son : le modèle partira du préréglage d'instrument.")
+    info.setWordWrap(True)
+
+    instrument = QtWidgets.QComboBox()
+    instrument.addItems(sorted(hybrid.INSTRUMENTS))
+    instrument.setCurrentText('clarinette')
+
+    note = QtWidgets.QDoubleSpinBox()
+    note.setRange(40.0, 2000.0); note.setValue(147.0); note.setSuffix(" Hz")
+    note.setToolTip("Hauteur visée (ignorée si un son est injecté)")
+
+    dur = QtWidgets.QDoubleSpinBox()
+    dur.setRange(0.2, 5.0); dur.setValue(1.0); dur.setSuffix(" s")
+
+    srate = QtWidgets.QComboBox(); srate.addItems(["48000", "44100", "96000"])
+
+    def load():
+        fn, _ = QtWidgets.QFileDialog.getOpenFileName(
+            page, "Son à identifier (une note tenue)", "",
+            "Audio (*.wav *.flac *.aiff *.aif);;Tous (*)")
+        if not fn:
+            return
+        try:
+            sig, sr = _read_audio(fn)
+        except Exception as e:
+            out.appendPlainText(f"échec lecture : {e}"); return
+        state["hybrid_sample"] = (Path(fn).stem, sig, sr)
+        info.setText(f"son chargé : {Path(fn).stem} ({sig.size/sr:.2f} s, {sr:.0f} Hz)")
+
+    def forget():
+        state.pop("hybrid_sample", None)
+        info.setText("Aucun son : le modèle partira du préréglage d'instrument.")
+
+    def run():
+        nom = instrument.currentText()
+        sample = state.get("hybrid_sample")
+        f_cible = note.value(); d = dur.value(); fs = float(srate.currentText())
+        btn_run.setEnabled(False); out.setPlainText("identification et synthèse…")
+
+        def work(emit):
+            if sample:
+                _, sig, sr = sample
+                ident = idf.identify(sig, sr, nom)
+            else:
+                v = hybrid.build(nom, f_cible)
+                ident = idf.Identification(
+                    voice=v, instrument=nom, f0_hz=f_cible,
+                    suppose={'tout': "préréglage d'instrument, aucun son injecté"})
+                ex = v.exciter
+                ident.level = (0.25 if isinstance(ex, hybrid.BowExciter)
+                               else 2.9e-6 if isinstance(ex, hybrid.FreeReedExciter)
+                               else 0.62 * ex.closing_pressure_pa)
+            res = ident.voice.simulate(d, fs=fs, level=ident.level,
+                                       oversample=8, settle=0.3)
+            p = emb.params_from_voice(ident.voice, samplerate=fs, name=nom)
+            return ident, res, p
+
+        def on_done(r):
+            btn_run.setEnabled(True)
+            ident, res, p = r
+            state["hybrid_params"] = p
+            state["hybrid_audio"] = (ident.instrument, res.response, res.fs)
+
+            f_joue = hybrid.playing_frequency(res.response, res.fs)
+            niv = idf.harmonic_levels(res.response, res.fs, f_joue, 12)
+            cpu = emb.cpu_estimate(p)
+            unite = getattr(ident.voice.exciter, 'control_unit', '')
+            txt = [ident.rapport(), "",
+                   "— ce que le modèle produit —",
+                   f"  hauteur jouée      : {f_joue:.2f} Hz",
+                   f"  amplitude          : {np.ptp(res.response):.4g}",
+                   f"  impairs − pairs    : {idf.odd_even_ratio(niv):+.1f} dB",
+                   f"  pente spectrale    : {idf.spectral_decay(niv):+.1f} dB/octave",
+                   "",
+                   "— coût embarqué —",
+                   f"  {cpu['biquads']} biquads · suréchantillonnage ×{p.oversample}"
+                   f" · interne {p.fs_internal:.0f} Hz",
+                   f"  {cpu['mflops_per_voice']:.1f} MFLOP/s par voix,"
+                   f" état {cpu['state_bytes']} octets",
+                   f"  ≈ {cpu['voices']:.0f} voix sur STM32H7 (480 MHz),"
+                   f" {emb.cpu_estimate(p, 168.0)['voices']:.0f} sur F4 (168 MHz)",
+                   f"  commande de jeu    : {ident.level:.4g} {unite}"]
+            out.setPlainText("\n".join(txt))
+
+            if hasattr(plot, "plot"):
+                plot.clear()
+                courbes = [(res.response, (1, 2))]
+                if sample:
+                    courbes.insert(0, (sample[1][:res.response.size], (0, 2)))
+                for sig, pen in courbes:
+                    sp = np.abs(np.fft.rfft(sig * np.hanning(sig.size)))
+                    fr = np.fft.rfftfreq(sig.size, 1.0 / res.fs)
+                    k = fr < 5000
+                    ref = sp.max() or 1.0
+                    plot.plot(fr[k], 20 * np.log10(np.maximum(sp[k], ref * 1e-6) / ref),
+                              pen=pen)
+
+        def on_failed(msg):
+            btn_run.setEnabled(True); out.setPlainText("erreur : " + msg)
+
+        _run_async(state, work, None, on_done, on_failed)
+
+    def export_wav():
+        a = state.get("hybrid_audio")
+        if not a:
+            out.appendPlainText("\nrien à exporter : lance d'abord la synthèse"); return
+        fn, _ = QtWidgets.QFileDialog.getSaveFileName(page, "Enregistrer le WAV",
+                                                      f"{a[0]}.wav", "WAV (*.wav)")
+        if not fn:
+            return
+        from scipy.io.wavfile import write
+        import numpy as np
+        sig = a[1] / (np.max(np.abs(a[1])) or 1.0)
+        write(fn, int(a[2]), (np.clip(sig, -1, 1) * 32767).astype("int16"))
+        out.appendPlainText(f"→ {fn}")
+
+    def export_c():
+        p = state.get("hybrid_params")
+        if not p:
+            out.appendPlainText("\nrien à exporter : lance d'abord la synthèse"); return
+        d = QtWidgets.QFileDialog.getExistingDirectory(page, "Dossier pour le code C")
+        if not d:
+            return
+        try:
+            for f in emb.export_c(p, d):
+                out.appendPlainText(f"→ {f}")
+            out.appendPlainText(
+                "\nÀ compiler tel quel :\n"
+                "   gcc -std=c99 -O2 hybrid_voice.c ton_main.c -lm\n"
+                "Sur cible : hv_reset(&st) une fois, puis hv_render() par bloc.\n"
+                "Le moteur est le même pour tous les instruments — seule la "
+                "table change.")
+        except Exception as e:
+            out.appendPlainText(f"échec export : {e}")
+
+    btn_load = QtWidgets.QPushButton("Injecter un son"); btn_load.clicked.connect(load)
+    btn_forget = QtWidgets.QPushButton("Oublier le son"); btn_forget.clicked.connect(forget)
+    btn_run = QtWidgets.QPushButton("Identifier et synthétiser"); btn_run.clicked.connect(run)
+    btn_wav = QtWidgets.QPushButton("Exporter le WAV"); btn_wav.clicked.connect(export_wav)
+    btn_c = QtWidgets.QPushButton("Exporter le C (STM32)"); btn_c.clicked.connect(export_c)
+
+    lay.addWidget(_row("Instrument", instrument, "Note", note, "Durée", dur,
+                       "Sortie", srate, btn_run))
+    lay.addWidget(_row(btn_load, btn_forget))
+    lay.addWidget(info)
+    lay.addWidget(plot)
+    lay.addWidget(out)
+    lay.addWidget(_row(btn_wav, btn_c))
     return page
 
 

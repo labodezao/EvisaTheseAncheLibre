@@ -161,3 +161,53 @@ Le principe qui vaut pour toutes : **une expérience utile est une expérience
 dont le résultat serait différent si l'hypothèse était fausse.** Trois fois
 au cours de ce travail, une mesure a contredit un raisonnement qui semblait
 solide.
+
+---
+
+## Priorité 6 — la famille élargie (modèle hybride)
+
+Ajoutées avec `hybrid.py` / `identify.py` / `embedded.py`. Voir
+`modele_hybride_generalise.md`. Elles remplacent des paramètres **supposés**
+par des paramètres **mesurés** — c'est toute leur raison d'être.
+
+### ☐ E14. Impédance d'entrée d'une perce réelle
+**Mesure** : impédance d'entrée d'un chalumeau, d'un corps de clarinette ou
+d'une perce de bombarde, à la méthode deux micros.
+**Avec** : `transfer.py`, déjà dans le dépôt.
+**Ce que ça donne** : `z_peak`, les facteurs Q et les fréquences de mode —
+c'est-à-dire **tout le résonateur**, mesuré au lieu de supposé.
+**Pourquoi c'est la plus rentable des six** : `z_peak` décide si
+l'instrument parle. En dessous de `|∂q/∂Δp| > 1/z_peak`, rien ne s'entretient.
+Actuellement il vaut `20 × ρc/S`, un ordre de grandeur pris dans la
+littérature.
+
+### ☐ E15. Matrice force × position d'archet (vielle à roue)
+**Mesure** : balayer la pression du chien et la position du point de contact,
+relever le régime obtenu (Helmholtz franc / raucous / sifflement).
+**Avec** : une roue, un dynamomètre de cuisine, un micro.
+**Prédiction** : zone de Helmholtz stable sous ~0,3 N avec les paramètres
+actuels ; au-delà de 0,5 N le modèle devient **chaotique** (deux simulations
+à 10⁻⁷ près divergent complètement). C'est le diagramme de Schelleng.
+**Ce que ça teste** : la borne haute de force, que le modèle produit sans
+qu'on la lui ait demandée.
+
+### ☐ E16. Rapport cyclique et équilibre pair/impair
+**Mesure** : sur une anche double ou simple, faire varier la pression de
+souffle et relever à la fois le spectre et (si possible) la fraction de temps
+où l'anche est fermée.
+**Prédiction** : l'écart impairs/pairs fait des allers-retours avec la
+pression (mesuré sur le modèle : 17 → 5 → 27 → 6 dB), et suit le rapport
+cyclique. Une anche fermée près de la moitié du temps éteint ses harmoniques
+paires **même sur une perce conique**.
+**Ce que ça teste** : que la pression de souffle ne change pas seulement la
+nuance mais la **nature** du timbre. Si ça se vérifie, c'est un résultat
+musical autant que physique.
+
+### ☐ E17. Profilage réel sur carte
+**Mesure** : compiler `hybrid_voice.c` sur la cible, chronométrer `hv_render`
+sur un bloc de 64 échantillons, compter les voix tenues sans décrochage.
+**Prédiction** : 32 MFLOP/s par voix, soit ~5 voix sur un STM32F4 à 168 MHz
+et ~15 sur un H7 à 480 MHz.
+**Attention** : l'estimation compte les flops et ignore les accès mémoire et
+la boucle — elle est donc **optimiste de 20 à 40 %**. C'est une prédiction à
+corriger, pas une promesse.
