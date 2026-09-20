@@ -73,9 +73,41 @@ class ReedModel:
                                             modal.bl_sigma(i + 1)[1], self.L)
                                  for i in range(n_modes)])
         # Amortissement modal proportionnel.
-        w = np.sqrt(np.clip(np.linalg.eigvals(self.Minv @ self.K).real, 0, None))
-        self.C = self.M @ np.diag(2 * zeta * w)
+        #
+        # ATTENTION : la base de projection (modes du cantilever UNIFORME)
+        # n'est pas la base propre de l'anche multi-tronçon — `M` porte ici
+        # ~43 % de couplage hors-diagonale. Écrire `C = M @ diag(2ζω)` donne
+        # alors une matrice **non symétrique**, donc pas un amortissement
+        # physique : elle injecte ou dissipe de l'énergie selon la direction
+        # du mouvement, et applique l'amortissement du mode i à une
+        # coordonnée qui mélange les modes (l'ordre de `eigvals` est en plus
+        # arbitraire).
+        #
+        # Forme correcte : on passe par les vecteurs propres Φ (M-orthonormés)
+        # du problème généralisé `K x = ω² M x`, puis
+        #     C = M Φ diag(2ζω) Φᵀ M
+        # qui est symétrique par construction et amortit bien chaque mode
+        # propre de `ζ`.
+        w2, Phi = self._eig_generalise()
+        w = np.sqrt(np.clip(w2, 0.0, None))
+        self.omega = w
+        self.C = self.M @ Phi @ np.diag(2 * zeta * w) @ Phi.T @ self.M
         self.V0 = self.cav.length * self.cav.width * self.cav.height
+
+    def _eig_generalise(self):
+        """Problème aux valeurs propres généralisé `K x = ω² M x`, vecteurs
+        propres M-orthonormés (Φᵀ M Φ = I). Trié par fréquence croissante."""
+        try:
+            from scipy.linalg import eigh
+            w2, Phi = eigh(self.K, self.M)
+        except Exception:
+            # Repli numpy : M est définie positive, on passe par sa racine.
+            vals, vecs = np.linalg.eigh(self.M)
+            Minv_half = vecs @ np.diag(1.0 / np.sqrt(np.clip(vals, 1e-300, None))) @ vecs.T
+            w2, U = np.linalg.eigh(Minv_half @ self.K @ Minv_half)
+            Phi = Minv_half @ U
+        order = np.argsort(w2)
+        return w2[order], Phi[:, order]
 
     def _deriv(self, state, q_in, volume):
         N = self.N
