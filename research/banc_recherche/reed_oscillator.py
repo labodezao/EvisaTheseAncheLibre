@@ -192,7 +192,25 @@ class FreeReedModel:
     def source_flow(self, q_command, p):
         """Débit réellement fourni : `q₀ − p/R`. Une turbine débite moins
         quand la pression monte — c'est ce qui empêche le coup de bélier
-        illimité lorsque la languette ferme la fente."""
+        illimité lorsque la languette ferme la fente.
+
+        **Non borné à zéro, délibérément.** La soupape de cuir bloque le retour
+        à travers la *fente* (cf. `_flow_out`), pas à travers la *source* : si
+        la pression de chambre dépasse ce que le soufflet pousse, de l'air
+        reflue en comprimant celui du soufflet, et c'est physique. Un `max(0,·)`
+        planterait dans le champ de vecteurs un coude qui n'existe pas et
+        déformerait le cycle limite près du pic de pression.
+
+        Mesuré sur l'anche de référence, de 1,2× à 10× le seuil : le terme
+        `p/R` **plafonne entre 5 et 39 %** de la consigne et n'en approche
+        jamais 100 %, sur un facteur 8 de nuance. Le débit fourni reste positif
+        sur 100 % des échantillons. C'est cohérent : plus on pousse, plus la
+        pression monte, mais `R` la borne proportionnellement — le rapport se
+        stabilise au lieu de diverger. L'inversion de signe n'est donc pas un
+        cas limite rare, c'est un cas que le modèle ne produit pas.
+
+        Si elle survenait, ce serait le signe d'une simulation qui diverge — et
+        la borner à zéro ne ferait que le masquer."""
         R = self.src.impedance_pa_s_m3
         if not np.isfinite(R):
             return q_command

@@ -372,3 +372,23 @@ def test_spectral_distance_large_for_different_timbres():
     a = _tone(220.0, dur=1.0, partials=(1.0,))
     b = _tone(880.0, dur=1.0, partials=(1.0, 1.0, 1.0, 1.0))
     assert se.spectral_distance_db(a, b, SR) > 5.0
+
+
+def test_c_header_survives_a_hostile_name():
+    """Un nom libre ne doit pas pouvoir casser l'en-tête généré.
+
+    `name=` est un paramètre libre d'`extract`, donc rien ne garantit qu'il soit
+    inoffensif : un `*/` fermerait le bandeau en avance et ferait passer la
+    suite du nom pour du code. L'invariant n'est pas que le texte disparaisse —
+    il reste lisible dans le commentaire — mais qu'il n'en **sorte** pas.
+    """
+    y = _tone(220.0, dur=0.4, partials=(1.0, 0.5, 0.25))
+    m = sx.extract(y, SR, name="anche */ int pwn(void){return 1;} /*\nsuite")
+    src = se.to_c_header(m)
+
+    assert src.startswith('/*')
+    fin = src.index('*/')                      # la première fermeture...
+    assert src[fin + 2:].lstrip().startswith('#ifndef')   # ...est bien celle du bandeau
+    assert '*/' not in src[:fin]               # rien n'a fermé avant
+    ligne = next(l for l in src.splitlines() if 'Source :' in l)
+    assert ligne.endswith('»') and 'suite' in ligne   # le saut de ligne du nom est replié

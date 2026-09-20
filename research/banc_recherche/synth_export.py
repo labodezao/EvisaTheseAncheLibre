@@ -100,6 +100,19 @@ def _c_ident(name):
     return out.lower()
 
 
+def _c_comment(text):
+    """Texte sûr à l'intérieur d'un commentaire C `/* ... */`.
+
+    Deux choses cassent un en-tête généré : un `*/` dans le nom, qui ferme le
+    commentaire en avance et fait passer le reste pour du code, et un saut de
+    ligne, qui disloque la mise en page. Le nom vient d'un paramètre libre
+    (`extract(..., name=...)`), donc rien ne garantit qu'il soit inoffensif.
+    """
+    out = str(text if text is not None else '')
+    out = out.replace('*/', '* /').replace('/*', '/ *')   # le second : -Wcomment
+    return ' '.join(out.split())
+
+
 def to_c_header(model, path=None, fixed_point=False, guard=None):
     """Génère un en-tête C avec les tables `const` du modèle.
 
@@ -116,7 +129,7 @@ def to_c_header(model, path=None, fixed_point=False, guard=None):
     L = []
     L.append("/* Généré par banc_recherche.synth_export — NE PAS ÉDITER À LA MAIN.")
     L.append(" *")
-    L.append(f" * Source : sample « {model.name} »")
+    L.append(f" * Source : sample « {_c_comment(model.name)} »")
     L.append(f" * f0 = {_f(model.f0_hz)} Hz · {model.samplerate} Hz · {model.duration_s:.2f} s")
     L.append(" *")
     L.append(" * Modèle source -> résonateur :")

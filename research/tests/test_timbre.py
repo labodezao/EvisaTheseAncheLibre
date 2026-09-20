@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from banc_recherche import timbre
 
@@ -65,7 +66,31 @@ def test_modulation_spectrum_detects_known_rate():
     S, freqs, hop = timbre.stft_mag(sig, sr, n_fft=2048, hop_length=256)
     fps = sr / hop
     peaks = timbre.modulation_spectrum(S, freqs, fps, bands=[(20, 20000, 'large')], fmin=0.5, fmax=15)
-    assert abs(peaks['large'][0] - f_mod) < 0.3
+    # en ordre 'freq' (défaut), pics[0] est le plus aigu, pas le dominant :
+    # on demande donc que la modulation connue soit *parmi* les pics trouvés.
+    assert min(abs(p - f_mod) for p in peaks['large']) < 0.3
+
+    # en ordre 'amplitude', pics[0] est bien le dominant — c'est le contrat.
+    by_amp = timbre.modulation_spectrum(S, freqs, fps, bands=[(20, 20000, 'large')],
+                                        fmin=0.5, fmax=15, order='amplitude')
+    assert abs(by_amp['large'][0] - f_mod) < 0.3
+    assert sorted(by_amp['large']) == sorted(peaks['large'])   # mêmes pics, autre ordre
+
+
+def test_modulation_spectrum_rejects_unknown_order():
+    S, freqs, hop = timbre.stft_mag(np.zeros(8192), 44100.0, n_fft=2048, hop_length=256)
+    with pytest.raises(ValueError):
+        timbre.modulation_spectrum(S, freqs, 44100.0 / hop, bands=[(20, 20000, 'large')],
+                                   order='dominance')
+
+
+def test_correct_metric_octave_refuses_empty_input():
+    # sans pic, la moyenne des erreurs vaut nan ; nan < inf étant faux, l'ancien
+    # code renvoyait None, qui explosait plus loin au formatage de l'affichage.
+    with pytest.raises(ValueError):
+        timbre.correct_metric_octave([], [90.0, 120.0])
+    with pytest.raises(ValueError):
+        timbre.correct_metric_octave([1.5, 3.0], [])
 
 
 def test_correct_metric_octave_picks_true_bpm():

@@ -171,11 +171,22 @@ def hpss_energy_ratio(S, **kwargs):
 # Spectre de modulation (généralise `spectre_modulation` de l'étude OSSO)
 # ==============================================================================
 
-def modulation_spectrum(S, freqs, fps, bands=None, fmin=0.3, fmax=15.0, n_peaks=3):
+def modulation_spectrum(S, freqs, fps, bands=None, fmin=0.3, fmax=15.0, n_peaks=3,
+                        order='freq'):
     """Pics de modulation d'enveloppe par bande — cf. `docs/analyse_acoustique_osso.md`
     §3.4. `fps` = trames/seconde de `S` (`sr / hop_length`).
 
-    Renvoie `{nom_bande: array des fréquences de modulation (Hz), décroissant}`.
+    `order` fixe l'ordre des pics renvoyés :
+
+    - `'freq'` (défaut) — **fréquence décroissante**, comportement du script
+      d'origine de l'étude OSSO, conservé pour que ses résultats publiés
+      restent reproductibles à l'identique ;
+    - `'amplitude'` — **dominance décroissante**, c'est-à-dire `pics[0]` = le
+      pic le plus fort. Plus utile hors du contexte OSSO.
+
+    ⚠️ Avec `'freq'`, `pics[0]` n'est **pas** le pic dominant mais le plus
+    aigu. La distinction n'a aucun effet sur `correct_metric_octave`, qui est
+    insensible à l'ordre, mais elle en a un sur tout code qui lit `pics[0]`.
     """
     bands = bands or MODULATION_BANDS
     out = {}
@@ -188,7 +199,14 @@ def modulation_spectrum(S, freqs, fps, bands=None, fmin=0.3, fmax=15.0, n_peaks=
 
         mask = (mfreqs > fmin) & (mfreqs < fmax)
         idx = np.argsort(spec[mask])[::-1][:n_peaks]
-        out[nom] = np.unique(np.round(mfreqs[mask][idx], 2))[::-1]
+        found = np.round(mfreqs[mask][idx], 2)          # déjà par amplitude décroissante
+        if order == 'amplitude':
+            _, first = np.unique(found, return_index=True)
+            out[nom] = found[np.sort(first)]            # dédoublonne sans perdre l'ordre
+        elif order == 'freq':
+            out[nom] = np.unique(found)[::-1]
+        else:
+            raise ValueError("order doit valoir 'freq' ou 'amplitude'")
     return out
 
 
@@ -198,8 +216,20 @@ def correct_metric_octave(peaks, bpm_candidates, subdivisions=None):
     corrige l'erreur d'octave métrique (cf. §3.5 de l'étude OSSO).
 
     Renvoie `(meilleur_bpm, erreur_min, erreurs_par_bpm)`.
+
+    Lève `ValueError` si `peaks` ou `bpm_candidates` est vide : la moyenne des
+    erreurs vaudrait alors `nan`, et `nan < inf` étant faux, le meilleur tempo
+    resterait `None` — un `None` qui se propage silencieusement jusqu'au
+    formatage de l'affichage. Mieux vaut le dire tout de suite.
     """
     subdivisions = subdivisions or SUBDIVISIONS
+    peaks = list(peaks)
+    bpm_candidates = list(bpm_candidates)
+    if not peaks or not bpm_candidates:
+        raise ValueError(
+            "correct_metric_octave a besoin d'au moins un pic de modulation et "
+            "un tempo candidat ; sans quoi aucun tempo ne peut être départagé "
+            f"(reçu {len(peaks)} pic(s), {len(bpm_candidates)} candidat(s))")
     errors_by_bpm = {}
     best_bpm, best_err = None, float('inf')
     for bpm in bpm_candidates:
