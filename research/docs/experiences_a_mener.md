@@ -211,3 +211,25 @@ et ~15 sur un H7 à 480 MHz.
 **Attention** : l'estimation compte les flops et ignore les accès mémoire et
 la boucle — elle est donc **optimiste de 20 à 40 %**. C'est une prédiction à
 corriger, pas une promesse.
+
+### ☐ E18. La loi d'échelle d'un jeu d'anches libres
+**Mesure** : sur une plaque d'anches d'accordéon de récupération — un jeu
+entier, si possible du grave à l'aigu — relever pour chaque languette sa
+longueur, sa largeur, son épaisseur et sa note. Un pied à coulisse suffit ;
+pour l'épaisseur, une cale d'épaisseur ou un palmer d'occasion. La note se
+lit à l'accordeur du dépôt, sans démonter quoi que ce soit.
+**Prédiction du modèle** : similitude géométrique — les trois dimensions en
+`1/f`, donc `m ∝ 1/f³`. En tracer le log : trois droites de pente −1.
+**Ce que ça teste, et pourquoi ça compte** : c'est la loi qui décide si une
+note parle. À cotes fixes, l'amplitude qu'une pression donnée obtient décroît
+en `1/ω²` — au-dessus de 185 Hz la languette du la grave ne module plus rien
+et l'anche devient **muette**, ce qui s'est vu tout de suite en jouant au
+clavier. Si les vraies anches suivent une autre pente (les facteurs changent
+souvent d'épaisseur par registre, en marches plutôt qu'en pente continue),
+c'est le modèle qu'il faut corriger, pas la mesure.
+**Bonus, si une cellule de sommier est accessible** : son volume, à la
+seringue d'eau. Le modèle veut `V ∝ 1/f³` — et ce n'est pas un choix : c'est
+ce qui sort de la condition « le couplage anche↔chambre garde la même force
+d'une note à l'autre ». Une mesure qui contredirait ce `−3` contredirait le
+couplage lui-même.
+**Coût** : zéro, si la plaque d'anches vient d'un accordéon hors service.

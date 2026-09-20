@@ -161,6 +161,11 @@ class RealtimeParams:
     reed_freq_hz: float = 2500.0
     reed_q: float = 4.0
     vena_contracta: float = 0.6
+    #: pression de transition entre écoulement visqueux (linéaire) et
+    #: inertiel (Bernoulli). Quelques pascals : négligeable pour le son,
+    #: mais elle borne la pente du débit en zéro et laisse les notes
+    #: s'éteindre.
+    visc_pa: float = 1.0
     max_open_m: float = 0.0                        # >0 : anche libre (saturation)
     leak_m: float = 0.0
     reed_area_m2: float = 0.0
@@ -287,15 +292,15 @@ class RealtimeVoice:
             dp = level - response
             y = self.reed.step(dp)
             h = max(p.rest_opening_m + y, 0.0)
-            q = (p.vena_contracta * p.width_m * h *
-                 np.sign(dp) * np.sqrt(2.0 * abs(dp) / RHO))
+            q = (p.vena_contracta * p.width_m * h * np.sqrt(2.0 / RHO)
+                 * dp / np.sqrt(abs(dp) + p.visc_pa))
             return q, h
 
         # anche libre : la pression l'ouvre, la soupape interdit le retour
         y = self.reed.step(response)
         h = min(max(p.rest_opening_m + y, p.leak_m), p.max_open_m)
-        q_out = (p.vena_contracta * p.width_m * h *
-                 np.sqrt(2.0 * response / RHO)) if response > 0.0 else 0.0
+        q_out = (p.vena_contracta * p.width_m * h * np.sqrt(2.0 / RHO)
+                 * response / np.sqrt(response + p.visc_pa)) if response > 0.0 else 0.0
         q_src = level
         if p.source_impedance > 0.0:
             q_src -= response / p.source_impedance
@@ -434,6 +439,7 @@ typedef struct {
     float leak;                  /* m, anche libre : fuite résiduelle */
     float src_admit;             /* 1/R du soufflet, 0 = source parfaite */
     float flow_gain;             /* vena*width*sqrt(2/rho), précalculé */
+    float visc_pa;               /* pression de transition visqueux/inertiel */
 
     /* archet */
     float mu_s, mu_d, v_char, bow_speed;
@@ -500,7 +506,12 @@ static inline float hv_exciter(const hv_params *p, hv_state *st,
         float adp;
         if (h < 0.0f) h = 0.0f;              /* l'anche claque sur la table */
         adp = dp < 0.0f ? -dp : dp;
-        return (dp < 0.0f ? -1.0f : 1.0f) * p->flow_gain * h * sqrtf(adp);
+        /* Bernoulli régularisé : dp/sqrt(|dp| + visc). Au-dessus de visc on
+         * retrouve sign(dp)*sqrt(|dp|) ; en dessous la loi devient linéaire,
+         * comme un écoulement visqueux. Sans cela la pente de sqrt est
+         * INFINIE en zéro, et le modèle s'auto-entretient à pression nulle :
+         * une note relâchée ne s'éteint jamais. */
+        return p->flow_gain * h * dp / sqrtf(adp + p->visc_pa);
     }
 
     {   /* anche libre : la pression l'ouvre, la soupape interdit le retour */
@@ -509,7 +520,8 @@ static inline float hv_exciter(const hv_params *p, hv_state *st,
         float q_out = 0.0f, q_src = level;
         if (h < p->leak)     h = p->leak;
         if (h > p->max_open) h = p->max_open;
-        if (response > 0.0f) q_out = p->flow_gain * h * sqrtf(response);
+        if (response > 0.0f)
+            q_out = p->flow_gain * h * response / sqrtf(response + p->visc_pa);
         if (p->src_admit > 0.0f) q_src -= response * p->src_admit;
         return q_src - q_out;
     }
@@ -597,6 +609,7 @@ def to_c_params(params: RealtimeParams, ident=None):
           f"    .leak = {_f(params.leak_m)},",
           f"    .src_admit = {_f(admit)},",
           f"    .flow_gain = {_f(flow_gain)},",
+          f"    .visc_pa = {_f(params.visc_pa)},",
           f"    .mu_s = {_f(params.mu_static)},",
           f"    .mu_d = {_f(params.mu_dynamic)},",
           f"    .v_char = {_f(params.v_char)},",

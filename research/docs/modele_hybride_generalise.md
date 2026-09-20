@@ -403,3 +403,84 @@ cavité ajoutée, qui abaisse les fréquences et **corrige les octaves**. C'est
 ce qui permet à un saxophone, un hautbois ou un basson d'avoir des octaves
 justes. Mon `SingleReedExciter` n'a aucun volume : c'est le prochain manque à
 combler, et les champs `V0`/`V1`/`MREED`/`KREED` sont déjà lus.
+
+---
+
+## 9. Le jouer — et ce que le clavier a révélé
+
+`live.py` compile le C destiné au STM32 en bibliothèque partagée et le pilote
+par `ctypes`. Rien n'est réécrit pour l'occasion : c'est le code de la carte,
+à vitesse native, ce qui en fait aussi une vérification permanente de ce qui
+part sur la carte. Mesuré à 48 kHz : ×137 le temps réel à une voix, ×26 à
+six.
+
+Jouer, c'est mettre le modèle à une épreuve qu'aucune simulation ponctuelle
+ne fait subir : **toutes** les notes, pas une, et jusqu'au relâchement.
+Trois choses fausses sont apparues en trois heures.
+
+### L'anche libre ne suit pas la note si ses cotes ne suivent pas
+
+Au-dessus de 185 Hz, l'accordéon devenait muet. Pas faible : muet. La sortie
+n'était qu'une pression continue — la languette se couchait dans le courant
+d'air et y restait. J'avais gardé les cotes de l'anche du la grave et changé
+la seule fréquence.
+
+C'était prévisible en regardant la force motrice, `p·A/m` : à cotes fixes,
+l'amplitude qu'une pression donnée obtient décroît en `1/ω²`. À 622 Hz la
+languette bouge trente fois moins qu'à 110 Hz, pour un jeu de fente
+inchangé — elle ne module plus rien.
+
+Le facteur d'accordéon ne fait pas autrement : il a une languette **par
+note**. On applique donc une similitude géométrique, la plus simple des lois
+et celle qu'approchent les jeux réels dans un registre :
+
+    L ∝ 1/f,  largeur ∝ 1/f,  épaisseur ∝ 1/f     →  m ∝ 1/f³
+
+ce qui redonne bien `f ∝ e/L²` pour une poutre encastrée.
+
+Le volume de chambre, lui, n'est pas un choix. Pour que le couplage
+anche↔chambre garde la même force d'une note à l'autre, il faut le rapport
+`A²/(C·m·ω²)` constant. En y portant `A ∝ L·l` et `m ∝ L·l·e` avec une
+similitude quelconque `L ∝ f^−λ`, **λ s'élimine** et il ne reste que :
+
+    V ∝ 1/f³
+
+40 cm³ pour le la grave, un dixième de centimètre cube dans l'aigu : l'ordre
+de grandeur des cellules d'un vrai sommier. Un résultat qu'on n'a pas choisi
+est toujours plus solide qu'un paramètre qu'on ajuste.
+
+### Un modèle physique ne joue pas la fréquence qu'on lui dessine
+
+Correction de pavillon, tirage de l'anche, raideur de la chambre : selon la
+note et la famille, l'écart entre la cote dessinée et la hauteur jouée va de
+1 à 40 cents. Sur un clavier, ça s'entend immédiatement.
+
+`_accorder` fait ce que fait un facteur : il mesure ce que la note donne,
+corrige la **cote**, remesure. Deux passes suffisent, l'écart étant presque
+proportionnel à la correction. Ce qu'on corrige est la géométrie, pas la
+sortie — le timbre, le transitoire et le seuil restent ceux de l'instrument
+accordé, et non ceux d'un instrument faux qu'on transposerait.
+
+Sur trois octaves et les sept instruments : écart médian **0,1 à 0,6 cent**,
+aucun au-delà de 7.
+
+### Le silence ne vient pas tout seul
+
+Une note relâchée ne s'éteignait jamais. La cause est dans le débit de
+Bernoulli : `q ∝ √|Δp|` a une pente **infinie** en zéro, donc le modèle
+s'auto-entretient à pression nulle. Le débit est maintenant régularisé,
+`q ∝ Δp/√(|Δp| + p_visc)` — linéaire (visqueux) sous `p_visc`, en racine
+au-dessus, ce qui est la physique d'une fente étroite à très faible vitesse.
+La voix se libère alors en ~350 ms, par extinction physique.
+
+### Mesurer l'échelle de sortie, deux fois plutôt qu'une
+
+La sortie du moteur est une grandeur physique — des pascals dans une perce,
+des mètres par seconde sur une corde — et rien ne la met entre −1 et 1. Le
+facteur est donc mesuré. Deux pièges s'y sont succédé : le mesurer **après**
+l'écrêtage de `Synth` (on lit 1,0 pour tout le monde), puis l'arrêter dès que
+la crête cesse de monter. Une corde frottée monte par paliers — 0,87 puis
+0,98, puis un faux plateau à 0,99, puis 1,5 : le critère s'y laissait
+prendre, sous-estimait la vielle de 25 %, et la saturait ensuite en jeu. On
+rend désormais la durée entière, sur cinq notes de la tessiture, et
+`Synth.render` finit au limiteur doux plutôt qu'au `clip`.

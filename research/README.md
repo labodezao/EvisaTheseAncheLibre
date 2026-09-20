@@ -364,6 +364,65 @@ Le Dream SAM5716 n'est pas la bonne puce pour ça : c'est un moteur de lecture
 d'échantillons, pas un DSP à boucle de rétroaction. Un STM32 + un codec, même
 boîte, même prix, et ça calcule vraiment un modèle physique.
 
+## Jouer le modèle au clavier MIDI (`live`)
+
+Tout ce qui précède calcule juste mais **ne joue pas** : `hybrid` intègre en
+RK4, `embedded.RealtimeVoice` boucle en Python, et l'un comme l'autre mettent
+plusieurs secondes à produire une seconde de son.
+
+La solution était déjà écrite. `embedded` génère un moteur C temps réel pour
+le STM32 ; `live.py` le compile en bibliothèque partagée et l'appelle par
+`ctypes`. **Le même code que sur la carte**, à vitesse native — et donc, en
+prime, une vérification permanente que ce qui part sur la carte fonctionne.
+
+```python
+from banc_recherche import live
+inst = live.build_instrument('cornemuse', lo=48, hi=84)   # une perce par note
+synth = live.Synth(inst, polyphony=6)
+synth.note_on(60, velocity=100)
+bloc = synth.render(256)                                   # float32, mono
+```
+
+Mesuré, à 48 kHz : **×137 le temps réel** à une voix, ×76 à deux, ×40 à
+quatre, ×26 à six. Une préparation d'instrument (49 notes, accordage compris)
+prend environ trois secondes.
+
+**Chaque note a sa propre géométrie** — c'est un modèle physique, pas un
+échantillon transposé. Et chaque note est ensuite **accordée sur le moteur** :
+on mesure ce qu'elle joue vraiment, on corrige la cote, on remesure. Un modèle
+physique ne joue jamais la fréquence qu'on lui dessine (correction de
+pavillon, tirage de l'anche, raideur de la chambre : de 1 à 40 cents selon la
+note). Ce qu'on corrige est la **géométrie**, pas la sortie — le timbre et le
+transitoire restent ceux de l'instrument accordé. Résultat sur trois octaves,
+les sept instruments : **écart médian 0,1 à 0,6 cent**, aucun dépassant 7.
+
+**L'accordéon a fait apprendre quelque chose.** Garder la languette du la
+grave pour jouer dans l'aigu ne donne pas un son aigu : ça ne donne aucun
+son. Au-dessus de 185 Hz la languette se couchait simplement dans le courant
+d'air. Les cotes suivent maintenant la note, par similitude géométrique
+(`L, largeur, épaisseur ∝ 1/f`, donc `m ∝ 1/f³`) — et le volume de chambre en
+`1/f³`, qui n'est pas un choix mais une conséquence : pour que le couplage
+anche↔chambre garde la même force d'une note à l'autre, il faut
+`A²/(C·m·ω²)` constant, où l'exposant de la géométrie s'élimine de lui-même.
+Ça tombe sur l'ordre de grandeur des cellules d'un vrai sommier.
+
+L'attaque n'est pas une enveloppe plaquée : c'est le temps que met
+l'oscillation à s'installer, et un `note_off` ne coupe pas le son — il ramène
+la pression à zéro et **l'oscillation s'éteint d'elle-même**, avec son
+hystérésis. C'est le point de tout l'exercice.
+
+### Onglet « Jouer (MIDI) »
+
+Choisir un instrument, **Préparer**, **▶** pour ouvrir la sortie audio,
+brancher un clavier. Molette (CC1) ou contrôleur à vent (CC2/CC11) pour la
+nuance, réévaluée à chaque bloc — toutes les 5 ms. Un clavier de test à
+l'écran permet de jouer sans matériel MIDI, et l'export WAV enregistre
+l'attaque, la tenue et l'extinction physique.
+
+L'entrée MIDI demande `mido` + `python-rtmidi` : `pip install -e ".[live]"`.
+Le reste marche sans — le moteur se compile avec le `cc` du système et sort
+par `sounddevice`.
+
 ### Onglet « Instruments (hybride) »
 
 Choisir une famille, injecter un son (facultatif), écouter, exporter le WAV

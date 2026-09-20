@@ -832,14 +832,63 @@ def _wind(exciter, f0, kind, n_modes, q, bore_mm, peak_ratio, name,
     return HybridVoice(exciter, res, name=name)
 
 
-def accordeon(f0_hz=110.0, volume_m3=40e-6, **kw):
+ACCORDEON_REF_HZ = 110.0     # l'anche dont les cotes servent de référence
+
+
+def accordeon(f0_hz=110.0, volume_m3=None, **kw):
     """Anche libre sur chambre fermée.
 
     Le seul de la famille dont le résonateur n'a **aucun mode** : juste une
     compliance. C'est pourquoi l'anche impose sa hauteur au lieu de la
     recevoir d'un tuyau — et pourquoi `f0_hz` règle ici la languette
     elle-même, pas une longueur de perce.
+
+    **Les cotes suivent la note.** Garder la languette du la grave pour jouer
+    dans l'aigu ne donne pas un son aigu : ça ne donne aucun son. Essayé —
+    au-dessus de 185 Hz l'anche se contente de se coucher dans le courant
+    d'air sans jamais osciller. Le facteur d'accordéon ne fait d'ailleurs pas
+    autrement : il a une languette **par note**.
+
+    On applique une similitude géométrique, la plus simple des lois et celle
+    qu'approchent les jeux d'anches réels à l'intérieur d'un registre : la
+    languette aiguë est une copie réduite de la grave, toutes ses dimensions
+    divisées par le même nombre.
+
+        L ∝ 1/f,  largeur ∝ 1/f,  épaisseur ∝ 1/f
+
+    ce qui redonne bien la fréquence d'une poutre encastrée, `f ∝ e/L²`, et
+    donne une masse en `1/f³`.
+
+    Le volume de la chambre suit en `1/f³` lui aussi — et là, ce n'est pas un
+    choix mais une conséquence. Pour que le couplage anche↔chambre garde la
+    même force d'une note à l'autre, il faut `A²/(C·m·ω²)` constant ; en y
+    portant les lois ci-dessus, l'exposant de la géométrie s'élimine et il ne
+    reste que `V ∝ f⁻³`. Ça tombe juste : 40 cm³ pour le la grave, un dixième
+    de centimètre cube dans l'aigu — l'ordre de grandeur des cellules d'un
+    sommier d'accordéon.
+
+    Une seule cote ne suit pas : la **fuite résiduelle** entre la languette
+    et son cadre. Ce n'est pas une dimension du dessin, c'est une tolérance
+    d'atelier — elle ne rétrécit pas parce que la note monte.
+
+    Toute cote passée explicitement l'emporte sur la loi d'échelle : c'est ce
+    qui permet de confronter le modèle à une anche réelle mesurée au banc.
     """
+    r = float(f0_hz) / ACCORDEON_REF_HZ
+    ref = FreeReedExciter()
+    echelle = {
+        'width_m': ref.width_m / r,
+        'rest_offset_m': ref.rest_offset_m / r,
+        'max_open_m': ref.max_open_m / r,
+        'area_m2': ref.area_m2 / r ** 2,
+        'force_area_m2': ref.force_area_m2 / r ** 2,
+        'mass_kg': ref.mass_kg / r ** 3,
+    }
+    for cle, valeur in echelle.items():
+        kw.setdefault(cle, valeur)
+    if volume_m3 is None:
+        volume_m3 = 40e-6 / r ** 3
+
     ex = FreeReedExciter(freq_hz=f0_hz, **kw)
     res = Resonator(compliance=chamber_compliance(volume_m3), name="chambre")
     return HybridVoice(ex, res, name="accordéon")

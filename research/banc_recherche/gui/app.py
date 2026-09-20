@@ -132,6 +132,7 @@ def _build(cfg: Config):
     tabs.addTab(_tab_sample_model(state, plot_widget), "Sample → modèle")
     tabs.addTab(_tab_physical_synth(state, plot_widget), "Synthèse physique")
     tabs.addTab(_tab_hybrid(state, plot_widget), "Instruments (hybride)")
+    tabs.addTab(_tab_live(state, plot_widget), "Jouer (MIDI)")
 
     win.setCentralWidget(tabs)
     win.resize(1100, 720)
@@ -1536,6 +1537,270 @@ def _tab_hybrid(state, plot_widget):
     lay.addWidget(plot)
     lay.addWidget(out)
     lay.addWidget(_row(btn_wav, btn_c))
+    return page
+
+
+def _tab_live(state, plot_widget):
+    """Jouer le modèle physique au clavier MIDI, en direct.
+
+    Le moteur est le **code C destiné au STM32**, compilé ici en bibliothèque
+    partagée : ce qu'on entend est ce qui tournera sur la carte. Mesuré sur
+    cette machine, 137 fois le temps réel à une voix et 26 fois à six.
+
+    Chaque note est **accordée sur le moteur** avant de jouer : un modèle
+    physique ne joue pas la fréquence qu'on lui dessine, et c'est la
+    géométrie qu'on corrige, pas la sortie.
+
+    Deux choses qu'un sampler ne fait pas, et qui sont tout l'intérêt :
+
+    - **l'attaque n'est pas plaquée** — c'est le temps que met l'oscillation à
+      s'installer, et il change avec la nuance ;
+    - **relâcher une touche ne coupe pas le son** : la pression retombe et
+      l'oscillation s'éteint d'elle-même en passant sous son seuil, avec son
+      hystérésis. La note tient un peu plus bas qu'elle n'a démarré.
+    """
+    from PyQt6 import QtWidgets, QtCore
+    import numpy as np
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    out = QtWidgets.QPlainTextEdit(); out.setReadOnly(True)
+    out.setMaximumHeight(160)
+
+    from .. import hybrid as _hyb
+    instrument = QtWidgets.QComboBox(); instrument.addItems(sorted(_hyb.INSTRUMENTS))
+    instrument.setCurrentText('clarinette')
+
+    poly = QtWidgets.QSpinBox(); poly.setRange(1, 16); poly.setValue(6)
+    gain = QtWidgets.QDoubleSpinBox()
+    gain.setRange(0.0, 1.0); gain.setSingleStep(0.05); gain.setValue(0.4)
+
+    expr = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+    expr.setRange(0, 127); expr.setValue(100)
+    expr.setToolTip("Nuance — molette de modulation (CC1) ou contrôleur à vent (CC2/CC11)")
+
+    midi_port = QtWidgets.QComboBox()
+    lbl = QtWidgets.QLabel("Aucun instrument préparé.")
+    lbl.setWordWrap(True)
+
+    def log(t):
+        out.appendPlainText(t)
+
+    # -- préparation -------------------------------------------------------
+    def prepare():
+        nom = instrument.currentText()
+        btn_prep.setEnabled(False)
+        log(f"préparation de « {nom} » : une perce par demi-ton, "
+            f"puis accordage note à note…")
+
+        def work(emit):
+            import numpy as np
+            from .. import live
+            live.engine_library()
+            inst = live.build_instrument(nom, lo=40, hi=88)
+            rtf = live.realtime_factor(inst, n_voices=poly.value(), seconds=0.3)
+            # ce que l'accordage a donné, mesuré sur le moteur et pas promis
+            ecarts = []
+            for n in range(inst.lo, inst.hi + 1, 6):
+                f = live._frequence_jouee(inst.params_for(n),
+                                          inst.level_default, inst.samplerate)
+                if f:
+                    ecarts.append(1200 * np.log2(f / live.midi_to_hz(n)))
+            just = float(np.median(np.abs(ecarts))) if ecarts else float('nan')
+            return inst, rtf, just
+
+        def done(r):
+            btn_prep.setEnabled(True)
+            inst, rtf, just = r
+            from .. import live
+            state['live_inst'] = inst
+            state['live_synth'] = live.Synth(inst, polyphony=poly.value(),
+                                             gain=gain.value())
+            lbl.setText(f"{nom} — {len(inst)} notes prêtes · "
+                        f"×{rtf:.0f} le temps réel à {poly.value()} voix")
+            log(f"  {len(inst)} notes · nuance nominale {inst.level_default:.4g} "
+                f"{inst.control_unit} · ×{rtf:.0f} temps réel")
+            log(f"  justesse mesurée sur le moteur : {just:.1f} cent d'écart "
+                f"médian (accordage géométrique, pas de transposition)")
+            if rtf < 2:
+                log("  ⚠ marge faible : baisse la polyphonie si ça craque")
+
+        def failed(m):
+            btn_prep.setEnabled(True); log("erreur : " + m)
+
+        _run_async(state, work, None, done, failed)
+
+    # -- audio -------------------------------------------------------------
+    def audio_start():
+        syn = state.get('live_synth')
+        if syn is None:
+            log("prépare d'abord un instrument"); return
+        try:
+            import sounddevice as sd
+        except Exception:
+            log("sounddevice absent : pip install sounddevice"); return
+        if state.get('live_stream') is not None:
+            log("déjà en marche"); return
+
+        syn.gain = gain.value()
+
+        def cb(outdata, frames, time_info, status):
+            if status:
+                pass
+            outdata[:, 0] = syn.render(frames)
+
+        try:
+            st = sd.OutputStream(samplerate=syn.inst.samplerate, channels=1,
+                                 dtype='float32', blocksize=256, callback=cb)
+            st.start()
+        except Exception as e:
+            log(f"impossible d'ouvrir la sortie audio : {e}"); return
+        state['live_stream'] = st
+        log(f"audio en marche — {syn.inst.samplerate:.0f} Hz, blocs de 256")
+
+    def audio_stop():
+        st = state.pop('live_stream', None)
+        if st is not None:
+            try:
+                st.stop(); st.close()
+            except Exception:
+                pass
+            log("audio arrêté")
+        syn = state.get('live_synth')
+        if syn is not None:
+            syn.all_notes_off()
+
+    # -- MIDI --------------------------------------------------------------
+    def midi_scan():
+        midi_port.clear()
+        try:
+            import mido
+        except Exception:
+            midi_port.addItem("mido absent — pip install mido python-rtmidi")
+            return
+        noms = mido.get_input_names()
+        midi_port.addItems(noms or ["(aucun port MIDI)"])
+        log(f"{len(noms)} port(s) MIDI") if noms else log("aucun port MIDI trouvé")
+
+    def midi_open():
+        syn = state.get('live_synth')
+        if syn is None:
+            log("prépare d'abord un instrument"); return
+        try:
+            import mido
+        except Exception:
+            log("mido absent : pip install mido python-rtmidi"); return
+        nom = midi_port.currentText()
+        if not nom or nom.startswith('('):
+            log("aucun port MIDI sélectionné"); return
+        if state.get('live_midi') is not None:
+            log("port déjà ouvert"); return
+
+        def on_msg(msg):
+            s = state.get('live_synth')
+            if s is None:
+                return
+            if msg.type == 'note_on' and msg.velocity > 0:
+                s.note_on(msg.note, msg.velocity)
+            elif msg.type in ('note_off', 'note_on'):
+                s.note_off(msg.note)
+            elif msg.type == 'control_change':
+                if msg.control in (1, 2, 11):         # molette, souffle, expression
+                    s.expression = msg.value / 127.0
+                elif msg.control == 123:              # all notes off
+                    s.all_notes_off()
+            elif msg.type == 'pitchwheel':
+                pass                                   # à faire : pitch bend continu
+
+        try:
+            port = mido.open_input(nom, callback=on_msg)
+        except Exception as e:
+            log(f"impossible d'ouvrir {nom} : {e}"); return
+        state['live_midi'] = port
+        log(f"MIDI ouvert sur « {nom} » — joue.")
+
+    def midi_close():
+        port = state.pop('live_midi', None)
+        if port is not None:
+            try:
+                port.close()
+            except Exception:
+                pass
+            log("MIDI fermé")
+
+    # -- clavier de secours, pour essayer sans matériel ---------------------
+    def touche(note):
+        def f():
+            syn = state.get('live_synth')
+            if syn is None:
+                log("prépare d'abord un instrument"); return
+            syn.note_on(note, 100)
+            QtCore.QTimer.singleShot(900, lambda: syn.note_off(note))
+        return f
+
+    clavier = QtWidgets.QWidget(); hb = QtWidgets.QHBoxLayout(clavier)
+    hb.setContentsMargins(0, 0, 0, 0)
+    for nom_note, n in [("do", 60), ("ré", 62), ("mi", 64), ("fa", 65),
+                        ("sol", 67), ("la", 69), ("si", 71), ("do'", 72)]:
+        b = QtWidgets.QPushButton(nom_note)
+        b.setMaximumWidth(48)
+        b.clicked.connect(touche(n))
+        hb.addWidget(b)
+
+    # -- suivi ---------------------------------------------------------------
+    etat = QtWidgets.QLabel("—")
+    tim = QtCore.QTimer(page)
+
+    def tick():
+        syn = state.get('live_synth')
+        if syn is None:
+            return
+        syn.expression = expr.value() / 127.0
+        syn.gain = gain.value()
+        etat.setText(f"voix actives : {syn.active_voices} / {len(syn.voices)}"
+                     f"   ·   nuance {100 * syn.expression:.0f} %"
+                     f"   ·   audio {'en marche' if state.get('live_stream') else 'arrêté'}"
+                     f"   ·   MIDI {'ouvert' if state.get('live_midi') else 'fermé'}")
+    tim.timeout.connect(tick)
+    tim.start(120)
+
+    def export_wav():
+        syn = state.get('live_synth')
+        if syn is None:
+            log("prépare d'abord un instrument"); return
+        fn, _ = QtWidgets.QFileDialog.getSaveFileName(
+            page, "Enregistrer une note", f"{instrument.currentText()}.wav",
+            "WAV (*.wav)")
+        if not fn:
+            return
+        from scipy.io.wavfile import write
+        from .. import live as _lv
+        s2 = _lv.Synth(syn.inst, polyphony=1, gain=gain.value())
+        s2.note_on(64, 100)
+        bloc = [s2.render(2048) for _ in range(int(1.2 * syn.inst.samplerate / 2048))]
+        s2.note_off(64)
+        bloc += [s2.render(2048) for _ in range(int(0.8 * syn.inst.samplerate / 2048))]
+        sig = np.concatenate(bloc)
+        write(fn, int(syn.inst.samplerate), (np.clip(sig, -1, 1) * 32767).astype('int16'))
+        log(f"→ {fn}  (attaque, tenue, puis extinction physique après relâché)")
+
+    btn_prep = QtWidgets.QPushButton("Préparer"); btn_prep.clicked.connect(prepare)
+    b_on = QtWidgets.QPushButton("Audio ▶"); b_on.clicked.connect(audio_start)
+    b_off = QtWidgets.QPushButton("Audio ■"); b_off.clicked.connect(audio_stop)
+    b_scan = QtWidgets.QPushButton("Chercher MIDI"); b_scan.clicked.connect(midi_scan)
+    b_mon = QtWidgets.QPushButton("Ouvrir MIDI"); b_mon.clicked.connect(midi_open)
+    b_moff = QtWidgets.QPushButton("Fermer MIDI"); b_moff.clicked.connect(midi_close)
+    b_wav = QtWidgets.QPushButton("Exporter un WAV"); b_wav.clicked.connect(export_wav)
+
+    lay.addWidget(_row("Instrument", instrument, "Polyphonie", poly,
+                       "Gain", gain, btn_prep))
+    lay.addWidget(lbl)
+    lay.addWidget(_row(b_on, b_off, "Port MIDI", midi_port, b_scan, b_mon, b_moff))
+    lay.addWidget(_row("Nuance", expr))
+    lay.addWidget(_row(QtWidgets.QLabel("Clavier d'essai :"), clavier))
+    lay.addWidget(etat)
+    lay.addWidget(out)
+    lay.addWidget(_row(b_wav))
+    midi_scan()
     return page
 
 

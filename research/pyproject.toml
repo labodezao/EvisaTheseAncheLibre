@@ -31,6 +31,15 @@ musique = [
     "matplotlib>=3.7",
 ]
 
+# Entrée MIDI pour l'onglet « Jouer (MIDI) » (banc_recherche/live.py) :
+#   pip install -e ".[live]"
+# Le moteur audio lui-même n'en a pas besoin : il se compile en C et sort par
+# sounddevice, déjà dans les dépendances de base.
+live = [
+    "mido>=1.3",
+    "python-rtmidi>=1.5",
+]
+
 [project.scripts]
 banc-recherche = "banc_recherche.gui.app:main"
 banc-recherche-cli = "banc_recherche.cli:main"
