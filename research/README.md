@@ -364,6 +364,20 @@ Le Dream SAM5716 n'est pas la bonne puce pour ça : c'est un moteur de lecture
 d'échantillons, pas un DSP à boucle de rétroaction. Un STM32 + un codec, même
 boîte, même prix, et ça calcule vraiment un modèle physique.
 
+**TUTT comme référence par défaut, là où c'est validé.** `clarinette` calcule
+désormais son résonateur avec la même physique que le pont TUTT (matrices de
+transfert, pertes de Kirchhoff/Mason, rayonnement) sur un cylindre idéal —
+un cylindre n'a aucune ambiguïté de troncature, et le calcul redonne la série
+impaire exacte à la stretch de couche limite près, Q et sommets compris,
+au lieu d'une loi `Q ∝ √f` appliquée après coup. L'essai équivalent sur un
+cône (saxophone, bombarde, cornemuse) a été tenté puis **écarté après
+mesure** : un cône à un seul tronçon tronqué ne redonne pas le registre à
+l'octave (ses résonances suivent `tan(kL)=kL`, la signature d'un cône fermé à
+son petit bout, pas entraîné près de sa pointe — jusqu'à 330 cents d'écart).
+Ces trois instruments restent donc sur la série postulée (`bore_modes`), et
+le pourquoi détaillé — ce qui a été éliminé, ce qui reste à faire pour
+reprendre l'essai — est dans `docs/modele_hybride_generalise.md`, §9.
+
 ## Jouer le modèle au clavier MIDI (`live`)
 
 Tout ce qui précède calcule juste mais **ne joue pas** : `hybrid` intègre en

@@ -528,3 +528,23 @@ def test_la_hauteur_du_registre_suit_la_deuxieme_resonance():
     for c2 in (-20.0, 20.0, 40.0):
         ecart = 1200 * np.log2(joue(c2) / ref)
         assert abs(ecart - c2) < 5.0        # suivi au cent près, 5 de tolérance
+
+
+def test_seule_la_clarinette_utilise_tutt_par_defaut():
+    """Choix documenté dans `_wind` : le cylindre n'a pas de troncature de
+    cône à trancher, le cône idéalisé si (cf. test_tutt.py). Un changement
+    ici doit être délibéré, pas un oubli de paramètre.
+    """
+    import inspect
+    assert inspect.signature(hybrid.clarinette).parameters['engine'].default == 'tutt'
+    for nom in ('saxophone', 'bombarde', 'cornemuse'):
+        assert inspect.signature(hybrid.INSTRUMENTS[nom]).parameters['engine'].default == 'ideal'
+
+
+def test_la_clarinette_tutt_reste_utilisable_en_ideal():
+    """`engine='ideal'` doit rester un secours qui marche, pas juste un mot
+    dans une docstring."""
+    v = hybrid.clarinette(147.0, engine='ideal')
+    assert v.resonator.n_modes > 0
+    ratios = [m.freq_hz / v.resonator.modes[0].freq_hz for m in v.resonator.modes[:3]]
+    assert ratios == pytest.approx([1.0, 3.0, 5.0], abs=1e-6)

@@ -817,15 +817,48 @@ def playing_frequency(signal, fs, fmin=40.0, fmax=4000.0):
 # =============================================================================
 
 def _wind(exciter, f0, kind, n_modes, q, bore_mm, peak_ratio, name,
-          cutoff_hz=None, stretch=0.0, register=0):
+          cutoff_hz=None, stretch=0.0, register=0, bell_mm=None,
+          engine='ideal'):
     """Assemble une voix à vent. `bore_mm` = diamètre de perce côté anche.
 
     `register=0` joue le registre grave ; `1` ouvre la clé de registre et
     laisse le modèle trouver lui-même la douzième ou l'octave selon la perce.
+
+    Deux moteurs pour le résonateur
+    --------------------------------
+    `engine='ideal'` — `bore_modes` : une série harmonique ou impaire exacte,
+    postulée. Rapide, et c'est elle qui a servi à tous les résultats déjà
+    validés du dépôt (registre ×2/×3, écart impairs/pairs...).
+
+    `engine='tutt'` — la même physique que le pont TUTT (matrices de
+    transfert, pertes de Kirchhoff/Mason, impédance de rayonnement) sur une
+    perce à **un seul tronçon** qui vise `f0`. TUTT est la référence pour la
+    justesse et l'inharmonicité d'une **vraie** perce — mais une perce à un
+    tronçon tronqué **n'est pas** une vraie perce, et l'essai a mal tourné :
+    le cône idéalisé ne redonne pas le registre à l'octave, ses résonances
+    suivent `tan(kL)=kL` au lieu de la série harmonique attendue, avec des
+    écarts de plusieurs centaines de cents. Le cylindre, lui, n'a aucune
+    ambiguïté de troncature et marche très bien par cette voie (`clarinette`
+    l'utilise par défaut). Détail de ce qui a été essayé et pourquoi ça ne
+    suffit pas encore : `docs/modele_hybride_generalise.md`, §9.
+
+    Tant que ce point n'est pas résolu, `engine='tutt'` sur une perce
+    **conique** n'est donc **pas** le défaut ici — pour une vraie perce
+    conique (fichier TUTT réel), c'est `tutt.resonator_from_dat` directement
+    qu'il faut appeler : lui est validé, à 1,5 cent près, sur la bombarde
+    d'Ewen.
     """
-    z_peak = peak_ratio * z_char(bore_mm * 1e-3)
-    modes = bore_modes(f0, n_modes, kind, q, z_peak,
-                       cutoff_hz=cutoff_hz, stretch=stretch)
+    if engine == 'tutt':
+        from . import tutt
+        res, _infos = tutt.ideal_resonator(kind, f0, bore_mm, n_modes=n_modes,
+                                           bell_mm=bell_mm, cutoff_hz=cutoff_hz)
+        modes = res.modes
+    elif engine == 'ideal':
+        z_peak = peak_ratio * z_char(bore_mm * 1e-3)
+        modes = bore_modes(f0, n_modes, kind, q, z_peak,
+                           cutoff_hz=cutoff_hz, stretch=stretch)
+    else:
+        raise ValueError("engine doit valoir 'tutt' ou 'ideal'")
     if register:
         modes = register_vent(modes, kill=int(register))
     res = Resonator(modes, name=name)
@@ -895,19 +928,27 @@ def accordeon(f0_hz=110.0, volume_m3=None, **kw):
 
 
 def clarinette(f0_hz=147.0, n_modes=10, q=40.0, bore_mm=14.6, peak_ratio=20.0,
-               cutoff_hz=1500.0, register=0, **kw):
+               cutoff_hz=1500.0, register=0, engine='tutt', **kw):
     """Perce cylindrique : harmoniques impairs, registre à la douzième.
 
     Le son « creux » de la clarinette n'est pas une métaphore : le modèle
     sort environ 37 dB d'écart entre rangs impairs et pairs. C'est la perce
     qui le décide, pas l'anche.
+
+    Seul des quatre vents à passer par `engine='tutt'` par défaut : un
+    cylindre n'a pas de troncature de cône à trancher (cf. `_wind`), et le
+    calcul redonne la série impaire exacte à la stretch de couche limite
+    près — perte et légère dispersion des harmoniques aigus comprises,
+    plutôt que postulées par `stretch=`.
     """
     return _wind(SingleReedExciter(**kw), f0_hz, 'cylindrique', n_modes, q,
-                 bore_mm, peak_ratio, "clarinette", cutoff_hz, register=register)
+                 bore_mm, peak_ratio, "clarinette", cutoff_hz,
+                 register=register, engine=engine)
 
 
-def saxophone(f0_hz=233.0, n_modes=12, q=30.0, bore_mm=10.0, peak_ratio=20.0,
-              cutoff_hz=700.0, register=0, **kw):
+def saxophone(f0_hz=233.0, n_modes=12, q=30.0, bore_mm=10.0, bell_mm=None,
+             peak_ratio=20.0, cutoff_hz=700.0, register=0, engine='ideal',
+             **kw):
     """Perce conique : série harmonique complète, registre à l'octave.
 
     Même anche simple que la clarinette, même excitateur — seule la perce
@@ -917,11 +958,13 @@ def saxophone(f0_hz=233.0, n_modes=12, q=30.0, bore_mm=10.0, peak_ratio=20.0,
     kw.setdefault('closing_pressure_pa', 3000.0)
     kw.setdefault('freq_hz', 2000.0)
     return _wind(SingleReedExciter(**kw), f0_hz, 'conique', n_modes, q,
-                 bore_mm, peak_ratio, "saxophone", cutoff_hz, register=register)
+                 bore_mm, peak_ratio, "saxophone", cutoff_hz,
+                 register=register, bell_mm=bell_mm, engine=engine)
 
 
-def bombarde(f0_hz=294.0, n_modes=12, q=28.0, bore_mm=5.0, peak_ratio=20.0,
-             cutoff_hz=1100.0, register=0, **kw):
+def bombarde(f0_hz=294.0, n_modes=12, q=28.0, bore_mm=5.0, bell_mm=None,
+            peak_ratio=20.0, cutoff_hz=1100.0, register=0, engine='ideal',
+            **kw):
     """Anche double, perce conique étroite : la voix qui porte au fest-noz.
 
     L'impédance de perce y est huit fois celle d'une clarinette, ce qui
@@ -930,11 +973,13 @@ def bombarde(f0_hz=294.0, n_modes=12, q=28.0, bore_mm=5.0, peak_ratio=20.0,
     couple avec le biniou et qu'on se relaie.
     """
     return _wind(DoubleReedExciter(**kw), f0_hz, 'conique', n_modes, q,
-                 bore_mm, peak_ratio, "bombarde", cutoff_hz, register=register)
+                 bore_mm, peak_ratio, "bombarde", cutoff_hz,
+                 register=register, bell_mm=bell_mm, engine=engine)
 
 
-def cornemuse(f0_hz=233.0, n_modes=12, q=30.0, bore_mm=4.0, peak_ratio=20.0,
-              cutoff_hz=1100.0, register=0, **kw):
+def cornemuse(f0_hz=233.0, n_modes=12, q=30.0, bore_mm=4.0, bell_mm=None,
+             peak_ratio=20.0, cutoff_hz=1100.0, register=0, engine='ideal',
+             **kw):
     """Chalumeau de cornemuse : anche double alimentée par le **sac**.
 
     Le sac est un réservoir : la pression y est lissée, et le musicien ne peut
@@ -943,7 +988,8 @@ def cornemuse(f0_hz=233.0, n_modes=12, q=30.0, bore_mm=4.0, peak_ratio=20.0,
     un maniérisme de style.
     """
     return _wind(DoubleReedExciter(**kw), f0_hz, 'conique', n_modes, q,
-                 bore_mm, peak_ratio, "cornemuse", cutoff_hz, register=register)
+                 bore_mm, peak_ratio, "cornemuse", cutoff_hz,
+                 register=register, bell_mm=bell_mm, engine=engine)
 
 
 def violon(f0_hz=440.0, n_modes=16, beta=1.0 / 7.0, mass_kg=3.5e-4, q=500.0,

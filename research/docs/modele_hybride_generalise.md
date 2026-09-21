@@ -484,3 +484,90 @@ la crête cesse de monter. Une corde frottée monte par paliers — 0,87 puis
 prendre, sous-estimait la vielle de 25 %, et la saturait ensuite en jeu. On
 rend désormais la durée entière, sur cinq notes de la tessiture, et
 `Synth.render` finit au limiteur doux plutôt qu'au `clip`.
+
+---
+
+## 9. TUTT comme moteur par défaut — ce qui a marché, ce qui a buté
+
+« TUTT est une référence ultime en tant que modèle physique » — c'est le
+mandat, et il a fait bouger le résonateur des vents. Deux résultats, un dans
+chaque sens.
+
+### Le cylindre : ça marche, et c'est maintenant le défaut
+
+`clarinette` calcule désormais son résonateur avec **la même physique que le
+pont TUTT** (`hybrid._wind(..., engine='tutt')`) : matrices de transfert,
+pertes visco-thermiques de Kirchhoff/Mason, impédance de rayonnement, sur une
+perce cylindrique à un seul tronçon (`tutt.bore_dat_ideal`) qui vise la note
+demandée. Un cylindre n'a aucune ambiguïté de troncature — le tube *est* ce
+qu'il est, du bout ouvert jusqu'à l'anche — et le calcul redonne la série
+impaire exacte, à la stretch de couche limite près (les harmoniques aigus
+s'écartent d'un cheveu de `3f0, 5f0…`, comme une vraie perce, plutôt que
+d'être postulés exactement là par `stretch=`). Les Q et les sommets viennent
+de la bande passante et de la hauteur réelles de chaque résonance, pas d'une
+loi `Q ∝ √f` appliquée après coup.
+
+Vérifié : `hybrid.clarinette(147.0)` donne 140,8 / 425,8 / 711,5 / 997,4 Hz —
+rapports 1 : 3,02 : 5,05 : 7,08, contre 1 : 3 : 5 : 7 pour la série idéale.
+La suite de tests passe sans retouche, et l'accordage note à note de
+`live.py` absorbe le petit écart de fondamentale comme il absorbe déjà celui
+de l'anche libre.
+
+### Le cône : ça n'a pas marché, et ça vaut la peine d'être écrit
+
+L'essai naturel — un cône à un seul tronçon, tronqué à `bore_mm` côté anche,
+évasé jusqu'à un pavillon fictif — a été tenté pour `saxophone`, `bombarde`
+et `cornemuse`. **Résultat faux**, découvert en mesurant plutôt qu'en
+supposant : au lieu du registre à l'octave attendu (rapports 1 : 2 : 3…), le
+cône idéalisé donne 1 : 1,72 : 2,42 : 3,13 — jusqu'à 330 cents d'écart à la
+série harmonique, soit plus d'un demi-ton.
+
+**Ce qui a été éliminé, dans l'ordre** :
+
+1. *Pas un manque de finesse numérique* — le sous-découpage interne en
+   tranches cylindriques (`_matrice_troncon`) suit déjà la conicité et
+   converge ; augmenter les tranches ne change rien.
+2. *Pas une question d'échelle* — réduire le rayon tronqué de 0,5 mm à
+   0,5 µm en gardant le même rapport pavillon/anche donne exactement le même
+   écart. La taille absolue de la troncature n'est pas en cause.
+3. *Pas une question de fraction de longueur manquante* — pousser le rapport
+   pavillon/anche de 4,5 à 100 (donc réduire la longueur virtuelle manquante,
+   avant le vrai sommet du cône, de 28,6 % à 1 % de la longueur totale)
+   change les fréquences mais **pas** le motif des rapports : ils restent
+   figés à 1 : 1,72 : 2,42 : 3,13.
+
+**Ce qui a été trouvé, en cherchant ce que ce motif représente vraiment** :
+l'espacement entre résonances successives reste constant (≈ `c/2·L`, comme
+attendu), mais le premier sommet ne tombe pas sur cet espacement — il tombe
+sur la première racine non nulle de `tan(kL) = kL`, et les suivants sur les
+racines suivantes (4,493, 7,725, 10,904, 14,066… — rapports 1 : 1,719 :
+2,427 : 3,130, à comparer aux 1 : 1,717 : 2,423 : 3,126 mesurés : moins de
+0,3 % d'écart). Cette transcendante est la signature connue d'un cône
+**fermé** à son petit bout (paroi rigide, vitesse nulle) — pas d'un cône
+**entraîné près de sa pointe**, dont la régularité de la pression au voisinage
+du sommet impose plutôt une pression nulle là-bas, et qui donne la série
+harmonique complète. Le calcul de `tutt.py` est probablement fidèle à ce
+qu'il modélise ; c'est le modèle lui-même — une troncature franche, sans
+rien au-delà, qui revient à murer le petit bout — qui ne représente pas ce
+qu'un vrai cône fait près de son sommet.
+
+**Ce qu'il faudrait pour reprendre l'essai** : soit une vraie géométrie
+mesurée (un fichier TUTT réel — `tutt.resonator_from_dat` est, lui, validé
+à 1,5 cent sur la bombarde d'Ewen, cf. §8), soit un traitement propre de la
+condition aux limites au sommet tronqué (une réactance de pointe, ou un
+second tronçon fictif reliant explicitement la troncature au sommet plutôt
+que de l'y arrêter net) — un chantier en soi, pas une correction d'une
+ligne.
+
+**Décision, documentée dans le code plutôt que devinée en le lisant** :
+`saxophone`, `bombarde` et `cornemuse` restent sur `engine='ideal'` par
+défaut (`bore_modes`, la série postulée déjà validée par tout le reste du
+dépôt — registre ×2 émergent, écart impairs/pairs...). `engine='tutt'` reste
+disponible et documenté pour qui veut comparer ou reprendre le chantier,
+avec l'avertissement en tête de `bore_dat_ideal`. Le préférer à un silence
+qui aurait laissé croire — puisque le nom du paramètre suggère justement
+« la référence » — que le cône idéalisé était, lui aussi, passé par la même
+physique validée que le cylindre.
+
+Un test dans `test_tutt.py` fige ce résultat négatif : il échoue exprès si
+quelqu'un corrige un jour le modèle sans mettre à jour cet avertissement.

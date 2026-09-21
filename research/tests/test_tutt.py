@@ -357,3 +357,56 @@ def test_le_souffle_chaud_est_du_cote_de_l_embouchure(tmp_path):
     # les deux diffèrent : la température n'est pas moyennée le long du tube,
     # elle est pondérée exponentiellement vers l'embouchure
     assert abs(1200 * np.log2(chaud_au_bec / froid_au_bec)) > 5.0
+
+
+# =============================================================================
+# Perce idéale — TUTT comme moteur par défaut du cylindre, pas encore du cône
+# =============================================================================
+
+def test_le_cylindre_ideal_vise_a_peu_pres_la_bonne_note():
+    """Solide : aucune troncature de cône à trancher.
+
+    La longueur vient d'un quart d'onde exact ; le calcul y ajoute pertes et
+    rayonnement, qui font sonner le tuyau un peu plus grave — l'écart est
+    donc attendu, petit, et du côté prévisible (jamais plus aigu que visé).
+    """
+    dat = tutt.bore_dat_ideal('cylindrique', 220.0, 14.6)
+    freqs, qs, pics = tutt.resonances(dat, 50, 3000, n_peaks=4)
+    assert freqs, "aucune résonance trouvée"
+    ecart_cents = 1200 * np.log2(freqs[0] / 220.0)
+    assert -150.0 < ecart_cents < 0.0
+
+
+def test_le_cylindre_ideal_garde_la_serie_impaire():
+    """Signature d'un tuyau fermé à l'anche : que des rangs impairs."""
+    dat = tutt.bore_dat_ideal('cylindrique', 220.0, 14.6)
+    freqs, qs, pics = tutt.resonances(dat, 50, 3000, n_peaks=4)
+    ratios = np.array(freqs) / freqs[0]
+    attendu = np.array([1.0, 3.0, 5.0, 7.0])[:len(ratios)]
+    assert np.max(np.abs(ratios - attendu)) < 0.15
+
+
+def test_le_cone_idealise_tronque_n_est_pas_encore_juste():
+    """Document le résultat négatif plutôt que le taire.
+
+    Un cône à un seul tronçon, tronqué à `bore_mm` au lieu de rejoindre une
+    vraie pointe, ne redonne pas le registre à l'octave attendu — ses
+    résonances suivent `tan(kL)=kL`, pas la série harmonique d'un cône
+    entraîné près de sa pointe. `hybrid.saxophone` etc. n'utilisent donc pas
+    ce chemin par défaut (`engine='ideal'`). Si ce test se met à échouer,
+    c'est que quelqu'un a réussi à corriger le modèle — bonne nouvelle, et
+    l'avertissement de `bore_dat_ideal`/`hybrid._wind` doit alors être retiré
+    en même temps que ce test.
+    """
+    dat = tutt.bore_dat_ideal('conique', 220.0, 5.0)
+    freqs, qs, pics = tutt.resonances(dat, 50, 3000, n_peaks=3)
+    ratio2 = freqs[1] / freqs[0]
+    assert abs(ratio2 - 2.0) > 0.15, (
+        "le cône idéalisé donne enfin l'octave — mettre à jour "
+        "hybrid._wind / bore_dat_ideal en conséquence")
+
+
+def test_ideal_resonator_renvoie_un_resonateur_hybrid_utilisable():
+    res, infos = tutt.ideal_resonator('cylindrique', 220.0, 14.6, n_modes=6)
+    assert res.n_modes >= 3
+    assert infos['tronçons'] == 1

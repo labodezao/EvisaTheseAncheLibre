@@ -1216,6 +1216,12 @@ Modes propres d'un tronc de cône
 \end_layout
 
 \begin_layout Itemize
+essai fait et écarté : un cône TUTT à un seul tronçon, tronqué côté anche plutôt que rejoignant une vraie pointe, ne redonne pas le registre à l'octave — ses résonances suivent \begin_inset Formula $\tan(kL)=kL$
+\end_inset
+ (un cône fermé à son petit bout) au lieu de la série harmonique d'un cône entraîné près de sa pointe, jusqu'à 330 cents d'écart. saxophone/bombarde/cornemuse restent donc sur la série postulée ; le détail de ce qui a été éliminé est dans modele_hybride_generalise.md, §9 ;
+\end_layout
+
+\begin_layout Itemize
 anche double traitée comme une anche simple mieux réglée — pas de dynamique de jet confiné entre les lames, donc pas le grain propre du hautbois ou de la bombarde ;
 \end_layout
 

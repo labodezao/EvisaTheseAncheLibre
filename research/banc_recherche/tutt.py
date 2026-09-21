@@ -543,12 +543,19 @@ def resonances(dat: BoreDat, fmin=50.0, fmax=4000.0, n_points=6000,
 
 
 def resonator_from_dat(chemin_ou_dat, fmin=50.0, fmax=4000.0, n_peaks=10,
+                       cutoff_hz=None, cutoff_order=3.0, prune_db=45.0,
                        **kw):
     """Construit un `hybrid.Resonator` depuis une perce TUTT. Le pont complet.
 
     Renvoie `(resonator, infos)`. `infos` dit d'où vient chaque chose — la
     même discipline que `identify.py` : ce qui est calculé sur la géométrie
     ne doit pas se confondre avec ce qui reste supposé.
+
+    `cutoff_hz` applique la coupure de réseau de trous de Benade (cf.
+    `hybrid.bore_modes`) par-dessus les résonances calculées — utile pour une
+    perce dont on ne modélise pas encore les trous eux-mêmes (`ideal_resonator`
+    s'en sert). Les autres mots-clés (`n_slices`, `reed_volume_m3`,
+    `prominence_db`) vont à `resonances`.
     """
     from .hybrid import Resonator, modes_from_partials, inharmonicity_cents
 
@@ -558,7 +565,8 @@ def resonator_from_dat(chemin_ou_dat, fmin=50.0, fmax=4000.0, n_peaks=10,
     if not freqs:
         raise ValueError(f"aucune résonance trouvée entre {fmin} et {fmax} Hz")
 
-    modes = modes_from_partials(freqs, qs=qs, peaks=pics)
+    modes = modes_from_partials(freqs, qs=qs, peaks=pics, cutoff_hz=cutoff_hz,
+                                cutoff_order=cutoff_order, prune_db=prune_db)
     infos = {
         'titre': dat.title,
         'tronçons': len(dat.lengths),
@@ -571,6 +579,97 @@ def resonator_from_dat(chemin_ou_dat, fmin=50.0, fmax=4000.0, n_peaks=10,
         'trous_latéraux': 'NON POSÉS dans le calcul d\'impédance',
     }
     return Resonator(modes, name=dat.title or 'perce TUTT'), infos
+
+
+# =============================================================================
+# Perce idéale — TUTT comme moteur par défaut, sans fichier réel
+# =============================================================================
+
+def bore_dat_ideal(kind, f0_hz, bore_mm, bell_mm=None, taper=4.5,
+                   temp_c=(32.0, 20.0), roughness=1.0):
+    """Une perce à un seul tronçon — cylindre ou cône — qui vise `f0_hz`.
+
+    Pour un **cylindre**, c'est solide : aucune ambiguïté de troncature, la
+    longueur (quart d'onde, fermé à l'anche) et le calcul redonnent la série
+    impaire exacte à la stretch de couche limite près, avec les pertes
+    visco-thermiques de Kirchhoff/Mason et l'impédance de rayonnement de
+    TUTT — la même chaîne que `resonator_from_dat`, validée à 1,5 cent sur la
+    bombarde d'Ewen. `hybrid.clarinette` s'en sert par défaut.
+
+    Pour un **cône**, ⚠️ **ce n'est pas encore juste**, et c'est resté dans
+    le module pour ne pas perdre l'essai : un cône à un seul tronçon, tronqué
+    à `bore_mm` au lieu de rejoindre une vraie pointe, ne redonne pas le
+    registre à l'octave attendu. Ses résonances suivent `tan(kL)=kL` — la
+    même transcendante qu'un cône *fermé* à son petit bout — au lieu de la
+    série harmonique d'un cône *entraîné près de sa pointe*, avec des écarts
+    de plusieurs centaines de cents, vérifié en balayant `taper` de 4,5 à 100
+    et le rayon tronqué de 0,5 mm à 0,5 µm sans que ça converge. Le calcul
+    est probablement correct pour ce qu'il modélise ; c'est le modèle
+    lui-même — une troncature franche, sans rien au-delà — qui ne représente
+    pas ce qu'un vrai cône fait près de son sommet. Détail de l'essai et de
+    ce qu'il faudrait pour le reprendre : `docs/modele_hybride_generalise.md`
+    §9. `hybrid.saxophone`/`bombarde`/`cornemuse` restent donc sur
+    `engine='ideal'` par défaut.
+
+    La longueur vient des formules classiques du quart d'onde (cylindre) et
+    du demi-onde (cône) — un point de départ, pas une valeur exacte : les
+    corrections de bout et les pertes déplacent un peu la fondamentale
+    réelle, et c'est justement ce que le calcul restitue. L'accordage note à
+    note de `live.py` absorbe l'écart résiduel, comme il absorbe déjà celui
+    de l'anche libre — mais n'absorbe pas une série de partiels fausse.
+
+    `bore_mm` est le diamètre côté anche. Pour un cône, `bell_mm` donne le
+    diamètre côté pavillon ; à défaut, `taper` (le rapport pavillon/anche)
+    le fixe — 4,5 est un ordre de grandeur, pas une mesure, comme le reste
+    des cotes de ce module tant qu'aucune vraie perce n'est en jeu.
+    """
+    c = celerite(float(temp_c[0]))
+    if kind == 'cylindrique':
+        # fermé à l'anche (nœud de vitesse), ouvert au pavillon : quart d'onde
+        longueur = c / (4.0 * float(f0_hz))
+        d_reed = d_bell = float(bore_mm) * 1e-3
+    elif kind == 'conique':
+        # l'anche au sommet d'un cône se comporte comme un tube ouvert aux
+        # deux bouts : la série est harmonique complète, et la longueur se
+        # règle sur une demi-onde plutôt qu'un quart d'onde.
+        longueur = c / (2.0 * float(f0_hz))
+        d_reed = float(bore_mm) * 1e-3
+        d_bell = float(bell_mm) * 1e-3 if bell_mm else d_reed * float(taper)
+    else:
+        raise ValueError("kind doit valoir 'cylindrique' ou 'conique'")
+
+    return BoreDat(
+        title=f"perce idéale {kind}, f0={float(f0_hz):.1f} Hz",
+        n_sections=1,
+        closed_bottom=False,
+        d0=np.array([d_reed]),
+        dl=np.array([d_bell]),
+        lengths=np.array([longueur]),
+        ofilib=np.array([float(roughness)]),
+        temperature_c=(float(temp_c[0]), float(temp_c[1])),
+    )
+
+
+def ideal_resonator(kind, f0_hz, bore_mm, n_modes=10, bell_mm=None,
+                    taper=4.5, cutoff_hz=None, cutoff_order=3.0, **kw):
+    """Résonateur TUTT d'une perce idéalisée à un tronçon.
+
+    Solide pour `kind='cylindrique'` (aucune troncature de cône à trancher) ;
+    **pas encore juste pour `kind='conique'`** — cf. l'avertissement de
+    `bore_dat_ideal`. `hybrid._wind` n'appelle donc cette fonction par défaut
+    que pour la clarinette.
+
+    Renvoie `(resonator, infos)`, comme `resonator_from_dat` — dont c'est un
+    simple appel, sur une perce à un tronçon plutôt que lue d'un fichier.
+    """
+    dat = bore_dat_ideal(kind, f0_hz, bore_mm, bell_mm=bell_mm, taper=taper)
+    rang_max = (2 * int(n_modes) - 1) if kind == 'cylindrique' else int(n_modes)
+    fmin = max(20.0, 0.5 * float(f0_hz))
+    fmax = min(9000.0, float(f0_hz) * (rang_max + 1.5))
+    n_peaks = rang_max + 2
+    return resonator_from_dat(dat, fmin=fmin, fmax=fmax, n_peaks=n_peaks,
+                              cutoff_hz=cutoff_hz, cutoff_order=cutoff_order,
+                              **kw)
 
 
 # =============================================================================
