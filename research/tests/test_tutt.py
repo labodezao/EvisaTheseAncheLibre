@@ -386,24 +386,58 @@ def test_le_cylindre_ideal_garde_la_serie_impaire():
     assert np.max(np.abs(ratios - attendu)) < 0.15
 
 
-def test_le_cone_idealise_tronque_n_est_pas_encore_juste():
-    """Document le résultat négatif plutôt que le taire.
+def test_le_cone_donne_bien_le_registre_a_l_octave():
+    """Un cône doit donner la série harmonique complète — l'octave, pas la
+    douzième. C'est ce qui distingue un saxophone d'une clarinette.
 
-    Un cône à un seul tronçon, tronqué à `bore_mm` au lieu de rejoindre une
-    vraie pointe, ne redonne pas le registre à l'octave attendu — ses
-    résonances suivent `tan(kL)=kL`, pas la série harmonique d'un cône
-    entraîné près de sa pointe. `hybrid.saxophone` etc. n'utilisent donc pas
-    ce chemin par défaut (`engine='ideal'`). Si ce test se met à échouer,
-    c'est que quelqu'un a réussi à corriger le modèle — bonne nouvelle, et
-    l'avertissement de `bore_dat_ideal`/`hybrid._wind` doit alors être retiré
-    en même temps que ce test.
+    Ce test a d'abord été écrit **à l'envers** : il figeait le constat qu'un
+    cône idéalisé ne donnait *pas* l'octave (rapports 1 : 1,72 : 2,42, la
+    signature de `tan(kL)=kL`), en prévoyant d'échouer si quelqu'un corrigeait
+    un jour le modèle. C'est exactement ce qui est arrivé : la faute était à
+    l'empilement de cylindres, pas au cône. Avec la vraie ligne de transfert
+    conique de TUTT (`_z_troncon`), l'octave revient toute seule.
     """
-    dat = tutt.bore_dat_ideal('conique', 220.0, 5.0)
-    freqs, qs, pics = tutt.resonances(dat, 50, 3000, n_peaks=3)
-    ratio2 = freqs[1] / freqs[0]
-    assert abs(ratio2 - 2.0) > 0.15, (
-        "le cône idéalisé donne enfin l'octave — mettre à jour "
-        "hybrid._wind / bore_dat_ideal en conséquence")
+    dat = tutt.bore_dat_ideal('conique', 220.0, 5.0, taper=10.0)
+    freqs, qs, pics = tutt.resonances(dat, 40, 2000, n_peaks=4)
+    ratios = np.array(freqs) / freqs[0]
+    attendu = np.array([1.0, 2.0, 3.0, 4.0])[:len(ratios)]
+    # un cône tronqué reste un peu étiré : on demande le bon rang, pas la
+    # perfection — la troncature se corrige par la cavité d'anche (ci-dessous)
+    assert np.max(np.abs(ratios - attendu) / attendu) < 0.06
+
+
+def test_le_cylindre_garde_la_douzieme_et_le_cone_prend_l_octave():
+    """Les deux familles se séparent sur la seule géométrie, comme il faut."""
+    cyl = tutt.bore_dat_ideal('cylindrique', 220.0, 14.6)
+    cone = tutt.bore_dat_ideal('conique', 220.0, 5.0, taper=10.0)
+    r_cyl = np.array(tutt.resonances(cyl, 40, 2000, n_peaks=2)[0])
+    r_cone = np.array(tutt.resonances(cone, 40, 2000, n_peaks=2)[0])
+    assert 2.9 < r_cyl[1] / r_cyl[0] < 3.15      # la douzième
+    assert 1.9 < r_cone[1] / r_cone[0] < 2.12    # l'octave
+
+
+def test_la_cavite_d_anche_corrige_l_octave_du_cone_tronque():
+    """Le résultat de Ninob (*Modes propres d'un tronc de cône*), vérifié.
+
+    Un cône tronqué a son octave trop haute — il manque le bout pointu. Une
+    anche solide au petit bout se comporte comme une cavité ajoutée, qui
+    abaisse les modes graves plus que les aigus et **corrige l'octave**.
+    C'est ce qui permet à un saxophone ou à un hautbois d'octavier juste.
+
+    Mesuré ici : sans cavité +95 cents, avec 1,5 cm³ +2 cents.
+    """
+    dat = tutt.bore_dat_ideal('conique', 294.0, 5.0, taper=4.5)
+
+    def octave_cents(volume):
+        f = np.array(tutt.resonances(dat, 40, 2600, n_peaks=2,
+                                     reed_volume_m3=volume)[0])
+        return 1200 * np.log2((f[1] / f[0]) / 2.0)
+
+    sans = octave_cents(None)
+    avec = octave_cents(1.5e-6)
+    assert sans > 60.0                 # nettement trop haute sans cavité
+    assert abs(avec) < 15.0            # corrigée
+    assert avec < sans
 
 
 def test_ideal_resonator_renvoie_un_resonateur_hybrid_utilisable():
@@ -439,9 +473,14 @@ def test_scale_bore_garde_les_rapports_de_resonance():
         dat_k = tutt.scale_bore(dat, k)
         freqs_k, _, _ = tutt.resonances(dat_k, 30 / k, 2000 / k, n_peaks=4)
         ratios_k = np.array(freqs_k) / freqs_k[0]
-        # écart relatif, pas absolu : au rang 4 un rapport vaut déjà ~13,
-        # et c'est sa dérive en % qui dit si le registre est préservé
-        derive = np.abs(ratios_k - ratios0) / ratios0
+        # On ne compare que les trois premiers rangs. Le quatrième de cette
+        # perce d'essai est à −30 dB pile, la hauteur du seuil d'élagage :
+        # comme les pertes ne suivent pas la mise à l'échelle (couche limite
+        # en 1/√f), il passe au-dessus ou en dessous selon le facteur, et
+        # l'entrée n° 4 de la liste change alors de mode. Ce n'est pas une
+        # dérive du registre, c'est un mode marginal qui entre et sort.
+        n = 3
+        derive = np.abs(ratios_k[:n] - ratios0[:n]) / ratios0[:n]
         assert np.max(derive) < 0.02, (k, ratios_k, ratios0)
 
 

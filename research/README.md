@@ -364,24 +364,32 @@ Le Dream SAM5716 n'est pas la bonne puce pour ça : c'est un moteur de lecture
 d'échantillons, pas un DSP à boucle de rétroaction. Un STM32 + un codec, même
 boîte, même prix, et ça calcule vraiment un modèle physique.
 
-**TUTT comme référence par défaut, là où c'est validé.** `clarinette` calcule
-désormais son résonateur avec la même physique que le pont TUTT (matrices de
-transfert, pertes de Kirchhoff/Mason, rayonnement) sur un cylindre idéal —
-un cylindre n'a aucune ambiguïté de troncature, et le calcul redonne la série
-impaire exacte à la stretch de couche limite près, Q et sommets compris,
-au lieu d'une loi `Q ∝ √f` appliquée après coup. L'essai équivalent sur un
-cône (saxophone, bombarde, cornemuse) a été tenté puis **écarté après
-mesure** : un cône à un seul tronçon tronqué ne redonne pas le registre à
-l'octave (ses résonances suivent `tan(kL)=kL`, la signature d'un cône fermé à
-son petit bout, pas entraîné près de sa pointe — jusqu'à 330 cents d'écart).
-Ces trois instruments restent donc sur la série postulée (`bore_modes`), et
-le pourquoi détaillé — ce qui a été éliminé, ce qui reste à faire pour
-reprendre l'essai — est dans `docs/modele_hybride_generalise.md`, §9. La
-vraie simplification qui en ressort : pas une forme inventée plus simple,
-mais une forme **déjà juste, mise à l'échelle** (`tutt.scale_bore`) — comme
-une famille d'instruments réels est une famille de tailles, pas de formes
-redessinées. Prêt à couvrir un clavier entier dès qu'une perce mesurée sera
-disponible.
+**TUTT comme moteur du résonateur — et une erreur retrouvée dans son
+source.** Le calcul d'impédance de perce découpait les cônes en cylindres
+empilés. Le cylindre sortait juste, le cône sortait faux d'un demi-ton : au
+lieu de l'octave il donnait `tan(kL)=kL`, la signature d'un tube fermé au
+petit bout. Le source Fortran de TUTT (`Perce2.for`, `Ltran9.for`) donne la
+réponse en trois lignes : un tronçon tronconique porte des ondes
+**sphériques**, `p(x) = (A·e^{jkx} + B·e^{−jkx})/(1 + Δx)` avec la conicité
+`Δ = (DL−D0)/(D0·L)`, et ce sont les termes en `Δ` — perdus par tout
+empilement de cylindres — qui font qu'un cône est un cône. Implémenté tel
+quel (`tutt._z_troncon`), le cylindre ne bouge pas et le cône donne enfin
+**1 : 2,02 : 3,06 : 4,12**. Un tronçon se traite en un seul pas : plus juste
+*et* plus rapide.
+
+La boucle se referme avec la **cavité d'anche** de Ninob (*Modes propres d'un
+tronc de cône*) : un cône tronqué a son octave +95 cents trop haute, et
+1,5 cm³ de cavité au petit bout la ramène à +2 cents — c'est ce qui permet à
+un saxophone d'octavier juste, et le paramètre `reed_volume_m3` existait déjà
+sans qu'on sache à quoi il servait.
+
+`clarinette` passe donc par `engine='tutt'` (0,3 cent d'écart médian sur la
+tessiture). Les trois coniques gardent la série postulée pour le jeu : la
+physique est juste, mais une perce conique idéalisée **à un seul tronçon** a
+un fondamental trop faible (2ᵉ sommet 3 dB au-dessus du 1ᵉʳ), et l'anche s'y
+accroche — la note sortirait une octave trop haut. Le calcul conique exact
+sert à tout ce qui passe par une **vraie** perce. Détail, mesures et ce qui
+reste à faire : `docs/modele_hybride_generalise.md`, §9.
 
 ## Jouer le modèle au clavier MIDI (`live`)
 

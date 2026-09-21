@@ -487,135 +487,137 @@ rend désormais la durée entière, sur cinq notes de la tessiture, et
 
 ---
 
-## 9. TUTT comme moteur par défaut — ce qui a marché, ce qui a buté
+## 9. TUTT comme moteur du résonateur — et une erreur retrouvée dans son source
 
 « TUTT est une référence ultime en tant que modèle physique » — c'est le
-mandat, et il a fait bouger le résonateur des vents. Deux résultats, un dans
-chaque sens.
+mandat. En allant le chercher dans le Drive, c'est le **source Fortran** qui a
+tranché une question que trois jours de mesures n'avaient pas réussi à
+trancher.
 
-### Le cylindre : ça marche, et c'est maintenant le défaut
+### L'échec d'abord : le cône idéalisé ne donnait pas l'octave
 
-`clarinette` calcule désormais son résonateur avec **la même physique que le
-pont TUTT** (`hybrid._wind(..., engine='tutt')`) : matrices de transfert,
-pertes visco-thermiques de Kirchhoff/Mason, impédance de rayonnement, sur une
-perce cylindrique à un seul tronçon (`tutt.bore_dat_ideal`) qui vise la note
-demandée. Un cylindre n'a aucune ambiguïté de troncature — le tube *est* ce
-qu'il est, du bout ouvert jusqu'à l'anche — et le calcul redonne la série
-impaire exacte, à la stretch de couche limite près (les harmoniques aigus
-s'écartent d'un cheveu de `3f0, 5f0…`, comme une vraie perce, plutôt que
-d'être postulés exactement là par `stretch=`). Les Q et les sommets viennent
-de la bande passante et de la hauteur réelles de chaque résonance, pas d'une
-loi `Q ∝ √f` appliquée après coup.
+Première version du moteur : une perce idéalisée à un tronçon, cylindre ou
+cône, passée dans la chaîne d'impédance du module (matrices de transfert,
+pertes de Kirchhoff/Mason, rayonnement). Le **cylindre** sortait juste — série
+impaire exacte, registre à la douzième. Le **cône** sortait faux d'un demi-ton :
+au lieu de l'octave attendue (rapports 1 : 2 : 3), il donnait 1 : 1,72 : 2,42,
+jusqu'à 330 cents d'écart.
 
-Vérifié : `hybrid.clarinette(147.0)` donne 140,8 / 425,8 / 711,5 / 997,4 Hz —
-rapports 1 : 3,02 : 5,05 : 7,08, contre 1 : 3 : 5 : 7 pour la série idéale.
-La suite de tests passe sans retouche, et l'accordage note à note de
-`live.py` absorbe le petit écart de fondamentale comme il absorbe déjà celui
-de l'anche libre.
+Trois hypothèses éliminées par la mesure, dans l'ordre :
 
-### Le cône : ça n'a pas marché, et ça vaut la peine d'être écrit
+1. *un manque de finesse de découpage* — non, le sous-découpage convergeait
+   déjà ;
+2. *une question d'échelle* — non, réduire le rayon tronqué de 0,5 mm à 0,5 µm
+   ne change rien ;
+3. *une question de longueur virtuelle manquante* — non, pousser le rapport
+   pavillon/anche de 4,5 à 100 ne bouge pas le motif des rapports.
 
-L'essai naturel — un cône à un seul tronçon, tronqué à `bore_mm` côté anche,
-évasé jusqu'à un pavillon fictif — a été tenté pour `saxophone`, `bombarde`
-et `cornemuse`. **Résultat faux**, découvert en mesurant plutôt qu'en
-supposant : au lieu du registre à l'octave attendu (rapports 1 : 2 : 3…), le
-cône idéalisé donne 1 : 1,72 : 2,42 : 3,13 — jusqu'à 330 cents d'écart à la
-série harmonique, soit plus d'un demi-ton.
+Le motif, lui, était identifiable : les rapports 1 : 1,719 : 2,427 : 3,130
+sont les racines de `tan(kL) = kL`, la signature d'un cône **fermé** à son
+petit bout. Le calcul faisait donc quelque chose de cohérent — mais pas ce
+qu'on lui demandait. Conclusion prudente de l'époque : garder les trois
+instruments coniques sur la série postulée, écrire le résultat négatif, et
+poser un test qui **échouerait exprès** si quelqu'un corrigeait un jour le
+modèle sans mettre l'avertissement à jour.
 
-**Ce qui a été éliminé, dans l'ordre** :
+### Le source de TUTT donne la réponse en trois lignes
 
-1. *Pas un manque de finesse numérique* — le sous-découpage interne en
-   tranches cylindriques (`_matrice_troncon`) suit déjà la conicité et
-   converge ; augmenter les tranches ne change rien.
-2. *Pas une question d'échelle* — réduire le rayon tronqué de 0,5 mm à
-   0,5 µm en gardant le même rapport pavillon/anche donne exactement le même
-   écart. La taille absolue de la troncature n'est pas en cause.
-3. *Pas une question de fraction de longueur manquante* — pousser le rapport
-   pavillon/anche de 4,5 à 100 (donc réduire la longueur virtuelle manquante,
-   avant le vrai sommet du cône, de 28,6 % à 1 % de la longueur totale)
-   change les fréquences mais **pas** le motif des rapports : ils restent
-   figés à 1 : 1,72 : 2,42 : 3,13.
+`Perce2.for` caractérise chaque tronçon par une seule grandeur :
 
-**Ce qui a été trouvé, en cherchant ce que ce motif représente vraiment** :
-l'espacement entre résonances successives reste constant (≈ `c/2·L`, comme
-attendu), mais le premier sommet ne tombe pas sur cet espacement — il tombe
-sur la première racine non nulle de `tan(kL) = kL`, et les suivants sur les
-racines suivantes (4,493, 7,725, 10,904, 14,066… — rapports 1 : 1,719 :
-2,427 : 3,130, à comparer aux 1 : 1,717 : 2,423 : 3,126 mesurés : moins de
-0,3 % d'écart). Cette transcendante est la signature connue d'un cône
-**fermé** à son petit bout (paroi rigide, vitesse nulle) — pas d'un cône
-**entraîné près de sa pointe**, dont la régularité de la pression au voisinage
-du sommet impose plutôt une pression nulle là-bas, et qui donne la série
-harmonique complète. Le calcul de `tutt.py` est probablement fidèle à ce
-qu'il modélise ; c'est le modèle lui-même — une troncature franche, sans
-rien au-delà, qui revient à murer le petit bout — qui ne représente pas ce
-qu'un vrai cône fait près de son sommet.
+    DELTA = (DL − D0) / (D0 · L)        « CARACTERISE LA CONICITE DU TRONCON »
 
-**Ce qu'il faudrait pour reprendre l'essai** : soit une vraie géométrie
-mesurée (un fichier TUTT réel — `tutt.resonator_from_dat` est, lui, validé
-à 1,5 cent sur la bombarde d'Ewen, cf. §8), soit un traitement propre de la
-condition aux limites au sommet tronqué (une réactance de pointe, ou un
-second tronçon fictif reliant explicitement la troncature au sommet plutôt
-que de l'y arrêter net) — un chantier en soi, pas une correction d'une
-ligne.
+et la passe à `LTRANS`. `Ltran9.for` dit alors ce que sont les champs dans un
+tronçon tronconique — et ce ne sont **pas** des ondes planes :
 
-**Décision, documentée dans le code plutôt que devinée en le lisant** :
-`saxophone`, `bombarde` et `cornemuse` restent sur `engine='ideal'` par
-défaut (`bore_modes`, la série postulée déjà validée par tout le reste du
-dépôt — registre ×2 émergent, écart impairs/pairs...). `engine='tutt'` reste
-disponible et documenté pour qui veut comparer ou reprendre le chantier,
-avec l'avertissement en tête de `bore_dat_ideal`. Le préférer à un silence
-qui aurait laissé croire — puisque le nom du paramètre suggère justement
-« la référence » — que le cône idéalisé était, lui aussi, passé par la même
-physique validée que le cylindre.
+    p(x) = (A·e^(jkx) + B·e^(−jkx)) / (1 + Δx)
+    w(x) = −S₀/(jωρ) · [A·(jk + Δ(jkx−1))·e^(jkx) − B·(jk + Δ(jkx+1))·e^(−jkx)]
 
-Un test dans `test_tutt.py` fige ce résultat négatif : il échoue exprès si
-quelqu'un corrige un jour le modèle sans mettre à jour cet avertissement.
+Le `1/(1 + Δx)` sur la pression est la décroissance sphérique du cône ; les
+termes en `Δ` sur le débit en sont la contrepartie. **Ce sont eux qui font
+qu'un cône est un cône.** Un empilement de cylindres — ce que faisait ce
+module — les perd tous : chaque tranche est un tuyau droit, la section change
+d'une tranche à l'autre mais l'onde à l'intérieur reste plane. D'où un
+résultat qui se comporte comme un tube **fermé** au petit bout, et le
+`tan(kL) = kL`.
 
-### Ce qui marche : mettre une vraie perce à l'échelle, plutôt que la réinventer
+L'erreur n'était donc ni dans TUTT, ni dans le cône, ni dans la troncature :
+elle était dans mon approximation.
 
-« On ne peut pas simplifier une perce ? » — si, mais pas en réduisant sa
-**forme** : le test qui suit montre que la forme, et seulement elle, décide
-du registre.
+### Ce que ça donne une fois corrigé
 
-Balayage du rapport pavillon/anche sur le même cône à un tronçon (longueur
-fixée par le demi-onde, §9 ci-dessus) :
+`tutt._z_troncon` implémente la formule telle quelle — un tronçon en **un
+seul pas**, si long soit-il, au lieu d'un découpage à convergence surveillée.
+Plus juste *et* plus rapide, ce qui n'arrive pas si souvent. TUTT le dit
+d'ailleurs lui-même : « LES TRONCONS SONT SUPPOSES TRONCONIQUES ; ILS PEUVENT
+ETRE LONGS CAR ON TIENT COMPTE DES VARIATIONS SPATIALES DE PRESSION ET DE
+DEBIT ».
 
-| rapport pavillon/anche | 2ᵉ résonance / 1ʳᵉ |
+| perce | avant (cylindres empilés) | après (tronçon conique exact) |
+|---|---|---|
+| cylindre Ø 15 mm, 500 mm | 167,4 / 505,9 / 845,1 Hz | 167,3 / 505,9 / 845,0 Hz |
+| cône, rapport 10 | 1 : 8,55 : 14,7 | **1 : 2,02 : 3,06 : 4,12** |
+| cône, rapport 4,5 | 1 : 5,83 : 9,98 | **1 : 2,11 : 3,30 : 4,52** |
+
+Le cylindre ne bouge pas (la formule y dégénère exactement), et le cône donne
+enfin l'octave. Le test négatif a été retourné en test positif, comme prévu.
+
+### Et la cavité d'anche de Ninob referme la boucle
+
+Il reste, sur le cône à rapport 4,5, une octave trop haute de **+95 cents** :
+c'est la troncature — il manque le bout pointu. Ninob l'a traitée dans *Modes
+propres d'un tronc de cône* : une anche solide au petit bout se comporte comme
+une **cavité ajoutée**, qui abaisse les modes graves plus que les aigus et
+corrige l'octave. C'est ce qui permet à un saxophone ou à un hautbois
+d'octavier juste.
+
+Vérifié ici, sur la perce ci-dessus (volume de cône manquant : 1,12 cm³) :
+
+| cavité d'anche | octave |
 |---|---|
-| 1,05 (quasi cylindrique) | 3,13 — proche de la **douzième**, comme un cylindre |
-| 1,5 | 3,59 |
-| 2,0 | 4,04 |
-| 4,5 | 5,84 |
-| 15 à 100 | 1,72 — bloqué sur `tan(kL)=kL` |
+| aucune | +95,1 cents |
+| 0,5 cm³ | +66,8 |
+| 1,12 cm³ (le cône manquant) | +27,0 |
+| **1,50 cm³** | **+1,8** |
+| 2,0 cm³ | −29,9 |
 
-Aucun rapport testé ne donne l'octave attendue (2,0) : un cône presque
-cylindrique se comporte... comme un cylindre (harmoniques impairs), un cône
-très évasé retombe sur la transcendante fermée du §9, et rien entre les deux
-ne traverse proprement le registre à l'octave. Le registre d'un instrument
-conique n'est donc pas une propriété générique de « avoir une perce qui
-s'évase » — c'est le **profil complet**, tel qu'un facteur d'instrument le
-règle par l'expérience (et tel que TUTT le vérifie), qui le décide.
+Le volume qui corrige vaut environ 1,3 fois le cône géométriquement manquant.
+Le paramètre existait déjà dans le module (`reed_volume_m3`) et n'était
+« jamais appliqué automatiquement » faute de savoir à quoi il servait
+vraiment. Maintenant on sait, et on sait le mesurer.
 
-La vraie simplification, alors, n'est pas d'inventer une forme plus simple :
-c'est de **réutiliser une forme déjà juste, mise à l'échelle**. Exactement
-comme une famille d'instruments réels (soprano, alto, ténor) est une famille
-de formes proches mises à l'échelle, pas redessinées de zéro à chaque
-taille. `tutt.scale_bore` fait ça : multiplie toutes les longueurs et tous
-les diamètres (perce et trous) par le même facteur.
+### Ce qui reste, et pourquoi les coniques ne passent pas encore en jeu
 
-Mesuré sur une perce à 3 tronçons artificielle, facteur d'échelle de 0,5 à
-2 (une octave de gamme) : les **rapports** de résonance dérivent de moins de
-2 % — le résidu attendu des pertes visco-thermiques, dont l'échelle de
-longueur (`1/√f`, l'épaisseur de couche limite) ne suit pas celle de la
-géométrie. La fondamentale suit `1/facteur` à mieux qu'un demi-ton dès la
-première passe, et `tutt.scale_bore_to` — qui mesure le facteur au lieu de
-le deviner — converge sous le cent en deux ou trois passes, comme
-`live._accorder` le fait déjà côté anche libre.
+La physique est juste ; c'est la **géométrie idéalisée** qui ne l'est pas
+assez. Une perce conique à un seul tronçon a un fondamental trop faible : son
+deuxième sommet d'impédance sort **3 dB au-dessus** du premier, et l'anche s'y
+accroche — au clavier, la note sort une octave trop haut sur une partie de la
+tessiture. La cavité d'anche corrige la justesse de l'octave, pas ce
+déséquilibre-là (elle l'accentue même : +5,4 dB).
 
-**Ce que ça ouvre, dès qu'une vraie perce arrive** : couvrir un clavier
-entier à partir d'**une seule** perce mesurée (fichier TUTT réel, validé),
-mise à l'échelle note par note — au lieu d'un cône idéalisé par note, qui ne
-serait jamais qu'une forme inventée de plus. C'est le prochain pont à poser
-entre `tutt.py` et `live.build_instrument`, dès qu'une perce d'Ewen sera
-disponible pour l'essayer.
+C'est d'ailleurs un trait réel des perces coniques étroites — une bombarde est
+réputée difficile à faire parler dans le grave. Mais ici il vient surtout de la
+troncature. Deux choses le lèveraient, et aucune n'est un réglage :
+
+- une **vraie perce**, dont le profil complet renforce le fondamental — et
+  `tutt.scale_bore` sait déjà en couvrir un clavier entier ;
+- un modèle d'**embouchure** : le pincement des lèvres, ce par quoi un sonneur
+  choisit son registre. Notre excitateur n'a rien de tel.
+
+D'ici là : `clarinette` passe par `engine='tutt'` (0,3 cent d'écart médian sur
+la tessiture), les trois coniques gardent la série postulée, et le calcul
+conique exact sert à tout ce qui passe par une **vraie** perce.
+
+### Ce que le source a donné d'autre, et qui n'est pas encore exploité
+
+`Ltran9.for` contient deux choses de plus, lues et notées :
+
+- **les trous latéraux** — tableau `CP` (0 = ouvert, 1 = fermé), branches
+  latérales `AP`/`BP` avec leur propre constante de propagation et leur
+  impédance de bout. C'est l'algorithme exact du chantier « trous latéraux »,
+  qui n'a plus besoin d'être inventé ;
+- **la définition même de la résonance** : TUTT ne cherche pas les sommets de
+  |Z| du tube nu, mais les **zéros de la partie imaginaire** de
+  `Z = Z_anche + (Z_tube + Z_bouche)/FC`, anche comprise
+  (`Z_anche = j(M·ω − K/ω)/A²`). D'où cette remarque de Ninob, qui vaut pour
+  toute la suite : avec une anche **solide** on joue près des *antirésonances*
+  du tube, avec une anche **aérienne** (flûte) près de ses *résonances*.

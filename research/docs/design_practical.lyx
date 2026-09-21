@@ -1216,9 +1216,13 @@ Modes propres d'un tronc de cône
 \end_layout
 
 \begin_layout Itemize
-essai fait et écarté : un cône TUTT à un seul tronçon, tronqué côté anche plutôt que rejoignant une vraie pointe, ne redonne pas le registre à l'octave — ses résonances suivent \begin_inset Formula $\tan(kL)=kL$
+résolu : le cône ne donnait pas l'octave parce que le calcul empilait des cylindres, ce qui perd les termes en \begin_inset Formula $\Delta=(D_{L}-D_{0})/(D_{0}L)$
 \end_inset
- (un cône fermé à son petit bout) au lieu de la série harmonique d'un cône entraîné près de sa pointe, jusqu'à 330 cents d'écart. saxophone/bombarde/cornemuse restent donc sur la série postulée ; le détail de ce qui a été éliminé est dans modele_hybride_generalise.md, §9 ;
+ de l'onde sphérique. Le source de TUTT (Perce2.for, Ltran9.for) les donne ; implémentés, le cône rend 1 : 2,02 : 3,06 et la cavité d'anche de Ninob ramène l'octave d'un cône tronqué de +95 à +2 cents. Reste : les coniques idéalisées à un tronçon gardent un fondamental trop faible (2\begin_inset Formula $^{e}$
+\end_inset
+ sommet 3 dB au-dessus du 1\begin_inset Formula $^{er}$
+\end_inset
+), donc saut d'octave au clavier — il y faut une vraie perce et un modèle d'embouchure ;
 \end_layout
 
 \begin_layout Itemize

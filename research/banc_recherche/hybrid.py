@@ -818,7 +818,7 @@ def playing_frequency(signal, fs, fmin=40.0, fmax=4000.0):
 
 def _wind(exciter, f0, kind, n_modes, q, bore_mm, peak_ratio, name,
           cutoff_hz=None, stretch=0.0, register=0, bell_mm=None,
-          engine='ideal'):
+          engine='tutt'):
     """Assemble une voix à vent. `bore_mm` = diamètre de perce côté anche.
 
     `register=0` joue le registre grave ; `1` ouvre la clé de registre et
@@ -826,27 +826,47 @@ def _wind(exciter, f0, kind, n_modes, q, bore_mm, peak_ratio, name,
 
     Deux moteurs pour le résonateur
     --------------------------------
-    `engine='ideal'` — `bore_modes` : une série harmonique ou impaire exacte,
-    postulée. Rapide, et c'est elle qui a servi à tous les résultats déjà
-    validés du dépôt (registre ×2/×3, écart impairs/pairs...).
+    `engine='tutt'` (le défaut) calcule le résonateur par la physique de
+    TUTT : ligne de transfert **tronconique exacte** (`tutt._z_troncon`,
+    d'après `Ltran9.for`), pertes visco-thermiques de Kirchhoff/Mason,
+    impédance de rayonnement. La perce idéalisée n'a qu'un tronçon, mais la
+    physique, elle, est celle de la référence — et c'est elle qui décide du
+    registre : le cylindre donne la douzième (1 : 3,03 : 5,05), le cône
+    l'octave (1 : 2,02 : 3,06).
 
-    `engine='tutt'` — la même physique que le pont TUTT (matrices de
-    transfert, pertes de Kirchhoff/Mason, impédance de rayonnement) sur une
-    perce à **un seul tronçon** qui vise `f0`. TUTT est la référence pour la
-    justesse et l'inharmonicité d'une **vraie** perce — mais une perce à un
-    tronçon tronqué **n'est pas** une vraie perce, et l'essai a mal tourné :
-    le cône idéalisé ne redonne pas le registre à l'octave, ses résonances
-    suivent `tan(kL)=kL` au lieu de la série harmonique attendue, avec des
-    écarts de plusieurs centaines de cents. Le cylindre, lui, n'a aucune
-    ambiguïté de troncature et marche très bien par cette voie (`clarinette`
-    l'utilise par défaut). Détail de ce qui a été essayé et pourquoi ça ne
-    suffit pas encore : `docs/modele_hybride_generalise.md`, §9.
+    `engine='ideal'` retombe sur `bore_modes` — une série harmonique ou
+    impaire exacte, postulée, sans inharmonicité ni perte de bout. Plus
+    rapide, et c'est elle qui a servi aux premiers résultats du dépôt.
 
-    Tant que ce point n'est pas résolu, `engine='tutt'` sur une perce
-    **conique** n'est donc **pas** le défaut ici — pour une vraie perce
-    conique (fichier TUTT réel), c'est `tutt.resonator_from_dat` directement
-    qu'il faut appeler : lui est validé, à 1,5 cent près, sur la bombarde
-    d'Ewen.
+    Qui prend quoi, et pourquoi
+    ---------------------------
+    La **clarinette** (cylindre) passe par `'tutt'` : elle y gagne des Q et
+    des sommets calculés plutôt que postulés, et joue juste (0,3 cent
+    d'écart médian sur la tessiture).
+
+    Les trois **coniques** restent sur `'ideal'`. Pas par méfiance envers le
+    calcul — il est juste, et c'est lui qui redonne l'octave — mais parce
+    qu'une perce conique idéalisée **à un seul tronçon** a un fondamental
+    trop faible : son deuxième sommet d'impédance sort 3 dB *au-dessus* du
+    premier, et l'anche s'y accroche. Au clavier, la note sort alors une
+    octave trop haut sur une partie de la tessiture. C'est un trait réel des
+    perces coniques étroites (une bombarde est réputée difficile à faire
+    parler dans le grave), mais ici il vient surtout de la troncature : il
+    manque le bout pointu du cône, et donc la force du fondamental. Deux
+    choses le lèveraient, et aucune n'est un réglage : une **vraie perce**,
+    dont le profil renforce le fondamental, et un modèle d'**embouchure** —
+    le pincement des lèvres, ce par quoi un sonneur choisit son registre.
+
+    Ce qu'il a fallu pour en arriver là
+    -----------------------------------
+    La première version de ce moteur empilait des **cylindres** pour
+    approcher un cône. Le cylindre sortait juste, le cône sortait faux d'un
+    demi-ton — ses résonances suivaient `tan(kL)=kL` au lieu de la série
+    harmonique — et les trois instruments coniques étaient restés sur
+    `engine='ideal'` en attendant mieux. La cause était dans l'approximation,
+    pas dans le cône : un empilement de cylindres perd les termes en `Δ` qui
+    font la décroissance sphérique d'un cône. Le source de TUTT les donne en
+    toutes lettres, et avec eux l'octave revient toute seule.
     """
     if engine == 'tutt':
         from . import tutt
@@ -935,11 +955,9 @@ def clarinette(f0_hz=147.0, n_modes=10, q=40.0, bore_mm=14.6, peak_ratio=20.0,
     sort environ 37 dB d'écart entre rangs impairs et pairs. C'est la perce
     qui le décide, pas l'anche.
 
-    Seul des quatre vents à passer par `engine='tutt'` par défaut : un
-    cylindre n'a pas de troncature de cône à trancher (cf. `_wind`), et le
-    calcul redonne la série impaire exacte à la stretch de couche limite
-    près — perte et légère dispersion des harmoniques aigus comprises,
-    plutôt que postulées par `stretch=`.
+    Le calcul TUTT redonne la série impaire à la stretch de couche limite
+    près — 1 : 3,03 : 5,05 : 7,09 — perte et dispersion des harmoniques
+    aigus comprises, plutôt que postulées par `stretch=`.
     """
     return _wind(SingleReedExciter(**kw), f0_hz, 'cylindrique', n_modes, q,
                  bore_mm, peak_ratio, "clarinette", cutoff_hz,
@@ -971,6 +989,7 @@ def bombarde(f0_hz=294.0, n_modes=12, q=28.0, bore_mm=5.0, bell_mm=None,
     demande une anche minuscule et raide et une pression de souffle que le
     modèle chiffre en milliers de pascals. Rien d'étonnant à ce qu'on joue par
     couple avec le biniou et qu'on se relaie.
+
     """
     return _wind(DoubleReedExciter(**kw), f0_hz, 'conique', n_modes, q,
                  bore_mm, peak_ratio, "bombarde", cutoff_hz,

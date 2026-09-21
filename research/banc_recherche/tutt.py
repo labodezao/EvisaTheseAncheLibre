@@ -366,41 +366,67 @@ def _propagation(freqs, radius_m, temp_c=20.0, roughness=1.0):
     return gamma, zc
 
 
-def _matrice_troncon(freqs, d0, dl, length, temp_c=20.0, n_slices=None,
-                     roughness=1.0):
-    """Matrice de transfert d'un tronçon, conique ou cylindrique.
+def _z_troncon(freqs, d0, dl, length, z_aval, temp_c=20.0, roughness=1.0):
+    """Impédance vue du côté `d0`, connaissant celle du côté `dl`. Un tronçon.
 
-    Un cône est découpé en tranches cylindriques. C'est moins élégant qu'une
-    matrice conique analytique, mais c'est **vérifiable** : on augmente le
-    nombre de tranches jusqu'à ce que le résultat ne bouge plus, et on n'a
-    aucune formule à se tromper.
+    C'est **la** formule de TUTT (`Ltran9.for`), et elle vaut d'être écrite
+    en entier, parce que la remplacer par un empilement de cylindres — ce que
+    faisait ce module jusqu'ici — donne un résultat faux d'un demi-ton sur un
+    cône, sans rien signaler.
+
+    Dans un tronçon tronconique d'origine `x = 0` côté `d0`, le diamètre vaut
+    `d0·(1 + Δx)` avec la **conicité** de TUTT :
+
+        Δ = (dl − d0) / (d0 · L)
+
+    et les champs sont, non pas des ondes planes, mais des ondes sphériques :
+
+        p(x) = (A·e^(−Γx) + B·e^(+Γx)) / (1 + Δx)
+        w(x) = −S₀/(jωρ) · [A·a(x) − B·b(x)]
+            a(x) = (−Γ + Δ(−Γx − 1))·e^(−Γx)
+            b(x) = (−Γ + Δ(−Γx + 1))·e^(+Γx)
+
+    Le `1/(1 + Δx)` sur la pression est la décroissance sphérique du cône ;
+    les termes en `Δ` sur le débit en sont la contrepartie. **Ce sont eux qui
+    font qu'un cône est un cône** : un empilement de cylindres les perd, et
+    avec eux le registre à l'octave — les résonances retombent alors sur
+    `tan(kL) = kL`, la signature d'un cône *fermé* à son petit bout.
+
+    Un tronçon se traite ainsi en **un seul pas**, si long soit-il, au lieu
+    d'un découpage à convergence surveillée. Plus juste *et* plus rapide, ce
+    qui n'arrive pas si souvent. TUTT le dit d'ailleurs lui-même : « LES
+    TRONCONS SONT SUPPOSES TRONCONIQUES ; ILS PEUVENT ETRE LONGS CAR ON TIENT
+    COMPTE DES VARIATIONS SPATIALES DE PRESSION ET DE DEBIT ».
+
+    `Γ` est la constante de propagation complexe avec pertes visco-thermiques
+    (cf. `_propagation`) ; elle joue le rôle du `jk` de TUTT, au signe près.
     """
     freqs = np.asarray(freqs, dtype='float64')
-    r0, r1 = float(d0) / 2.0, float(dl) / 2.0
     L = float(length)
+    z_aval = np.asarray(z_aval, dtype='complex128')
     if L <= 0:
-        z = np.ones_like(freqs, dtype='complex128')
-        o = np.zeros_like(z)
-        return np.array([[z, o], [o, z]])
+        return z_aval
 
-    if n_slices is None:
-        conicite = abs(r1 - r0) / max(r0, r1, 1e-9)
-        n_slices = 1 if conicite < 1e-6 else max(8, int(60 * conicite))
+    d0, dl = float(d0), float(dl)
+    # pertes évaluées sur le rayon moyen du tronçon : la couche limite ne
+    # connaît pas la conicité, seulement la paroi qu'elle frotte.
+    gamma, _zc = _propagation(freqs, (d0 + dl) / 4.0, temp_c, roughness)
+    omega = 2 * np.pi * freqs
+    delta = (dl - d0) / (d0 * L)
+    s0 = np.pi * d0 ** 2 / 4.0
+    g = s0 / (1j * omega * RHO)
 
-    bords = np.linspace(0.0, 1.0, n_slices + 1)
-    rayons = r0 + (r1 - r0) * 0.5 * (bords[:-1] + bords[1:])
-    dl_slice = L / n_slices
+    e_moins, e_plus = np.exp(-gamma * L), np.exp(+gamma * L)
+    a_l = (-gamma + delta * (-gamma * L - 1.0)) * e_moins
+    b_l = (-gamma + delta * (-gamma * L + 1.0)) * e_plus
+    a_0, b_0 = (-gamma - delta), (-gamma + delta)
 
-    un = np.ones_like(freqs, dtype='complex128')
-    zero = np.zeros_like(un)
-    A, B, C, D = un.copy(), zero.copy(), zero.copy(), un.copy()
-    for r in rayons:
-        g, zc = _propagation(freqs, r, temp_c, roughness)
-        gl = g * dl_slice
-        ch, sh = np.cosh(gl), np.sinh(gl)
-        a, b, c_, d = ch, zc * sh, sh / zc, ch
-        A, B, C, D = A * a + B * c_, A * b + B * d, C * a + D * c_, C * b + D * d
-    return np.array([[A, B], [C, D]])
+    # On ne forme jamais le rapport A/B : il diverge quand B s'annule. On
+    # garde le couple (numérateur, dénominateur), qui ne diverge pas.
+    rayon = 1.0 + delta * L
+    na = -e_plus / rayon + z_aval * g * b_l          # A ∝ na
+    nb = e_moins / rayon + z_aval * g * a_l          # B ∝ nb
+    return (na + nb) / (-g * (na * a_0 - nb * b_0))
 
 
 def _impedance_rayonnement(freqs, radius_m, flanged=False):
@@ -423,6 +449,9 @@ def _impedance_rayonnement(freqs, radius_m, flanged=False):
 
 def input_impedance(dat: BoreDat, freqs, n_slices=None,
                     reed_volume_m3=None):
+    # `n_slices` n'a plus d'effet : chaque tronçon se traite en un pas exact
+    # (cf. `_z_troncon`). Le paramètre reste accepté pour ne pas casser les
+    # appels existants.
     """Impédance d'entrée de la colonne principale, vue de l'embouchure.
 
     **Sens de lecture des tableaux.** TUTT décrit l'instrument du *pavillon*
@@ -441,6 +470,9 @@ def input_impedance(dat: BoreDat, freqs, n_slices=None,
     donner un cône) à 1 : 1,79 : 2,63 (rien de connu).
 
     ⚠️ Trous latéraux non posés — cf. l'avertissement du module.
+
+    `n_slices` est conservé pour compatibilité, mais n'a plus d'effet : le
+    tronçon conique est exact, il n'y a plus rien à découper.
     """
     freqs = np.asarray(freqs, dtype='float64')
     # Le fichier donne les températures « en haut et en bas de la ligne » : en
@@ -470,12 +502,10 @@ def input_impedance(dat: BoreDat, freqs, n_slices=None,
         temp = t_pav + (t_emb - t_pav) * np.exp(-(xtot - milieu) / 0.25)
         # milieu se compte depuis le pavillon : l'exponentielle vaut 1 côté
         # embouchure (souffle chaud) et s'éteint vers le pavillon (ambiant).
-        # on remonte du côté pavillon (DL) vers le côté embouchure (D0)
-        M = _matrice_troncon(freqs, dat.dl[i], dat.d0[i], dat.lengths[i],
-                             temp, n_slices,
-                             float(rug[i]) if i < len(rug) else 1.0)
-        A, B, C, D = M[0, 0], M[0, 1], M[1, 0], M[1, 1]
-        Z = (A * Z + B) / (C * Z + D)
+        # on remonte du côté pavillon (DL) vers le côté embouchure (D0) :
+        # `Z` est connue côté DL, on veut celle côté D0.
+        Z = _z_troncon(freqs, dat.d0[i], dat.dl[i], dat.lengths[i], Z,
+                       temp, float(rug[i]) if i < len(rug) else 1.0)
 
     v = reed_volume_m3          # jamais déduit du fichier : cf. reed_volume_m3()
     if v and v > 0:
@@ -554,8 +584,8 @@ def resonator_from_dat(chemin_ou_dat, fmin=50.0, fmax=4000.0, n_peaks=10,
     `cutoff_hz` applique la coupure de réseau de trous de Benade (cf.
     `hybrid.bore_modes`) par-dessus les résonances calculées — utile pour une
     perce dont on ne modélise pas encore les trous eux-mêmes (`ideal_resonator`
-    s'en sert). Les autres mots-clés (`n_slices`, `reed_volume_m3`,
-    `prominence_db`) vont à `resonances`.
+    s'en sert). Les autres mots-clés (`reed_volume_m3`, `prominence_db`)
+    vont à `resonances` ; `n_slices` y est accepté sans effet.
     """
     from .hybrid import Resonator, modes_from_partials, inharmonicity_cents
 

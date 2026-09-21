@@ -530,15 +530,27 @@ def test_la_hauteur_du_registre_suit_la_deuxieme_resonance():
         assert abs(ecart - c2) < 5.0        # suivi au cent près, 5 de tolérance
 
 
-def test_seule_la_clarinette_utilise_tutt_par_defaut():
-    """Choix documenté dans `_wind` : le cylindre n'a pas de troncature de
-    cône à trancher, le cône idéalisé si (cf. test_tutt.py). Un changement
-    ici doit être délibéré, pas un oubli de paramètre.
+def test_le_moteur_par_defaut_de_chaque_vent_est_celui_qui_joue_juste():
+    """Choix mesuré, pas de principe : la clarinette (cylindre) joue juste
+    par TUTT ; les coniques idéalisées à un tronçon y sautent à l'octave sur
+    une partie de la tessiture (fondamental trop faible, cf. `_wind`), donc
+    elles gardent la série postulée. Un changement ici doit être délibéré.
     """
     import inspect
-    assert inspect.signature(hybrid.clarinette).parameters['engine'].default == 'tutt'
-    for nom in ('saxophone', 'bombarde', 'cornemuse'):
-        assert inspect.signature(hybrid.INSTRUMENTS[nom]).parameters['engine'].default == 'ideal'
+    attendu = {'clarinette': 'tutt', 'saxophone': 'ideal',
+               'bombarde': 'ideal', 'cornemuse': 'ideal'}
+    for nom, moteur in attendu.items():
+        d = inspect.signature(hybrid.INSTRUMENTS[nom]).parameters['engine'].default
+        assert d == moteur, (nom, d)
+
+
+def test_la_perce_decide_du_registre_et_pas_l_anche():
+    """Même excitateur des deux côtés : seule la géométrie change, et c'est
+    elle qui donne la douzième ou l'octave."""
+    cyl = hybrid.clarinette(147.0, engine='tutt').resonator.modes
+    cone = hybrid.saxophone(233.0, engine='tutt').resonator.modes
+    assert 2.9 < cyl[1].freq_hz / cyl[0].freq_hz < 3.15      # douzième
+    assert 1.9 < cone[1].freq_hz / cone[0].freq_hz < 2.2     # octave
 
 
 def test_la_clarinette_tutt_reste_utilisable_en_ideal():
