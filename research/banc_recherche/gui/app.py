@@ -18,6 +18,7 @@ Onglets :
 from __future__ import annotations
 
 import sys
+from pathlib import Path
 
 from ..config import DEFAULT, Config
 
@@ -128,6 +129,10 @@ def _build(cfg: Config):
     tabs.addTab(_tab_phase(state, plot_widget), "Espace des phases")
     tabs.addTab(_tab_frf(state, plot_widget), "FRF (swept-sine)")
     tabs.addTab(_tab_model(state, plot_widget), "Modèle anche")
+    tabs.addTab(_tab_sample_model(state, plot_widget), "Sample → modèle")
+    tabs.addTab(_tab_physical_synth(state, plot_widget), "Synthèse physique")
+    tabs.addTab(_tab_hybrid(state, plot_widget), "Instruments (hybride)")
+    tabs.addTab(_tab_live(state, plot_widget), "Jouer (MIDI)")
 
     win.setCentralWidget(tabs)
     win.resize(1100, 720)
@@ -1070,6 +1075,732 @@ def _tab_leak(state, plot_widget):
 
     b = QtWidgets.QPushButton("Charger CSV décroissance"); b.clicked.connect(load_csv)
     lay.addWidget(_row("Volume (m³, opt.)", vol, b)); lay.addWidget(plot); lay.addWidget(out)
+    return page
+
+
+# ---- Sample -> modèle physique (sample_extract + synth_export) -------------
+def _tab_sample_model(state, plot_widget):
+    """Importer un sample monophonique, en extraire les paramètres d'un modèle
+    physique, exporter vers une cible embarquée (STM32 / Dream)."""
+    from PyQt6 import QtWidgets
+    import numpy as np
+    from .. import sample_extract, synth_export
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    info = QtWidgets.QLabel("Charger un sample **monophonique** (une note tenue, un seul instrument).")
+    plot = plot_widget("Enveloppes des partiels")
+    out = QtWidgets.QPlainTextEdit(); out.setReadOnly(True)
+    out.setPlaceholderText("Les paramètres extraits s'afficheront ici.")
+
+    n_part = QtWidgets.QSpinBox(); n_part.setRange(1, 64); n_part.setValue(12)
+    n_res = QtWidgets.QSpinBox(); n_res.setRange(1, 16); n_res.setValue(6)
+
+    def load_sample():
+        fn, _ = QtWidgets.QFileDialog.getOpenFileName(
+            page, "Ouvrir un sample", "", "Audio (*.wav *.flac *.aiff *.aif *.mp3 *.m4a);;Tous (*)")
+        if not fn:
+            return
+        try:
+            sig, sr = _read_audio(fn)
+            state["sample"], state["sample_sr"] = sig, sr
+            state["sample_name"] = Path(fn).stem
+            info.setText(f"{fn}\n{sr} Hz · {len(sig)} éch. · {len(sig)/sr:.2f} s · mono")
+        except Exception as e:
+            info.setText("échec lecture : " + str(e))
+
+    def run():
+        if state.get("sample") is None:
+            out.setPlainText("aucun sample chargé"); return
+        btn_run.setEnabled(False); out.setPlainText("extraction…")
+        sig, sr = state["sample"], state["sample_sr"]
+        name = state.get("sample_name", "voice")
+        npar, nres = n_part.value(), n_res.value()
+
+        def work(emit):
+            m = sample_extract.extract(sig, sr, name=name, n_partials=npar, n_resonators=nres)
+            amps, times = (sample_extract.partial_envelopes(sig, sr, m.f0_hz, n_partials=npar)
+                           if np.isfinite(m.f0_hz) else (None, None))
+            return m, amps, times
+
+        def on_done(res):
+            m, amps, times = res
+            btn_run.setEnabled(True)
+            state["model"] = m
+            out.setPlainText(_format_model(m))
+            if hasattr(plot, "plot") and amps is not None:
+                plot.clear()
+                for k in range(min(amps.shape[0], 8)):
+                    peak = amps[k].max() or 1.0
+                    plot.plot(times, amps[k] / peak, pen=(k, 8))
+
+        def on_failed(msg):
+            btn_run.setEnabled(True); out.setPlainText("erreur : " + msg)
+
+        _run_async(state, work, None, on_done, on_failed)
+
+    def export(kind):
+        m = state.get("model")
+        if m is None:
+            out.setPlainText("lance d'abord l'extraction"); return
+        filt = {"json": "JSON (*.json)", "c": "En-tête C (*.h)", "wt": "En-tête C (*.h)"}[kind]
+        default = {"json": f"{m.name}.json", "c": f"{m.name}.h", "wt": f"{m.name}_wavetable.h"}[kind]
+        fn, _ = QtWidgets.QFileDialog.getSaveFileName(page, "Exporter", default, filt)
+        if not fn:
+            return
+        try:
+            if kind == "json":
+                synth_export.to_json(m, fn)
+            elif kind == "c":
+                synth_export.to_c_header(m, fn, fixed_point=True)
+            else:
+                synth_export.wavetable_to_c(synth_export.to_wavetable(m), m.name, fn)
+            out.appendPlainText(f"\n→ écrit : {fn}")
+        except Exception as e:
+            out.appendPlainText(f"\nerreur export : {e}")
+
+    btn_load = QtWidgets.QPushButton("Charger un sample"); btn_load.clicked.connect(load_sample)
+    btn_run = QtWidgets.QPushButton("Extraire le modèle"); btn_run.clicked.connect(run)
+    btn_json = QtWidgets.QPushButton("Export JSON"); btn_json.clicked.connect(lambda: export("json"))
+    btn_c = QtWidgets.QPushButton("Export .h (STM32)"); btn_c.clicked.connect(lambda: export("c"))
+    btn_wt = QtWidgets.QPushButton("Export wavetable .h"); btn_wt.clicked.connect(lambda: export("wt"))
+
+    lay.addWidget(_row(btn_load, "Partiels", n_part, "Résonances", n_res, btn_run))
+    lay.addWidget(info)
+    lay.addWidget(plot)
+    lay.addWidget(out)
+    lay.addWidget(_row(btn_json, btn_c, btn_wt))
+    return page
+
+
+def _read_audio(path):
+    """Lit un fichier audio en mono float64. WAV via scipy ; autres formats via
+    `soundfile`/`librosa` s'ils sont installés (extra « musique »)."""
+    import numpy as np
+    p = str(path)
+    if p.lower().endswith(".wav"):
+        from scipy.io.wavfile import read
+        sr, data = read(p)
+        sig = data.astype("float64")
+        if np.issubdtype(data.dtype, np.integer):
+            sig /= float(np.iinfo(data.dtype).max)
+    else:
+        try:
+            import soundfile as sf
+            sig, sr = sf.read(p, dtype="float64", always_2d=False)
+        except Exception:
+            import librosa
+            sig, sr = librosa.load(p, sr=None, mono=True)
+            sig = np.asarray(sig, dtype="float64")
+    sig = np.asarray(sig, dtype="float64")
+    if sig.ndim > 1:
+        sig = sig.mean(axis=1)
+    return sig, int(sr)
+
+
+def _format_model(m):
+    """Résumé lisible d'un `SampleModel`."""
+    import numpy as np
+    L = [f"Sample « {m.name} » — {m.samplerate} Hz, {m.duration_s:.2f} s", ""]
+    if not np.isfinite(m.f0_hz):
+        L.append("Aucune hauteur franche détectée : sample non monophonique,")
+        L.append("trop bruité, ou trop court. Rien n'est extrapolé.")
+        return "\n".join(L)
+
+    L.append(f"Hauteur      f0 = {m.f0_hz:.2f} Hz")
+    if np.isfinite(m.vibrato_rate_hz):
+        L.append(f"Vibrato      {m.vibrato_rate_hz:.2f} Hz, {m.vibrato_depth_cents:.1f} cents crête")
+    L.append(f"Source       pente {m.source_slope_db_per_oct:+.2f} dB/octave de rang")
+    L.append(f"Bruit        {m.percussive_pct:.1f} % (harmonique {m.harmonic_pct:.1f} %)")
+    L.append(f"Dynamique    {m.brightness_slope_hz_per_db:+.1f} Hz de centroïde par dB")
+    L.append("")
+    L.append("Partiels (niveau dB / attaque s / inharmonicité cents) :")
+    for k, lvl in enumerate(m.partial_levels_db):
+        att = m.partial_attack_s[k] if k < len(m.partial_attack_s) else float("nan")
+        inh = m.inharmonicity_cents[k] if k < len(m.inharmonicity_cents) else float("nan")
+        L.append(f"  n={k+1:2d}   {lvl:+7.1f}   {att:6.3f}   {inh:+7.1f}")
+    L.append("")
+    L.append("Résonateur (biquads à générer) :")
+    for r in m.resonators:
+        L.append(f"  {r['freq_hz']:8.0f} Hz   Q={r['q']:5.1f}   {r['gain_db']:+6.1f} dB")
+    if m.adsr:
+        L.append("")
+        L.append(f"ADSR (repli)  A={m.adsr['attack_s']:.3f}s  D={m.adsr['decay_s']:.3f}s  "
+                 f"S={m.adsr['sustain_level']:.2f}  R={m.adsr['release_s']:.3f}s")
+    return "\n".join(L)
+
+
+# ---- Synthèse par modèle physique (calibrate + reed_oscillator) ------------
+def _tab_physical_synth(state, plot_widget):
+    """Injecter des sons, en tirer une anche, et faire sonner le modèle.
+
+    Le sample sert de **mesure** : on en extrait la hauteur, on cale une
+    languette dont la *fréquence de jeu* vaut celle du sample (le ressort
+    d'air décale la note — surtout dans le grave), puis on fait osciller le
+    modèle physique et on compare les spectres.
+    """
+    from PyQt6 import QtWidgets
+    import numpy as np
+    from .. import calibrate, sample_extract
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    info = QtWidgets.QLabel("Charge un ou plusieurs sons (une note tenue par fichier).")
+    info.setWordWrap(True)
+    plot = plot_widget("Spectre — original vs modèle")
+    out = QtWidgets.QPlainTextEdit(); out.setReadOnly(True)
+
+    drive = QtWidgets.QDoubleSpinBox()
+    drive.setRange(1.05, 10.0); drive.setSingleStep(0.25); drive.setValue(2.0)
+    drive.setToolTip("Nuance : multiple du seuil de démarrage (1,0 = au seuil, rien ne sort)")
+    dur = QtWidgets.QDoubleSpinBox()
+    dur.setRange(0.2, 10.0); dur.setSingleStep(0.5); dur.setValue(1.5); dur.setSuffix(" s")
+    cal_box = QtWidgets.QCheckBox("caler sur la fréquence de jeu")
+    cal_box.setChecked(True)
+    cal_box.setToolTip("Inverse le décalage dû au ressort d'air (lent, utile surtout dans le grave)")
+
+    def load():
+        fns, _ = QtWidgets.QFileDialog.getOpenFileNames(
+            page, "Sons à injecter", "", "Audio (*.wav *.flac *.aiff *.aif);;Tous (*)")
+        if not fns:
+            return
+        items = []
+        for fn in fns:
+            try:
+                sig, sr = _read_audio(fn)
+                items.append((Path(fn).stem, sig, sr))
+            except Exception as e:
+                out.appendPlainText(f"échec lecture {fn} : {e}")
+        if items:
+            state["synth_samples"] = items
+            info.setText(f"{len(items)} son(s) : " + ", ".join(n for n, _, _ in items))
+
+    def run():
+        items = state.get("synth_samples")
+        if not items:
+            out.setPlainText("aucun son chargé"); return
+        btn_run.setEnabled(False); out.setPlainText("extraction, calage, synthèse…")
+        d, dr, do_cal = dur.value(), drive.value(), cal_box.isChecked()
+
+        def work(emit):
+            res = []
+            for name, sig, sr in items:
+                m = sample_extract.extract(sig, sr, name=name, n_partials=12)
+                if not np.isfinite(m.f0_hz):
+                    res.append((name, None, None, None, None, "pas de hauteur franche"))
+                    continue
+                try:
+                    if do_cal:
+                        model, f_play, f_mode = calibrate.tune_to_playing_frequency(
+                            m.f0_hz, n_iter=5, n_scan=14)
+                    else:
+                        model = calibrate.build_model(m.f0_hz)
+                        f_mode = m.f0_hz
+                        f_play = calibrate.playing_frequency(model, n_scan=14)
+                    audio, nfo = calibrate.synthesize(model, dur=d, fs=sr, drive=dr)
+                    dist = calibrate.compare_to_sample(audio, sig[:audio.size], sr)
+                    res.append((name, m, audio, sr, dict(nfo, f_play=f_play,
+                                                         f_mode=f_mode, dist=dist), None))
+                except Exception as e:
+                    res.append((name, m, None, None, None, str(e)))
+            return res
+
+        def on_done(res):
+            btn_run.setEnabled(True)
+            state["synth_out"] = [(n, a, sr) for n, _, a, sr, _, _ in res if a is not None]
+            txt = []
+            for name, m, audio, sr, nfo, err in res:
+                if err:
+                    txt.append(f"— {name} : {err}"); continue
+                txt.append(
+                    f"— {name}\n"
+                    f"   sample f0 = {m.f0_hz:.1f} Hz\n"
+                    f"   languette calée à {nfo['f_mode']:.1f} Hz -> joue {nfo['f_play']:.1f} Hz\n"
+                    f"   seuil : {nfo['p_on']:.1f} Pa   nuance ×{nfo['drive']:.2f}\n"
+                    f"   excursion {nfo['excursion_mm']:.3f} mm   "
+                    f"pression {nfo['pressure_pa']:.0f} Pa   "
+                    f"fente fermée {100*nfo['closed_fraction']:.0f} % du temps\n"
+                    f"   écart spectral au sample : {nfo['dist']:.2f} dB "
+                    f"({'très proche' if nfo['dist']<3 else 'même couleur' if nfo['dist']<8 else 'timbre différent'})")
+            out.setPlainText("\n".join(txt) if txt else "rien à afficher")
+
+            first = next(((n, m, a, sr) for n, m, a, sr, _, e in res if a is not None), None)
+            if first and hasattr(plot, "plot"):
+                name, m, audio, sr = first
+                orig = next(s for nm, s, _ in items if nm == name)
+                plot.clear()
+                for sig, pen in ((orig[:audio.size], (0, 2)), (audio, (1, 2))):
+                    sp = np.abs(np.fft.rfft(sig * np.hanning(sig.size)))
+                    fr = np.fft.rfftfreq(sig.size, 1.0 / sr)
+                    k = fr < 5000
+                    ref = sp.max() or 1.0
+                    plot.plot(fr[k], 20 * np.log10(np.maximum(sp[k], ref * 1e-6) / ref), pen=pen)
+
+        def on_failed(msg):
+            btn_run.setEnabled(True); out.setPlainText("erreur : " + msg)
+
+        _run_async(state, work, None, on_done, on_failed)
+
+    def export():
+        outs = state.get("synth_out")
+        if not outs:
+            out.appendPlainText("\nrien à exporter : lance d'abord la synthèse"); return
+        d = QtWidgets.QFileDialog.getExistingDirectory(page, "Dossier d'export")
+        if not d:
+            return
+        from scipy.io.wavfile import write
+        import numpy as np
+        for name, audio, sr in outs:
+            p = Path(d) / f"{name}_modele.wav"
+            write(str(p), int(sr), (np.clip(audio, -1, 1) * 32767).astype("int16"))
+            out.appendPlainText(f"→ {p}")
+
+    btn_load = QtWidgets.QPushButton("Charger des sons"); btn_load.clicked.connect(load)
+    btn_run = QtWidgets.QPushButton("Synthétiser"); btn_run.clicked.connect(run)
+    btn_exp = QtWidgets.QPushButton("Exporter les WAV"); btn_exp.clicked.connect(export)
+
+    lay.addWidget(_row(btn_load, "Nuance", drive, "Durée", dur, cal_box, btn_run))
+    lay.addWidget(info)
+    lay.addWidget(plot)
+    lay.addWidget(out)
+    lay.addWidget(_row(btn_exp))
+    return page
+
+
+def _tab_hybrid(state, plot_widget):
+    """Tous les instruments à excitateur non linéaire, et l'export vers STM32.
+
+    Trois gestes, dans cet ordre :
+
+    1. **choisir une famille** — le son ne dira pas s'il vient d'une anche ou
+       d'un archet, c'est l'a priori qu'on assume ;
+    2. **injecter un son** (facultatif) — il donne la hauteur, la conicité de
+       la perce, la position d'archet, la nuance. Sans son, on part du
+       préréglage d'instrument ;
+    3. **exporter le C** — moteur + table de paramètres, à compiler sur la
+       carte. Le même modèle, sans ordinateur.
+
+    Le rapport sépare toujours **ce qui a été mesuré** de **ce qui a été
+    supposé**. Un paramètre supposé qu'on prend pour mesuré est la façon la
+    plus sûre de se tromper longtemps.
+    """
+    from PyQt6 import QtWidgets
+    import numpy as np
+    from .. import hybrid, identify as idf, embedded as emb
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    plot = plot_widget("Spectre — son injecté vs modèle")
+    out = QtWidgets.QPlainTextEdit(); out.setReadOnly(True)
+    info = QtWidgets.QLabel("Aucun son : le modèle partira du préréglage d'instrument.")
+    info.setWordWrap(True)
+
+    instrument = QtWidgets.QComboBox()
+    instrument.addItems(sorted(hybrid.INSTRUMENTS))
+    instrument.setCurrentText('clarinette')
+
+    note = QtWidgets.QDoubleSpinBox()
+    note.setRange(40.0, 2000.0); note.setValue(147.0); note.setSuffix(" Hz")
+    note.setToolTip("Hauteur visée (ignorée si un son est injecté)")
+
+    dur = QtWidgets.QDoubleSpinBox()
+    dur.setRange(0.2, 5.0); dur.setValue(1.0); dur.setSuffix(" s")
+
+    srate = QtWidgets.QComboBox(); srate.addItems(["48000", "44100", "96000"])
+
+    def load():
+        fn, _ = QtWidgets.QFileDialog.getOpenFileName(
+            page, "Son à identifier (une note tenue)", "",
+            "Audio (*.wav *.flac *.aiff *.aif);;Tous (*)")
+        if not fn:
+            return
+        try:
+            sig, sr = _read_audio(fn)
+        except Exception as e:
+            out.appendPlainText(f"échec lecture : {e}"); return
+        state["hybrid_sample"] = (Path(fn).stem, sig, sr)
+        info.setText(f"son chargé : {Path(fn).stem} ({sig.size/sr:.2f} s, {sr:.0f} Hz)")
+
+    def forget():
+        state.pop("hybrid_sample", None)
+        info.setText("Aucun son : le modèle partira du préréglage d'instrument.")
+
+    def run():
+        nom = instrument.currentText()
+        sample = state.get("hybrid_sample")
+        f_cible = note.value(); d = dur.value(); fs = float(srate.currentText())
+        btn_run.setEnabled(False); out.setPlainText("identification et synthèse…")
+
+        def work(emit):
+            if sample:
+                _, sig, sr = sample
+                ident = idf.identify(sig, sr, nom)
+            else:
+                v = hybrid.build(nom, f_cible)
+                ident = idf.Identification(
+                    voice=v, instrument=nom, f0_hz=f_cible,
+                    suppose={'tout': "préréglage d'instrument, aucun son injecté"})
+                ex = v.exciter
+                ident.level = (0.25 if isinstance(ex, hybrid.BowExciter)
+                               else 2.9e-6 if isinstance(ex, hybrid.FreeReedExciter)
+                               else 0.62 * ex.closing_pressure_pa)
+            res = ident.voice.simulate(d, fs=fs, level=ident.level,
+                                       oversample=8, settle=0.3)
+            p = emb.params_from_voice(ident.voice, samplerate=fs, name=nom)
+            return ident, res, p
+
+        def on_done(r):
+            btn_run.setEnabled(True)
+            ident, res, p = r
+            state["hybrid_params"] = p
+            state["hybrid_audio"] = (ident.instrument, res.response, res.fs)
+
+            f_joue = hybrid.playing_frequency(res.response, res.fs)
+            niv = idf.harmonic_levels(res.response, res.fs, f_joue, 12)
+            cpu = emb.cpu_estimate(p)
+            unite = getattr(ident.voice.exciter, 'control_unit', '')
+            txt = [ident.rapport(), "",
+                   "— ce que le modèle produit —",
+                   f"  hauteur jouée      : {f_joue:.2f} Hz",
+                   f"  amplitude          : {np.ptp(res.response):.4g}",
+                   f"  impairs − pairs    : {idf.odd_even_ratio(niv):+.1f} dB",
+                   f"  pente spectrale    : {idf.spectral_decay(niv):+.1f} dB/octave",
+                   "",
+                   "— coût embarqué —",
+                   f"  {cpu['biquads']} biquads · suréchantillonnage ×{p.oversample}"
+                   f" · interne {p.fs_internal:.0f} Hz",
+                   f"  {cpu['mflops_per_voice']:.1f} MFLOP/s par voix,"
+                   f" état {cpu['state_bytes']} octets",
+                   f"  ≈ {cpu['voices']:.0f} voix sur STM32H7 (480 MHz),"
+                   f" {emb.cpu_estimate(p, 168.0)['voices']:.0f} sur F4 (168 MHz)",
+                   f"  commande de jeu    : {ident.level:.4g} {unite}"]
+            out.setPlainText("\n".join(txt))
+
+            if hasattr(plot, "plot"):
+                plot.clear()
+                courbes = [(res.response, (1, 2))]
+                if sample:
+                    courbes.insert(0, (sample[1][:res.response.size], (0, 2)))
+                for sig, pen in courbes:
+                    sp = np.abs(np.fft.rfft(sig * np.hanning(sig.size)))
+                    fr = np.fft.rfftfreq(sig.size, 1.0 / res.fs)
+                    k = fr < 5000
+                    ref = sp.max() or 1.0
+                    plot.plot(fr[k], 20 * np.log10(np.maximum(sp[k], ref * 1e-6) / ref),
+                              pen=pen)
+
+        def on_failed(msg):
+            btn_run.setEnabled(True); out.setPlainText("erreur : " + msg)
+
+        _run_async(state, work, None, on_done, on_failed)
+
+    def export_wav():
+        a = state.get("hybrid_audio")
+        if not a:
+            out.appendPlainText("\nrien à exporter : lance d'abord la synthèse"); return
+        fn, _ = QtWidgets.QFileDialog.getSaveFileName(page, "Enregistrer le WAV",
+                                                      f"{a[0]}.wav", "WAV (*.wav)")
+        if not fn:
+            return
+        from scipy.io.wavfile import write
+        import numpy as np
+        sig = a[1] / (np.max(np.abs(a[1])) or 1.0)
+        write(fn, int(a[2]), (np.clip(sig, -1, 1) * 32767).astype("int16"))
+        out.appendPlainText(f"→ {fn}")
+
+    def export_c():
+        p = state.get("hybrid_params")
+        if not p:
+            out.appendPlainText("\nrien à exporter : lance d'abord la synthèse"); return
+        d = QtWidgets.QFileDialog.getExistingDirectory(page, "Dossier pour le code C")
+        if not d:
+            return
+        try:
+            for f in emb.export_c(p, d):
+                out.appendPlainText(f"→ {f}")
+            out.appendPlainText(
+                "\nÀ compiler tel quel :\n"
+                "   gcc -std=c99 -O2 hybrid_voice.c ton_main.c -lm\n"
+                "Sur cible : hv_reset(&st) une fois, puis hv_render() par bloc.\n"
+                "Le moteur est le même pour tous les instruments — seule la "
+                "table change.")
+        except Exception as e:
+            out.appendPlainText(f"échec export : {e}")
+
+    btn_load = QtWidgets.QPushButton("Injecter un son"); btn_load.clicked.connect(load)
+    btn_forget = QtWidgets.QPushButton("Oublier le son"); btn_forget.clicked.connect(forget)
+    btn_run = QtWidgets.QPushButton("Identifier et synthétiser"); btn_run.clicked.connect(run)
+    btn_wav = QtWidgets.QPushButton("Exporter le WAV"); btn_wav.clicked.connect(export_wav)
+    btn_c = QtWidgets.QPushButton("Exporter le C (STM32)"); btn_c.clicked.connect(export_c)
+
+    lay.addWidget(_row("Instrument", instrument, "Note", note, "Durée", dur,
+                       "Sortie", srate, btn_run))
+    lay.addWidget(_row(btn_load, btn_forget))
+    lay.addWidget(info)
+    lay.addWidget(plot)
+    lay.addWidget(out)
+    lay.addWidget(_row(btn_wav, btn_c))
+    return page
+
+
+def _tab_live(state, plot_widget):
+    """Jouer le modèle physique au clavier MIDI, en direct.
+
+    Le moteur est le **code C destiné au STM32**, compilé ici en bibliothèque
+    partagée : ce qu'on entend est ce qui tournera sur la carte. Mesuré sur
+    cette machine, 137 fois le temps réel à une voix et 26 fois à six.
+
+    Chaque note est **accordée sur le moteur** avant de jouer : un modèle
+    physique ne joue pas la fréquence qu'on lui dessine, et c'est la
+    géométrie qu'on corrige, pas la sortie.
+
+    Deux choses qu'un sampler ne fait pas, et qui sont tout l'intérêt :
+
+    - **l'attaque n'est pas plaquée** — c'est le temps que met l'oscillation à
+      s'installer, et il change avec la nuance ;
+    - **relâcher une touche ne coupe pas le son** : la pression retombe et
+      l'oscillation s'éteint d'elle-même en passant sous son seuil, avec son
+      hystérésis. La note tient un peu plus bas qu'elle n'a démarré.
+    """
+    from PyQt6 import QtWidgets, QtCore
+    import numpy as np
+
+    page = QtWidgets.QWidget(); lay = QtWidgets.QVBoxLayout(page)
+    out = QtWidgets.QPlainTextEdit(); out.setReadOnly(True)
+    out.setMaximumHeight(160)
+
+    from .. import hybrid as _hyb
+    instrument = QtWidgets.QComboBox(); instrument.addItems(sorted(_hyb.INSTRUMENTS))
+    instrument.setCurrentText('clarinette')
+
+    poly = QtWidgets.QSpinBox(); poly.setRange(1, 16); poly.setValue(6)
+    gain = QtWidgets.QDoubleSpinBox()
+    gain.setRange(0.0, 1.0); gain.setSingleStep(0.05); gain.setValue(0.4)
+
+    expr = QtWidgets.QSlider(QtCore.Qt.Orientation.Horizontal)
+    expr.setRange(0, 127); expr.setValue(100)
+    expr.setToolTip("Nuance — molette de modulation (CC1) ou contrôleur à vent (CC2/CC11)")
+
+    midi_port = QtWidgets.QComboBox()
+    lbl = QtWidgets.QLabel("Aucun instrument préparé.")
+    lbl.setWordWrap(True)
+
+    def log(t):
+        out.appendPlainText(t)
+
+    # -- préparation -------------------------------------------------------
+    def prepare():
+        nom = instrument.currentText()
+        btn_prep.setEnabled(False)
+        log(f"préparation de « {nom} » : une perce par demi-ton, "
+            f"puis accordage note à note…")
+
+        def work(emit):
+            import numpy as np
+            from .. import live
+            live.engine_library()
+            inst = live.build_instrument(nom, lo=40, hi=88)
+            rtf = live.realtime_factor(inst, n_voices=poly.value(), seconds=0.3)
+            # ce que l'accordage a donné, mesuré sur le moteur et pas promis
+            ecarts = []
+            for n in range(inst.lo, inst.hi + 1, 6):
+                f = live._frequence_jouee(inst.params_for(n),
+                                          inst.level_default, inst.samplerate)
+                if f:
+                    ecarts.append(1200 * np.log2(f / live.midi_to_hz(n)))
+            just = float(np.median(np.abs(ecarts))) if ecarts else float('nan')
+            return inst, rtf, just
+
+        def done(r):
+            btn_prep.setEnabled(True)
+            inst, rtf, just = r
+            from .. import live
+            state['live_inst'] = inst
+            state['live_synth'] = live.Synth(inst, polyphony=poly.value(),
+                                             gain=gain.value())
+            lbl.setText(f"{nom} — {len(inst)} notes prêtes · "
+                        f"×{rtf:.0f} le temps réel à {poly.value()} voix")
+            log(f"  {len(inst)} notes · nuance nominale {inst.level_default:.4g} "
+                f"{inst.control_unit} · ×{rtf:.0f} temps réel")
+            log(f"  justesse mesurée sur le moteur : {just:.1f} cent d'écart "
+                f"médian (accordage géométrique, pas de transposition)")
+            if rtf < 2:
+                log("  ⚠ marge faible : baisse la polyphonie si ça craque")
+
+        def failed(m):
+            btn_prep.setEnabled(True); log("erreur : " + m)
+
+        _run_async(state, work, None, done, failed)
+
+    # -- audio -------------------------------------------------------------
+    def audio_start():
+        syn = state.get('live_synth')
+        if syn is None:
+            log("prépare d'abord un instrument"); return
+        try:
+            import sounddevice as sd
+        except Exception:
+            log("sounddevice absent : pip install sounddevice"); return
+        if state.get('live_stream') is not None:
+            log("déjà en marche"); return
+
+        syn.gain = gain.value()
+
+        def cb(outdata, frames, time_info, status):
+            if status:
+                pass
+            outdata[:, 0] = syn.render(frames)
+
+        try:
+            st = sd.OutputStream(samplerate=syn.inst.samplerate, channels=1,
+                                 dtype='float32', blocksize=256, callback=cb)
+            st.start()
+        except Exception as e:
+            log(f"impossible d'ouvrir la sortie audio : {e}"); return
+        state['live_stream'] = st
+        log(f"audio en marche — {syn.inst.samplerate:.0f} Hz, blocs de 256")
+
+    def audio_stop():
+        st = state.pop('live_stream', None)
+        if st is not None:
+            try:
+                st.stop(); st.close()
+            except Exception:
+                pass
+            log("audio arrêté")
+        syn = state.get('live_synth')
+        if syn is not None:
+            syn.all_notes_off()
+
+    # -- MIDI --------------------------------------------------------------
+    def midi_scan():
+        midi_port.clear()
+        try:
+            import mido
+        except Exception:
+            midi_port.addItem("mido absent — pip install mido python-rtmidi")
+            return
+        noms = mido.get_input_names()
+        midi_port.addItems(noms or ["(aucun port MIDI)"])
+        log(f"{len(noms)} port(s) MIDI") if noms else log("aucun port MIDI trouvé")
+
+    def midi_open():
+        syn = state.get('live_synth')
+        if syn is None:
+            log("prépare d'abord un instrument"); return
+        try:
+            import mido
+        except Exception:
+            log("mido absent : pip install mido python-rtmidi"); return
+        nom = midi_port.currentText()
+        if not nom or nom.startswith('('):
+            log("aucun port MIDI sélectionné"); return
+        if state.get('live_midi') is not None:
+            log("port déjà ouvert"); return
+
+        def on_msg(msg):
+            s = state.get('live_synth')
+            if s is None:
+                return
+            if msg.type == 'note_on' and msg.velocity > 0:
+                s.note_on(msg.note, msg.velocity)
+            elif msg.type in ('note_off', 'note_on'):
+                s.note_off(msg.note)
+            elif msg.type == 'control_change':
+                if msg.control in (1, 2, 11):         # molette, souffle, expression
+                    s.expression = msg.value / 127.0
+                elif msg.control == 123:              # all notes off
+                    s.all_notes_off()
+            elif msg.type == 'pitchwheel':
+                pass                                   # à faire : pitch bend continu
+
+        try:
+            port = mido.open_input(nom, callback=on_msg)
+        except Exception as e:
+            log(f"impossible d'ouvrir {nom} : {e}"); return
+        state['live_midi'] = port
+        log(f"MIDI ouvert sur « {nom} » — joue.")
+
+    def midi_close():
+        port = state.pop('live_midi', None)
+        if port is not None:
+            try:
+                port.close()
+            except Exception:
+                pass
+            log("MIDI fermé")
+
+    # -- clavier de secours, pour essayer sans matériel ---------------------
+    def touche(note):
+        def f():
+            syn = state.get('live_synth')
+            if syn is None:
+                log("prépare d'abord un instrument"); return
+            syn.note_on(note, 100)
+            QtCore.QTimer.singleShot(900, lambda: syn.note_off(note))
+        return f
+
+    clavier = QtWidgets.QWidget(); hb = QtWidgets.QHBoxLayout(clavier)
+    hb.setContentsMargins(0, 0, 0, 0)
+    for nom_note, n in [("do", 60), ("ré", 62), ("mi", 64), ("fa", 65),
+                        ("sol", 67), ("la", 69), ("si", 71), ("do'", 72)]:
+        b = QtWidgets.QPushButton(nom_note)
+        b.setMaximumWidth(48)
+        b.clicked.connect(touche(n))
+        hb.addWidget(b)
+
+    # -- suivi ---------------------------------------------------------------
+    etat = QtWidgets.QLabel("—")
+    tim = QtCore.QTimer(page)
+
+    def tick():
+        syn = state.get('live_synth')
+        if syn is None:
+            return
+        syn.expression = expr.value() / 127.0
+        syn.gain = gain.value()
+        etat.setText(f"voix actives : {syn.active_voices} / {len(syn.voices)}"
+                     f"   ·   nuance {100 * syn.expression:.0f} %"
+                     f"   ·   audio {'en marche' if state.get('live_stream') else 'arrêté'}"
+                     f"   ·   MIDI {'ouvert' if state.get('live_midi') else 'fermé'}")
+    tim.timeout.connect(tick)
+    tim.start(120)
+
+    def export_wav():
+        syn = state.get('live_synth')
+        if syn is None:
+            log("prépare d'abord un instrument"); return
+        fn, _ = QtWidgets.QFileDialog.getSaveFileName(
+            page, "Enregistrer une note", f"{instrument.currentText()}.wav",
+            "WAV (*.wav)")
+        if not fn:
+            return
+        from scipy.io.wavfile import write
+        from .. import live as _lv
+        s2 = _lv.Synth(syn.inst, polyphony=1, gain=gain.value())
+        s2.note_on(64, 100)
+        bloc = [s2.render(2048) for _ in range(int(1.2 * syn.inst.samplerate / 2048))]
+        s2.note_off(64)
+        bloc += [s2.render(2048) for _ in range(int(0.8 * syn.inst.samplerate / 2048))]
+        sig = np.concatenate(bloc)
+        write(fn, int(syn.inst.samplerate), (np.clip(sig, -1, 1) * 32767).astype('int16'))
+        log(f"→ {fn}  (attaque, tenue, puis extinction physique après relâché)")
+
+    btn_prep = QtWidgets.QPushButton("Préparer"); btn_prep.clicked.connect(prepare)
+    b_on = QtWidgets.QPushButton("Audio ▶"); b_on.clicked.connect(audio_start)
+    b_off = QtWidgets.QPushButton("Audio ■"); b_off.clicked.connect(audio_stop)
+    b_scan = QtWidgets.QPushButton("Chercher MIDI"); b_scan.clicked.connect(midi_scan)
+    b_mon = QtWidgets.QPushButton("Ouvrir MIDI"); b_mon.clicked.connect(midi_open)
+    b_moff = QtWidgets.QPushButton("Fermer MIDI"); b_moff.clicked.connect(midi_close)
+    b_wav = QtWidgets.QPushButton("Exporter un WAV"); b_wav.clicked.connect(export_wav)
+
+    lay.addWidget(_row("Instrument", instrument, "Polyphonie", poly,
+                       "Gain", gain, btn_prep))
+    lay.addWidget(lbl)
+    lay.addWidget(_row(b_on, b_off, "Port MIDI", midi_port, b_scan, b_mon, b_moff))
+    lay.addWidget(_row("Nuance", expr))
+    lay.addWidget(_row(QtWidgets.QLabel("Clavier d'essai :"), clavier))
+    lay.addWidget(etat)
+    lay.addWidget(out)
+    lay.addWidget(_row(b_wav))
+    midi_scan()
     return page
 
 

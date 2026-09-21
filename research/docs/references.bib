@@ -1,0 +1,100 @@
+% ============================================================================
+% Bibliographie du dépôt — première convention de citation
+% ============================================================================
+% Utilisée par :
+%   · docs/analyse_acoustique_osso.md   (citations en prose [Auteur année])
+%   · docs/design_practical.lyx         (insets \cite, chapitre « Bibliography »)
+%
+% Les manuscrits LyX sont réglés en `\cite_engine basic` / `\biblio_style plain` :
+% ce fichier est appelé par un inset BibTeX placé dans le chapitre Bibliography
+% de design_practical.lyx. Il doit rester dans le même dossier que les .lyx.
+%
+% Ces entrées ont été saisies à la main : vérifie pages et volumes sur la
+% source avant soumission.
+% ============================================================================
+
+% --- Tonalité, profils perceptifs ------------------------------------------
+
+@book{krumhansl1990,
+  author    = {Krumhansl, Carol L.},
+  title     = {Cognitive Foundations of Musical Pitch},
+  publisher = {Oxford University Press},
+  address   = {New York},
+  year      = {1990},
+  note      = {Algorithme de Krumhansl-Schmuckler (estimation de tonalité par
+               corrélation de profils)}
+}
+
+@article{krumhansl1982,
+  author  = {Krumhansl, Carol L. and Kessler, Edward J.},
+  title   = {Tracing the dynamic changes in perceived tonal organization in a
+             spatial representation of musical keys},
+  journal = {Psychological Review},
+  volume  = {89},
+  number  = {4},
+  pages   = {334--368},
+  year    = {1982},
+  note    = {Profils tonaux majeur/mineur utilisés en 3.7}
+}
+
+% --- Outils d'analyse -------------------------------------------------------
+
+@inproceedings{mcfee2015librosa,
+  author    = {McFee, Brian and Raffel, Colin and Liang, Dawen and
+               Ellis, Daniel P. W. and McVicar, Matt and Battenberg, Eric and
+               Nieto, Oriol},
+  title     = {librosa: Audio and music signal analysis in {P}ython},
+  booktitle = {Proceedings of the 14th Python in Science Conference (SciPy)},
+  pages     = {18--25},
+  year      = {2015}
+}
+
+@article{jadoul2018parselmouth,
+  author  = {Jadoul, Yannick and Thompson, Bill and de Boer, Bart},
+  title   = {Introducing {P}arselmouth: A {P}ython interface to {P}raat},
+  journal = {Journal of Phonetics},
+  volume  = {71},
+  pages   = {1--15},
+  year    = {2018}
+}
+
+@misc{boersma_praat,
+  author       = {Boersma, Paul and Weenink, David},
+  title        = {Praat: doing phonetics by computer},
+  howpublished = {Logiciel, \url{https://www.fon.hum.uva.nl/praat/}},
+  note         = {Version utilisée via parselmouth 0.4.7}
+}
+
+% --- Méthodes de traitement du signal --------------------------------------
+
+@article{boersma1993hnr,
+  author  = {Boersma, Paul},
+  title   = {Accurate short-term analysis of the fundamental frequency and the
+             harmonics-to-noise ratio of a sampled sound},
+  journal = {Proceedings of the Institute of Phonetic Sciences},
+  volume  = {17},
+  pages   = {97--110},
+  year    = {1993},
+  note    = {Méthode du HNR (autocorrélation), utilisée en 3.2}
+}
+
+@inproceedings{fitzgerald2010hpss,
+  author    = {Fitzgerald, Derry},
+  title     = {Harmonic/percussive separation using median filtering},
+  booktitle = {Proceedings of the 13th International Conference on Digital
+               Audio Effects (DAFx-10)},
+  year      = {2010},
+  note      = {Séparation HPSS employée en 3.2}
+}
+
+@article{ellis2007beat,
+  author  = {Ellis, Daniel P. W.},
+  title   = {Beat tracking by dynamic programming},
+  journal = {Journal of New Music Research},
+  volume  = {36},
+  number  = {1},
+  pages   = {51--60},
+  year    = {2007},
+  note    = {Suivi de battement de librosa ; sujet à l'erreur d'octave
+             métrique discutée en 3.5}
+}

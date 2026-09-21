@@ -20,10 +20,30 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=7.0"]
+# Analyse d'enregistrements musicaux (scripts/analyse_osso.py) :
+#   pip install -e ".[musique]"
+musique = [
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "librosa>=0.10",
+    "praat-parselmouth>=0.4.3",
+    "soundfile>=0.12",
+    "matplotlib>=3.7",
+]
+
+# Entrée MIDI pour l'onglet « Jouer (MIDI) » (banc_recherche/live.py) :
+#   pip install -e ".[live]"
+# Le moteur audio lui-même n'en a pas besoin : il se compile en C et sort par
+# sounddevice, déjà dans les dépendances de base.
+live = [
+    "mido>=1.3",
+    "python-rtmidi>=1.5",
+]
 
 [project.scripts]
 banc-recherche = "banc_recherche.gui.app:main"
 banc-recherche-cli = "banc_recherche.cli:main"
+banc-recherche-jouer = "banc_recherche.live:main"
 
 [tool.setuptools.packages.find]
 include = ["banc_recherche*"]

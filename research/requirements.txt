@@ -6,3 +6,13 @@ sounddevice>=0.4.6
 praat-parselmouth>=0.4.3
 PyQt6>=6.5
 pyqtgraph>=0.13
+
+# L'analyse d'enregistrements musicaux (scripts/analyse_osso.py) demande
+# librosa, soundfile et matplotlib. Volontairement absents d'ici : ils tirent
+# numba/llvmlite, longs à installer et inutiles au banc lui-même.
+#     pip install -e ".[musique]"
+
+# L'entrée MIDI de l'onglet « Jouer (MIDI) » demande mido + python-rtmidi.
+# Absents d'ici : le moteur audio joue très bien sans (clavier de test à
+# l'écran, sortie par sounddevice).
+#     pip install -e ".[live]"

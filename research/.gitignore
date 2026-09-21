@@ -8,3 +8,7 @@ mesures.h5
 *.egg-info/
 build/
 dist/
+# Étude OSSO : audio sous droits (jamais versionné) et intermédiaires
+track*.mp3
+*_mid.wav
+*_side.wav

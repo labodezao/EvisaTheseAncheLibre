@@ -685,6 +685,286 @@ Stored energy
 Dissipation
 \end_layout
 
+\begin_layout Section
+A flow-driven formulation of the reed--chamber coupling
+\end_layout
+
+\begin_layout Standard
+The bench drives the reed with a turbine feeding a chamber, and the
+ accordion itself is driven by the bellows imposing a volume velocity.
+ Neither imposes a pressure: the pressure is what results once the flow
+ meets the impedance of the open reeds.
+ The everyday evidence is familiar to any player -- at a constant bellows
+ speed, opening a chord makes the pressure drop, whereas a pressure source
+ would hold the pressure and simply double the flow.
+ The model is therefore written with the flow as the input variable.
+\end_layout
+
+\begin_layout Standard
+Four choices of formulation turn out to be decisive, and each of them was
+ reached only after the corresponding mistake had been made and measured.
+\end_layout
+
+\begin_layout Enumerate
+The state variable of the chamber is the pressure, not the volume.
+ A rigid chamber has a fixed volume; what varies is the mass of air it
+ holds.
+ Using the volume as a state together with an adiabatic law made the
+ pressure fall when air was injected, so that the chamber went into
+ depression, the tongue was sucked against the plate and stayed closed
+ 99.2 per cent of the time.
+\end_layout
+
+\begin_layout Enumerate
+The opening is asymmetric.
+ A free reed feeds in one air direction only, the other half-swing being
+ closed by the leather valve -- which is precisely why blowing and drawing
+ use two distinct reeds.
+ A symmetric opening law modulates the slot twice per period and produces
+ a note one octave too high, measured here as 470 Hz for a 220 Hz tongue.
+ The asymmetry is not a refinement: it sets the pitch.
+\end_layout
+
+\begin_layout Enumerate
+The open area is bounded on both sides: a clean closure, with the residual
+ leak that every real plate has, and a saturation once the tongue has
+ cleared the slot.
+ A numerical floor of the kind used to keep a square root finite hides the
+ closure instead of modelling it, and lets the tongue pass through its own
+ plate.
+\end_layout
+
+\begin_layout Enumerate
+The modal damping matrix must be symmetric.
+ The projection basis (uniform cantilever modes) is not the eigenbasis of
+ a multi-section tongue, so the mass matrix carries about 43 per cent of
+ off-diagonal coupling; the natural-looking product of the mass matrix by a
+ diagonal of modal damping is then not symmetric, and such a matrix injects
+ energy depending on the direction of motion.
+\end_layout
+
+\begin_layout Standard
+The chamber equation finally reads
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\[\frac{dp}{dt}=\frac{\gamma\,(P_{atm}+p)}{V_{0}}\left(q_{in}-q_{out}(p,y)-q_{reed}\right)\]
+\end_layout
+
+\end_inset
+
+\end_layout
+
+\begin_layout Standard
+where the last term is the volume swept by the tongue itself.
+ That term deserves attention: for a tongue vibrating at 100 Hz with an
+ amplitude of one millimetre it reaches about 1.2e-4 cubic metres per
+ second, roughly twelve times the supply flow.
+ The stability of the whole model is governed by it, not by the supply.
+\end_layout
+
+\begin_layout Section
+Predicting the threshold instead of searching for it
+\end_layout
+
+\begin_layout Standard
+Simulating for half a second and watching whether the amplitude decays is a
+ slow and treacherous way to decide whether a reed starts.
+ Linearising around the static equilibrium and reading the eigenvalues of
+ the Jacobian answers the same question in about a millisecond, and answers
+ it exactly: the sign of the largest real part decides stability, and its
+ imaginary part gives the starting frequency.
+\end_layout
+
+\begin_layout Standard
+Carrying the linearisation through by hand on a single mode gives the
+ condition for self-oscillation:
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\[\frac{\partial q_{out}}{\partial y}\;>\;\gamma_{m}\,\frac{\gamma\,P_{atm}}{V_{0}}\,\frac{\partial q_{out}}{\partial p}\]
+\end_layout
+
+\end_inset
+
+\end_layout
+
+\begin_layout Standard
+On the left, what sustains: the modulation of the flow by the motion of the
+ tongue.
+ On the right, what dissipates: the reaction of the air spring to the volume
+ swept by the tongue.
+ Written in terms of the chamber volume this becomes a lower bound on the
+ effective acoustic volume, which is an order of magnitude rather than an
+ equality -- the scalar estimate calls for 78 cubic centimetres where the
+ full model already starts at 40.
+\end_layout
+
+\begin_layout Section
+The saturation trap
+\end_layout
+
+\begin_layout Standard
+This criterion carries a consequence that no amount of simulation had made
+ visible.
+ If the opening saturates -- the tongue blown clear of the slot -- then the
+ derivative of the opening with respect to the tongue position vanishes,
+ the left-hand side of the criterion goes to zero, and the sustaining term
+ disappears whatever the pressure.
+\end_layout
+
+\begin_layout Standard
+That was exactly the situation: the tip settled at 0.649 mm against a
+ saturation set at 0.4 mm.
+ The tongue sat outside its own working range and no longer modulated
+ anything.
+ The same mechanism bounds the oscillation from above and produces, without
+ being asked for it, the choking that every player knows when pushing too
+ hard on the bellows.
+\end_layout
+
+\begin_layout Section
+Limit cycle and the impedance of the source
+\end_layout
+
+\begin_layout Standard
+An ideal flow source imposes its flow even when the tongue closes the slot.
+ The pressure then spikes without bound -- 8550 Pa were measured -- and that
+ spike drives the tongue harder still, so the amplitude grows indefinitely.
+ A real turbine, like a real bellows, delivers less as the pressure rises,
+ following a droop law q = q0 - p/R.
+ It is this droop that bounds the amplitude.
+\end_layout
+
+\begin_layout Standard
+With a finite source impedance the limit cycle converges: the peak-to-peak
+ excursion of the tip settles at 1.1364 mm and stays there, an amplitude
+ typical of a real accordion reed.
+ The convergence takes about 1.5 s of simulated signal, which is worth
+ stating: shorter runs wrongly suggest an unbounded amplitude.
+\end_layout
+
+\begin_layout Standard
+The resistance R is not a quantity to be guessed.
+ It is the slope of the pressure-flow characteristic of the source, and the
+ existing sweep of the Section factor already produces the data needed to
+ measure it.
+\end_layout
+
+\begin_layout Section
+A subcritical bifurcation
+\end_layout
+
+\begin_layout Standard
+Starting from an established limit cycle and lowering the command, the
+ oscillation persists below the starting threshold.
+ The bifurcation is therefore subcritical, with a starting threshold of
+ 25.8 Pa, an extinction threshold of 19.4 Pa and a hysteresis ratio of about
+ 1.33.
+ This is the behaviour of real reeds, and the two thresholds are exactly
+ what an ascending then descending pressure ramp measures on the bench.
+ Model and measurement now speak of the same quantity.
+\end_layout
+
+\begin_layout Standard
+Reaching that conclusion required care, and two wrong answers were obtained
+ first.
+ Restarting from an established cycle demands the exact state:
+ reconstructing the modal state from the tip displacement alone is
+ underdetermined and produced a systematic extinction, hence a spurious
+ supercritical verdict.
+ And the amplitude law in the square root of the distance to threshold,
+ which was correctly measured, is the expected signature of a supercritical
+ bifurcation but is necessary rather than sufficient: a weakly subcritical
+ one shows the same law above threshold.
+ Only the descent decides -- which is precisely why the bench ramp is run in
+ both directions.
+\end_layout
+
+\begin_layout Section
+What the model now predicts
+\end_layout
+
+\begin_layout Standard
+For the weighted bass tongue of the reference geometry, whose first mode
+ falls at 102.1 Hz:
+\end_layout
+
+\begin_layout Itemize
+starting threshold 25.8 Pa, at 119 Hz;
+\end_layout
+
+\begin_layout Itemize
+choking threshold 379.8 Pa;
+\end_layout
+
+\begin_layout Itemize
+extinction threshold 19.4 Pa, hysteresis ratio 1.33;
+\end_layout
+
+\begin_layout Itemize
+limit-cycle excursion of 0.96 mm at 1.5 times the threshold, growing as the
+ square root of the distance to threshold;
+\end_layout
+
+\begin_layout Itemize
+playing frequency constant at 118 Hz across the band, about 16 per cent
+ above the first mode of the tongue -- the stiffening due to the air spring.
+\end_layout
+
+\begin_layout Standard
+That last figure is directly useful: the ratio between the playing frequency
+ and the free tongue frequency depends on the effective acoustic volume, so
+ measuring the shift measures the volume.
+\end_layout
+
+\begin_layout Section
+A note on method
+\end_layout
+
+\begin_layout Standard
+Three mistakes made during this work are worth recording, because each was
+ caught by a measurement rather than by reasoning.
+\end_layout
+
+\begin_layout Enumerate
+A spectrum judged poor -- two harmonics -- was in fact rich, with six to
+ twelve.
+ Two errors compounded: the chamber pressure was examined where a free reed
+ radiates through the modulated flow (and, in the far field, through its
+ derivative), and the fundamental was detected by taking the strongest
+ partial, which differentiation had moved to the fourth harmonic.
+\end_layout
+
+\begin_layout Enumerate
+Slot inertance, the most natural candidate for the missing phase lag, was
+ eliminated by measurement: it changed the growth rate from -46.8 to -47.5
+ per second, that is, not at all.
+\end_layout
+
+\begin_layout Enumerate
+A parameter sweep appeared to show self-oscillation until it was noticed
+ that reversing the sign of the reed coupling changed the result by less
+ than one part in a thousand -- proof that the coupling was not driving
+ anything, and that what was being measured was a decaying transient.
+\end_layout
+
+\begin_layout Standard
+The common thread is that a model which merely looks plausible is worth
+ nothing, and that the cheapest instrument against self-deception is a test
+ whose outcome would be different if the hypothesis were false.
+\end_layout
+
 \begin_layout Part
 Reed blocks
 \end_layout
@@ -731,6 +1011,109 @@ Dissipation
 
 \begin_layout Subsection
 modal
+\end_layout
+
+\begin_layout Section
+Acoustic analysis of a reduced electro-traditional duo (OSSO)
+\end_layout
+
+\begin_layout Standard
+An accordion playing in a reduced ensemble has to carry melody, harmony,
+ a possible drone and the rhythmic drive of the dance with two sources only.
+ The Breton duo OSSO transposes the traditional biniou/bombarde couple to
+ analogue synthesisers, which makes it a useful control case for the sharing
+ of roles discussed in this part: the functions are the same, the sound
+ production is not.
+\end_layout
+
+\begin_layout Standard
+Two pieces were analysed (Ordre etant, hanter-dro, 296.9 s; Duderc'h,
+ scottish, 240.4 s), through mid/side decomposition, spectral descriptors,
+ a per-band envelope modulation spectrum and Praat measurements, computed
+ with librosa 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "mcfee2015librosa"
+literal "true"
+
+\end_inset
+
+ and parselmouth 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "jadoul2018parselmouth"
+literal "true"
+
+\end_inset
+
+; key estimation follows the Krumhansl-Schmuckler profiles 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "krumhansl1990"
+literal "true"
+
+\end_inset
+
+.
+ Three results are relevant to accordion design.
+\end_layout
+
+\begin_layout Itemize
+Stereophony encodes the functional split rather than a mere widening: the
+ mid/side energy ratio reaches 9.2 below 60 Hz (a strictly centred monophonic
+ bass) and drops to 0.76 in the 1-2 kHz band (a spatialised mid-range).
+ The traditional couple separated the same roles by register and timbre.
+\end_layout
+
+\begin_layout Itemize
+Amplitude modulations are locked to the metric grid within 0.1 to 0.3 percent
+ over four distinct subdivisions (0.52, 1.57, 3.13 and 6.27 Hz against a
+ 94.0 BPM beat): tremolo and filter movements act as rhythmic agents.
+ The modulation spectrum also gives an independent check on the metric level,
+ and corrects a metric octave error of the beat tracker 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "ellis2007beat"
+literal "true"
+
+\end_inset
+
+ on the second piece: 120.2 BPM estimated, 90.0 BPM confirmed.
+\end_layout
+
+\begin_layout Itemize
+A progressive filter opening structures one piece only: spectral centroid
+ slope +5.17 Hz/s, coefficient of determination 0.298, p below 0.001, against
+ -0.33 Hz/s (not significant) for the other.
+ Timbre alone carries a directional dramaturgy over a cyclic dance form,
+ without touching the melodic material or the metre.
+\end_layout
+
+\begin_layout Standard
+The measured continuity of the texture (crest factor 10.8 and 13.2 dB,
+ dynamic range 10.5 and 7.9 dB) is obtained here by compression, where the
+ traditional instruments obtain it from the air reserve of the bag and the
+ accordion from its bellows.
+ The parallel suggests two transposable controls for the accordion player:
+ locking any periodic modulation (alternating basses, bellows effects) to a
+ subdivision of the beat, and using registers, bellows pressure and
+ accompaniment density as a trajectory rather than as an alternation.
+\end_layout
+
+\begin_layout Standard
+The complete study, with all tables, statistics and methodological limits,
+ is kept in French in research/docs/analyse_acoustique_osso.md; the
+ reproducible script is research/scripts/analyse_osso.py.
+ The recordings themselves are not distributed with this work (copyright);
+ only derived acoustic descriptors are reported.
 \end_layout
 
 \begin_layout Part
@@ -890,6 +1273,18 @@ addcontentsline{toc}{section}{Articles}
 \end_inset
 
  
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset bibtex
+LatexCommand bibtex
+btprint "btPrintCited"
+bibfiles "references"
+options "plain"
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
