@@ -1,0 +1,93 @@
+ interpolation,factdiaA=     0.998factdiaB=     0.000faclongA=     0.998faclongB=     0.000
+PARAMETRES PHYSIQUES DE L' AIR :RHOA,P0,GAMMA,CV,ETA,TONEW,DLAMBA               
+ 1.20400000 101400.000 1.39999998 719.000000 1.80000006E-05 11.6999998 2.40000002E-02
+NOMBRE DE TRONCONS DE LA LIGNE (-1) N                                           
+21
+BAS DE LIGNE OUVERT OU FERME C1 (0=OUVERT, 1=FERME)                             
+ 0.00000000E+00
+TABLEAU PERCE D0 (DIMENSION N+1)                                                
+3.69E-02 1.85E-02 1.71E-02 1.60E-02 1.50E-02 1.40E-02 1.26E-02 
+1.17E-02 1.08E-02 1.03E-02 9.17E-03 8.05E-03 7.79E-03 7.16E-03 
+6.94E-03 6.27E-03 5.44E-03 5.19E-03 4.49E-03 5.69E-03 2.00E-03 
+4.95E-03 
+TABLEAU PERCE DL (DIMENSION N+1)                                                
+6.39E-02 3.69E-02 1.85E-02 1.71E-02 1.60E-02 1.50E-02 1.40E-02 
+1.26E-02 1.17E-02 1.08E-02 1.03E-02 9.17E-03 8.05E-03 7.79E-03 
+7.16E-03 6.94E-03 6.27E-03 5.44E-03 5.19E-03 4.49E-03 3.99E-03 
+2.70E-03 
+TABLEAU SURFACE LIBRE DE LA PERCE/SURFACE OFFICIELLE OFILIB (DIM N+1)           
+1.49775 1.49775 1.49775 1.49775 1.49775 1.49775 1.49775 1.49775 1.49775 1.49775 
+1.49775 1.49775 1.49775 1.49775 1.49775 1.49775 1.49775 1.49775 1.49775 1.49775 
+1.49775 1.49775 
+TABLEAU DES TRONCONS DE LA LIGNE PRINCIPALE L (DIMENSION N+1)                   
+1.40E-02 1.70E-02 3.54E-02 2.60E-02 2.55E-02 2.55E-02 3.39E-02 
+2.35E-02 1.82E-02 1.82E-02 2.79E-02 2.79E-02 1.11E-02 1.11E-02 
+1.11E-02 1.11E-02 2.23E-02 1.11E-02 1.11E-02 1.20E-02 2.50E-02 
+1.90E-02 
+TEMPERATURE DE L' AIR EN HAUT ET EN BAS DE LA LIGNE (CELSIUS)                   
+ 25.0000000 20.0000000
+TABLEAU PERCE DES TRONCONS LATERAUX D0P (DIMENSION N)                           
+0.00E+00 0.00E+00 9.98E-03 8.99E-03 0.00E+00 7.49E-03 8.49E-03 
+5.49E-03 0.00E+00 5.59E-03 4.74E-03 3.99E-03 0.00E+00 0.00E+00 
+0.00E+00 0.00E+00 0.00E+00 0.00E+00 0.00E+00 0.00E+00 0.00E+00 
+TABLEAU PERCE DES TRONCONS LATERAUX DLP (DIMENSION N)                           
+0.00E+00 0.00E+00 9.49E-03 8.49E-03 0.00E+00 6.99E-03 7.99E-03 
+4.99E-03 0.00E+00 4.99E-03 4.24E-03 3.49E-03 0.00E+00 0.00E+00 
+0.00E+00 0.00E+00 0.00E+00 0.00E+00 0.00E+00 0.00E+00 0.00E+00 
+TABLEAU LONGUEUR DES TRONCONS LATERAUX LP0 (DIMENSION N)                        
+0.00E+00 0.00E+00 2.35E-03 2.00E-03 0.00E+00 2.50E-03 2.50E-03 
+2.50E-03 0.00E+00 2.99E-03 2.00E-03 2.99E-03 0.00E+00 0.00E+00 
+0.00E+00 0.00E+00 0.00E+00 0.00E+00 0.00E+00 0.00E+00 0.00E+00 
+TABLEAU STYLE DES CLES ISTYLE (DIMENSION N)                                     
+ 0   0   0   0   0   0   0   0   0   0  
+ 0   0   0   0   0   0   0   0   0   0  
+ 0  
+TABLEAU LEVEE DES CLES LEVEE (DIMENSION N)                                      
+0.9985 0.9985 0.9985 0.9985 0.9985 0.9985 0.9985 0.9985 0.9985 0.9985 
+0.9985 0.9985 0.9985 0.9985 0.9985 0.9985 0.9985 0.9985 0.9985 0.9985 
+0.9985 
+FREQUENCE DU LA DE REFERENCE FLA                                                
+ 440
+Temperament de reference ITMPNT (0 si teqj, 1 si teoj)
+1
+TESSITURE NTESSC, NTESSG, NTESSB
+ 29   28   4 
+TABLE DES DOIGTES DOIGTE(I,J) (NTESS LIGNES, N COLONNES)
+ 1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1 'fa    '100	1	1
+ 1  1  0  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1 'fa#   '100	2	2
+ 1  1  0  0  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1 'sol   '100	3	3
+ 1  1  0  1  1  0  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1 'sol#  '100	4	4
+ 1  1  0  0  1  0  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1 'la    '100	5	5
+ 1  1  0  0  1  1  0  1  1  1  1  1  1  1  1  1  1  1  1  1  1 'la #  '100	6	6
+ 1  1  0  0  1  0  0  1  1  1  1  1  1  1  1  1  1  1  1  1  1 'si    '100	7	7
+ 1  1  0  0  1  0  0  0  1  1  1  1  1  1  1  1  1  1  1  1  1 'do    '100	8	8
+ 1  1  0  0  1  0  0  1  1  0  1  1  1  1  1  1  1  1  1  1  1 'do #  '100	9	9
+ 1  1  0  0  1  0  0  0  1  0  1  1  1  1  1  1  1  1  1  1  1 'ré    '100	10	10
+ 1  1  0  0  1  0  0  0  1  1  0  1  1  1  1  1  1  1  1  1  1 'ré#   '100	11	11
+ 1  1  0  0  1  0  0  0  1  0  0  1  1  1  1  1  1  1  1  1  1 'mi    '100	12	12
+ 1  1  0  0  1  0  0  0  1  0  0  0  1  1  1  1  1  1  1  1  1 'fa    '100	13	13
+ 1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1 'fa    '100	14	13
+ 1  1  0  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1 'fa#   '100	15	14
+ 1  1  0  0  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1 'sol   '100	16	15
+ 1  1  0  1  1  0  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1 'sol # '100	17	16
+ 1  1  0  0  1  0  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1 'la    '100	18	17
+ 1  1  0  0  1  1  0  1  1  1  1  1  1  1  1  1  1  1  1  1  1 'la #  '100	19	18
+ 1  1  0  0  1  0  0  1  1  1  1  1  1  1  1  1  1  1  1  1  1 'si    '100	20	19
+ 1  1  0  0  1  0  0  0  1  1  1  1  1  1  1  1  1  1  1  1  1 'do    '100	21	20
+ 1  1  0  0  1  0  0  1  1  0  1  1  1  1  1  1  1  1  1  1  1 'do#   '100	22	21
+ 1  1  0  0  1  0  0  0  1  0  1  1  1  1  1  1  1  1  1  1  1 'ré    '100	23	22
+ 1  1  0  0  1  0  0  0  1  1  0  1  1  1  1  1  1  1  1  1  1 'ré#   '100	24	23
+ 1  1  0  0  1  0  0  0  1  0  0  1  1  1  1  1  1  1  1  1  1 'mi    '100	25	24
+ 1  1  0  0  1  0  0  0  1  0  0  0  1  1  1  1  1  1  1  1  1 'fa    '100	26	25
+ 1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1 'fa    '100	27	25
+ 1  1  0  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1 'fa #  '100	28	26
+ 1  1  0  0  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1  1 'sol   '100	29	27
+DONNEES CONCERNANT L' EMBOUCHURE
+IFLUTE FCM FCP G0  LA0 alpha E0   V0   V1 LEVRES PAREMB decouv MA KA
+1     0.  0. 10.e-3 1.4e-2  1. 1.e-4 1.e10  0.  0.    0.  0.    0. 0.  
+LIBERTE SUR LES PARAMETRES DE L' ANCHE DMA DKA DFCM DFCP DDLEMB
+0.1 0.1 0.1 0. 0.1
+DONNEES CONCERNANT L' AUTO ENTRETIEN GA GB
+700. 1.
+COEFFICIENTS SUR LES CRITERES DE SATISFACTION CJUS CTIM CVOL CEMI CLIB
+1. 0. 0. 0. 0.

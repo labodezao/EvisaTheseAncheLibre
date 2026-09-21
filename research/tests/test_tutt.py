@@ -1,8 +1,11 @@
 """Pont vers TUTT : lecture des perces, impédance d'entrée, résonances.
 
-Les fichiers d'exemple sont fabriqués dans le test lui-même : la banque de
-perces d'Ewen n'est pas versionnée (elle ne m'appartient pas), et un test qui
-dépend d'un fichier absent est un test qui ne sert à rien.
+La plupart des fixtures sont fabriquées dans le test lui-même — un test qui
+dépend d'un fichier absent est un test qui ne sert à rien. Depuis qu'Ewen a
+demandé que ses propres perces entrent dans le dépôt (`research/scripts/
+legacy/perces/`), quelques tests lisent aussi les vraies, en fin de fichier :
+c'est plus honnête qu'une géométrie inventée, et ça vaut la peine de le
+garder à jour avec ce que la perce contient réellement.
 """
 import pathlib
 
@@ -904,3 +907,42 @@ def test_la_gamme_officielle_sort_du_fichier(tmp_path):
     dat.temperament_octave_juste = False      # égal à quintes justes
     g = tutt.frequences_de_la_gamme(dat)
     assert g[7] / g[0] == pytest.approx(1.5, rel=1e-9)
+
+
+# =============================================================================
+# Les vraies perces d'Ewen — plus une géométrie inventée
+# =============================================================================
+
+PERCES = (pathlib.Path(__file__).resolve().parents[1]
+          / "scripts" / "legacy" / "perces")
+
+
+@pytest.mark.skipif(not PERCES.exists(), reason="perces d'Ewen non présentes")
+def test_la_bombarde_d_ewen_se_lit_et_donne_un_cone_juste():
+    """`bombarde_sol_finale.dat` : la perce qui a servi à trouver LCZB.
+
+    Tous trous fermés, elle doit donner la série harmonique complète — c'est
+    ce qui a permis de distinguer, dès la première mesure, une perce conique
+    juste d'un bug de tronçonnement.
+    """
+    dat = tutt.read_dat(PERCES / "bombarde_ewen_daviau" / "bombarde_sol_finale.dat")
+    assert dat.solid_reed is True
+    assert len(dat.lengths) == 22
+    assert dat.total_length_m == pytest.approx(0.438, abs=0.001)
+    assert len(dat.fingerings) == 29
+
+    freqs, _, _ = tutt.resonances(dat, 200, 2500, n_peaks=5)
+    freqs = np.asarray(freqs)
+    rapports = freqs / freqs[0]
+    assert rapports[:4] == pytest.approx([1, 2, 3, 4], rel=0.03)
+
+
+@pytest.mark.skipif(not PERCES.exists(), reason="perces d'Ewen non présentes")
+def test_la_clarinette_folk_a_bien_ses_doigtes_fourchus():
+    """`clarifolk.dat` : une anche solide, 27 doigtés réels — pas 6 trous
+    idéalisés d'un tube d'essai."""
+    dat = tutt.read_dat(PERCES / "clarinette_folk_ewen_daviau" / "clarifolk.dat")
+    assert dat.solid_reed is True
+    assert len(dat.fingerings) == 27
+    noms = [nom.strip().lower() for nom, _ in dat.fingerings]
+    assert 'fa#' in noms or 'fa #' in noms

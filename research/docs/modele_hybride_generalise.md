@@ -815,7 +815,11 @@ daviau**.
 
 `bombarde_sol_finale.dat`, 22 tronçons, 438 mm, huit trous, 29 doigtés.
 Elle passe dans `read_dat` sans broncher, et sa première ligne répond au
-passage à une question restée ouverte :
+passage à une question restée ouverte. Depuis, Ewen a demandé que tout entre
+dans le dépôt — ses perces comme les sources de TUTT qui les calculent — et
+elles vivent maintenant dans `research/scripts/legacy/perces/` (les siennes)
+et `research/scripts/legacy/tutt/` (celles de B.B. « Ninob », créditées comme
+telles dans le `CREDITS.md` du dossier) :
 
 ```
  interpolation,factdiaA= 0.998 factdiaB= 0.000 faclongA= 0.998 faclongB= 0.000
