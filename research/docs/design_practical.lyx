@@ -1199,20 +1199,14 @@ Le modèle physique — ce qu'il ne fait pas encore
 \end_layout
 
 \begin_layout Itemize
-trous latéraux absents du calcul d'impédance TUTT — un doigté tous trous fermés est juste, un doigté ouvert ne l'est pas. Le chantier le plus souvent nommé comme \begin_inset Quotes eld
-\end_inset
-
-suivant\begin_inset Quotes erd
-\end_inset
-
- (tutt.py, docs/tutt_ninob.md) ;
+fait : les trous latéraux sont posés. Ltran9.for montre comment TUTT les traite — chaque cheminée est un tuyau de plus, branché en dérivation, ouvert ou fermé selon le doigté — et un doigté ouvert se calcule maintenant comme un doigté fermé. De là, gamme_des_doigtes rend la gamme d'une perce et live.build_instrument_from_bore la donne à jouer, sans corriger sa justesse ;
 \end_layout
 
 \begin_layout Itemize
 volume équivalent d'anche (Ninob, \emph on
 Modes propres d'un tronc de cône
 \emph default
-) — codé, jamais appliqué automatiquement ;
+) — on sait maintenant ce qu'il fait et comment le trouver : il corrige l'octave d'un cône tronqué (+95 cents à vide, +2 avec 1,5 cm³), et cavite_qui_accorde_l_octave le cherche par dichotomie. Reste à le confronter à une vraie anche mesurée ;
 \end_layout
 
 \begin_layout Itemize
