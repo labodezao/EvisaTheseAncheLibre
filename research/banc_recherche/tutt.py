@@ -33,9 +33,11 @@ matrices de transfert, avec pertes visco-thermiques. Les sommets de cette
 impédance sont les résonances réelles de la perce : c'est ce qui alimente
 `hybrid.modes_from_partials`.
 
-⚠️ Les trous latéraux ne sont **pas** encore posés dans le calcul
-d'impédance : seule la colonne principale l'est. Un doigté tous trous fermés
-est donc juste, un doigté ouvert ne l'est pas. TUTT, lui, les traite. À faire.
+Les **trous latéraux** y sont, depuis que `Ltran9.for` a montré comment TUTT
+les pose : chaque cheminée est un tuyau de plus, branché en dérivation, avec
+sa géométrie, sa constante de propagation et son impédance de bout. Un doigté
+se donne par son nom (`'fa'`) ou par son tableau de 0/1 — `1` = fermé, comme
+le `CP` de TUTT.
 """
 from __future__ import annotations
 
@@ -429,6 +431,43 @@ def _z_troncon(freqs, d0, dl, length, z_aval, temp_c=20.0, roughness=1.0):
     return (na + nb) / (-g * (na * a_0 - nb * b_0))
 
 
+def _z_trou(freqs, d0p, dlp, longueur, ouvert, temp_c=20.0, roughness=1.0):
+    """Impédance d'une cheminée latérale, vue depuis la perce principale.
+
+    Un trou n'est pas un bouton qu'on enfonce : c'est **un tuyau de plus**,
+    court et étroit, branché en dérivation. TUTT le dit dans sa façon de
+    décrire l'instrument — « UNE COLONNE D'AIR RAMIFIEE EN ARETE DE
+    POISSON » — et lui donne sa propre géométrie (`D0P`, `DLP`, `LP0`), sa
+    propre constante de propagation, sa propre impédance de bout.
+
+    - **ouvert**, la cheminée débouche à l'air libre : elle porte son
+      impédance de rayonnement, petite, qui court-circuite la perce en
+      dessous. Le tuyau se comporte comme s'il s'arrêtait là — d'où la note
+      plus aiguë.
+    - **fermé**, elle est bouchée au bout : impédance infinie, et il ne reste
+      que le petit volume de la cheminée, qui alourdit très légèrement la
+      colonne. Un trou fermé n'est donc pas neutre, et c'est pourquoi TUTT le
+      garde dans le calcul plutôt que de l'effacer.
+
+    Une cheminée de section nulle (`D0P = 0`) est un changement de perce sans
+    trou : le module rend alors une impédance infinie, qui ne change rien en
+    parallèle.
+    """
+    freqs = np.asarray(freqs, dtype='float64')
+    d0p, dlp, longueur = float(d0p), float(dlp), float(longueur)
+    infini = np.full(np.shape(freqs), 1e12, dtype='complex128')
+    if d0p < 1e-8 or longueur < 1e-8:
+        return infini                      # pas de trou ici, juste un raccord
+
+    if ouvert:
+        z_bout = _impedance_rayonnement(freqs, max(dlp, d0p) / 2.0)
+    else:
+        z_bout = infini
+    # la cheminée se remonte comme un tronçon : elle est souvent conique
+    # elle aussi (perçage conique, chambrage), d'où d0p ≠ dlp.
+    return _z_troncon(freqs, d0p, dlp, longueur, z_bout, temp_c, roughness)
+
+
 def _impedance_rayonnement(freqs, radius_m, flanged=False):
     """Impédance de rayonnement au bout ouvert.
 
@@ -447,8 +486,34 @@ def _impedance_rayonnement(freqs, radius_m, flanged=False):
     return zc * (0.25 * ka ** 2 + 1j * 0.6133 * ka)
 
 
+def _doigte_en_tableau(dat: BoreDat, fingering, n):
+    """Normalise un doigté : nom du fichier, liste de 0/1, ou rien.
+
+    `1` = trou **fermé**, `0` = ouvert, comme le `CP` de TUTT — et non
+    l'inverse, piège classique puisqu'on dit « boucher un trou » et qu'on
+    écrit 1 pour ça.
+
+    Sans doigté, tout est fermé : c'est le seul choix qui redonne exactement
+    ce que le module calculait avant que les trous existent.
+    """
+    if fingering is None:
+        return np.ones(n, dtype=int)
+    if isinstance(fingering, str):
+        for nom, trous in dat.fingerings:
+            if nom.strip().lower() == fingering.strip().lower():
+                fingering = trous
+                break
+        else:
+            connus = ', '.join(nom for nom, _ in dat.fingerings) or 'aucun'
+            raise ValueError(f"doigté inconnu : {fingering!r}. Connus : {connus}")
+    out = np.ones(n, dtype=int)
+    v = np.asarray(fingering, dtype=int).ravel()
+    out[:min(n, v.size)] = v[:min(n, v.size)]
+    return out
+
+
 def input_impedance(dat: BoreDat, freqs, n_slices=None,
-                    reed_volume_m3=None):
+                    reed_volume_m3=None, fingering=None):
     # `n_slices` n'a plus d'effet : chaque tronçon se traite en un pas exact
     # (cf. `_z_troncon`). Le paramètre reste accepté pour ne pas casser les
     # appels existants.
@@ -469,7 +534,17 @@ def input_impedance(dat: BoreDat, freqs, n_slices=None,
     résonances passent de 1 : 1,99 : 2,96 (série harmonique, ce que doit
     donner un cône) à 1 : 1,79 : 2,63 (rien de connu).
 
-    ⚠️ Trous latéraux non posés — cf. l'avertissement du module.
+    **Trous latéraux.** `fingering` donne l'état de chaque cheminée, dans
+    l'ordre des tableaux du fichier : `0` = ouvert, `1` = fermé, comme le
+    `CP` de TUTT. On peut aussi passer le **nom** d'un doigté du fichier
+    (`'fa'`, `'sol'`…) et il sera cherché dans `dat.fingerings`. Sans
+    `fingering`, tout est considéré **fermé** — ce qui redonne exactement la
+    colonne principale seule, c'est-à-dire l'ancien comportement du module.
+
+    Chaque cheminée se pose **en parallèle** au nœud qui la porte : la perce
+    et le trou débouchent sur le même point, donc les admittances s'ajoutent.
+    Un trou ouvert court-circuite ce qui est en dessous — le tuyau se
+    comporte comme s'il s'arrêtait là, et la note monte.
 
     `n_slices` est conservé pour compatibilité, mais n'a plus d'effet : le
     tronçon conique est exact, il n'y a plus rien à découper.
@@ -493,6 +568,8 @@ def input_impedance(dat: BoreDat, freqs, n_slices=None,
     # Profil de température **exponentiel**, constante 0,25 m, comme TUTT :
     # le souffle chaud du musicien ne pénètre pas loin dans le tuyau. Une
     # interpolation linéaire réchaufferait tout le corps de l'instrument.
+    doigte = _doigte_en_tableau(dat, fingering, n)
+
     xtot = float(np.sum(dat.lengths))
     rug = dat.roughness
     x = 0.0
@@ -507,6 +584,15 @@ def input_impedance(dat: BoreDat, freqs, n_slices=None,
         Z = _z_troncon(freqs, dat.d0[i], dat.dl[i], dat.lengths[i], Z,
                        temp, float(rug[i]) if i < len(rug) else 1.0)
 
+        # la cheminée du nœud i se branche en dérivation sur ce qu'on vient
+        # de remonter : les admittances s'ajoutent.
+        if i < len(dat.hole_d0) and i < len(dat.hole_len):
+            z_trou = _z_trou(freqs, dat.hole_d0[i],
+                             dat.hole_dl[i] if i < len(dat.hole_dl) else dat.hole_d0[i],
+                             dat.hole_len[i], not doigte[i], temp,
+                             float(rug[i]) if i < len(rug) else 1.0)
+            Z = 1.0 / (1.0 / Z + 1.0 / z_trou)
+
     v = reed_volume_m3          # jamais déduit du fichier : cf. reed_volume_m3()
     if v and v > 0:
         # cavité d'anche **en parallèle** : les deux débouchent sur le même
@@ -519,7 +605,7 @@ def input_impedance(dat: BoreDat, freqs, n_slices=None,
 
 def resonances(dat: BoreDat, fmin=50.0, fmax=4000.0, n_points=6000,
                n_peaks=10, n_slices=None, reed_volume_m3=None,
-               prominence_db=30.0):
+               prominence_db=30.0, fingering=None):
     """Fréquences et facteurs Q des sommets de |Z| — les vraies résonances.
 
     C'est la sortie qui alimente `hybrid.modes_from_partials`, et donc la
@@ -533,7 +619,8 @@ def resonances(dat: BoreDat, fmin=50.0, fmax=4000.0, n_points=6000,
     douzième fait dessus serait faux sans prévenir.
     """
     f = np.linspace(float(fmin), float(fmax), int(n_points))
-    mod = np.abs(input_impedance(dat, f, n_slices, reed_volume_m3))
+    mod = np.abs(input_impedance(dat, f, n_slices, reed_volume_m3,
+                                 fingering=fingering))
 
     interieur = np.arange(1, mod.size - 1)
     sommets = interieur[(mod[1:-1] > mod[:-2]) & (mod[1:-1] > mod[2:])]
@@ -572,9 +659,112 @@ def resonances(dat: BoreDat, fmin=50.0, fmax=4000.0, n_points=6000,
     return freqs, qs, pics
 
 
+def reed_impedance(freqs, mass_kg, stiffness, area_m2):
+    """Impédance de l'anche vue comme oscillateur : `j(mω − k/ω)/A²`.
+
+    C'est ainsi que TUTT pose l'anche (`Ltran9.for`) : une réactance pure,
+    masse moins raideur, ramenée à la surface vibrante. Elle est négative
+    sous la fréquence propre de l'anche, positive au-dessus, et nulle
+    exactement dessus — ce qui fait que l'anche tire la note vers sa propre
+    résonance d'autant plus fort qu'elle en est proche.
+
+    `MREED` et `KREED` des fichiers `.dat` vont directement ici.
+    """
+    omega = 2 * np.pi * np.asarray(freqs, dtype='float64')
+    a = float(area_m2)
+    if a <= 0:
+        raise ValueError("surface d'anche nulle")
+    return 1j * (float(mass_kg) * omega - float(stiffness) / omega) / a ** 2
+
+
+def playing_frequencies(dat: BoreDat, fmin=50.0, fmax=4000.0, n_points=8000,
+                        reed=None, reed_area_m2=1.0e-4, coupling=0.0,
+                        coupling_phase=0.0, z_mouth=0.0, n_max=24,
+                        fingering=None, **kw):
+    """Fréquences permises **au sens de TUTT** : les zéros de `Im(Z)`.
+
+    Là où `resonances` prend les sommets de |Z| du tube nu, TUTT pose le
+    critère complet, anche comprise (`Ltran9.for`) :
+
+        Z = Z_anche + (Z_tube + Z_bouche) / FC        FC = FCM·e^(j·FCP)
+
+    et cherche les fréquences où **la partie imaginaire s'annule**. C'est
+    l'équation de la dynamique de l'anche en régime permanent : à ces
+    fréquences-là, et à elles seules, l'anche peut osciller sans que rien ne
+    la pousse ni ne la freine en quadrature.
+
+    Un zéro se trouve d'ailleurs mieux qu'un sommet : il se coince entre deux
+    points de signe opposé et s'interpole linéairement, sans parabole à
+    ajuster ni résolution de balayage qui traîne. Sur le cylindre d'essai,
+    les deux critères tombent à **0,07 Hz** l'un de l'autre (0,7 cent) — ce
+    qui valide les deux d'un coup.
+
+    Cette fonction rend **tous** les zéros trouvés, dans l'ordre des
+    fréquences. C'est ce que fait TUTT : il calcule la liste, puis
+    `Proxi.for` — ici `mode_le_plus_proche` — choisit celui qui tombe le plus
+    près de la note visée. Aucun tri « par type de résonance » n'est fait ici,
+    parce qu'aucun n'est fait là-bas.
+
+    ⚠️ `coupling=0` (le défaut) débranche l'anche et ne laisse que le tube :
+    c'est la seule branche **vérifiée** de cette fonction. Le terme d'anche
+    est écrit d'après le source, mais il demande les vraies valeurs de
+    `MREED`, `KREED` et de la surface vibrante, qui ne viennent qu'avec un
+    fichier réel — inventer un jeu plausible donne des décalages de plus
+    d'une octave, ce qui ne prouve rien d'autre que l'invention. À brancher
+    et à confronter le jour où une perce d'Ewen passera par là.
+
+    Ninob note dans le source ce qu'on doit alors y voir : avec une anche
+    **solide** (roseau, métal) les fréquences permises sont proches des
+    **antirésonances** du tube, avec une anche **aérienne** (jet de flûte)
+    proches de ses **résonances**.
+    """
+    freqs = np.linspace(float(fmin), float(fmax), int(n_points))
+    z_tube = input_impedance(dat, freqs, fingering=fingering, **kw)
+
+    fcm = float(coupling)
+    if fcm < 1e-5:
+        z = z_tube + z_mouth               # pas d'anche : le tube seul
+    else:
+        if reed is None:
+            reed = dat.reed_oscillator
+        fc = fcm * np.exp(1j * float(coupling_phase))
+        z = (reed_impedance(freqs, float(reed[0]), float(reed[1]), reed_area_m2)
+             + (z_tube + z_mouth) / fc)
+
+    im = np.imag(z)
+    change = np.nonzero(np.sign(im[:-1]) * np.sign(im[1:]) < 0)[0]
+    sortie = []
+    for i in change[:int(n_max)]:
+        a, b = im[i], im[i + 1]
+        sortie.append(float(freqs[i] + (freqs[i + 1] - freqs[i]) * a / (a - b)))
+    return sortie
+
+
+def mode_le_plus_proche(modes_hz, cible_hz):
+    """`Proxi.for` : lequel de ces modes joue la note visée, et à combien.
+
+    TUTT ne décide pas *a priori* quel mode fait la note : il calcule la
+    liste, puis prend celui qui tombe le plus près de la référence. Renvoie
+    `(rang, fréquence, écart_en_cents)`.
+
+    Le source prévoit les deux débordements et les nomme joliment : si la
+    note visée est au-dessus du dernier mode trouvé c'est « !!!grave!!! », si
+    elle est en dessous du premier c'est « !!!benin!!! ». Dans les deux cas
+    il prend le mode extrême plutôt que de rendre une erreur, et on fait
+    pareil : un instrument qui ne peut pas atteindre la note joue quand même
+    quelque chose.
+    """
+    f = np.asarray(modes_hz, dtype='float64').ravel()
+    if f.size == 0:
+        raise ValueError("aucun mode : rien à choisir")
+    cible = float(cible_hz)
+    rang = int(np.argmin(np.abs(f - cible)))
+    return rang, float(f[rang]), float(1200.0 * np.log2(f[rang] / cible))
+
+
 def resonator_from_dat(chemin_ou_dat, fmin=50.0, fmax=4000.0, n_peaks=10,
                        cutoff_hz=None, cutoff_order=3.0, prune_db=45.0,
-                       **kw):
+                       fingering=None, **kw):
     """Construit un `hybrid.Resonator` depuis une perce TUTT. Le pont complet.
 
     Renvoie `(resonator, infos)`. `infos` dit d'où vient chaque chose — la
@@ -591,7 +781,9 @@ def resonator_from_dat(chemin_ou_dat, fmin=50.0, fmax=4000.0, n_peaks=10,
 
     dat = chemin_ou_dat if isinstance(chemin_ou_dat, BoreDat) \
         else read_dat(chemin_ou_dat)
-    freqs, qs, pics = resonances(dat, fmin, fmax, n_peaks=n_peaks, **kw)
+    doigte = fingering
+    freqs, qs, pics = resonances(dat, fmin, fmax, n_peaks=n_peaks,
+                                 fingering=fingering, **kw)
     if not freqs:
         raise ValueError(f"aucune résonance trouvée entre {fmin} et {fmax} Hz")
 

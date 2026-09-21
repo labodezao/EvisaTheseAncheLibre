@@ -392,10 +392,9 @@ douzième 12,5 cents faux, sans aucun moyen de le savoir.
 
 ### Ce qui reste à faire
 
-Les **trous latéraux** ne sont pas encore posés dans le calcul d'impédance :
-seule la colonne principale l'est. Un doigté tous trous fermés est donc juste,
-un doigté ouvert ne l'est pas. TUTT, lui, les traite. Le module le dit dans
-son rapport (`trous_latéraux: NON POSÉS`) plutôt que de laisser croire.
+Les **trous latéraux** sont posés depuis §9 : chaque cheminée est un tronc de
+cône en dérivation, ouvert ou fermé selon le doigté. Le rapport du module dit
+combien il en a trouvé et lequel des doigtés il a appliqué.
 
 Et le **volume équivalent d'anche** — Ninob montre (*Modes propres d'un tronc
 de cône*) qu'une anche solide au petit bout d'un cône se comporte comme une
@@ -621,3 +620,91 @@ conique exact sert à tout ce qui passe par une **vraie** perce.
   (`Z_anche = j(M·ω − K/ω)/A²`). D'où cette remarque de Ninob, qui vaut pour
   toute la suite : avec une anche **solide** on joue près des *antirésonances*
   du tube, avec une anche **aérienne** (flûte) près de ses *résonances*.
+
+### Les trous latéraux, enfin posés
+
+C'était le chantier nommé « prochain » depuis le début du module, et il n'a
+plus rien d'un chantier une fois `Ltran9.for` lu : TUTT décrit l'instrument
+comme « UNE COLONNE D'AIR RAMIFIEE EN ARETE DE POISSON », et chaque trou y est
+**un tuyau de plus** — tableaux `D0P`, `DLP`, `LP0` pour sa géométrie, sa
+propre constante de propagation `KP`, sa propre impédance de bout `zboup`.
+
+Un trou n'est donc pas un bouton qu'on enfonce. C'est une cheminée branchée
+**en dérivation** sur la perce : perce et cheminée débouchent sur le même
+nœud, donc leurs admittances s'ajoutent. Ouverte, la cheminée porte son
+impédance de rayonnement — petite — et court-circuite tout ce qui est en
+dessous : le tuyau se comporte comme s'il s'arrêtait là, et la note monte.
+Fermée, il reste le volume de la cheminée, qui alourdit un peu la colonne.
+
+`tutt.input_impedance(..., fingering=...)` prend soit le **nom** d'un doigté du
+fichier (`'fa'`), soit son tableau de 0/1. La convention est celle du `CP` de
+TUTT : **`1` = fermé**, ce qui est le contraire de ce que la main suggère —
+on « bouche » un trou et on écrit 1. Un test est là uniquement pour ça : lue à
+l'envers, la convention ferait jouer tous les fichiers de Ninob à l'envers
+sans rien signaler.
+
+Mesuré sur un tube d'essai de 500 mm à six cheminées de 8 mm :
+
+| doigté | note |
+|---|---|
+| tous fermés | 166,2 Hz |
+| 1 trou ouvert | 188,2 Hz (+2,2 demi-tons) |
+| 2 trous | 224,1 Hz (+5,2) |
+| 3 trous | 277,2 Hz (+8,9) |
+| 4 trous | 362,9 Hz (+13,5) |
+| 6 trous | 915,5 Hz (+29,5) |
+
+Deux vérifications qui valent mieux qu'un tracé : une perce **sans** trou rend
+exactement ce que le module rendait avant (167,4 / 505,9 / 845,0 Hz — rien n'a
+bougé), et une cheminée **plus grosse** fait monter plus haut qu'une petite,
+parce qu'elle court-circuite mieux.
+
+Un trou fermé n'est pas neutre : sur ce même tube, les six cheminées bouchées
+descendent la note de 166,2 contre 167,4 Hz sans elles. C'est pour ça que TUTT
+les garde dans le calcul au lieu de les effacer — et c'est la raison pour
+laquelle un doigté « tous trous fermés » d'une vraie perce n'est pas tout à
+fait la colonne nue.
+
+### Le critère de résonance de TUTT, et pourquoi il faut ensuite choisir
+
+Ce module cherchait les **sommets de |Z|** du tube nu. TUTT pose autre chose
+(`Ltran9.for`) : les **zéros de la partie imaginaire** de l'impédance totale,
+anche comprise —
+
+    Z = Z_anche + (Z_tube + Z_bouche) / FC,   Z_anche = j(Mω − K/ω)/A²
+
+— et la raison est physique : à ces fréquences-là, et à elles seules, l'anche
+peut osciller en régime permanent sans que rien ne la pousse ni ne la freine
+en quadrature. C'est l'équation de sa dynamique, pas une commodité de calcul.
+
+`tutt.playing_frequencies` l'implémente. Deux gains :
+
+1. **Validation croisée.** Sur le cylindre d'essai, les zéros de `Im(Z)`
+   tombent à **0,07 Hz** (0,7 cent) des sommets de |Z| calculés par l'autre
+   chemin. Les deux critères se valident l'un l'autre, ce qui vaut mieux que
+   de faire confiance à un seul.
+2. **Un zéro se trouve mieux qu'un sommet.** Il se coince entre deux points de
+   signe opposé et s'interpole linéairement ; pas de parabole à ajuster, pas
+   de résolution de balayage qui traîne.
+
+Mais un zéro de `Im(Z)` tombe aussi bien sur une **résonance** que sur une
+**antirésonance** : la liste alterne. Sur le cylindre : 167,5 — 336,5 — 506,0
+— 675,4 — 845,1… un sur deux est un sommet, l'autre un creux. TUTT ne tranche
+donc pas *a priori* : il calcule toute la liste, puis `Proxi.for` prend celui
+qui tombe le plus près de la note visée. `tutt.mode_le_plus_proche` fait
+pareil, débordements compris — le source les nomme « !!!grave!!! » et
+« !!!benin!!! » et prend alors le mode extrême plutôt que de refuser.
+
+Ninob note au passage la règle qui gouverne tout ça : avec une anche
+**solide** les fréquences permises sont proches des **antirésonances** du
+tube ; avec une anche **aérienne** (un jet de flûte), proches de ses
+**résonances**. C'est la même distinction que le dépôt fait depuis le début
+entre l'anche qui impose sa hauteur et celle qui la reçoit, retrouvée dans
+l'impédance.
+
+**Ce qui n'est pas validé, et qui est dit comme tel** : le terme d'anche est
+écrit d'après le source mais n'est vérifié sur rien. Il demande les vraies
+valeurs de `MREED`, `KREED` et de la surface vibrante, qui ne viennent qu'avec
+un fichier réel. En inventer un jeu plausible déplace la note de plus d'une
+octave — ce qui ne prouve rien d'autre que l'invention. D'où le défaut
+`coupling=0`, qui ne laisse que le tube : la seule branche mesurée.

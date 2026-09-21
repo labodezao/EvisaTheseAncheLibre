@@ -520,3 +520,165 @@ def test_scale_bore_to_converge_en_deux_ou_trois_passes():
         d = tutt.scale_bore_to(d, cible, fmin=30, fmax=2000)
     f, _, _ = tutt.resonances(d, 30, 2000, n_peaks=1)
     assert f[0] == pytest.approx(cible, abs=1.0)
+
+
+# =============================================================================
+# Trous latéraux — le chantier nommé « prochain » depuis le début
+# =============================================================================
+
+def _flute_a_six_trous(d_trou=0.008, h_trou=0.004):
+    """Tube de 500 mm, six cheminées régulières, plus un raccord sans trou."""
+    n = 7
+    return tutt.BoreDat(
+        n_sections=n, closed_bottom=False,
+        d0=np.full(n, 0.015), dl=np.full(n, 0.015),
+        lengths=np.full(n, 0.5 / n),
+        hole_d0=np.array([d_trou] * 6 + [0.0]),
+        hole_dl=np.array([d_trou] * 6 + [0.0]),
+        hole_len=np.array([h_trou] * 6 + [0.0]),
+        ofilib=np.ones(n), temperature_c=(20.0, 20.0),
+    )
+
+
+def test_sans_doigte_tout_est_ferme_et_rien_ne_change():
+    """Le défaut doit redonner exactement l'ancien module, trous éteints."""
+    cyl = tutt.BoreDat(n_sections=1, closed_bottom=False,
+                       d0=np.array([0.015]), dl=np.array([0.015]),
+                       lengths=np.array([0.5]), ofilib=np.ones(1),
+                       temperature_c=(20.0, 20.0))
+    f = tutt.resonances(cyl, 50, 1400, n_peaks=3)[0]
+    assert f[0] == pytest.approx(167.4, abs=1.0)
+    assert f[1] / f[0] == pytest.approx(3.0, abs=0.1)
+
+
+def test_ouvrir_un_trou_fait_monter_la_note():
+    """La vérification qui compte : c'est à ça que sert un trou."""
+    dat = _flute_a_six_trous()
+    ferme = tutt.resonances(dat, 50, 1600, n_peaks=1)[0][0]
+    precedent = ferme
+    for k in range(1, 7):
+        doigte = [0] * k + [1] * (7 - k)      # on ouvre depuis le pavillon
+        f = tutt.resonances(dat, 50, 2200, n_peaks=1, fingering=doigte)[0][0]
+        assert f > precedent, f"ouvrir le trou {k} devrait monter la note"
+        precedent = f
+    assert precedent / ferme > 2.0            # plus d'une octave au total
+
+
+def test_un_trou_ferme_n_est_pas_neutre():
+    """Il reste le volume de la cheminée, qui alourdit un peu la colonne.
+
+    C'est pour ça que TUTT garde les trous fermés dans le calcul au lieu de
+    les effacer — et c'est mesurable : la note descend légèrement.
+    """
+    avec = _flute_a_six_trous()
+    sans = _flute_a_six_trous(d_trou=0.0, h_trou=0.0)
+    f_avec = tutt.resonances(avec, 50, 1200, n_peaks=1)[0][0]
+    f_sans = tutt.resonances(sans, 50, 1200, n_peaks=1)[0][0]
+    assert f_avec < f_sans
+    assert 0 < 1200 * np.log2(f_sans / f_avec) < 60.0     # quelques cents
+
+
+def test_un_trou_plus_gros_fait_monter_plus_haut():
+    """Une grande cheminée court-circuite mieux qu'une petite."""
+    doigte = [0] + [1] * 6
+    petit = tutt.resonances(_flute_a_six_trous(d_trou=0.004), 50, 1600,
+                            n_peaks=1, fingering=doigte)[0][0]
+    grand = tutt.resonances(_flute_a_six_trous(d_trou=0.010), 50, 1600,
+                            n_peaks=1, fingering=doigte)[0][0]
+    assert grand > petit
+
+
+def test_le_doigte_se_donne_par_nom_ou_par_tableau():
+    dat = _flute_a_six_trous()
+    dat.fingerings = [('sol', [0, 1, 1, 1, 1, 1, 1])]
+    par_nom = tutt.resonances(dat, 50, 1600, n_peaks=1, fingering='sol')[0][0]
+    par_tab = tutt.resonances(dat, 50, 1600, n_peaks=1,
+                              fingering=[0, 1, 1, 1, 1, 1, 1])[0][0]
+    assert par_nom == pytest.approx(par_tab)
+    with pytest.raises(ValueError):
+        tutt.resonances(dat, 50, 1600, n_peaks=1, fingering='zorglub')
+
+
+def test_un_dans_le_doigte_veut_bien_dire_ferme():
+    """Le piège d'inversion : on dit « boucher un trou » et on écrit 1.
+
+    Si la convention était lue à l'envers, tout doigté jouerait l'inverse de
+    ce qu'il dit — et tous les fichiers de Ninob seraient faux d'un coup.
+    """
+    dat = _flute_a_six_trous()
+    tout_ferme = tutt.resonances(dat, 50, 2200, n_peaks=1,
+                                 fingering=[1] * 7)[0][0]
+    tout_ouvert = tutt.resonances(dat, 50, 2200, n_peaks=1,
+                                  fingering=[0] * 6 + [1])[0][0]
+    assert tout_ouvert > tout_ferme
+
+
+# =============================================================================
+# Le critère de TUTT : les zéros de Im(Z), et Proxi pour choisir
+# =============================================================================
+
+def _cylindre_nu():
+    return tutt.BoreDat(n_sections=1, closed_bottom=False,
+                        d0=np.array([0.015]), dl=np.array([0.015]),
+                        lengths=np.array([0.5]), ofilib=np.ones(1),
+                        temperature_c=(20.0, 20.0))
+
+
+def test_les_zeros_de_im_z_tombent_sur_les_sommets_de_module():
+    """Validation croisée des deux critères, l'un par l'autre.
+
+    TUTT cherche les zéros de la partie imaginaire ; ce module cherchait les
+    sommets du module. Sur un tube peu amorti les deux doivent coïncider —
+    et s'ils coïncident, c'est que les deux sont bons.
+    """
+    cyl = _cylindre_nu()
+    zeros = np.array(tutt.playing_frequencies(cyl, 50, 1400))
+    sommets = np.array(tutt.resonances(cyl, 50, 1400, n_peaks=4)[0])
+    for f in sommets:
+        assert np.min(np.abs(zeros - f)) < 0.5, f       # à moins d'un demi-hertz
+
+
+def test_les_zeros_alternent_sommets_et_creux():
+    """Im(Z)=0 aux résonances **et** aux antirésonances — d'où Proxi.
+
+    C'est précisément pourquoi TUTT ne peut pas se contenter de la liste :
+    il faut ensuite choisir, et c'est le rôle de `mode_le_plus_proche`.
+    """
+    cyl = _cylindre_nu()
+    zeros = np.array(tutt.playing_frequencies(cyl, 50, 1400))
+    assert zeros.size >= 6
+    sommets = np.array(tutt.resonances(cyl, 50, 1400, n_peaks=3)[0])
+    # un zéro sur deux est un sommet ; ceux du milieu n'en sont pas
+    for f in sommets:
+        assert np.min(np.abs(zeros - f)) < 0.5
+    entre = zeros[1]
+    assert np.min(np.abs(sommets - entre)) > 50.0
+
+
+def test_mode_le_plus_proche_fait_ce_que_fait_proxi():
+    modes = [167.5, 506.0, 845.1, 1184.6]
+    rang, f, cents = tutt.mode_le_plus_proche(modes, 500.0)
+    assert rang == 1 and f == pytest.approx(506.0)
+    assert cents == pytest.approx(1200 * np.log2(506.0 / 500.0), abs=1e-6)
+
+    # débordements : TUTT prend le mode extrême plutôt que de refuser
+    assert tutt.mode_le_plus_proche(modes, 20.0)[0] == 0
+    assert tutt.mode_le_plus_proche(modes, 5000.0)[0] == len(modes) - 1
+    with pytest.raises(ValueError):
+        tutt.mode_le_plus_proche([], 440.0)
+
+
+def test_l_impedance_d_anche_change_de_signe_a_sa_resonance():
+    """`j(mω − k/ω)/A²` : raideur en dessous, masse au-dessus, nulle dessus.
+
+    C'est ce qui fait que l'anche tire la note vers sa propre fréquence
+    d'autant plus fort qu'elle en est proche.
+    """
+    m, k, a = 2.0e-6, 800.0, 1.0e-4
+    f_anche = np.sqrt(k / m) / (2 * np.pi)
+    z = tutt.reed_impedance([f_anche * 0.5, f_anche, f_anche * 2.0], m, k, a)
+    assert np.imag(z[0]) < 0                       # dominée par la raideur
+    assert abs(np.imag(z[1])) < 1e-6 * abs(np.imag(z[0]))
+    assert np.imag(z[2]) > 0                       # dominée par la masse
+    with pytest.raises(ValueError):
+        tutt.reed_impedance([440.0], m, k, 0.0)
