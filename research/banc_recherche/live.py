@@ -289,13 +289,24 @@ class Instrument:
     level_default: float = 1.0
     control_unit: str = ""
     output_scale: float = 1.0
+    #: pour un instrument bâti sur une vraie perce : la gamme de ses doigtés,
+    #: `[(nom, trous, fréquence, note MIDI), …]`. Vide sinon.
+    fingerings: list = field(default_factory=list, repr=False)
     _params: dict = field(default_factory=dict, repr=False)
     _keep: list = field(default_factory=list, repr=False)
 
     def params_for(self, note):
-        """Structure C de la note, ou de la plus proche disponible."""
+        """Structure C de la note, ou de la plus proche disponible.
+
+        Une perce réelle ne remplit pas le clavier : elle a les notes de ses
+        doigtés, et rien entre. On rend alors la plus proche — jouer une
+        touche vide doit donner *quelque chose*, comme un doigté approché.
+        """
         n = int(np.clip(int(note), self.lo, self.hi))
-        return self._params[n]
+        if n in self._params:
+            return self._params[n]
+        dispo = min(self._params, key=lambda k: abs(k - n))
+        return self._params[dispo]
 
     def __len__(self):
         return len(self._params)
@@ -418,6 +429,72 @@ def _limiteur(x, seuil=0.7):
         comprime = seuil + marge * np.tanh((a[haut] - seuil) / marge)
         x[haut] = np.sign(x[haut]) * comprime
     return x
+
+
+def build_instrument_from_bore(dat, famille='cornemuse', doigtes=None,
+                              samplerate=48000.0, a4_hz=440.0, n_modes=10,
+                              cutoff_hz=None, reed_volume_m3=None,
+                              on_progress=None, **kw):
+    """Un instrument jouable bâti sur une **vraie perce**, doigté par doigté.
+
+    C'est l'aboutissement du pont vers TUTT, et il change la nature de
+    l'objet. `build_instrument` fabrique une perce *par demi-ton* : pratique
+    au clavier, mais aucun instrument réel ne marche comme ça. Ici, la perce
+    est **une seule et même pièce** — celle du fichier — et ce sont les
+    **doigts** qui changent la note, comme sur l'instrument. Chaque doigté
+    est calculé (impédance d'entrée, cheminées ouvertes ou fermées, résonances
+    réelles), puis rangé sur la touche MIDI dont il est le plus proche.
+
+    Ce que ça implique, et qu'il vaut mieux savoir avant de jouer :
+
+    - la tessiture est celle de l'instrument, pas celle du clavier. Une perce
+      à six trous donne sept notes, pas soixante-et-une ;
+    - si deux doigtés tombent sur la même touche, le plus proche gagne et
+      l'autre est perdu — c'est le fichier qui le dit, pas nous ;
+    - **la justesse n'est pas corrigée**. `build_instrument` accorde chaque
+      note sur le moteur ; ici, surtout pas : l'écart entre ce que la perce
+      donne et ce qu'elle devrait donner *est* le résultat qu'on vient
+      chercher. Le corriger reviendrait à effacer la mesure.
+
+    `famille` choisit l'excitateur (n'importe quel nom de `hybrid.INSTRUMENTS`
+    à perce) ; la géométrie, elle, vient entièrement du fichier.
+    """
+    from . import tutt as _tutt
+
+    gamme = _tutt.gamme_des_doigtes(dat, doigtes=doigtes,
+                                    reed_volume_m3=reed_volume_m3)
+    if not gamme:
+        raise ValueError("aucun doigté exploitable dans cette perce")
+
+    modele = hybrid.build(famille)
+    ex = modele.exciter
+    niveau = (0.25 if isinstance(ex, hybrid.BowExciter)
+              else 0.62 * getattr(ex, 'closing_pressure_pa', 4000.0))
+
+    notes = [int(round(69 + 12 * np.log2(f / a4_hz))) for _, _, f in gamme]
+    inst = Instrument(name=f"{dat.title or 'perce'} ({famille})",
+                      lo=min(notes), hi=max(notes),
+                      samplerate=float(samplerate), a4_hz=float(a4_hz),
+                      level_default=float(niveau),
+                      control_unit=getattr(ex, 'control_unit', '') or '')
+
+    for k, ((nom, trous, f_hz), note) in enumerate(zip(gamme, notes)):
+        res, _infos = _tutt.resonator_from_dat(
+            dat, fmin=max(20.0, 0.5 * f_hz), fmax=min(9000.0, f_hz * 12.0),
+            n_peaks=int(n_modes), cutoff_hz=cutoff_hz, fingering=trous,
+            reed_volume_m3=reed_volume_m3)
+        voix = hybrid.HybridVoice(type(ex)(**kw) if kw else ex, res,
+                                  name=f"{famille} {nom}")
+        p = params_from_voice(voix, samplerate=samplerate, name=famille)
+        cp, garde = _to_c_params(p)
+        inst._params[note] = cp
+        inst._keep.append(garde)
+        inst.fingerings.append((nom, trous, f_hz, note))
+        if on_progress:
+            on_progress(k + 1, len(gamme))
+
+    inst.output_scale = _mesurer_echelle(inst, notes=sorted(set(notes)))
+    return inst
 
 
 def _crete_etablie(inst: Instrument, note, dur=2.5, fenetre=0.1):

@@ -712,3 +712,17 @@ def test_sur_un_cylindre_il_n_y_a_pas_d_octave_a_accorder():
     v, ecart = tutt.cavite_qui_accorde_l_octave(cyl)
     assert v == 0.0
     assert ecart > 600.0                            # c'est une douzième
+
+
+def test_gamme_des_doigtes_rend_la_gamme_de_la_perce():
+    """Une vraie perce ne se transpose pas : elle a des trous, et chaque
+    combinaison de doigts donne une note. C'est cette liste-là."""
+    dat = _flute_a_six_trous()
+    dat.fingerings = [(f'd{k}', [0] * k + [1] * (7 - k)) for k in range(7)]
+    gamme = tutt.gamme_des_doigtes(dat, fmax=2400)
+    assert len(gamme) == 7
+    freqs = [f for _, _, f in gamme]
+    assert freqs == sorted(freqs)                 # rendue du grave à l'aigu
+    assert freqs[-1] / freqs[0] > 2.0
+    with pytest.raises(ValueError):
+        tutt.gamme_des_doigtes(tutt.BoreDat())

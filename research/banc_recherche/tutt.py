@@ -898,6 +898,37 @@ def ideal_resonator(kind, f0_hz, bore_mm, n_modes=10, bell_mm=None,
 # Mise à l'échelle — la vraie réponse à « peut-on simplifier une perce »
 # =============================================================================
 
+def gamme_des_doigtes(dat: BoreDat, doigtes=None, fmin=50.0, fmax=3000.0,
+                      **kw):
+    """Ce que chaque doigté donne comme note. La gamme d'une perce réelle.
+
+    C'est le pont que tout le reste attendait. Une vraie perce ne se
+    transpose pas note par note : elle a des **trous**, et chaque
+    combinaison de doigts donne une note. Maintenant que les cheminées sont
+    posées, cette liste se calcule.
+
+    `doigtes` accepte une liste de `(nom, tableau)` ; à défaut on prend ceux
+    du fichier (`dat.fingerings`). Renvoie `[(nom, doigté, fréquence), …]`,
+    trié du grave à l'aigu — c'est-à-dire la gamme de l'instrument, telle
+    que sa géométrie la donne et non telle qu'on l'espérait.
+
+    Un doigté dont aucune résonance ne sort de l'intervalle est écarté avec
+    sa raison plutôt que rendu à zéro.
+    """
+    if doigtes is None:
+        doigtes = dat.fingerings
+    if not doigtes:
+        raise ValueError("aucun doigté : ni fourni, ni dans le fichier")
+
+    out = []
+    for nom, trous in doigtes:
+        f = resonances(dat, fmin, fmax, n_peaks=1, fingering=trous, **kw)[0]
+        if f:
+            out.append((nom, list(trous), float(f[0])))
+    out.sort(key=lambda t: t[2])
+    return out
+
+
 def cavite_qui_accorde_l_octave(dat: BoreDat, fmin=40.0, fmax=3000.0,
                                 v_max=None, tol_cents=0.5, n_iter=40,
                                 **kw):

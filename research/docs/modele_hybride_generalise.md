@@ -758,3 +758,47 @@ cohérent, et c'est un test. Sur un **cylindre** la fonction ne force rien :
 elle rend le meilleur essai en signalant qu'il reste 712 cents — parce qu'un
 cylindre ne fait pas l'octave mais la douzième, et qu'aucune cavité n'y
 changera rien.
+
+### Le bout du pont : jouer une vraie perce, par ses doigtés
+
+Tout ce qui précède converge ici. `live.build_instrument_from_bore` prend une
+perce — **une seule pièce**, celle du fichier — calcule chacun de ses doigtés
+(impédance d'entrée, cheminées ouvertes ou fermées, résonances réelles) et
+range chaque note obtenue sur la touche MIDI dont elle est la plus proche.
+
+Ce n'est pas la même chose que `build_instrument`, et la différence est de
+nature. `build_instrument` fabrique **une perce par demi-ton** : commode au
+clavier, mais aucun instrument réel ne marche comme ça. Ici la géométrie ne
+bouge pas, ce sont les **doigts** qui changent la note — comme sur
+l'instrument.
+
+Trois conséquences, qu'il vaut mieux connaître avant de jouer :
+
+- la tessiture est celle de l'instrument, pas celle du clavier : une perce à
+  six trous donne sept notes, pas soixante-et-une. Une touche sans doigté rend
+  la plus proche, comme un doigté approché ;
+- si deux doigtés tombent sur la même touche, le plus proche gagne. C'est le
+  fichier qui le dit, pas nous ;
+- **la justesse n'est pas corrigée**, et c'est délibéré. Partout ailleurs le
+  dépôt accorde note à note ; ici jamais. L'écart entre ce que la perce donne
+  et ce qu'elle devrait donner **est** le résultat qu'on vient chercher — le
+  corriger reviendrait à effacer la mesure.
+
+Sur un tube d'essai à six cheminées régulières (donc volontairement mal
+placées, puisqu'un facteur les espace pour obtenir une gamme) :
+
+| doigté | note calculée | touche | écart |
+|---|---|---|---|
+| tous fermés | 166,2 Hz | mi₂ | +15 cents |
+| 1 ouvert | 188,2 | fa♯₂ | +30 |
+| 2 | 224,1 | la₂ | +32 |
+| 3 | 277,2 | do♯₃ | −0 |
+| 4 | 362,9 | fa♯₃ | −34 |
+| 5 | 523,7 | do₄ | +1 |
+| 6 | 915,5 | la♯₄ | −32 |
+
+Cette colonne d'écarts, c'est le rapport de justesse d'une perce — ce pour
+quoi TUTT existe. La différence, maintenant, c'est qu'on peut aussi
+**l'écouter**.
+
+Il ne manque plus qu'un fichier d'Ewen.

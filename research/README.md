@@ -391,6 +391,25 @@ accroche — la note sortirait une octave trop haut. Le calcul conique exact
 sert à tout ce qui passe par une **vraie** perce. Détail, mesures et ce qui
 reste à faire : `docs/modele_hybride_generalise.md`, §9.
 
+**Une vraie perce, jouée par ses doigtés.** Les trous latéraux sont posés
+(chaque cheminée est un tuyau de plus, branché en dérivation, ouvert ou fermé
+selon le doigté), donc `live.build_instrument_from_bore` sait prendre une
+perce — **une seule pièce**, celle du fichier — calculer chacun de ses
+doigtés et ranger les notes obtenues sur le clavier. La géométrie ne bouge
+pas : ce sont les doigts qui changent la note, comme sur l'instrument. Et la
+justesse n'y est **pas** corrigée, contrairement au reste du dépôt : l'écart
+entre ce que la perce donne et ce qu'elle devrait donner est précisément le
+résultat qu'on vient chercher. C'est le rapport de justesse d'une perce — ce
+pour quoi TUTT existe — sauf qu'on peut maintenant aussi l'écouter.
+
+```python
+from banc_recherche import tutt, live
+dat = tutt.read_dat("ma_bombarde.dat")
+inst = live.build_instrument_from_bore(dat, famille='bombarde')
+for nom, trous, f_hz, note in inst.fingerings:
+    print(nom, round(f_hz, 1), "Hz")
+```
+
 ## Jouer le modèle au clavier MIDI (`live`)
 
 Tout ce qui précède calcule juste mais **ne joue pas** : `hybrid` intègre en
