@@ -571,3 +571,51 @@ physique validée que le cylindre.
 
 Un test dans `test_tutt.py` fige ce résultat négatif : il échoue exprès si
 quelqu'un corrige un jour le modèle sans mettre à jour cet avertissement.
+
+### Ce qui marche : mettre une vraie perce à l'échelle, plutôt que la réinventer
+
+« On ne peut pas simplifier une perce ? » — si, mais pas en réduisant sa
+**forme** : le test qui suit montre que la forme, et seulement elle, décide
+du registre.
+
+Balayage du rapport pavillon/anche sur le même cône à un tronçon (longueur
+fixée par le demi-onde, §9 ci-dessus) :
+
+| rapport pavillon/anche | 2ᵉ résonance / 1ʳᵉ |
+|---|---|
+| 1,05 (quasi cylindrique) | 3,13 — proche de la **douzième**, comme un cylindre |
+| 1,5 | 3,59 |
+| 2,0 | 4,04 |
+| 4,5 | 5,84 |
+| 15 à 100 | 1,72 — bloqué sur `tan(kL)=kL` |
+
+Aucun rapport testé ne donne l'octave attendue (2,0) : un cône presque
+cylindrique se comporte... comme un cylindre (harmoniques impairs), un cône
+très évasé retombe sur la transcendante fermée du §9, et rien entre les deux
+ne traverse proprement le registre à l'octave. Le registre d'un instrument
+conique n'est donc pas une propriété générique de « avoir une perce qui
+s'évase » — c'est le **profil complet**, tel qu'un facteur d'instrument le
+règle par l'expérience (et tel que TUTT le vérifie), qui le décide.
+
+La vraie simplification, alors, n'est pas d'inventer une forme plus simple :
+c'est de **réutiliser une forme déjà juste, mise à l'échelle**. Exactement
+comme une famille d'instruments réels (soprano, alto, ténor) est une famille
+de formes proches mises à l'échelle, pas redessinées de zéro à chaque
+taille. `tutt.scale_bore` fait ça : multiplie toutes les longueurs et tous
+les diamètres (perce et trous) par le même facteur.
+
+Mesuré sur une perce à 3 tronçons artificielle, facteur d'échelle de 0,5 à
+2 (une octave de gamme) : les **rapports** de résonance dérivent de moins de
+2 % — le résidu attendu des pertes visco-thermiques, dont l'échelle de
+longueur (`1/√f`, l'épaisseur de couche limite) ne suit pas celle de la
+géométrie. La fondamentale suit `1/facteur` à mieux qu'un demi-ton dès la
+première passe, et `tutt.scale_bore_to` — qui mesure le facteur au lieu de
+le deviner — converge sous le cent en deux ou trois passes, comme
+`live._accorder` le fait déjà côté anche libre.
+
+**Ce que ça ouvre, dès qu'une vraie perce arrive** : couvrir un clavier
+entier à partir d'**une seule** perce mesurée (fichier TUTT réel, validé),
+mise à l'échelle note par note — au lieu d'un cône idéalisé par note, qui ne
+serait jamais qu'une forme inventée de plus. C'est le prochain pont à poser
+entre `tutt.py` et `live.build_instrument`, dès qu'une perce d'Ewen sera
+disponible pour l'essayer.

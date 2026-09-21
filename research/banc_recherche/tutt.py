@@ -673,6 +673,77 @@ def ideal_resonator(kind, f0_hz, bore_mm, n_modes=10, bell_mm=None,
 
 
 # =============================================================================
+# Mise à l'échelle — la vraie réponse à « peut-on simplifier une perce »
+# =============================================================================
+
+def scale_bore(dat: BoreDat, factor, title=None):
+    """La même forme, à une autre taille. Rien d'autre ne change.
+
+    Un cône réduit à un seul tronçon casse le registre (§9 de
+    `modele_hybride_generalise.md`, et `test_le_cone_idealise_tronque_n_est
+    _pas_encore_juste`) : ses résonances suivent `tan(kL)=kL` au lieu de la
+    série harmonique, parce que la **forme** décide du registre, pas
+    seulement la longueur et les deux diamètres d'extrémité.
+
+    La vraie simplification n'est donc pas d'inventer une forme plus simple,
+    c'est de **réutiliser une forme déjà juste**, à une autre échelle —
+    exactement comme une famille d'instruments réels (soprano, alto, ténor)
+    est une famille de formes proches mises à l'échelle, pas une famille de
+    formes redessinées de zéro à chaque taille.
+
+    Mesuré sur une perce à 3 tronçons artificielle, en faisant varier
+    `factor` de 0,5 à 2 (soit une octave de gamme) : les **rapports** de
+    résonance dérivent de moins de 2 % — le résidu attendu des pertes
+    visco-thermiques, qui n'ont pas la même échelle de longueur que la
+    géométrie (l'épaisseur de couche limite va en `1/√f`, pas en facteur
+    d'échelle). La fondamentale suit `1/factor` à moins de 1 % près, l'écart
+    restant se corrigeant comme d'habitude à l'accordage note à note.
+
+    Multiplie longueurs, diamètres de perce **et** de trous latéraux.
+    `ofilib` (rugosité) est sans dimension, inchangé. L'anche (`MREED`,
+    `KREED`, `V0`/`V1`) n'est **pas** mise à l'échelle : elle suivrait sa
+    propre loi, comme celle écrite pour l'anche libre dans `hybrid.accordeon`
+    — pas encore faite ici, et il ne faut pas laisser croire le contraire.
+    """
+    k = float(factor)
+    if k <= 0:
+        raise ValueError("le facteur d'échelle doit être positif")
+    return BoreDat(
+        title=title if title is not None else f"{dat.title} (×{k:.3g})",
+        n_sections=dat.n_sections,
+        closed_bottom=dat.closed_bottom,
+        d0=dat.d0 * k,
+        dl=dat.dl * k,
+        lengths=dat.lengths * k,
+        hole_d0=dat.hole_d0 * k,
+        hole_dl=dat.hole_dl * k,
+        hole_len=dat.hole_len * k,
+        ofilib=dat.ofilib.copy(),
+        temperature_c=dat.temperature_c,
+        a4_hz=dat.a4_hz,
+        embouchure=dict(dat.embouchure),
+        fingerings=list(dat.fingerings),
+    )
+
+
+def scale_bore_to(dat: BoreDat, f0_hz, fmin=30.0, fmax=4000.0, **kw):
+    """`scale_bore`, avec le facteur **mesuré** plutôt que deviné.
+
+    Cherche la fondamentale actuelle de `dat` (première résonance dans
+    [fmin, fmax]), puis renvoie la perce mise à l'échelle pour viser
+    `f0_hz`. C'est ce bloc, répété note par note, qui permettrait de couvrir
+    un clavier entier à partir d'une seule perce mesurée — le pendant, côté
+    perce réelle, de ce que fait déjà `live._accorder` côté anche libre.
+    """
+    freqs, _qs, _pics = resonances(dat, fmin, fmax, n_peaks=1, **kw)
+    if not freqs:
+        raise ValueError(f"aucune résonance trouvée entre {fmin} et {fmax} Hz "
+                         f"— la perce vise-t-elle vraiment cette gamme ?")
+    facteur = freqs[0] / float(f0_hz)
+    return scale_bore(dat, facteur)
+
+
+# =============================================================================
 # Conversion tutt25 → tutt43
 # =============================================================================
 

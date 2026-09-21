@@ -410,3 +410,74 @@ def test_ideal_resonator_renvoie_un_resonateur_hybrid_utilisable():
     res, infos = tutt.ideal_resonator('cylindrique', 220.0, 14.6, n_modes=6)
     assert res.n_modes >= 3
     assert infos['tronçons'] == 1
+
+
+# =============================================================================
+# Mise à l'échelle — la vraie réponse à « peut-on simplifier une perce »
+# =============================================================================
+
+def _perce_a_trois_troncons():
+    return tutt.BoreDat(
+        n_sections=3, closed_bottom=False,
+        d0=np.array([0.005, 0.010, 0.015]),
+        dl=np.array([0.010, 0.015, 0.022]),
+        lengths=np.array([0.15, 0.20, 0.25]),
+        ofilib=np.ones(3), temperature_c=(32.0, 20.0),
+    )
+
+
+def test_scale_bore_garde_les_rapports_de_resonance():
+    """C'est ce qui décide le registre : une forme réduite à un tronçon les
+    perd (test_le_cone_idealise_tronque_n_est_pas_encore_juste), une forme
+    mise à l'échelle les garde.
+    """
+    dat = _perce_a_trois_troncons()
+    freqs0, _, _ = tutt.resonances(dat, 30, 2000, n_peaks=4)
+    ratios0 = np.array(freqs0) / freqs0[0]
+
+    for k in (0.5, 0.8, 1.3, 2.0):
+        dat_k = tutt.scale_bore(dat, k)
+        freqs_k, _, _ = tutt.resonances(dat_k, 30 / k, 2000 / k, n_peaks=4)
+        ratios_k = np.array(freqs_k) / freqs_k[0]
+        # écart relatif, pas absolu : au rang 4 un rapport vaut déjà ~13,
+        # et c'est sa dérive en % qui dit si le registre est préservé
+        derive = np.abs(ratios_k - ratios0) / ratios0
+        assert np.max(derive) < 0.02, (k, ratios_k, ratios0)
+
+
+def test_scale_bore_deplace_la_fondamentale_en_1_sur_k():
+    dat = _perce_a_trois_troncons()
+    f0, _, _ = tutt.resonances(dat, 30, 2000, n_peaks=1)
+    for k in (0.5, 2.0):
+        dat_k = tutt.scale_bore(dat, k)
+        fk, _, _ = tutt.resonances(dat_k, 30 / k, 2000 / k, n_peaks=1)
+        assert fk[0] == pytest.approx(f0[0] / k, rel=0.02)
+
+
+def test_scale_bore_ne_touche_pas_l_ofilib_ni_l_embouchure():
+    """La rugosité est sans dimension ; l'anche suivrait sa propre loi —
+    pas encore écrite ici, donc pas mise à l'échelle en douce."""
+    dat = _perce_a_trois_troncons()
+    dat.ofilib = np.array([1.3, 1.3, 1.3])
+    dat.embouchure = {'MREED': 2.0e-4, 'KREED': 800.0}
+    dat2 = tutt.scale_bore(dat, 1.5)
+    assert np.array_equal(dat2.ofilib, dat.ofilib)
+    assert dat2.embouchure == dat.embouchure
+
+
+def test_scale_bore_refuse_un_facteur_negatif_ou_nul():
+    dat = _perce_a_trois_troncons()
+    with pytest.raises(ValueError):
+        tutt.scale_bore(dat, 0.0)
+    with pytest.raises(ValueError):
+        tutt.scale_bore(dat, -1.0)
+
+
+def test_scale_bore_to_converge_en_deux_ou_trois_passes():
+    dat = _perce_a_trois_troncons()
+    cible = 220.0
+    d = dat
+    for _ in range(3):
+        d = tutt.scale_bore_to(d, cible, fmin=30, fmax=2000)
+    f, _, _ = tutt.resonances(d, 30, 2000, n_peaks=1)
+    assert f[0] == pytest.approx(cible, abs=1.0)

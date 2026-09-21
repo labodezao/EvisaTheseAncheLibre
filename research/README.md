@@ -376,7 +376,12 @@ l'octave (ses résonances suivent `tan(kL)=kL`, la signature d'un cône fermé �
 son petit bout, pas entraîné près de sa pointe — jusqu'à 330 cents d'écart).
 Ces trois instruments restent donc sur la série postulée (`bore_modes`), et
 le pourquoi détaillé — ce qui a été éliminé, ce qui reste à faire pour
-reprendre l'essai — est dans `docs/modele_hybride_generalise.md`, §9.
+reprendre l'essai — est dans `docs/modele_hybride_generalise.md`, §9. La
+vraie simplification qui en ressort : pas une forme inventée plus simple,
+mais une forme **déjà juste, mise à l'échelle** (`tutt.scale_bore`) — comme
+une famille d'instruments réels est une famille de tailles, pas de formes
+redessinées. Prêt à couvrir un clavier entier dès qu'une perce mesurée sera
+disponible.
 
 ## Jouer le modèle au clavier MIDI (`live`)
 
