@@ -708,3 +708,53 @@ valeurs de `MREED`, `KREED` et de la surface vibrante, qui ne viennent qu'avec
 un fichier réel. En inventer un jeu plausible déplace la note de plus d'une
 octave — ce qui ne prouve rien d'autre que l'invention. D'où le défaut
 `coupling=0`, qui ne laisse que le tube : la seule branche mesurée.
+
+### Pourquoi les coniques ne reviennent quand même pas en jeu
+
+Une fois la ligne conique juste, il restait à savoir si les trois instruments
+coniques pouvaient repasser par TUTT pour de bon. La réponse est non, et elle
+est mesurée plutôt que supposée.
+
+Le reproche fait à la perce idéalisée était son **fondamental trop faible** :
+son deuxième sommet d'impédance sort au-dessus du premier, l'anche s'y
+accroche, et la note sort une octave trop haut. On pouvait espérer que ce soit
+un effet de la troncature, auquel cas allonger le cône l'aurait réglé. Balayé,
+sur la même perce, en faisant varier le rapport pavillon/anche :
+
+| rapport | troncature | octave | sommets 2 à 5, en dB sous le fondamental |
+|---|---|---|---|
+| 4,5 | 28,6 % | +95,1 c | +3,6 +3,4 +2,5 +1,5 |
+| 8 | 14,3 % | +28,3 c | +5,4 +6,3 +5,7 +4,5 |
+| 12 | 9,1 % | +11,4 c | +5,0 +5,9 +5,4 +4,5 |
+| 20 | 5,3 % | +3,4 c | +3,1 +4,2 +4,8 +5,3 |
+| 30 | 3,4 % | −1,8 c | +3,3 +5,6 +7,5 +9,4 |
+
+La **justesse de l'octave** se corrige très bien en allongeant le cône (+95 →
+−2 cents). La **force du fondamental**, non : il reste 3 à 9 dB sous ses
+voisins dans tous les cas. Ce n'est donc pas un défaut de troncature mais un
+trait du cône nu — ce qui fait parler un vrai instrument dans le grave est
+ailleurs : le réseau de trous, le pavillon, et surtout l'embouchure.
+
+D'où la position tenue : la clarinette passe par TUTT, les trois coniques
+gardent la série postulée **pour le jeu**, et le calcul conique exact sert à
+tout ce qui passe par une vraie perce — où le profil complet, lui, sait
+renforcer son fondamental.
+
+### Un outil qui manquait : trouver la cavité qui accorde l'octave
+
+`tutt.cavite_qui_accorde_l_octave` cherche par dichotomie le volume de cavité
+d'anche qui annule l'écart d'octave. C'est le geste d'un facteur — on ne
+calcule pas la cavité, on l'ajuste jusqu'à ce que ça tombe juste — et l'écart
+variant de façon monotone avec le volume, la dichotomie converge sans
+surprise.
+
+| perce | cavité trouvée | octave obtenue |
+|---|---|---|
+| cône, rapport 4,5 | 1,53 cm³ | −0,17 cent |
+| cône, rapport 8 | 0,70 cm³ | +0,31 cent |
+
+Moins le cône est tronqué, moins il manque de volume à rendre : c'est
+cohérent, et c'est un test. Sur un **cylindre** la fonction ne force rien :
+elle rend le meilleur essai en signalant qu'il reste 712 cents — parce qu'un
+cylindre ne fait pas l'octave mais la douzième, et qu'aucune cavité n'y
+changera rien.

@@ -898,6 +898,71 @@ def ideal_resonator(kind, f0_hz, bore_mm, n_modes=10, bell_mm=None,
 # Mise à l'échelle — la vraie réponse à « peut-on simplifier une perce »
 # =============================================================================
 
+def cavite_qui_accorde_l_octave(dat: BoreDat, fmin=40.0, fmax=3000.0,
+                                v_max=None, tol_cents=0.5, n_iter=40,
+                                **kw):
+    """Le volume de cavité d'anche qui rend l'octave juste. Dichotomie.
+
+    Un cône tronqué octavie trop haut : il lui manque le bout pointu. Ninob
+    montre (*Modes propres d'un tronc de cône*) qu'une anche solide au petit
+    bout se comporte comme une **cavité ajoutée**, qui abaisse les modes
+    graves plus que les aigus et corrige l'octave — c'est ce qui permet à un
+    saxophone ou à un hautbois d'octavier juste.
+
+    Cette fonction cherche le volume qui l'annule, et c'est exactement le
+    geste d'un facteur : on ne calcule pas la cavité, on l'ajuste jusqu'à ce
+    que l'octave tombe juste. L'écart varie de façon monotone avec le volume
+    (mesuré : +95 cents à vide, +27 à 1,12 cm³, +2 à 1,5 cm³, −30 à 2 cm³),
+    donc une dichotomie suffit et converge sans surprise.
+
+    Renvoie `(volume_m3, écart_en_cents)`. Si aucun volume de l'intervalle ne
+    change le signe de l'écart, renvoie le meilleur trouvé plutôt que de
+    lever : une perce dont l'octave est déjà juste n'a rien à corriger, et
+    c'est une réponse, pas une erreur.
+
+    `v_max` borne la recherche ; à défaut, dix fois le volume du cône
+    géométriquement manquant, ce qui couvre largement (le volume qui corrige
+    vaut environ 1,3 fois celui-là).
+    """
+    def ecart(v):
+        f = resonances(dat, fmin, fmax, n_peaks=2,
+                       reed_volume_m3=(v if v and v > 0 else None), **kw)[0]
+        if len(f) < 2:
+            return float('nan')
+        return 1200.0 * np.log2((f[1] / f[0]) / 2.0)
+
+    if v_max is None:
+        # volume du cône manquant : (1/3)·π·r₀²·x₁, avec x₁ l'apex virtuel
+        r0, r1 = float(dat.d0[-1]) / 2.0, float(dat.dl[0]) / 2.0
+        longueur = float(np.sum(dat.lengths))
+        if r1 <= r0:
+            v_max = np.pi * r0 ** 2 * longueur          # cylindre : pas d'apex
+        else:
+            x1 = longueur * r0 / (r1 - r0)
+            v_max = 10.0 * np.pi * r0 ** 2 * x1 / 3.0
+
+    bas, haut = 0.0, float(v_max)
+    e_bas, e_haut = ecart(bas), ecart(haut)
+    if not np.isfinite(e_bas):
+        raise ValueError("octave introuvable : la perce a-t-elle deux modes ?")
+    if not np.isfinite(e_haut) or e_bas * e_haut > 0:
+        return (bas, e_bas) if abs(e_bas) <= abs(e_haut) else (haut, e_haut)
+
+    for _ in range(int(n_iter)):
+        milieu = 0.5 * (bas + haut)
+        e = ecart(milieu)
+        if not np.isfinite(e):
+            break
+        if abs(e) < float(tol_cents):
+            return milieu, e
+        if e_bas * e < 0:
+            haut, e_haut = milieu, e
+        else:
+            bas, e_bas = milieu, e
+    milieu = 0.5 * (bas + haut)
+    return milieu, ecart(milieu)
+
+
 def scale_bore(dat: BoreDat, factor, title=None):
     """La même forme, à une autre taille. Rien d'autre ne change.
 

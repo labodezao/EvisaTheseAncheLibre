@@ -682,3 +682,33 @@ def test_l_impedance_d_anche_change_de_signe_a_sa_resonance():
     assert np.imag(z[2]) > 0                       # dominée par la masse
     with pytest.raises(ValueError):
         tutt.reed_impedance([440.0], m, k, 0.0)
+
+
+def test_la_cavite_qui_accorde_l_octave_la_trouve():
+    """Le geste du facteur : on ajuste jusqu'à ce que l'octave tombe juste."""
+    dat = tutt.bore_dat_ideal('conique', 294.0, 5.0, taper=4.5)
+    avant = tutt.resonances(dat, 40, 2600, n_peaks=2)[0]
+    ecart_avant = 1200 * np.log2((avant[1] / avant[0]) / 2.0)
+    assert ecart_avant > 60.0                       # nettement trop haute
+
+    v, ecart = tutt.cavite_qui_accorde_l_octave(dat)
+    assert 0 < v < 5e-6                             # quelques cm³
+    assert abs(ecart) < 1.0                         # juste au cent près
+
+
+def test_la_cavite_trouvee_depend_de_la_troncature():
+    """Moins le cône est tronqué, moins il manque de volume à rendre."""
+    court = tutt.bore_dat_ideal('conique', 294.0, 5.0, taper=4.5)
+    long_ = tutt.bore_dat_ideal('conique', 294.0, 5.0, taper=8.0)
+    v_court, _ = tutt.cavite_qui_accorde_l_octave(court)
+    v_long, _ = tutt.cavite_qui_accorde_l_octave(long_)
+    assert v_court > v_long
+
+
+def test_sur_un_cylindre_il_n_y_a_pas_d_octave_a_accorder():
+    """Un cylindre ne fait pas l'octave mais la douzième : la fonction doit
+    le dire en rendant le meilleur essai, pas lever une erreur."""
+    cyl = tutt.bore_dat_ideal('cylindrique', 294.0, 14.6)
+    v, ecart = tutt.cavite_qui_accorde_l_octave(cyl)
+    assert v == 0.0
+    assert ecart > 600.0                            # c'est une douzième
