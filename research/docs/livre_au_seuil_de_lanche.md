@@ -138,14 +138,15 @@ grossit.
 | Prélude — Le souffle avant le son | `livre/00_prelude.md` | rédigé |
 | Partie I — Le seuil | `livre/01_le_seuil.md` | rédigé |
 | Partie II — Ce qui s'accroche | `livre/02_ce_qui_s_accroche.md` | rédigé |
-| Parties III à VII | — | à venir |
+| Partie III — La naissance de chaque chose | `livre/03_la_naissance_de_chaque_chose.md` | rédigé |
+| Parties IV à VII | — | à venir |
 
 Les encarts ⟢ des chapitres rédigés sont **laissés vides**, comme prévu.
 
 ## Prochaines pistes d'écriture
-- Continuer par la **Partie III** (transitoires) : la Partie II s'y jette
-  dans sa dernière ligne. Le matériau est là — `Tresp`, le ralentissement
-  critique déjà posé au chapitre 2, et *anicca*.
+- Continuer par la **Partie IV** (espace des phases) : la Partie III s'y
+  jette dans sa dernière ligne, en posant la question sous la forme
+  « comment regarde-t-on une chose en train de bouger sans la saisir ? ».
 - Faire tourner l'outil correspondant sur **une vraie mesure à toi** et mettre
   la figure dans le chapitre : le savoir devient chaud quand la courbe est la
   tienne. C'est la seule chose qui manque vraiment à la Partie I — elle décrit

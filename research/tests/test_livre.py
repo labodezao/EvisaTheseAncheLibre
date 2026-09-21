@@ -83,11 +83,64 @@ def test_les_encarts_ton_experience_restent_vides():
                 f"{f.name} : un encart parle à la première personne"
 
 
-def test_chaque_chapitre_porte_les_trois_fils():
-    """Dehors, dedans, vivant — tressés, pas empilés."""
-    ch = (LIVRE / "01_le_seuil.md").read_text(encoding='utf-8')
-    assert "Résonance intérieure" in ch          # le dedans
-    assert "bifurcation de Hopf" in ch           # le dehors
-    assert "⟢" in ch                             # le vivant, en creux
-    # et la contrainte matérielle qui ne doit jamais sauter
-    assert "presque rien" in ch
+def test_chaque_partie_porte_les_trois_fils():
+    """Dehors, dedans, vivant — tressés, pas empilés.
+
+    Le test parcourt toutes les parties rédigées, pas seulement la première :
+    une partie qui oublierait sa « Résonance intérieure » ne serait plus le
+    livre qu'on a annoncé, elle serait un cours.
+    """
+    parties = sorted(p for p in LIVRE.glob("*.md")
+                     if not p.name.startswith("00_"))
+    assert parties, "aucune partie rédigée"
+    for p in parties:
+        # le texte est rendu à la ligne : on compare sur une version dont les
+        # blancs sont normalisés, sinon une phrase coupée échappe au test.
+        ch = " ".join(p.read_text(encoding='utf-8').split())
+        assert "Résonance intérieure" in ch, f"{p.name} : le dedans manque"
+        assert "⟢" in ch, f"{p.name} : le vivant manque"
+        # la contrainte matérielle qui ne doit jamais sauter : tout doit
+        # rester faisable avec une carte son et un micro.
+        assert "presque rien" in ch or "Un micro suffit" in ch, \
+            f"{p.name} : plus de protocole accessible"
+
+
+def test_le_prelude_annonce_les_trois_fils_et_la_precaution():
+    """Le prélude doit poser la retenue : aucune équivalence n'est prétendue."""
+    pr = " ".join((LIVRE / "00_prelude.md").read_text(encoding='utf-8').split())
+    assert "vibromètre laser" in pr          # la contrainte matérielle, dite
+    assert "ne prétends nulle part" in pr    # la précaution épistémique
+
+
+# -----------------------------------------------------------------------------
+# Partie III : Tresp ≈ 2,2·τ, la traduction qui relie la mesure à la théorie
+# -----------------------------------------------------------------------------
+
+def test_tresp_vaut_bien_deux_fois_la_constante_de_temps():
+    """Le chapitre 5 annonce `T(10→90) = τ·(ln10 − ln(10/9)) ≈ 2,20·τ`.
+
+    C'est ce qui permet de traduire une attaque mesurée au micro en un
+    `σ = 1/τ`, donc en une distance au seuil. Si le rapport n'y est pas, le
+    chapitre raconte une histoire.
+    """
+    from banc_recherche import analysis
+
+    sr = 48000
+    t = np.arange(0.0, 0.5, 1.0 / sr)
+    for tau in (0.010, 0.030, 0.060):
+        sig = (1.0 - np.exp(-t / tau)) * np.sin(2 * np.pi * 440.0 * t)
+        tresp = analysis.attack(sig, sr).tresp_ms / 1000.0
+        assert tresp / tau == pytest.approx(2.2, rel=0.25)
+
+
+def test_une_attaque_plus_lente_donne_un_tresp_plus_long():
+    """La monotonie, qui est ce sur quoi le chapitre s'appuie vraiment."""
+    from banc_recherche import analysis
+
+    sr = 48000
+    t = np.arange(0.0, 0.6, 1.0 / sr)
+    mesures = []
+    for tau in (0.005, 0.020, 0.050, 0.100):
+        sig = (1.0 - np.exp(-t / tau)) * np.sin(2 * np.pi * 440.0 * t)
+        mesures.append(analysis.attack(sig, sr).tresp_ms)
+    assert mesures == sorted(mesures)

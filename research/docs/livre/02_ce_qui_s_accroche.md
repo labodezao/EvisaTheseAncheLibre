@@ -88,6 +88,19 @@ x, phi = st.potential_from_drift(km)           # le paysage
 creux = st.potential_minima(x, phi)            # un puits, ou deux ?
 ```
 
+Et il faut mesurer ici l'étrangeté de ce qu'on vient de faire, parce qu'elle
+est facile à laisser passer. Nous avons obtenu le **paysage d'énergie** d'un
+système — un objet théorique, celui qu'on dessine au tableau pour expliquer
+la stabilité — à partir d'un simple **enregistrement**. Pas d'un modèle, pas
+d'une hypothèse sur le mécanisme : d'une série de nombres. Il faut seulement
+que l'enregistrement soit long devant le temps de corrélation, et que le pas
+d'échantillonnage soit court devant lui. Une carte son et un micro font
+l'affaire. C'est, je crois, l'un des plus beaux tours de la physique
+statistique moderne : elle lit la forme du paysage dans la trace de la bille
+qui s'y promène.
+
+Encore une fois : **presque rien**, et beaucoup.
+
 ---
 
 ## Chapitre 4 — Franchir la crête, et ce que ça coûte
