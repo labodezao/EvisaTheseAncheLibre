@@ -137,14 +137,15 @@ grossit.
 |---|---|---|
 | Prélude — Le souffle avant le son | `livre/00_prelude.md` | rédigé |
 | Partie I — Le seuil | `livre/01_le_seuil.md` | rédigé |
-| Parties II à VII | — | à venir |
+| Partie II — Ce qui s'accroche | `livre/02_ce_qui_s_accroche.md` | rédigé |
+| Parties III à VII | — | à venir |
 
 Les encarts ⟢ des chapitres rédigés sont **laissés vides**, comme prévu.
 
 ## Prochaines pistes d'écriture
-- Continuer par la **Partie II** (hystérésis & Kramers) : la Partie I s'y
-  jette explicitement dans sa dernière ligne, et `p_on > p_off` y est déjà
-  posé comme une dette à payer.
+- Continuer par la **Partie III** (transitoires) : la Partie II s'y jette
+  dans sa dernière ligne. Le matériau est là — `Tresp`, le ralentissement
+  critique déjà posé au chapitre 2, et *anicca*.
 - Faire tourner l'outil correspondant sur **une vraie mesure à toi** et mettre
   la figure dans le chapitre : le savoir devient chaud quand la courbe est la
   tienne. C'est la seule chose qui manque vraiment à la Partie I — elle décrit

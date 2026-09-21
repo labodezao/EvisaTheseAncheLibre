@@ -1,4 +1,5 @@
 import numpy as np
+import pytest
 
 from banc_recherche import stochastic as st
 
@@ -118,3 +119,56 @@ def test_kramers_rate_double_well():
     r = st.kramers_from_potential(x, phi, D)
     expected = (np.sqrt(2 * 1) / (2 * np.pi)) * np.exp(-0.25 / D)
     assert abs(r - expected) / expected < 0.1
+
+
+# =============================================================================
+# Kramers : le potentiel reconstruit est déjà réduit
+# =============================================================================
+
+def test_le_potentiel_reconstruit_est_deja_divise_par_le_bruit():
+    """`potential_from_drift` rend `Φ = U/D`, pas `U`.
+
+    C'est le fait dont tout le reste découle : sur `dx = (x−x³)dt + √(2D)dW`,
+    la barrière de `U = −x²/2 + x⁴/4` vaut 0,25, et celle de Φ doit valoir
+    0,25/D.
+    """
+    D = 0.10
+    rng = np.random.default_rng(11)
+    dt, n = 2e-4, 300_000
+    x = np.empty(n); x[0] = -1.0
+    bruit = np.sqrt(2 * D * dt) * rng.normal(size=n)
+    for i in range(1, n):
+        x[i] = x[i - 1] + (x[i - 1] - x[i - 1] ** 3) * dt + bruit[i]
+    km = st.kramers_moyal(x, dt, bins=41)
+    xx, phi = st.potential_from_drift(km)
+    mins = st.potential_minima(xx, phi)
+    assert len(mins) >= 2                       # bistable, comme attendu
+    gauche, droite = mins[0], mins[-1]
+    barriere = gauche + int(np.argmax(phi[gauche:droite + 1]))
+    # la barrière réduite doit être de l'ordre de 0,25/D = 2,5, pas de 0,25
+    dphi = phi[barriere] - phi[gauche]
+    assert dphi > 1.0
+
+
+def test_kramers_depuis_un_potentiel_reduit_retombe_sur_le_taux_physique():
+    """Les trois chemins doivent donner le même taux. Sinon l'un ment.
+
+    Régression sur un vrai bug : `kramers_from_potential` redonnait le `D`
+    physique à `kramers_rate` alors que le potentiel était déjà en `U/D`.
+    L'exponentielle était donc divisée deux fois — dix ordres de grandeur
+    d'erreur, et aucun signe extérieur que quelque chose clochait.
+    """
+    D = 0.10
+    x = np.linspace(-1.8, 1.8, 2001)
+    u = -x ** 2 / 2 + x ** 4 / 4          # barrière 0,25, U''(±1)=2, U''(0)=−1
+    phi = u / D                           # ce que rendent nos estimateurs
+
+    direct = st.kramers_rate(0.25, 2.0, 1.0, D)
+    depuis_phi = st.kramers_from_potential(x, phi, D=D)
+    depuis_u = st.kramers_from_potential(x, u, D=D, reduit=False)
+
+    assert depuis_phi == pytest.approx(direct, rel=0.02)
+    assert depuis_u == pytest.approx(direct, rel=0.02)
+    # et le piège, pour qu'on voie de quoi on parle
+    piege = st.kramers_from_potential(x, phi, D=D, reduit=False)
+    assert piege < direct * 1e-6
