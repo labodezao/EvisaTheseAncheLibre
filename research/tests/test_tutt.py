@@ -744,3 +744,82 @@ def test_un_nom_de_doigte_peut_contenir_des_chiffres(tmp_path):
         "0 1 1 'fa#4 ' 100\n", encoding='latin-1')
     noms = [nom.strip() for nom, _ in tutt.read_dat(p).fingerings]
     assert 'do5' in noms and 'fa#4' in noms
+
+
+# =============================================================================
+# La cheminée effective — LCZB, la correction que le fichier ne donne pas
+# =============================================================================
+
+def test_un_trou_ferme_garde_sa_hauteur_percee():
+    """`LCZB` n'applique ses corrections que si le trou est **ouvert**.
+
+    C'est tout le mécanisme du doigté fourchu : reboucher un trou sous le
+    premier trou ouvert rend à la colonne la longueur que la correction lui
+    retirait.
+    """
+    brute = 0.00235
+    assert tutt.cheminee_effective(0.00998, 0.00949, brute, 0.0171,
+                                   ouvert=False) == pytest.approx(brute)
+
+
+def test_un_trou_ouvert_voit_sa_cheminee_beaucoup_plus_longue():
+    """Sur une paroi mince, la correction intérieure domine la cheminée.
+
+    Les chiffres sont ceux du trou le plus bas d'une bombarde réelle :
+    Ø 9,98/9,49 mm, cheminée percée 2,35 mm, perce 17,1 mm. Nederveen donne
+    `c = (d/2)(1,3 − 0,9 d/D)` ≈ 3,8 mm, soit une cheminée effective de
+    l'ordre de 6 mm — plus du double du bois percé.
+    """
+    lp = tutt.cheminee_effective(0.00998, 0.00949, 0.00235, 0.0171,
+                                 ouvert=True)
+    assert lp == pytest.approx(0.00615, abs=2e-4)
+    assert lp > 2.5 * 0.00235
+
+
+def test_le_diametre_effectif_suit_la_sveltesse_de_la_cheminee():
+    """Haute, c'est le diamètre intérieur ; basse, c'est le plus étroit."""
+    haute = tutt.diametre_effectif_trou(d0p=0.010, dlp=0.006, lp0=0.050)
+    basse = tutt.diametre_effectif_trou(d0p=0.010, dlp=0.006, lp0=1e-5)
+    assert haute == pytest.approx(0.006, rel=1e-3)
+    assert basse == pytest.approx(0.006, rel=1e-3)   # ici min == dlp
+    # avec un sous-coupé (plus large dedans), les deux limites se séparent
+    haute = tutt.diametre_effectif_trou(d0p=0.006, dlp=0.010, lp0=0.050)
+    basse = tutt.diametre_effectif_trou(d0p=0.006, dlp=0.010, lp0=1e-5)
+    # la bascule est exponentielle, jamais tout à fait atteinte
+    assert haute == pytest.approx(0.010, rel=1e-2)
+    assert basse == pytest.approx(0.006, rel=1e-3)
+
+
+def test_la_correction_de_cheminee_desserre_la_gamme():
+    """Sans elle, chaque trou ouvert court-circuite trop et la gamme s'étire.
+
+    On compare la même perce avec et sans la correction : la note tous trous
+    ouverts doit descendre quand on la rétablit. C'est le défaut exact qu'on
+    mesurait sur une vraie bombarde — +14 % sur chaque intervalle.
+    """
+    dat = _flute_a_six_trous()
+    ouvert = [0] * 6 + [1]
+    avec = tutt.resonances(dat, 50, 1600, n_peaks=1, fingering=ouvert)[0][0]
+
+    vrai = tutt.cheminee_effective
+    try:
+        tutt.cheminee_effective = (
+            lambda d0p, dlp, lp0, d_perce, ouvert, **kw: lp0)
+        sans = tutt.resonances(dat, 50, 1600, n_peaks=1,
+                               fingering=ouvert)[0][0]
+    finally:
+        tutt.cheminee_effective = vrai
+    assert avec < sans
+    assert 1200 * np.log2(sans / avec) > 30.0
+
+
+def test_un_trou_rebouche_sous_le_premier_ouvert_fait_baisser_la_note():
+    """Le doigté fourchu, en une ligne : c'est ce que la correction rend possible."""
+    dat = _flute_a_six_trous()
+    #                 pavillon → embouchure ; 0 = ouvert
+    droit = [0, 0, 0, 1, 1, 1, 1]
+    fourche = [0, 1, 0, 1, 1, 1, 1]          # on rebouche le deuxième
+    f_droit = tutt.resonances(dat, 50, 1600, n_peaks=1, fingering=droit)[0][0]
+    f_fourche = tutt.resonances(dat, 50, 1600, n_peaks=1,
+                                fingering=fourche)[0][0]
+    assert f_fourche < f_droit

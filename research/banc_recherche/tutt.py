@@ -41,6 +41,7 @@ le `CP` de TUTT.
 """
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 
@@ -71,6 +72,8 @@ class BoreDat:
     hole_dl: np.ndarray = field(default_factory=lambda: np.zeros(0))
     hole_len: np.ndarray = field(default_factory=lambda: np.zeros(0))
     ofilib: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    istyle: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    levee: np.ndarray = field(default_factory=lambda: np.zeros(0))
     temperature_c: tuple = (20.0, 20.0)   # (embouchure, pavillon), comme TUTT
     a4_hz: float = 440.0
     embouchure: dict = field(default_factory=dict)
@@ -225,6 +228,11 @@ def read_dat(chemin):
             out.hole_dl, _ = _valeurs_apres(lignes, i + 1, n)
         elif 'LATERAUX LP0' in l:
             out.hole_len, _ = _valeurs_apres(lignes, i + 1, n)
+        elif 'ISTYLE' in l:
+            # 0 = pas de clé, 1 = plateau creux, 2 = plateau plein
+            out.istyle, _ = _valeurs_apres(lignes, i + 1, n)
+        elif 'LEVEE DES CLES' in l:
+            out.levee, _ = _valeurs_apres(lignes, i + 1, n)
 
     # -- embouchure : une ligne d'en-têtes, une ligne de valeurs
     for i, l in enumerate(haut):
@@ -436,7 +444,108 @@ def _z_troncon(freqs, d0, dl, length, z_aval, temp_c=20.0, roughness=1.0):
     return (na + nb) / (-g * (na * a_0 - nb * b_0))
 
 
-def _z_trou(freqs, d0p, dlp, longueur, ouvert, temp_c=20.0, roughness=1.0):
+def diametre_effectif_trou(d0p, dlp, lp0):
+    """Le diamètre qui compte pour une cheminée, selon `LCZB` de TUTT.
+
+    Une cheminée n'est pas toujours un cylindre : le perçage est souvent
+    conique, ou sous-coupé (*undercut*), et les deux bouts n'ont pas le même
+    diamètre. Lequel prendre pour la correction de longueur ?
+
+    Ninob tranche par une moyenne pondérée par la sveltesse de la cheminée :
+
+        `d_eff = e^{−LP0/DLP}·min(D0P, DLP) + (1 − e^{−LP0/DLP})·DLP`
+
+    Haute devant son diamètre, la cheminée se comporte comme un tuyau et
+    c'est son diamètre intérieur `DLP` qui mène ; basse devant son diamètre
+    — le cas d'un gros trou dans une paroi mince, la bombarde exactement —
+    c'est le **plus petit** des deux qui mène, parce que c'est lui qui
+    étrangle le passage.
+    """
+    d0p, dlp, lp0 = float(d0p), float(dlp), float(lp0)
+    poids = math.exp(-lp0 / (dlp + 1e-5))
+    return poids * min(d0p, dlp) + (1.0 - poids) * dlp
+
+
+def cheminee_effective(d0p, dlp, lp0, d_perce, ouvert,
+                       istyle=0, levee=1.0, pression=0.0, flutec=1.0):
+    """`LCZB` : la hauteur **acoustique** d'une cheminée, corrections comprises.
+
+    C'est la pièce qui manquait, et elle manquait beaucoup. Le fichier `.dat`
+    donne `LP0`, la hauteur *percée* — l'épaisseur de bois sous le doigt. Ce
+    n'est pas ce que l'air voit. TUTT le dit en toutes lettres dans
+    `LTRANS` : « LP = TABLEAU DES LONGUEURS **EFFECTIVES** DES LIGNES
+    LATERALES … COMPTE TENU DES CORRECTIONS DE LONGUEUR ÉVALUÉES
+    PRÉALABLEMENT ».
+
+    Deux corrections, **appliquées seulement si le trou est ouvert** :
+
+    - **intérieure** (Nederveen, *Acustica* 28, 1973, p. 12) :
+      `c_int = (d_eff/2)·(1,3 − 0,9·d_eff/d_perce)`. C'est le volume d'air
+      qui, dans la perce elle-même, participe au mouvement dans la cheminée.
+      Sur la bombarde d'Ewen elle vaut **3,8 mm pour une cheminée percée de
+      2,35 mm** : elle triple la cheminée. L'ignorer rend chaque trou ouvert
+      presque parfaitement court-circuitant, et alors la gamme s'étire —
+      c'était notre cas, +14 % sur chaque intervalle.
+    - **extérieure**, dite effet de jet : `c_out = ζ·p̃·flutec·d_eff` avec
+      ζ = 4, `flutec` = 1 pour une anche et 0,1 pour une flûte, et `p̃` la
+      pression acoustique au droit du trou normalisée par son maximum dans
+      le tuyau. Elle dépend donc du champ, pas seulement de la géométrie :
+      TUTT fait deux passes, la première avec `p̃ = 0`. Ici `pression` vaut
+      0 par défaut, ce qui est exactement la première passe de TUTT.
+
+    Un trou **fermé** garde sa hauteur brute : rien ne dépasse dans la
+    perce, il n'y a rien à corriger. C'est pour ça qu'un doigté fourchu
+    marche — et c'est pour ça qu'il ne marchait pas chez nous.
+    """
+    d0p, dlp, lp0 = float(d0p), float(dlp), float(lp0)
+    if d0p < 1e-8:
+        return lp0                         # pas de trou : rien à corriger
+    ouv = 1.0 if ouvert else 0.0
+    d_eff = diametre_effectif_trou(d0p, dlp, lp0)
+    c_int = (d_eff * (1.3 - 0.9 * d_eff / d_perce) / 2.0) * ouv
+    c_out = 4.0 * float(pression) * float(flutec) * d_eff * ouv
+    # corrections de clé — nulles sans clé (ISTYLE = 0), ce qui est le cas de
+    # tous les instruments à trous nus.
+    c_cle_ext = c_cle_int = 0.0
+    if istyle:
+        rayon = d0p / 2.0
+        c_cle_ext = (0.65 * rayon * ((rayon / max(levee, 1e-9)) ** 0.39 - 1.0)
+                     * ouv * istyle / 2.0)
+        if istyle == 1:                    # plateau creux
+            c_cle_int = 1.0e-3 * (1.0 - ouv)
+    return lp0 + c_int + c_out + c_cle_ext + c_cle_int
+
+
+def _z_bout_trou(freqs, d_bout, longueur_brute, section):
+    """`ZBOUT` : ce que voit le bout ouvert d'une cheminée.
+
+    Rayonnement **et** perte de charge, comme Ninob les écrit :
+
+        `Z = jρω·c_out/S · (1 − jω·c_out/c) + 7,5·π·LC·η·ρ/S²`
+
+    avec `c_out = 0,35·d` — la correction de bout classique, prise ici non
+    comme un allongement mais comme un ingrédient de l'impédance, ce qui
+    évite d'avoir à la rajouter ailleurs. Le second terme est la perte de
+    charge visqueuse dans la cheminée, de type Stokes (écoulement laminaire
+    supposé : TUTT reste dans l'acoustique linéaire des petites
+    oscillations). Diamètre et surface sont donnés séparément pour pouvoir
+    traiter un trou **ovale**, où l'un ne se déduit pas de l'autre.
+
+    Le facteur `ρ` du terme visqueux est celui du source ; dimensionnellement
+    une résistance de Poiseuille s'écrit `8πηL/S²` sans densité. On le garde
+    tel quel — il ne pèse que 1,2 sur un terme déjà mille fois plus petit que
+    le rayonnement — mais on le note plutôt que de le corriger en douce.
+    """
+    w = 2 * np.pi * np.asarray(freqs, dtype='float64')
+    c_out = 0.35 * float(d_bout)
+    s = float(section)
+    z_ray = 1j * RHO * w * c_out / s * (1.0 - 1j * w * c_out / CELERITE)
+    z_visq = 7.5 * np.pi * float(longueur_brute) * ETA * RHO / s ** 2
+    return z_ray + z_visq
+
+
+def _z_trou(freqs, d0p, dlp, longueur, ouvert, temp_c=20.0, roughness=1.0,
+            longueur_brute=None):
     """Impédance d'une cheminée latérale, vue depuis la perce principale.
 
     Un trou n'est pas un bouton qu'on enfonce : c'est **un tuyau de plus**,
@@ -446,13 +555,18 @@ def _z_trou(freqs, d0p, dlp, longueur, ouvert, temp_c=20.0, roughness=1.0):
     propre constante de propagation, sa propre impédance de bout.
 
     - **ouvert**, la cheminée débouche à l'air libre : elle porte son
-      impédance de rayonnement, petite, qui court-circuite la perce en
-      dessous. Le tuyau se comporte comme s'il s'arrêtait là — d'où la note
-      plus aiguë.
+      impédance de bout (`_z_bout_trou`), petite, qui court-circuite la perce
+      en dessous. Le tuyau se comporte comme s'il s'arrêtait là — d'où la
+      note plus aiguë.
     - **fermé**, elle est bouchée au bout : impédance infinie, et il ne reste
       que le petit volume de la cheminée, qui alourdit très légèrement la
       colonne. Un trou fermé n'est donc pas neutre, et c'est pourquoi TUTT le
       garde dans le calcul plutôt que de l'effacer.
+
+    `longueur` est la hauteur **effective** (cf. `cheminee_effective`), celle
+    que remonte la ligne ; `longueur_brute` est la hauteur percée, que TUTT
+    passe seule à `ZBOUT` pour la perte de charge — c'est bien le bois réel
+    que l'air frotte, pas la correction.
 
     Une cheminée de section nulle (`D0P = 0`) est un changement de perce sans
     trou : le module rend alors une impédance infinie, qui ne change rien en
@@ -463,14 +577,32 @@ def _z_trou(freqs, d0p, dlp, longueur, ouvert, temp_c=20.0, roughness=1.0):
     infini = np.full(np.shape(freqs), 1e12, dtype='complex128')
     if d0p < 1e-8 or longueur < 1e-8:
         return infini                      # pas de trou ici, juste un raccord
+    if longueur_brute is None:
+        longueur_brute = longueur
 
     if ouvert:
-        z_bout = _impedance_rayonnement(freqs, max(dlp, d0p) / 2.0)
+        z_bout = _z_bout_trou(freqs, d0p, longueur_brute,
+                              np.pi * d0p ** 2 / 4.0)
     else:
         z_bout = infini
-    # la cheminée se remonte comme un tronçon : elle est souvent conique
-    # elle aussi (perçage conique, chambrage), d'où d0p ≠ dlp.
-    return _z_troncon(freqs, d0p, dlp, longueur, z_bout, temp_c, roughness)
+    # La cheminée se remonte comme un tronçon : elle est souvent conique elle
+    # aussi (perçage conique, chambrage), d'où D0P ≠ DLP.
+    #
+    # **Quel bout est lequel.** `LTRANS` le dit : « POUR CES DERNIERS,
+    # L'ORIGINE EST PRISE AU BOUT DE LA LIGNE OPPOSÉE AU NŒUD » — l'origine
+    # de la cheminée est son bout **libre**, donc `D0P` est le bout libre et
+    # `DLP` le bout qui débouche dans la perce. Le fichier le confirme pour
+    # le bout mort d'une flûte : « D0P(N) est le diamètre du bout mort au
+    # niveau du bouchon, DLP(N) au niveau de l'embouchure » — D0P loin du
+    # tube, DLP au tube. Et `LCZB` passe bien `D0P` à `ZBOUT`, qui calcule un
+    # rayonnement : c'est le bout qui rayonne.
+    #
+    # `_z_troncon(d0, dl, …)` rend l'impédance du côté `d0` connaissant celle
+    # du côté `dl`. Ici on connaît celle du bout libre et on veut celle au
+    # nœud : c'est donc `dlp` qui joue le rôle de `d0`, et `d0p` celui de
+    # `dl`. Les prendre dans l'ordre du fichier, c'est parcourir la cheminée
+    # à l'envers.
+    return _z_troncon(freqs, dlp, d0p, longueur, z_bout, temp_c, roughness)
 
 
 def _impedance_rayonnement(freqs, radius_m, flanged=False):
@@ -592,10 +724,22 @@ def input_impedance(dat: BoreDat, freqs, n_slices=None,
         # la cheminée du nœud i se branche en dérivation sur ce qu'on vient
         # de remonter : les admittances s'ajoutent.
         if i < len(dat.hole_d0) and i < len(dat.hole_len):
-            z_trou = _z_trou(freqs, dat.hole_d0[i],
-                             dat.hole_dl[i] if i < len(dat.hole_dl) else dat.hole_d0[i],
-                             dat.hole_len[i], not doigte[i], temp,
-                             float(rug[i]) if i < len(rug) else 1.0)
+            d0p = float(dat.hole_d0[i])
+            dlp = float(dat.hole_dl[i]) if i < len(dat.hole_dl) else d0p
+            lp0 = float(dat.hole_len[i])
+            ouvert = not doigte[i]
+            # `dtube=(d0(i)+dl(i+1))/2.` dans LCZB : le diamètre de la perce
+            # au droit du trou, moyenné sur le nœud que la cheminée perce.
+            d_perce = (float(dat.d0[i]) +
+                       float(dat.dl[i + 1] if i + 1 < len(dat.dl) else dat.d0[i])) / 2.0
+            lp = cheminee_effective(
+                d0p, dlp, lp0, d_perce, ouvert,
+                istyle=int(dat.istyle[i]) if i < len(dat.istyle) else 0,
+                levee=float(dat.levee[i]) if i < len(dat.levee) else 1.0,
+                pression=0.0, flutec=1.0 if dat.solid_reed else 0.1)
+            z_trou = _z_trou(freqs, d0p, dlp, lp, ouvert, temp,
+                             float(rug[i]) if i < len(rug) else 1.0,
+                             longueur_brute=lp0)
             Z = 1.0 / (1.0 / Z + 1.0 / z_trou)
 
     v = reed_volume_m3          # jamais déduit du fichier : cf. reed_volume_m3()
