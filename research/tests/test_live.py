@@ -240,3 +240,88 @@ def test_la_ligne_de_commande_rend_un_wav(tmp_path):
 
 def test_la_ligne_de_commande_refuse_un_instrument_inconnu():
     assert live.main(['zorglub']) == 2
+
+
+# --- portabilité : ce qui change d'un système à l'autre ----------------------
+# Ces tests tournent sur n'importe quelle machine en faisant croire à `live`
+# qu'il est ailleurs. C'est le seul moyen honnête de vérifier le chemin
+# Windows depuis un Linux — et ça vaut mieux que de le découvrir chez
+# quelqu'un qui n'a que Windows.
+
+@pytest.mark.parametrize('plateforme,attendu', [
+    ('win32', 'hybridvoice.dll'),
+    ('darwin', 'libhybridvoice.dylib'),
+    ('linux', 'libhybridvoice.so'),
+])
+def test_le_nom_de_la_bibliotheque_suit_le_systeme(monkeypatch, plateforme,
+                                                   attendu):
+    monkeypatch.setattr(live.sys, 'platform', plateforme)
+    assert live._nom_bibliotheque() == attendu
+
+
+def test_sous_windows_on_cherche_gcc_avant_msvc(monkeypatch):
+    """`gcc -shared` exporte tout seul ; `cl /LD` n'exporte rien sans liste."""
+    monkeypatch.setattr(live.sys, 'platform', 'win32')
+    monkeypatch.delenv('CC', raising=False)
+    monkeypatch.setattr(live.shutil, 'which',
+                        lambda n: f"C:\\\\bin\\\\{n}.exe" if n in ('gcc', 'cl') else None)
+    assert live._compilateur()[1] == 'unix'
+
+    monkeypatch.setattr(live.shutil, 'which',
+                        lambda n: "C:\\\\bin\\\\cl.exe" if n == 'cl' else None)
+    cc, famille = live._compilateur()
+    assert famille == 'msvc'
+
+    monkeypatch.setattr(live.shutil, 'which', lambda n: None)
+    assert live._compilateur() == (None, None)
+
+
+def test_msvc_recoit_la_liste_des_symboles_a_exporter(tmp_path, monkeypatch):
+    """Sans `.def`, MSVC produit une DLL vide : `hv_render` serait introuvable."""
+    monkeypatch.setattr(live.sys, 'platform', 'win32')
+    cmd = live._commande_compilation('cl', 'msvc', tmp_path,
+                                     tmp_path / 'hybrid_voice.c',
+                                     tmp_path / 'hybridvoice.dll')
+    assert '/LD' in cmd
+    deff = tmp_path / 'hybridvoice.def'
+    assert deff.exists()
+    lignes = deff.read_text().split()
+    for symbole in live.HV_EXPORTS:
+        assert symbole in lignes
+
+
+def test_sous_windows_gcc_ne_recoit_ni_fPIC_ni_lm(tmp_path, monkeypatch):
+    """Deux options qui n'ont pas de sens là-bas, et que gcc signale."""
+    monkeypatch.setattr(live.sys, 'platform', 'win32')
+    cmd = live._commande_compilation('gcc', 'unix', tmp_path,
+                                     tmp_path / 'hybrid_voice.c',
+                                     tmp_path / 'hybridvoice.dll')
+    assert '-fPIC' not in cmd and '-lm' not in cmd and '-shared' in cmd
+
+    monkeypatch.setattr(live.sys, 'platform', 'linux')
+    cmd = live._commande_compilation('cc', 'unix', tmp_path,
+                                     tmp_path / 'hybrid_voice.c',
+                                     tmp_path / 'libhybridvoice.so')
+    assert '-fPIC' in cmd and '-lm' in cmd
+
+
+def test_sans_compilateur_le_message_dit_quoi_installer(monkeypatch):
+    for plateforme, mot in (('win32', 'MSYS2'), ('darwin', 'xcode-select'),
+                            ('linux', 'build-essential')):
+        monkeypatch.setattr(live.sys, 'platform', plateforme)
+        assert mot in live._aide_compilateur()
+
+
+def test_mingw_lie_libgcc_statiquement(tmp_path, monkeypatch):
+    """Sinon la DLL se compile très bien et refuse de se charger : MinGW n'est
+    pas dans le PATH d'un Python installé normalement."""
+    monkeypatch.setattr(live.sys, 'platform', 'win32')
+    cmd = live._commande_compilation('gcc', 'unix', tmp_path,
+                                     tmp_path / 'hybrid_voice.c',
+                                     tmp_path / 'hybridvoice.dll')
+    assert '-static-libgcc' in cmd
+    # clang ne l'accepte pas partout : on ne le lui impose pas
+    cmd = live._commande_compilation('clang', 'unix', tmp_path,
+                                     tmp_path / 'hybrid_voice.c',
+                                     tmp_path / 'hybridvoice.dll')
+    assert '-static-libgcc' not in cmd

@@ -35,7 +35,9 @@ import ctypes
 import hashlib
 import os
 import pathlib
+import shutil
 import subprocess
+import sys
 import tempfile
 from dataclasses import dataclass, field
 
@@ -87,12 +89,99 @@ class _State(ctypes.Structure):
 _LIB = None
 
 
+#: Les deux seules fonctions que le moteur expose. MSVC n'exporte rien tout
+#: seul : il lui faut cette liste, écrite dans un `.def`. On préfère ça à un
+#: `__declspec(dllexport)` dans le source — celui-là part sur la carte, il n'a
+#: pas à savoir que Windows existe.
+HV_EXPORTS = ('hv_reset', 'hv_render')
+
+
+def _nom_bibliotheque():
+    """Comment s'appelle une bibliothèque partagée, ici."""
+    if sys.platform == 'win32':
+        return 'hybridvoice.dll'
+    if sys.platform == 'darwin':
+        return 'libhybridvoice.dylib'
+    return 'libhybridvoice.so'
+
+
+def _compilateur():
+    """Le premier compilateur utilisable, et sa famille.
+
+    `CC` l'emporte toujours. Sinon on prend ce qu'il y a : `cc` sur Unix,
+    et sous Windows on cherche d'abord un gcc/clang (MSYS2, w64devkit,
+    MinGW) avant MSVC — non par préférence de goût, mais parce que `gcc
+    -shared` exporte tout seul, là où `cl /LD` n'exporte rien sans qu'on le
+    lui dise.
+    """
+    force = os.environ.get('CC')
+    if force:
+        famille = 'msvc' if pathlib.Path(force).stem.lower() == 'cl' else 'unix'
+        return force, famille
+    if sys.platform == 'win32':
+        for nom in ('gcc', 'clang', 'cc'):
+            if shutil.which(nom):
+                return nom, 'unix'
+        if shutil.which('cl'):
+            return 'cl', 'msvc'
+        return None, None
+    for nom in ('cc', 'gcc', 'clang'):
+        if shutil.which(nom):
+            return nom, 'unix'
+    return None, None
+
+
+_AIDE_COMPILATEUR = {
+    'win32': ("Installe un compilateur C, au choix :\n"
+              "  • MSYS2   →  pacman -S mingw-w64-ucrt-x86_64-gcc  "
+              "(puis ajoute son bin/ au PATH)\n"
+              "  • w64devkit — une archive à dézipper, rien à installer\n"
+              "  • Visual Studio Build Tools — ouvre « x64 Native Tools "
+              "Command Prompt » et relance depuis là.\n"
+              "Ou pointe-le à la main :  set CC=C:\\chemin\\vers\\gcc.exe"),
+    'darwin': ("Installe les outils de ligne de commande :\n"
+               "  xcode-select --install"),
+}
+_AIDE_COMPILATEUR_DEFAUT = ("Installe un compilateur C :\n"
+                            "  sudo apt install build-essential   (Debian/Ubuntu)\n"
+                            "  sudo dnf install gcc               (Fedora)")
+
+
+def _aide_compilateur():
+    return _AIDE_COMPILATEUR.get(sys.platform, _AIDE_COMPILATEUR_DEFAUT)
+
+
+def _commande_compilation(cc, famille, dossier, source, cible):
+    """La ligne de commande qui fabrique la bibliothèque, selon le compilateur."""
+    if famille == 'msvc':
+        deff = dossier / 'hybridvoice.def'
+        deff.write_text("EXPORTS\n" + "\n".join(HV_EXPORTS) + "\n",
+                        encoding='utf-8')
+        return [cc, '/nologo', '/O2', '/LD', f'/DHV_MAX_MODES={HV_MAX_MODES}',
+                str(source), f'/Fe:{cible}', '/link', f'/DEF:{deff}']
+    cmd = [cc, '-std=c99', '-O2', '-shared',
+           f'-DHV_MAX_MODES={HV_MAX_MODES}', str(source), '-o', str(cible)]
+    if sys.platform != 'win32':
+        cmd.insert(3, '-fPIC')          # inutile et bruyant sous Windows
+        cmd.append('-lm')               # la libm y est déjà dans la libc
+    elif pathlib.Path(cc).stem.lower() in ('gcc', 'cc'):
+        # sinon la DLL réclame libgcc_s au chargement, et MinGW n'est pas dans
+        # le PATH d'un Python installé normalement : erreur incompréhensible
+        # au moment d'ouvrir la bibliothèque, pas au moment de la compiler.
+        cmd.insert(3, '-static-libgcc')
+    return cmd
+
+
 def engine_library(force=False):
     """Compile le moteur C en bibliothèque partagée, et la charge.
 
     Le binaire est mis en cache dans le dossier temporaire, clé de hachage du
     source : régénérer le moteur le recompile, sinon on le réutilise. On ne
     veut pas payer une compilation à chaque note.
+
+    Marche sur Linux, macOS et Windows — le source, lui, ne change pas d'un
+    octet : c'est celui qui part sur la carte. Seuls l'extension du fichier,
+    le compilateur et ses options diffèrent.
     """
     global _LIB
     if _LIB is not None and not force:
@@ -102,20 +191,23 @@ def engine_library(force=False):
     cle = hashlib.sha256(
         (src['hybrid_voice.h'] + src['hybrid_voice.c']).encode()).hexdigest()[:16]
     d = pathlib.Path(tempfile.gettempdir()) / f"banc_hv_{cle}"
-    so = d / "libhybridvoice.so"
+    so = d / _nom_bibliotheque()
 
     if force or not so.exists():
+        cc, famille = _compilateur()
+        if cc is None:
+            raise RuntimeError("aucun compilateur C trouvé.\n"
+                               + _aide_compilateur())
         d.mkdir(parents=True, exist_ok=True)
         for nom, texte in src.items():
             (d / nom).write_text(texte, encoding='utf-8')
-        cmd = [os.environ.get('CC', 'cc'), '-std=c99', '-O2', '-fPIC', '-shared',
-               f'-DHV_MAX_MODES={HV_MAX_MODES}',
-               str(d / 'hybrid_voice.c'), '-o', str(so), '-lm']
-        r = subprocess.run(cmd, capture_output=True, text=True)
+        cmd = _commande_compilation(cc, famille, d, d / 'hybrid_voice.c', so)
+        # cwd dans le dossier de travail : MSVC sème ses .obj là où il est
+        r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(d))
         if r.returncode != 0 or not so.exists():
             raise RuntimeError(
-                "impossible de compiler le moteur C (cc présent ?) :\n"
-                + (r.stderr or r.stdout)[:800])
+                f"impossible de compiler le moteur C avec « {cc} » :\n"
+                + (r.stderr or r.stdout)[:800] + "\n" + _aide_compilateur())
 
     lib = ctypes.CDLL(str(so))
     lib.hv_reset.argtypes = [ctypes.POINTER(_State)]
@@ -572,6 +664,55 @@ def _sortie_audio(synth, blocksize=256, device=None):
     return flux
 
 
+class _Touches:
+    """Lire les touches une par une, sans attendre la touche Entrée.
+
+    Deux mondes, deux mécanismes : sous Unix on met le terminal en mode
+    « cbreak » et on interroge l'entrée standard ; sous Windows c'est
+    `msvcrt`, qui donne déjà les touches à l'unité. D'où cette petite façade
+    plutôt qu'un `if sys.platform` semé dans la boucle de jeu.
+    """
+
+    def __enter__(self):
+        self._windows = sys.platform == 'win32'
+        if self._windows:
+            import msvcrt
+            self._msvcrt = msvcrt
+        else:
+            import termios
+            import tty
+            self._termios = termios
+            self._fd = sys.stdin.fileno()
+            self._avant = termios.tcgetattr(self._fd)
+            tty.setcbreak(self._fd)
+        return self
+
+    def __exit__(self, *e):
+        if not self._windows:
+            self._termios.tcsetattr(self._fd, self._termios.TCSADRAIN,
+                                    self._avant)
+        return False
+
+    def lire(self, delai=0.05):
+        """Une touche, ou None si rien n'est venu pendant `delai`."""
+        if self._windows:
+            import time
+            fin = time.monotonic() + delai
+            while time.monotonic() < fin:
+                if self._msvcrt.kbhit():
+                    ch = self._msvcrt.getwch()
+                    if ch in ('\x00', '\xe0'):   # touche spéciale : 2 octets
+                        self._msvcrt.getwch()
+                        return None
+                    return ch
+                time.sleep(0.005)
+            return None
+        import select
+        if select.select([sys.stdin], [], [], delai)[0]:
+            return sys.stdin.read(1)
+        return None
+
+
 def jouer_au_terminal(synth, disposition='azerty', octave=5, tenue=0.6,
                       blocksize=256, device=None, ecrire=print):
     """Clavier d'ordinateur → modèle physique, sans rien d'autre qu'un terminal.
@@ -584,12 +725,12 @@ def jouer_au_terminal(synth, disposition='azerty', octave=5, tenue=0.6,
 
     C'est une contrainte du terminal, pas du moteur : en MIDI, le relâchement
     est exact.
+
+    Linux, macOS et Windows — la lecture des touches passe par `_Touches`,
+    qui sait dans quel monde elle est. La disposition du clavier, elle, est
+    l'affaire du système : on reçoit le caractère, pas la position.
     """
-    import select
-    import sys
-    import termios
     import time
-    import tty
 
     touches = DISPOSITIONS.get(str(disposition).lower(), CLAVIER_AZERTY)
     inst = synth.inst
@@ -607,41 +748,40 @@ def jouer_au_terminal(synth, disposition='azerty', octave=5, tenue=0.6,
     ecrire("  garde la touche enfoncée : la note tient tant que ça répète.")
     ecrire("")
 
-    fd = sys.stdin.fileno()
-    avant = termios.tcgetattr(fd)
     try:
-        tty.setcbreak(fd)
-        while True:
-            if select.select([sys.stdin], [], [], 0.05)[0]:
-                ch = sys.stdin.read(1)
-                if ch in ('q', '\x1b', '\x03'):
-                    break
-                if ch == '0':
-                    synth.all_notes_off(); vues.clear(); continue
-                if ch in '12':
-                    octave = int(np.clip(octave + (1 if ch == '2' else -1), 0, 9))
-                    ecrire(f"  octave {octave}")
-                    continue
-                if ch in '34':
-                    pas = 0.1 if ch == '4' else -0.1
-                    synth.expression = float(np.clip(synth.expression + pas, 0.05, 1.0))
-                    ecrire(f"  nuance {100 * synth.expression:.0f} %")
-                    continue
-                if ch in touches:
-                    note = 12 * octave + touches[ch]
-                    if note not in vues:
-                        synth.note_on(note, 100)
-                    vues[note] = time.monotonic()
+        with _Touches() as clavier:
+            while True:
+                ch = clavier.lire(0.05)
+                if ch is not None:
+                    if ch in ('q', '\x1b', '\x03'):
+                        break
+                    if ch == '0':
+                        synth.all_notes_off(); vues.clear(); continue
+                    if ch in '12':
+                        octave = int(np.clip(octave + (1 if ch == '2' else -1),
+                                             0, 9))
+                        ecrire(f"  octave {octave}")
+                        continue
+                    if ch in '34':
+                        pas = 0.1 if ch == '4' else -0.1
+                        synth.expression = float(
+                            np.clip(synth.expression + pas, 0.05, 1.0))
+                        ecrire(f"  nuance {100 * synth.expression:.0f} %")
+                        continue
+                    if ch in touches:
+                        note = 12 * octave + touches[ch]
+                        if note not in vues:
+                            synth.note_on(note, 100)
+                        vues[note] = time.monotonic()
 
-            maintenant = time.monotonic()
-            for note, vu in list(vues.items()):
-                if maintenant - vu > tenue:     # plus de répétition : on lâche
-                    synth.note_off(note)
-                    del vues[note]
+                maintenant = time.monotonic()
+                for note, vu in list(vues.items()):
+                    if maintenant - vu > tenue:   # plus de répétition : on lâche
+                        synth.note_off(note)
+                        del vues[note]
     except KeyboardInterrupt:
         pass
     finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, avant)
         synth.all_notes_off()
         time.sleep(0.4)                          # laisser les notes s'éteindre
         flux.stop(); flux.close()
@@ -693,7 +833,6 @@ def main(argv=None):
         banc-recherche-jouer accordeon --wav essai.wav # sans carte son
     """
     import argparse
-    import sys
 
     p = argparse.ArgumentParser(
         prog='banc-recherche-jouer',
@@ -779,7 +918,6 @@ def main(argv=None):
 
 def _jouer_midi(synth, motif, blocksize=256, device=None):
     """Brancher un vrai clavier : là, le relâchement est exact."""
-    import sys
     import time
     try:
         import mido

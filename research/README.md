@@ -436,6 +436,40 @@ relâchement est exact.
 `--brut` désactive l'accordage, pour entendre ce que la géométrie donne
 avant retouche.
 
+### Windows et macOS
+
+Le source C ne change pas d'un octet — c'est celui qui part sur la carte.
+Seuls l'extension du fichier (`.dll`, `.dylib`, `.so`), le compilateur et ses
+options diffèrent, et `live.py` s'en occupe.
+
+Sur **Windows**, il faut un compilateur C ; le plus simple est un gcc :
+
+- **MSYS2** → `pacman -S mingw-w64-ucrt-x86_64-gcc`, puis ajouter son `bin/`
+  au `PATH` ;
+- **w64devkit** — une archive à dézipper, rien à installer ;
+- **Visual Studio Build Tools** — ouvrir « x64 Native Tools Command Prompt »
+  et lancer depuis là.
+
+Ou, si le compilateur est ailleurs : `set CC=C:\chemin\vers\gcc.exe`.
+
+gcc est cherché **avant** MSVC, et pas par préférence de goût : `gcc -shared`
+exporte ses symboles tout seul, là où `cl /LD` n'exporte rien sans qu'on lui
+donne la liste. MSVC marche quand même — un `.def` est généré pour lui — mais
+c'est un détour. Sous MinGW, `libgcc` est lié statiquement, sinon la DLL se
+compile très bien et refuse de se charger dès que MinGW n'est pas dans le
+`PATH` du Python qui l'ouvre.
+
+La lecture du clavier passe par `msvcrt` au lieu de `termios` ; la disposition
+(AZERTY, QWERTY…) reste l'affaire du système, qui envoie le caractère et non
+la position de la touche.
+
+Sur **macOS** : `xcode-select --install` suffit.
+
+Ces chemins sont couverts par des tests qui font croire au module qu'il est
+ailleurs — ils tournent donc partout. Mais ils vérifient les commandes
+produites, pas un vrai Windows : **le moteur n'a encore tourné que sur
+Linux**.
+
 ### Onglet « Jouer (MIDI) »
 
 Choisir un instrument, **Préparer**, **▶** pour ouvrir la sortie audio,
