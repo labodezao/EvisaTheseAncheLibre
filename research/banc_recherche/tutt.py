@@ -74,6 +74,12 @@ class BoreDat:
     ofilib: np.ndarray = field(default_factory=lambda: np.zeros(0))
     istyle: np.ndarray = field(default_factory=lambda: np.zeros(0))
     levee: np.ndarray = field(default_factory=lambda: np.zeros(0))
+    # tessiture, telle que `GAMME` la lit : nombre de degrés et position du
+    # plus grave par rapport au la de référence, en demi-tons.
+    n_degres: int = 0
+    degre_du_grave: int = 0
+    temperament_octave_juste: bool = True
+    degres: list = field(default_factory=list)   # degré visé par doigté
     temperature_c: tuple = (20.0, 20.0)   # (embouchure, pavillon), comme TUTT
     a4_hz: float = 440.0
     embouchure: dict = field(default_factory=dict)
@@ -210,6 +216,16 @@ def read_dat(chemin):
         elif 'TEMPERATURE' in l:
             v, _ = _valeurs_apres(lignes, i + 1, 2)
             out.temperature_c = (float(v[0]), float(v[1]))
+        elif 'TESSITURE' in l:
+            # NTESSC (nb de doigtés), NTESSG (nb de degrés), NTESSB
+            v, _ = _valeurs_apres(lignes, i + 1, 3)
+            if len(v) >= 3:
+                out.n_degres = int(v[1])
+                out.degre_du_grave = int(v[2])
+        elif 'ITMPNT' in l or 'TEMPERAMENT DE REFERENCE' in l:
+            v, _ = _valeurs_apres(lignes, i + 1, 1)
+            if len(v):
+                out.temperament_octave_juste = bool(round(v[0]))
 
     n1 = out.n_sections + 1
     n = max(out.n_sections, 0)
@@ -264,7 +280,40 @@ def read_dat(chemin):
             trous = [int(x) for x in m.group(1).split()]
             if len(trous) >= 2:
                 out.fingerings.append((m.group(2).strip(), trous))
+                # `READ(7,*) (DOIGTE(I,J),J=1,N), nomdegam, centsexp, ide,
+                # ndegamme` : après le nom viennent trois champs, dont le
+                # dernier est le **degré de la gamme** visé. C'est lui qui
+                # dit qu'un doigté répété une octave plus haut vise l'octave,
+                # et il évite d'avoir à deviner les registres.
+                queue = _floats(l[m.end():])
+                out.degres.append(int(queue[-1]) if len(queue) >= 3
+                                  else len(out.fingerings))
+    if not out.n_degres:
+        out.n_degres = max(out.degres) if out.degres else 0
     return out
+
+
+def frequences_de_la_gamme(dat: BoreDat):
+    """`GAMME` : les fréquences officielles que chaque degré vise.
+
+        `NDEGA = NDEGG − NTESSB − 1`, puis `f = FLA·2^(NDEGA/12)`
+
+    en tempérament égal à octaves justes (`ITMPNT = 1`), ou `FLA·1,5^(NDEGA/7)`
+    — égal à **quintes** justes — si `ITMPNT = 0`. Le fichier porte donc tout
+    ce qu'il faut pour savoir ce que l'instrument devrait donner : la
+    justesse se calcule sans qu'on ait rien à supposer.
+
+    Sur la bombarde d'Ewen, `FLA = 440`, `NTESSB = 4` : le degré 1 tombe sur
+    `440·2^(−4/12) = 349,2 Hz`, fa4. C'est bien son fa le plus grave.
+    """
+    n = max(int(dat.n_degres), 0)
+    out = []
+    for degre in range(1, n + 1):
+        d = degre - int(dat.degre_du_grave) - 1
+        out.append(dat.a4_hz * (2.0 ** (d / 12.0)
+                                if dat.temperament_octave_juste
+                                else 1.5 ** (d / 7.0)))
+    return np.array(out)
 
 
 @dataclass
@@ -646,6 +695,245 @@ def _doigte_en_tableau(dat: BoreDat, fingering, n):
     out = np.ones(n, dtype=int)
     v = np.asarray(fingering, dtype=int).ravel()
     out[:min(n, v.size)] = v[:min(n, v.size)]
+    return out
+
+
+def _profil_de_temperature(dat, n):
+    """Le profil exponentiel de TUTT, constante 0,25 m, partagé par les deux
+    écritures de la ligne — sans quoi elles ne seraient pas comparables."""
+    t_emb, t_pav = dat.temperature_c
+    xtot = float(np.sum(dat.lengths))
+    temps, x = [], 0.0
+    for i in range(n):
+        x += float(dat.lengths[i])
+        milieu = x - float(dat.lengths[i]) / 2.0
+        temps.append(t_pav + (t_emb - t_pav) * math.exp(-(xtot - milieu) / 0.25))
+    return temps
+
+
+def champ_de_pression(dat: BoreDat, freqs, fingering=None, pressn=None):
+    """`LTRANS` tel quel : les amplitudes A et B dans chaque tronçon.
+
+    C'est la seconde écriture de la même ligne. `input_impedance` remonte
+    l'instrument en transformant une **impédance** de proche en proche ;
+    `LTRANS`, lui, propage les deux **amplitudes d'onde** `A` et `B` depuis
+    le bas de la ligne, et n'en déduit l'impédance qu'au dernier nœud :
+    `Z = PEMB/WEMB`. Les deux doivent donner la même chose — et qu'elles le
+    fassent est le meilleur contrôle qu'on ait sur les deux.
+
+    Mais la seconde donne en plus ce que la première ne peut pas donner : la
+    **pression en chaque point du tuyau**. Au nœud `i`, `p = A(i) + B(i)`.
+    C'est de là que sort `PRESSN` :
+
+        `PRESSN(i) = |A(i) + B(i)| / max |p|`
+
+    la pression acoustique au droit de chaque trou, normalisée par son
+    maximum — l'ingrédient qui manque à la correction de jet de `LCZB`.
+
+    `pressn` en entrée est justement ce tableau, pour la seconde passe :
+    TUTT calcule d'abord tout avec `pressn = 0`, en tire le champ, puis
+    recommence. Renvoie un dictionnaire : `a`, `b` (tronçons × fréquences),
+    `z` (l'impédance à l'embouchure), `pression` (au droit des nœuds) et
+    `pressn`.
+
+    **Conventions.** L'origine de chaque tronçon est son nœud amont (côté
+    embouchure, diamètre `D0`) ; celle d'une cheminée est son bout libre
+    (`D0P`), « LE BOUT DE LA LIGNE OPPOSÉE AU NŒUD ». `DELTAP` se calcule sur
+    la longueur **brute** `LP0`, mais la ligne se parcourt sur la longueur
+    **corrigée** `LP` — c'est la prescription de Ninob, qu'il signale
+    lui-même comme un choix (« elle n'est pas obligatoire »).
+    """
+    freqs = np.asarray(freqs, dtype='float64')
+    w = 2 * np.pi * freqs
+    n = len(dat.lengths)
+    if n == 0:
+        raise ValueError("géométrie vide : le fichier a-t-il été lu ?")
+    doigte = _doigte_en_tableau(dat, fingering, n)
+    temps = _profil_de_temperature(dat, n)
+    rug = dat.roughness
+    n_trous = min(len(dat.hole_d0), len(dat.hole_len), n - 1)
+    if pressn is None:
+        pressn = np.zeros(max(n_trous, 0))
+    flutec = 1.0 if dat.solid_reed else 0.1
+
+    def rugosite(i):
+        return float(rug[i]) if i < len(rug) else 1.0
+
+    # --- la ligne principale, tronçon par tronçon
+    jk, delta, s, lg = [], [], [], []
+    for i in range(n):
+        g, _zc = _propagation(freqs, (float(dat.d0[i]) + float(dat.dl[i])) / 4.0,
+                              temps[i], rugosite(i))
+        jk.append(-g)
+        lg.append(float(dat.lengths[i]))
+        delta.append((float(dat.dl[i]) - float(dat.d0[i]))
+                     / (float(dat.d0[i]) * lg[i]))
+        s.append(np.pi * float(dat.d0[i]) ** 2 / 4.0)
+
+    # --- les cheminées
+    jkp, deltap, sp, lp, zboup = [], [], [], [], []
+    for i in range(n_trous):
+        d0p = float(dat.hole_d0[i])
+        dlp = float(dat.hole_dl[i]) if i < len(dat.hole_dl) else d0p
+        lp0 = float(dat.hole_len[i])
+        if d0p < 1e-8 or lp0 < 1e-12:
+            # « changement de perce sans vrai trou latéral » : la branche
+            # disparaît d'elle-même puisque SP = 0.
+            jkp.append(np.zeros_like(w, dtype='complex128'))
+            deltap.append(0.0)
+            sp.append(0.0)
+            lp.append(0.0)
+            zboup.append(np.zeros_like(w, dtype='complex128'))
+            continue
+        d_perce = (float(dat.d0[i]) +
+                   float(dat.dl[i + 1] if i + 1 < len(dat.dl) else dat.d0[i])) / 2.0
+        lpi = cheminee_effective(
+            d0p, dlp, lp0, d_perce, not doigte[i],
+            istyle=int(dat.istyle[i]) if i < len(dat.istyle) else 0,
+            levee=float(dat.levee[i]) if i < len(dat.levee) else 1.0,
+            pression=float(pressn[i]) if i < len(pressn) else 0.0,
+            flutec=flutec)
+        g, _zc = _propagation(freqs, (d0p + dlp) / 4.0, temps[i], rugosite(i))
+        jkp.append(-g)
+        deltap.append((dlp - d0p) / (d0p * lp0))   # sur LP0, avant correction
+        sp.append(np.pi * d0p ** 2 / 4.0)
+        lp.append(lpi)
+        # `zboup(i) = -zboutc` : le signe vient de l'orientation de l'axe de
+        # la cheminée, qui pointe vers le nœud et non vers le dehors.
+        zboup.append(-_z_bout_trou(freqs, d0p, lp0, sp[-1]))
+
+    a = [None] * n
+    b = [None] * n
+    # --- bas de ligne : la condition au bout ouvert (ou mort)
+    jkl1 = jk[0] * lg[0]
+    a[0] = np.exp(-jkl1)          # normalisation arbitraire, comme TUTT
+    t13 = jk[0] + delta[0] * (jkl1 + 1.0)
+    t14 = jk[0] + delta[0] * (jkl1 - 1.0)
+    # `S0` de la formule du débit est la section à **l'origine** du tronçon,
+    # pas au bout : le facteur (1+Δx)² de la section se simplifie exactement
+    # avec celui de la dérivée de p. Prendre la section du pavillon ici
+    # donne un cône qui sonne en quintes — le tuyau d'une clarinette.
+    s_bas = np.pi * float(dat.d0[0]) ** 2 / 4.0
+    z_bas = (np.zeros_like(w, dtype='complex128') if dat.closed_bottom
+             else _impedance_rayonnement(freqs, float(dat.dl[0]) / 2.0))
+    t15 = s_bas * z_bas / (1j * w * RHO)
+    t16 = 1.0 / (1.0 + delta[0] * lg[0])
+    c1 = 1.0 if dat.closed_bottom else 0.0
+    t17 = (t14 * t15 + t16) / (t13 * t15 - t16)
+    t18 = t14 / t13
+    b[0] = np.exp(jkl1) * (t17 * (1.0 - c1) + t18 * c1)
+
+    # --- remontée vers l'embouchure, une branche par nœud
+    for i in range(n - 1):
+        jklip1 = jk[i + 1] * lg[i + 1]
+        tpip1 = np.exp(jklip1)
+        tmip1 = 1.0 / tpip1
+        p_noeud = a[i] + b[i]
+        t10 = s[i] * (a[i] * (jk[i] - delta[i]) - b[i] * (jk[i] + delta[i]))
+        t11 = t10
+        if i < n_trous and sp[i] > 0.0:
+            jklpi = jkp[i] * lp[i]
+            tppip = np.exp(jklpi)
+            tmpip = 1.0 / tppip
+            t20 = jkp[i] - deltap[i]
+            t21 = jkp[i] + deltap[i]
+            t22 = zboup[i] * sp[i] / (1j * w * RHO)
+            cp = 1.0 if doigte[i] else 0.0
+            t3 = ((t20 / t21) * cp
+                  - (1.0 + t22 * t20) / (1.0 - t22 * t21) * (1.0 - cp))
+            ap = p_noeud * (1.0 + deltap[i] * lp[i]) / (tppip + tmpip * t3)
+            bp = ap * t3
+            t8 = sp[i] * (jkp[i] + deltap[i] * (jklpi - 1.0)) * tppip
+            t9 = sp[i] * (jkp[i] + deltap[i] * (jklpi + 1.0)) * tmpip
+            t11 = t10 - ap * t8 + bp * t9
+        t5 = p_noeud * (1.0 + delta[i + 1] * lg[i + 1])
+        t6 = s[i + 1] * (jk[i + 1] + delta[i + 1] * (jklip1 - 1.0)) * tpip1
+        t7 = s[i + 1] * (jk[i + 1] + delta[i + 1] * (jklip1 + 1.0)) * tmip1
+        a[i + 1] = (t11 * tmip1 + t5 * t7) / (t6 * tmip1 + t7 * tpip1)
+        b[i + 1] = (t5 - a[i + 1] * tpip1) * tpip1
+
+    pemb = a[-1] + b[-1]
+    t12 = (a[-1] * (jk[-1] - delta[-1]) - b[-1] * (jk[-1] + delta[-1]))
+    wemb = -(s[-1] / (1j * w * RHO)) * t12
+    pression = np.array([np.abs(a[i] + b[i]) for i in range(n)])
+    pmax = np.max(pression, axis=0)
+    return {
+        'a': np.array(a), 'b': np.array(b),
+        'z': pemb / wemb,
+        'pression': pression,
+        'pressn': pression[:n_trous] / np.where(pmax > 0, pmax, 1.0),
+    }
+
+
+def frequence_de_jeu(dat: BoreDat, cible_hz, fingering=None, jet=True,
+                     n_points=3000):
+    """La note qu'un doigté donne, cherchée là où TUTT la cherche.
+
+    Le programme principal ne balaie pas tout le spectre : il se place
+    **autour de la note visée** — `OMEGAI = 0,7·OREF`, `OMEGAS = 3,2·OREF`,
+    « on veut être sûr d'avoir les trois premiers partiels » — puis `PROXI`
+    retient l'extrémum le plus proche de la cible. Ça résout d'un coup la
+    question des registres : un doigté d'octave vise l'octave, et c'est le
+    mode d'octave qui sera retenu, sans qu'on ait à dire lequel.
+
+    **Quel extrémum.** `OPOIL` le dit : « A LA FRÉQUENCE DE RÉSONANCE, ON
+    DOIT AVOIR PRESEM = 0 SI IFLUTE = 0, ET DEBIEM = 0 SI IFLUTE = 1 ». Une
+    flûte joue là où la **pression** s'annule à l'embouchure, donc sur un
+    *creux* de |Z| ; une anche solide là où le **débit** s'annule, donc sur
+    un *sommet*. Prendre les sommets pour une flûte, c'est jouer un
+    instrument qui n'existe pas.
+
+    **La double passe.** Avec `jet`, on fait comme TUTT : une première passe
+    à `pressn = 0`, on retient la note, on recalcule le champ **à cette
+    fréquence-là** pour en tirer `pressn`, et on recommence. La correction
+    extérieure des trous dépend du champ, et le champ des corrections.
+    """
+    cible = float(cible_hz)
+    pressn = None
+    f = float('nan')
+    for passe in range(2 if jet else 1):
+        freqs = np.linspace(0.7 * cible, 3.2 * cible, int(n_points))
+        z = np.abs(champ_de_pression(dat, freqs, fingering=fingering,
+                                     pressn=pressn)['z'])
+        if dat.solid_reed:
+            loc = np.where((z[1:-1] > z[:-2]) & (z[1:-1] > z[2:]))[0] + 1
+        else:
+            loc = np.where((z[1:-1] < z[:-2]) & (z[1:-1] < z[2:]))[0] + 1
+        if not len(loc):
+            return float('nan')
+        f = float(freqs[loc][np.argmin(np.abs(freqs[loc] - cible))])
+        if not jet:
+            break
+        pressn = champ_de_pression(dat, np.array([f]), fingering=fingering,
+                                   pressn=pressn)['pressn'][:, 0]
+    return f
+
+
+def justesse(dat: BoreDat, jet=True, n_points=3000):
+    """La table de justesse d'une perce, comme `justess.out` la donne.
+
+    Pour chaque doigté du fichier : la note visée (par son degré), la note
+    obtenue, et l'écart en cents. C'est ce que TUTT imprime, et ce qu'un
+    facteur regarde en premier.
+
+    Renvoie `[(nom, visée_hz, obtenue_hz, cents), …]` dans l'ordre du
+    fichier. Un écart **médian** non nul ne dit pas grand-chose : il se
+    rattrape en poussant l'anche ou en allongeant le bocal. C'est la
+    **dispersion** autour de cette médiane qui juge la perce, parce qu'elle,
+    rien ne la rattrape.
+    """
+    gamme = frequences_de_la_gamme(dat)
+    if not len(gamme) or not dat.fingerings:
+        raise ValueError("ni gamme ni doigtés : le fichier a-t-il été lu ?")
+    out = []
+    for i, (nom, trous) in enumerate(dat.fingerings):
+        degre = dat.degres[i] if i < len(dat.degres) else i + 1
+        cible = float(gamme[min(max(degre, 1), len(gamme)) - 1])
+        f = frequence_de_jeu(dat, cible, fingering=trous, jet=jet,
+                             n_points=n_points)
+        cents = (1200.0 * math.log2(f / cible)
+                 if f == f and f > 0 else float('nan'))
+        out.append((nom, cible, f, cents))
     return out
 
 

@@ -823,3 +823,84 @@ def test_un_trou_rebouche_sous_le_premier_ouvert_fait_baisser_la_note():
     f_fourche = tutt.resonances(dat, 50, 1600, n_peaks=1,
                                 fingering=fourche)[0][0]
     assert f_fourche < f_droit
+
+
+# =============================================================================
+# LTRANS : la seconde écriture de la même ligne
+# =============================================================================
+
+def _cone(d_petit=0.004, d_grand=0.030, longueur=0.5):
+    """Tronc de cône d'un seul tronçon, ouvert au grand bout."""
+    return tutt.BoreDat(
+        n_sections=0, closed_bottom=False,
+        d0=np.array([d_petit]), dl=np.array([d_grand]),
+        lengths=np.array([longueur]), ofilib=np.ones(1),
+        temperature_c=(20.0, 20.0))
+
+
+@pytest.mark.parametrize('perce', ['cylindre', 'cone'])
+def test_les_deux_ecritures_de_la_ligne_donnent_la_meme_impedance(perce):
+    """Le contrôle croisé : deux dérivations, une seule physique.
+
+    `input_impedance` transforme une impédance de proche en proche ;
+    `champ_de_pression` propage les amplitudes `A` et `B` comme `LTRANS`.
+    Rien ne les oblige à tomber d'accord — sinon d'être justes toutes les
+    deux. Sur une ligne sans trou elles concordent à la précision machine,
+    et c'est ce qui a permis de trouver que la section du bas de ligne
+    n'était pas celle du pavillon mais celle de l'origine du tronçon.
+    """
+    if perce == 'cylindre':
+        dat = tutt.BoreDat(n_sections=0, closed_bottom=False,
+                           d0=np.array([0.015]), dl=np.array([0.015]),
+                           lengths=np.array([0.5]), ofilib=np.ones(1),
+                           temperature_c=(20.0, 20.0))
+    else:
+        dat = _cone()
+    freqs = np.linspace(80.0, 2000.0, 800)
+    z1 = tutt.input_impedance(dat, freqs)
+    z2 = tutt.champ_de_pression(dat, freqs)['z']
+    assert np.allclose(z1, z2, rtol=1e-9)
+
+
+def test_ltrans_garde_la_serie_harmonique_du_cone():
+    """Un cône doit donner 1 : 2 : 3, pas les quintes d'un cylindre."""
+    freqs = np.linspace(80.0, 1200.0, 4000)
+    z = np.abs(tutt.champ_de_pression(_cone(), freqs)['z'])
+    i = np.where((z[1:-1] > z[:-2]) & (z[1:-1] > z[2:]))[0] + 1
+    f = freqs[i][:3]
+    assert f[1] / f[0] == pytest.approx(2.0, abs=0.08)
+    assert f[2] / f[0] == pytest.approx(3.0, abs=0.15)
+
+
+def test_le_champ_donne_une_pression_normalisee_par_trou():
+    """`PRESSN` : la pression au droit de chaque trou, rapportée au maximum."""
+    dat = _flute_a_six_trous()
+    champ = tutt.champ_de_pression(dat, np.array([300.0, 600.0]))
+    p = champ['pressn']
+    assert p.shape == (6, 2)
+    assert np.all(p >= 0.0) and np.all(p <= 1.0 + 1e-12)
+
+
+def test_une_flute_et_une_anche_ne_jouent_pas_le_meme_extremum():
+    """Anche solide : sommets de |Z|. Anche aérienne : creux. Jamais l'inverse."""
+    dat = _cone()
+    dat.embouchure['IFLUTE'] = 1.0            # anche solide
+    f_anche = tutt.frequence_de_jeu(dat, 300.0, jet=False)
+    dat.embouchure['IFLUTE'] = 0.0            # flûte à bec
+    f_flute = tutt.frequence_de_jeu(dat, 300.0, jet=False)
+    assert f_anche == pytest.approx(291.7, abs=6.0)
+    assert f_flute != pytest.approx(f_anche, abs=5.0)
+
+
+def test_la_gamme_officielle_sort_du_fichier(tmp_path):
+    """`GAMME` : `NDEGA = NDEGG − NTESSB − 1`, donc le degré 1 tombe
+    `NTESSB` demi-tons sous le la — quatre ici, soit fa."""
+    dat = tutt.BoreDat(a4_hz=440.0, n_degres=13, degre_du_grave=4,
+                       temperament_octave_juste=True)
+    g = tutt.frequences_de_la_gamme(dat)
+    assert g[0] == pytest.approx(440.0 * 2 ** (-4 / 12), rel=1e-9)
+    assert g[0] == pytest.approx(349.23, abs=0.02)      # fa4
+    assert g[12] / g[0] == pytest.approx(2.0, rel=1e-9)
+    dat.temperament_octave_juste = False      # égal à quintes justes
+    g = tutt.frequences_de_la_gamme(dat)
+    assert g[7] / g[0] == pytest.approx(1.5, rel=1e-9)
