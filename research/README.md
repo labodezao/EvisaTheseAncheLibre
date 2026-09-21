@@ -411,6 +411,31 @@ l'oscillation à s'installer, et un `note_off` ne coupe pas le son — il ramèn
 la pression à zéro et **l'oscillation s'éteint d'elle-même**, avec son
 hystérésis. C'est le point de tout l'exercice.
 
+### Sans GUI, sans MIDI, sans carte : `banc-recherche-jouer`
+
+Le moteur n'a besoin de rien d'autre qu'un compilateur C. Tout le reste est
+optionnel, et la ligne de commande le montre :
+
+```bash
+banc-recherche-jouer --liste                    # instruments, sorties, ports MIDI
+banc-recherche-jouer cornemuse                  # clavier d'ordinateur
+banc-recherche-jouer violon --midi "LPK25"      # vrai clavier MIDI
+banc-recherche-jouer accordeon --wav essai.wav  # aucune carte son requise
+```
+
+Au clavier d'ordinateur, disposition de tracker (AZERTY par défaut, `--disposition
+qwerty` sinon) : `w x c v b n , ;` pour les blanches, `s d g h j` pour les
+noires, `1`/`2` pour l'octave, `3`/`4` pour la nuance, `0` pour tout couper.
+
+Un terminal ne signale **pas** le relâchement d'une touche — il n'envoie que
+des caractères. C'est donc la **répétition automatique** du clavier qui sert de
+touche tenue : tant qu'elle arrive la note reste soufflée, et dès qu'elle
+cesse on relâche. Contrainte du terminal, pas du moteur : en MIDI le
+relâchement est exact.
+
+`--brut` désactive l'accordage, pour entendre ce que la géométrie donne
+avant retouche.
+
 ### Onglet « Jouer (MIDI) »
 
 Choisir un instrument, **Préparer**, **▶** pour ouvrir la sortie audio,

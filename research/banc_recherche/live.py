@@ -525,3 +525,300 @@ def realtime_factor(instrument: Instrument, n_voices=4, block=256,
     dt = time.perf_counter() - t0
     audio_s = blocs * block / instrument.samplerate
     return audio_s / dt if dt > 0 else float('inf')
+
+
+# =============================================================================
+# Jouer depuis un terminal — sans GUI, sans clavier MIDI, sans carte
+# =============================================================================
+
+#: Disposition de tracker sur AZERTY : la rangée du bas donne les touches
+#: blanches, celle du dessus les noires, comme sur un vrai clavier.
+#:
+#:      s d   g h j        ← noires  (do# ré#   fa# sol# la#)
+#:     w x c v b n , ;     ← blanches (do ré mi fa sol la si do)
+CLAVIER_AZERTY = {
+    'w': 0, 's': 1, 'x': 2, 'd': 3, 'c': 4, 'v': 5, 'g': 6,
+    'b': 7, 'h': 8, 'n': 9, 'j': 10, ',': 11, ';': 12, 'k': 13, ':': 14,
+}
+
+#: Même disposition sur un clavier QWERTY, pour qui n'est pas en AZERTY.
+CLAVIER_QWERTY = {
+    'z': 0, 's': 1, 'x': 2, 'd': 3, 'c': 4, 'v': 5, 'g': 6,
+    'b': 7, 'h': 8, 'n': 9, 'j': 10, 'm': 11, ',': 12, 'l': 13, '.': 14,
+}
+
+DISPOSITIONS = {'azerty': CLAVIER_AZERTY, 'qwerty': CLAVIER_QWERTY}
+
+
+def _sortie_audio(synth, blocksize=256, device=None):
+    """Ouvre la sortie audio et y branche le synthé. Rend le flux, à fermer."""
+    try:
+        import sounddevice as sd
+    except Exception as e:                      # pas de carte : on le dit net
+        raise RuntimeError(
+            "sounddevice est absent ou inutilisable (%s).\n"
+            "  pip install sounddevice     — et sur Linux, le paquet système "
+            "libportaudio2\n"
+            "Sans carte son, --wav rend quand même une phrase dans un "
+            "fichier." % e) from e
+
+    def cb(outdata, frames, time_info, status):
+        outdata[:, 0] = synth.render(frames)
+
+    flux = sd.OutputStream(samplerate=synth.inst.samplerate, channels=1,
+                           dtype='float32', blocksize=int(blocksize),
+                           device=device, callback=cb)
+    flux.start()
+    return flux
+
+
+def jouer_au_terminal(synth, disposition='azerty', octave=5, tenue=0.6,
+                      blocksize=256, device=None, ecrire=print):
+    """Clavier d'ordinateur → modèle physique, sans rien d'autre qu'un terminal.
+
+    Un terminal ne signale **pas** le relâchement d'une touche : il n'envoie
+    que des caractères. La répétition automatique du clavier sert donc de
+    « touche tenue » — tant qu'elle arrive, la note reste soufflée ; dès
+    qu'elle cesse pendant `tenue` secondes, on relâche, et l'oscillation
+    s'éteint d'elle-même comme elle le ferait sous un vrai doigt.
+
+    C'est une contrainte du terminal, pas du moteur : en MIDI, le relâchement
+    est exact.
+    """
+    import select
+    import sys
+    import termios
+    import time
+    import tty
+
+    touches = DISPOSITIONS.get(str(disposition).lower(), CLAVIER_AZERTY)
+    inst = synth.inst
+    flux = _sortie_audio(synth, blocksize=blocksize, device=device)
+    vues = {}                                   # note → dernier appui
+
+    ecrire("")
+    ecrire(f"  {inst.name} — {len(inst)} notes, ×"
+           f"{realtime_factor(inst, n_voices=len(synth.voices), seconds=0.2):.0f} "
+           f"le temps réel")
+    ecrire(f"  touches   {' '.join(sorted(touches, key=touches.get))}"
+           f"   (disposition {disposition})")
+    ecrire("  1 / 2     octave −/+          0   couper tout")
+    ecrire("  3 / 4     nuance −/+          q   quitter")
+    ecrire("  garde la touche enfoncée : la note tient tant que ça répète.")
+    ecrire("")
+
+    fd = sys.stdin.fileno()
+    avant = termios.tcgetattr(fd)
+    try:
+        tty.setcbreak(fd)
+        while True:
+            if select.select([sys.stdin], [], [], 0.05)[0]:
+                ch = sys.stdin.read(1)
+                if ch in ('q', '\x1b', '\x03'):
+                    break
+                if ch == '0':
+                    synth.all_notes_off(); vues.clear(); continue
+                if ch in '12':
+                    octave = int(np.clip(octave + (1 if ch == '2' else -1), 0, 9))
+                    ecrire(f"  octave {octave}")
+                    continue
+                if ch in '34':
+                    pas = 0.1 if ch == '4' else -0.1
+                    synth.expression = float(np.clip(synth.expression + pas, 0.05, 1.0))
+                    ecrire(f"  nuance {100 * synth.expression:.0f} %")
+                    continue
+                if ch in touches:
+                    note = 12 * octave + touches[ch]
+                    if note not in vues:
+                        synth.note_on(note, 100)
+                    vues[note] = time.monotonic()
+
+            maintenant = time.monotonic()
+            for note, vu in list(vues.items()):
+                if maintenant - vu > tenue:     # plus de répétition : on lâche
+                    synth.note_off(note)
+                    del vues[note]
+    except KeyboardInterrupt:
+        pass
+    finally:
+        termios.tcsetattr(fd, termios.TCSADRAIN, avant)
+        synth.all_notes_off()
+        time.sleep(0.4)                          # laisser les notes s'éteindre
+        flux.stop(); flux.close()
+    ecrire("")
+    return 0
+
+
+def rendre_phrase(synth, notes=(60, 62, 64, 67, 64, 60), duree=0.5,
+                  queue=1.2):
+    """Rend une petite phrase, relâchement compris. Aucune carte son requise.
+
+    `queue` laisse le temps à la dernière note de s'éteindre **physiquement**
+    plutôt que d'être coupée : c'est la partie qu'un échantillonneur ne sait
+    pas faire.
+    """
+    sr = synth.inst.samplerate
+    morceaux = []
+    for note in notes:
+        synth.note_on(int(note), 100)
+        for _ in range(max(1, int(duree * sr / 512))):
+            morceaux.append(synth.render(512))
+        synth.note_off(int(note))
+    for _ in range(max(1, int(queue * sr / 512))):
+        morceaux.append(synth.render(512))
+    return np.concatenate(morceaux)
+
+
+def _ecrire_wav(chemin, signal, samplerate):
+    """Écrit un WAV 16 bits sans dépendre de scipy."""
+    import wave
+    x = np.clip(np.asarray(signal, dtype='float64'), -1.0, 1.0)
+    with wave.open(str(chemin), 'wb') as f:
+        f.setnchannels(1)
+        f.setsampwidth(2)
+        f.setframerate(int(samplerate))
+        f.writeframes((x * 32767.0).astype('<i2').tobytes())
+    return chemin
+
+
+def main(argv=None):
+    """`banc-recherche-jouer` — le modèle physique, sur le PC, tout de suite.
+
+    Rien de tout ça ne demande de carte : le moteur est le C du STM32 compilé
+    à la volée pour la machine où l'on est.
+
+        banc-recherche-jouer --liste
+        banc-recherche-jouer cornemuse                 # clavier d'ordinateur
+        banc-recherche-jouer violon --midi "LPK25"     # clavier MIDI
+        banc-recherche-jouer accordeon --wav essai.wav # sans carte son
+    """
+    import argparse
+    import sys
+
+    p = argparse.ArgumentParser(
+        prog='banc-recherche-jouer',
+        description="Jouer le modèle physique sur le PC (sans STM32).")
+    p.add_argument('instrument', nargs='?', default='clarinette',
+                   help="clarinette, saxophone, bombarde, cornemuse, "
+                        "accordeon, violon, vielle")
+    p.add_argument('--liste', action='store_true',
+                   help="instruments, sorties audio et ports MIDI disponibles")
+    p.add_argument('--wav', metavar='FICHIER',
+                   help="rendre une phrase dans un WAV au lieu de jouer")
+    p.add_argument('--midi', metavar='PORT',
+                   help="jouer depuis ce port MIDI (sous-chaîne du nom)")
+    p.add_argument('--grave', type=int, default=40, help="note MIDI la plus basse")
+    p.add_argument('--aigu', type=int, default=88, help="note MIDI la plus haute")
+    p.add_argument('--polyphonie', type=int, default=6)
+    p.add_argument('--gain', type=float, default=0.45)
+    p.add_argument('--la', type=float, default=440.0, help="hauteur du la3, en Hz")
+    p.add_argument('--octave', type=int, default=5, help="octave de départ au clavier")
+    p.add_argument('--tenue', type=float, default=0.6,
+                   help="silence de touche avant relâchement, en secondes")
+    p.add_argument('--disposition', default='azerty', choices=sorted(DISPOSITIONS))
+    p.add_argument('--sr', type=float, default=48000.0)
+    p.add_argument('--bloc', type=int, default=256)
+    p.add_argument('--sortie', help="périphérique de sortie audio (nom ou index)")
+    p.add_argument('--brut', action='store_true',
+                   help="ne pas accorder les notes (montre l'écart de géométrie)")
+    args = p.parse_args(argv)
+
+    if args.liste:
+        print("instruments :", ', '.join(sorted(hybrid.INSTRUMENTS)))
+        try:
+            import sounddevice as sd
+            print("\nsorties audio :")
+            for i, d in enumerate(sd.query_devices()):
+                if d['max_output_channels'] > 0:
+                    print(f"  [{i}] {d['name']}")
+        except Exception as e:
+            print(f"\nsounddevice indisponible ({e})")
+        try:
+            import mido
+            noms = mido.get_input_names()
+            print("\nports MIDI :", '\n  '.join([''] + noms) if noms else " aucun")
+        except Exception:
+            print("\nports MIDI : mido absent — pip install -e \".[live]\"")
+        return 0
+
+    if args.instrument not in hybrid.INSTRUMENTS:
+        print(f"instrument inconnu : {args.instrument}\n"
+              f"connus : {', '.join(sorted(hybrid.INSTRUMENTS))}", file=sys.stderr)
+        return 2
+
+    print(f"préparation de « {args.instrument} » : une perce par demi-ton"
+          + ("" if args.brut else ", puis accordage note à note") + "…",
+          file=sys.stderr)
+    inst = build_instrument(args.instrument, lo=args.grave, hi=args.aigu,
+                            samplerate=args.sr, a4_hz=args.la,
+                            tune=not args.brut)
+    synth = Synth(inst, polyphony=args.polyphonie, gain=args.gain)
+
+    if args.wav:
+        x = rendre_phrase(synth)
+        _ecrire_wav(args.wav, x, inst.samplerate)
+        print(f"→ {args.wav}  ({len(x) / inst.samplerate:.1f} s, "
+              f"attaque, tenue et extinction physique)")
+        return 0
+
+    device = args.sortie
+    if device is not None and device.isdigit():
+        device = int(device)
+
+    try:
+        if args.midi:
+            return _jouer_midi(synth, args.midi, blocksize=args.bloc,
+                               device=device)
+        return jouer_au_terminal(synth, disposition=args.disposition,
+                                 octave=args.octave, tenue=args.tenue,
+                                 blocksize=args.bloc, device=device)
+    except RuntimeError as e:
+        print(e, file=sys.stderr)
+        return 2
+
+
+def _jouer_midi(synth, motif, blocksize=256, device=None):
+    """Brancher un vrai clavier : là, le relâchement est exact."""
+    import sys
+    import time
+    try:
+        import mido
+    except Exception:
+        print("mido absent : pip install -e \".[live]\"", file=sys.stderr)
+        return 2
+    noms = mido.get_input_names()
+    trouve = next((n for n in noms if motif.lower() in n.lower()), None)
+    if trouve is None:
+        print(f"aucun port MIDI ne correspond à « {motif} ».\n"
+              f"ports : {', '.join(noms) or 'aucun'}", file=sys.stderr)
+        return 2
+
+    def on_msg(msg):
+        if msg.type == 'note_on' and msg.velocity > 0:
+            synth.note_on(msg.note, msg.velocity)
+        elif msg.type in ('note_off', 'note_on'):
+            synth.note_off(msg.note)
+        elif msg.type == 'control_change':
+            if msg.control in (1, 2, 11):
+                synth.expression = msg.value / 127.0
+            elif msg.control == 123:
+                synth.all_notes_off()
+
+    flux = _sortie_audio(synth, blocksize=blocksize, device=device)
+    port = mido.open_input(trouve, callback=on_msg)
+    print(f"MIDI ouvert sur « {trouve} » — joue. Ctrl-C pour quitter.")
+    try:
+        while True:
+            time.sleep(0.2)
+    except KeyboardInterrupt:
+        pass
+    finally:
+        port.close()
+        synth.all_notes_off()
+        time.sleep(0.4)
+        flux.stop(); flux.close()
+    return 0
+
+
+if __name__ == '__main__':
+    raise SystemExit(main())

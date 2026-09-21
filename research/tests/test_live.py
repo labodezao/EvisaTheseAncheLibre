@@ -196,3 +196,47 @@ def test_le_limiteur_ne_touche_pas_ce_qui_passe(clarinette):
     assert np.allclose(y[sous], x[sous])
     assert np.max(np.abs(y)) < 1.0
     assert np.all(np.diff(y) >= 0)                  # monotone : pas de repli
+
+
+def test_rendre_une_phrase_sans_carte_son(clarinette):
+    """Tout doit être essayable sur un PC nu — pas de carte, pas de MIDI."""
+    s = live.Synth(clarinette, polyphony=4)
+    x = live.rendre_phrase(s, notes=(60, 64, 67), duree=0.3, queue=0.6)
+    assert x.dtype == np.float32
+    assert x.size == pytest.approx(1.5 * clarinette.samplerate, rel=0.05)
+    assert 0.05 < np.max(np.abs(x)) <= 1.0
+    # la queue est une extinction, pas une coupure : ça décroît sans s'annuler
+    fin = x[-int(0.1 * clarinette.samplerate):]
+    assert np.max(np.abs(fin)) < np.max(np.abs(x))
+
+
+def test_le_wav_ecrit_est_relisible(tmp_path, clarinette):
+    import wave
+    s = live.Synth(clarinette, polyphony=2)
+    x = live.rendre_phrase(s, notes=(62,), duree=0.3, queue=0.4)
+    f = tmp_path / 'essai.wav'
+    live._ecrire_wav(f, x, clarinette.samplerate)
+    with wave.open(str(f)) as w:
+        assert w.getnchannels() == 1 and w.getsampwidth() == 2
+        assert w.getframerate() == int(clarinette.samplerate)
+        assert w.getnframes() == x.size
+
+
+def test_les_dispositions_de_clavier_couvrent_une_octave():
+    """Une disposition qui saute un demi-ton se remarque en jouant, pas en
+    lisant le code."""
+    for nom, table in live.DISPOSITIONS.items():
+        demi_tons = sorted(table.values())
+        assert demi_tons[:13] == list(range(13)), nom
+        assert len(set(table)) == len(table), nom        # pas de touche double
+
+
+def test_la_ligne_de_commande_rend_un_wav(tmp_path):
+    f = tmp_path / 'cli.wav'
+    code = live.main(['clarinette', '--wav', str(f), '--grave', '60',
+                      '--aigu', '64', '--polyphonie', '2'])
+    assert code == 0 and f.stat().st_size > 1000
+
+
+def test_la_ligne_de_commande_refuse_un_instrument_inconnu():
+    assert live.main(['zorglub']) == 2

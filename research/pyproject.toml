@@ -43,6 +43,7 @@ live = [
 [project.scripts]
 banc-recherche = "banc_recherche.gui.app:main"
 banc-recherche-cli = "banc_recherche.cli:main"
+banc-recherche-jouer = "banc_recherche.live:main"
 
 [tool.setuptools.packages.find]
 include = ["banc_recherche*"]
