@@ -802,3 +802,155 @@ quoi TUTT existe. La différence, maintenant, c'est qu'on peut aussi
 **l'écouter**.
 
 Il ne manque plus qu'un fichier d'Ewen.
+
+---
+
+## 10. Le fichier est arrivé
+
+« Il y a plutôt des `.dat` dans mon drive, regarde. » Il y en avait — une
+bibliothèque entière, classée par instrument : cromornes, cornemuses,
+traversos baroques, hautbois, saxophones, *vouvouzémois*. Et deux dossiers
+qui portent son nom : **bombarde ewen daviau** et **clarinette folk ewen
+daviau**.
+
+`bombarde_sol_finale.dat`, 22 tronçons, 438 mm, huit trous, 29 doigtés.
+Elle passe dans `read_dat` sans broncher, et sa première ligne répond au
+passage à une question restée ouverte :
+
+```
+ interpolation,factdiaA= 0.998 factdiaB= 0.000 faclongA= 0.998 faclongB= 0.000
+```
+
+L'« interpolation » de TuttEdit, c'est une homothétie affine à deux
+paramètres par dimension — un facteur sur les diamètres, un sur les
+longueurs, chacun avec un terme constant. Notre `scale_bore` en est le cas
+particulier `factdia = faclong`, sans terme affine.
+
+### Ce que la perce a dit tout de suite
+
+Tous trous fermés : **1 : 2,02 : 3,05 : 4,07 : 5,07**. Série harmonique
+complète — la perce est un cône juste, et le tronçon conique exact tient.
+
+Mais la gamme sortait **étirée de 14 % sur chaque intervalle**, et les
+doigtés fourchus ne fourchaient pas : `sol♯` tombait à 5 cents de `la`, au
+lieu des cent qui les séparent. Écart-type de la justesse : 174 cents.
+
+### `LCZB` : le fichier ne donne pas ce que l'air voit
+
+La réponse est dans les commentaires de `Ltran9.for`, en une phrase :
+
+> `LP = TABLEAU DES LONGUEURS **EFFECTIVES** DES LIGNES LATÉRALES ASSOCIÉES
+> AUX TROUS … COMPTE TENU DES **CORRECTIONS DE LONGUEUR** ÉVALUÉES
+> PRÉALABLEMENT.`
+
+Le `LP0` du fichier est l'épaisseur de bois sous le doigt. Ce n'est pas la
+cheminée acoustique. `Lczb2.for` dit comment passer de l'un à l'autre :
+
+- **diamètre effectif**, pondéré par la sveltesse de la cheminée :
+  `d_eff = e^{−LP0/DLP}·min(D0P, DLP) + (1−e^{−LP0/DLP})·DLP`. Haute devant
+  son diamètre, c'est le diamètre intérieur qui mène ; basse — un gros trou
+  dans une paroi mince, la bombarde exactement — c'est le plus étroit ;
+- **correction intérieure de Nederveen** (*Acustica* 28, 1973, p. 12),
+  `c_int = (d_eff/2)·(1,3 − 0,9·d_eff/D)`, **appliquée seulement si le trou
+  est ouvert**. Sur le trou du bas de la bombarde : 3,80 mm ajoutés à une
+  cheminée percée de 2,35 mm. Elle la triple ;
+- **correction extérieure**, dite effet de jet :
+  `c_out = ζ·p̃·flutec·d_eff`, ζ = 4, `flutec` = 1 pour une anche et 0,1
+  pour une flûte, `p̃` la pression acoustique au droit du trou normalisée
+  par son maximum dans le tuyau ;
+- **impédance de bout** `ZBOUT` : rayonnement en `0,35·d` et perte de charge
+  de Stokes.
+
+Le « seulement si ouvert » est tout le mécanisme du doigté fourchu.
+Reboucher un trou sous le premier trou ouvert lui retire sa correction, et
+rend à la colonne la longueur que cette correction lui prenait.
+
+### Le champ de pression, et pourquoi il a fallu réécrire la ligne
+
+`c_out` dépend de la pression au droit du trou. Une écriture qui remonte la
+ligne en transformant une **impédance** ne peut pas la donner. Il a donc
+fallu traduire `LTRANS` pour de vrai : propager les amplitudes d'onde `A` et
+`B` depuis le bas de la ligne, et n'en tirer l'impédance qu'au dernier nœud,
+`Z = PEMB/WEMB`. `PRESSN(i) = |A(i)+B(i)| / max|p|` vient alors avec.
+
+Les deux écritures n'ont aucune raison de tomber d'accord, sinon d'être
+justes toutes les deux. C'est le meilleur contrôle qu'on ait, et il a servi
+tout de suite : **le cône sortait en quintes**. La faute était dans la
+condition au bas de la ligne, où j'avais mis la section du **pavillon**.
+C'est celle de l'**origine** du tronçon qu'il faut : dans
+
+`U(x) = S₀(1+Δx)²·u(x)`,  `∂p/∂x ∝ 1/(1+Δx)²`,
+
+les deux facteurs se simplifient exactement et `S₀` reste seul. Une fois
+corrigé : accord à 10⁻¹⁶ sur le cylindre **et** sur le cône, 10⁻⁵ sur une
+vraie perce tous trous fermés. Un test croisé attrape ce qu'aucun des deux
+calculs ne pouvait signaler seul.
+
+### La première confrontation avec TUTT lui-même
+
+Le dossier des sources contient `tutt25.dat` — un traverso baroque, bourré
+de doigtés fourchus — **et** `justess.out`, la justesse que TUTT a calculée
+pour ses 33 doigtés. C'est un étalon, et il n'avait jamais servi.
+
+Le traverso est une flûte : son embouchure demande `LCZBE`, une section de
+lèvres engendrée à la volée, un modèle de recouvrement dépendant du degré de
+la gamme. Rien de tout ça n'est implémenté. On le remplace donc par **une
+seule longueur ajustée** — un paramètre pour tout l'appareil — et on regarde
+ce qui reste.
+
+| | corrélation avec TUTT | dispersion | dérive |
+|---|---|---|---|
+| sans effet de jet | 0,51 | 23 cents | +1,7 cent/demi-ton |
+| avec effet de jet | **0,75** | **17 cents** | +1,3 |
+
+Et la structure du résidu parle : sur tout le registre aigu (rangs 13 à 32),
+l'écart est **plat**, entre +25 et +34 cents. C'est un décalage constant,
+donc l'embouchure qu'on a remplacée par une constante. Deux doigtés font
+exception, les rangs 24 et 33 — et ce sont ceux où **TUTT lui-même
+décroche** (−116 et −351 cents) : `PROXI` y a attrapé un mode voisin. On les
+signale plutôt que de les cacher.
+
+### Où en est la bombarde
+
+```
+banc-recherche-cli justesse bombarde_sol_finale.dat
+```
+
+| doigté | visé | obtenu | cents |
+|---|---|---|---|
+| fa | 349,2 | 343,7 | −27,5 |
+| sol | 392,0 | 386,2 | −26,0 |
+| la | 440,0 | 432,0 | −31,9 |
+| si | 493,9 | 485,7 | −28,9 |
+| do | 523,3 | 516,3 | −23,1 |
+| ré | 587,3 | 582,0 | −15,8 |
+| mi | 659,3 | 653,3 | −15,8 |
+| **sol♯** (fourche) | 415,3 | 427,5 | **+50,0** |
+| **la♯** (fourche) | 466,2 | 480,2 | **+51,4** |
+| **do♯** (fourche) | 554,4 | 574,3 | **+61,1** |
+
+Les **naturelles du premier registre tiennent dans 16 cents** autour d'un
+écart commun de −25. Cet écart-là se rattrape : on pousse l'anche, on
+raccourcit le bocal. C'est la dispersion qui juge une perce, et pour les
+naturelles elle est maintenant celle d'un instrument accordé.
+
+Les **fourches** restent à +50 à +60 cents. C'est le chantier suivant, et il
+est nommé : à ce stade, les trous ouverts court-circuitent encore un peu
+trop, et le treillis en dessous pèse moins qu'il ne devrait.
+
+### Ce qui manque encore, dans l'ordre
+
+1. **Les fourches.** Piste la plus probable : la correction de jet est
+   calculée au champ de la note, mais `OPOIL` normalise par le maximum de
+   `|p|` **le long du tuyau**, tronçon par tronçon sous-découpé en `NB = 40`
+   points — pas seulement aux nœuds. Notre `PMAX` est pris sur les nœuds
+   seuls, donc trop petit, donc `p̃` trop grand… ou trop petit selon les
+   cas. À vérifier en sous-découpant.
+2. **L'embouchure.** `LCZBE` pour les flûtes (correction intérieure de
+   Nederveen sur la cheminée, `ZBOUE` de rayonnement, recouvrement des
+   lèvres en fonction du degré) et la cavité d'anche pour les anches
+   solides. C'est le décalage constant qu'on fitte aujourd'hui.
+3. **L'anche couplée.** `Z = Z_anche + (Z_tube + Z_bouche)/FC` avec
+   `FC = FCM·e^{jFCP}` : le fichier de la bombarde met `FCM = 0`, donc
+   TUTT y calcule le tuyau seul. Avec de vrais `MREED`/`KREED`, la branche
+   couplée de `playing_frequencies` deviendrait vérifiable.

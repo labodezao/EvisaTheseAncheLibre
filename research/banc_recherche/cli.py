@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import pathlib
 import sys
 
 
@@ -50,6 +51,42 @@ def _cmd_gui(_args) -> int:
     return main()
 
 
+def _cmd_justesse(args) -> int:
+    """Ce qu'une perce donne, doigté par doigté, contre ce qu'elle vise.
+
+    L'écart **médian** se rattrape : on pousse l'anche, on allonge le bocal,
+    on change de diapason. C'est la **dispersion** autour de cette médiane
+    qui juge une perce, parce que rien ne la rattrape — sauf les doigts et
+    les lèvres du musicien, qui ont mieux à faire.
+    """
+    import numpy as np
+    from . import tutt
+
+    dat = tutt.read_dat(args.dat)
+    if not dat.fingerings:
+        print(f"{args.dat} : aucun doigté dans ce fichier.")
+        return 1
+    table = tutt.justesse(dat, jet=not args.sans_jet, n_points=args.points)
+    titre = dat.title or pathlib.Path(args.dat).stem
+    print(f"{titre} — {len(dat.lengths)} tronçons, "
+          f"{dat.total_length_m * 1e3:.0f} mm, "
+          f"{'anche solide' if dat.solid_reed else 'anche aérienne (flûte)'}, "
+          f"la = {dat.a4_hz:g} Hz")
+    print(f"{'doigté':<12}{'visé':>10}{'obtenu':>10}{'cents':>9}")
+    for nom, cible, f, cents in table:
+        obtenu = f"{f:10.1f}" if f == f else f"{'—':>10}"
+        ecart = f"{cents:+9.1f}" if cents == cents else f"{'—':>9}"
+        print(f"{nom.strip():<12}{cible:10.1f}{obtenu}{ecart}")
+    c = np.array([x[3] for x in table], dtype=float)
+    c = c[~np.isnan(c)]
+    if len(c):
+        med = float(np.median(c))
+        print(f"\nécart médian {med:+.1f} cents (rattrapable), "
+              f"dispersion autour {float((c - med).std()):.1f} cents, "
+              f"étendue {float(c.max() - c.min()):.0f} cents")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="banc-recherche-cli",
                                 description="Banc de recherche — anches libres")
@@ -67,6 +104,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     g = sub.add_parser("gui", help="lancer l'interface graphique")
     g.set_defaults(func=_cmd_gui)
+
+    j = sub.add_parser("justesse",
+                       help="table de justesse d'une perce TUTT (.dat)")
+    j.add_argument("dat", help="fichier d'entrée TUTT")
+    j.add_argument("--sans-jet", action="store_true",
+                   help="une seule passe, sans effet de jet dans les trous")
+    j.add_argument("--points", type=int, default=3000,
+                   help="finesse du balayage autour de chaque note")
+    j.set_defaults(func=_cmd_justesse)
     return p
 
 
