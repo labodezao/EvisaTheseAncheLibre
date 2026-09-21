@@ -467,7 +467,13 @@ banc-recherche-jouer --liste                    # instruments, sorties, ports MI
 banc-recherche-jouer cornemuse                  # clavier d'ordinateur
 banc-recherche-jouer violon --midi "LPK25"      # vrai clavier MIDI
 banc-recherche-jouer accordeon --wav essai.wav  # aucune carte son requise
+banc-recherche-jouer bombarde --perce ma_perce.dat   # une VRAIE perce TUTT
 ```
+
+Avec `--perce`, la géométrie ne bouge plus : ce sont les **doigtés du
+fichier** qui font les notes, et le rapport de justesse s'imprime avant de
+jouer — l'écart de chaque doigté à la touche sur laquelle il tombe. Il n'est
+pas corrigé : c'est le résultat qu'on vient chercher.
 
 Au clavier d'ordinateur, disposition de tracker (AZERTY par défaut, `--disposition
 qwerty` sinon) : `w x c v b n , ;` pour les blanches, `s d g h j` pour les

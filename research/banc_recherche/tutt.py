@@ -246,7 +246,12 @@ def read_dat(chemin):
 
     # -- doigtés : lignes de 0/1 suivies d'un nom
     for l in lignes:
-        m = re.match(r"^\s*((?:[01]\s+){2,})['\s]*([A-Za-zÀ-ÿ#éè][^\d']*)", l)
+        # Le nom peut contenir des chiffres — « do5 », « fa#4 » — mais doit
+        # commencer par une lettre, sinon on ramasserait les 0/1 du doigté
+        # lui-même. La première version excluait les chiffres partout et
+        # tronquait « doigt0 » en « doigt ».
+        m = re.match(r"^\s*((?:[01]\s+){2,})['\s]*"
+                     r"([A-Za-zÀ-ÿ#éè][A-Za-zÀ-ÿ#éè0-9 ]*)", l)
         if m:
             trous = [int(x) for x in m.group(1).split()]
             if len(trous) >= 2:

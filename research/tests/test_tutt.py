@@ -726,3 +726,21 @@ def test_gamme_des_doigtes_rend_la_gamme_de_la_perce():
     assert freqs[-1] / freqs[0] > 2.0
     with pytest.raises(ValueError):
         tutt.gamme_des_doigtes(tutt.BoreDat())
+
+
+def test_un_nom_de_doigte_peut_contenir_des_chiffres(tmp_path):
+    """« do5 », « fa#4 » : les noms de notes en ont, et la première version
+    de la lecture les tronquait silencieusement à la première décimale."""
+    p = pathlib.Path(tmp_path) / 'doigtes.dat'
+    p.write_text(
+        "essai de doigtés\n"
+        "NOMBRE DE TRONCONS DE LA LIGNE (-1) N\n3\n"
+        "BAS DE LIGNE OUVERT OU FERME C1 (0=OUVERT, 1=FERME)\n0\n"
+        "TABLEAU PERCE D0 (DIMENSION N+1)\n0.015 0.015 0.015 0.015\n"
+        "TABLEAU PERCE DL (DIMENSION N+1)\n0.015 0.015 0.015 0.015\n"
+        "TABLEAU DES TRONCONS DE LA LIGNE PRINCIPALE L (DIMENSION N+1)\n"
+        "0.12 0.12 0.12 0.12\n"
+        "1 1 1 'do5 ' 100\n"
+        "0 1 1 'fa#4 ' 100\n", encoding='latin-1')
+    noms = [nom.strip() for nom, _ in tutt.read_dat(p).fingerings]
+    assert 'do5' in noms and 'fa#4' in noms

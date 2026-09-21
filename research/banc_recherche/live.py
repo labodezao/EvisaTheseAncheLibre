@@ -937,6 +937,13 @@ def main(argv=None):
     p.add_argument('--sortie', help="périphérique de sortie audio (nom ou index)")
     p.add_argument('--brut', action='store_true',
                    help="ne pas accorder les notes (montre l'écart de géométrie)")
+    p.add_argument('--perce', metavar='FICHIER.dat',
+                   help="jouer une VRAIE perce TUTT, par ses doigtés : la "
+                        "géométrie ne bouge pas, ce sont les doigts qui "
+                        "changent la note. La justesse n'est pas corrigée.")
+    p.add_argument('--cavite-cm3', type=float, default=None,
+                   help="volume de cavité d'anche (corrige l'octave d'un cône "
+                        "tronqué ; cf. tutt.cavite_qui_accorde_l_octave)")
     args = p.parse_args(argv)
 
     if args.liste:
@@ -962,12 +969,27 @@ def main(argv=None):
               f"connus : {', '.join(sorted(hybrid.INSTRUMENTS))}", file=sys.stderr)
         return 2
 
-    print(f"préparation de « {args.instrument} » : une perce par demi-ton"
-          + ("" if args.brut else ", puis accordage note à note") + "…",
-          file=sys.stderr)
-    inst = build_instrument(args.instrument, lo=args.grave, hi=args.aigu,
-                            samplerate=args.sr, a4_hz=args.la,
-                            tune=not args.brut)
+    if args.perce:
+        from . import tutt as _tutt
+        print(f"lecture de « {args.perce} »…", file=sys.stderr)
+        dat = _tutt.read_dat(args.perce)
+        print(f"  {dat}", file=sys.stderr)
+        inst = build_instrument_from_bore(
+            dat, famille=args.instrument, samplerate=args.sr, a4_hz=args.la,
+            reed_volume_m3=(args.cavite_cm3 * 1e-6 if args.cavite_cm3 else None))
+        print(f"  {len(inst.fingerings)} doigté(s) — la justesse est celle de "
+              f"la perce, elle n'est pas corrigée :", file=sys.stderr)
+        for nom, _trous, f_hz, note in inst.fingerings:
+            ecart = 1200 * np.log2(f_hz / midi_to_hz(note, args.la))
+            print(f"    {nom:<8} {f_hz:8.2f} Hz   touche {note:3d}   "
+                  f"{ecart:+7.1f} cents", file=sys.stderr)
+    else:
+        print(f"préparation de « {args.instrument} » : une perce par demi-ton"
+              + ("" if args.brut else ", puis accordage note à note") + "…",
+              file=sys.stderr)
+        inst = build_instrument(args.instrument, lo=args.grave, hi=args.aigu,
+                                samplerate=args.sr, a4_hz=args.la,
+                                tune=not args.brut)
     synth = Synth(inst, polyphony=args.polyphonie, gain=args.gain)
 
     if args.wav:
