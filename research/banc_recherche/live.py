@@ -369,6 +369,28 @@ def _accorder(name, cible_hz, niveau, samplerate, passes=2, **kw):
     return cp, garde
 
 
+def niveau_nominal(ex) -> float:
+    """Niveau de jeu nominal d'un excitateur, **dans son unité à lui**.
+
+    Chaque famille se commande avec une grandeur différente, et les échelles
+    n'ont rien de commun : un archet se pousse en newtons, une anche battante
+    en pascals, une anche libre en **mètres cubes par seconde**. Mélanger les
+    deux dernières, c'est passer 2480 là où il faut 2,9·10⁻⁶ — neuf ordres de
+    grandeur, et un instrument muet ou explosé.
+
+    Ce choix était dupliqué entre `build_instrument` et `build_from_dat`, et
+    les deux copies avaient divergé : la seconde avait perdu la branche de
+    l'anche libre et rabattait tout sur la pression de fermeture. Monter une
+    anche libre sur une perce — ce que `hybrid` permet justement — donnait
+    alors un débit de 2480 m³/s.
+    """
+    if isinstance(ex, hybrid.BowExciter):
+        return 0.25
+    if isinstance(ex, hybrid.FreeReedExciter):
+        return 2.9e-6
+    return 0.62 * getattr(ex, 'closing_pressure_pa', 4000.0)
+
+
 def build_instrument(name="clarinette", lo=36, hi=96, samplerate=48000.0,
                      a4_hz=440.0, on_progress=None, tune=True, **kw):
     """Prépare un instrument jouable : une perce par demi-ton.
@@ -383,12 +405,7 @@ def build_instrument(name="clarinette", lo=36, hi=96, samplerate=48000.0,
     """
     voix_ref = hybrid.build(name)
     ex = voix_ref.exciter
-    if isinstance(ex, hybrid.BowExciter):
-        niveau = 0.25
-    elif isinstance(ex, hybrid.FreeReedExciter):
-        niveau = 2.9e-6
-    else:
-        niveau = 0.62 * ex.closing_pressure_pa
+    niveau = niveau_nominal(ex)
 
     inst = Instrument(name=name, lo=int(lo), hi=int(hi),
                       samplerate=float(samplerate), a4_hz=float(a4_hz),
@@ -468,8 +485,7 @@ def build_instrument_from_bore(dat, famille='cornemuse', doigtes=None,
 
     modele = hybrid.build(famille)
     ex = modele.exciter
-    niveau = (0.25 if isinstance(ex, hybrid.BowExciter)
-              else 0.62 * getattr(ex, 'closing_pressure_pa', 4000.0))
+    niveau = niveau_nominal(ex)
 
     notes = [int(round(69 + 12 * np.log2(f / a4_hz))) for _, _, f in gamme]
     inst = Instrument(name=f"{dat.title or 'perce'} ({famille})",
@@ -478,6 +494,7 @@ def build_instrument_from_bore(dat, famille='cornemuse', doigtes=None,
                       level_default=float(niveau),
                       control_unit=getattr(ex, 'control_unit', '') or '')
 
+    _ecarts: dict[int, float] = {}
     for k, ((nom, trous, f_hz), note) in enumerate(zip(gamme, notes)):
         res, _infos = _tutt.resonator_from_dat(
             dat, fmin=max(20.0, 0.5 * f_hz), fmax=min(9000.0, f_hz * 12.0),
@@ -487,8 +504,16 @@ def build_instrument_from_bore(dat, famille='cornemuse', doigtes=None,
                                   name=f"{famille} {nom}")
         p = params_from_voice(voix, samplerate=samplerate, name=famille)
         cp, garde = _to_c_params(p)
+        # Deux doigtés peuvent tomber sur la même touche (les notes sont
+        # arrondies au MIDI). C'est le plus **proche** du tempéré qui gagne,
+        # comme l'annonce la docstring — pas le dernier lu.
+        ecart = abs(1200.0 * np.log2(f_hz / midi_to_hz(note, a4_hz)))
+        if note in inst._params and ecart >= _ecarts.get(note, np.inf):
+            continue
+        _ecarts[note] = ecart
         inst._params[note] = cp
         inst._keep.append(garde)
+        inst.fingerings = [e for e in inst.fingerings if e[3] != note]
         inst.fingerings.append((nom, trous, f_hz, note))
         if on_progress:
             on_progress(k + 1, len(gamme))

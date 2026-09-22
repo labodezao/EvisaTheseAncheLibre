@@ -1286,7 +1286,7 @@ Reste pour Ninob\begin_inset Quotes erd
 \end_layout
 
 \begin_layout Itemize
-décision d'Ewen encore en attente : verser ou non ses perces (bombarde, etc.) et les sources de TUTT au dépôt — pour l'instant elles n'y sont pas, par prudence sur les droits ;
+décision d'Ewen prise le 21 septembre 2026 (« oui tout dans le dépôt, tout est coauteurs mets tout ») : ses perces et les sources Fortran de TUTT 4.1 sont versées dans research/scripts/legacy/, avec un CREDITS.md qui attribue TUTT à B.B. « Ninob ». Reste ouvert : obtenir de B.B. lui-même une autorisation explicite de redistribution, l'attribution seule n'en tenant pas lieu ;
 \end_layout
 
 \begin_layout Itemize
@@ -1340,7 +1340,7 @@ retour sur le WAV de démonstration des sept instruments (accordéon, clarinette
 \end_layout
 
 \begin_layout Itemize
-décision : verser ou non les perces TUTT et les sources du logiciel au dépôt ;
+l'accord explicite de B.B. « Ninob » pour la redistribution des sources de TUTT 4.1, désormais versées au dépôt sur décision d'Ewen : l'attribution est faite, l'autorisation reste à formaliser ;
 \end_layout
 
 \begin_layout Itemize
