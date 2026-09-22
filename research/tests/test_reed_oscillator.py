@@ -225,10 +225,15 @@ def test_hysterese_sous_critique():
     démarrage. C'est `p_on > p_off`, ce que mesure `seuil.py` au banc par
     rampe montante puis descendante — et ce que font les anches réelles.
 
-    Coûteux (il faut établir un cycle limite, ~1,5 s de signal simulé) : hors
-    suite par défaut, qui tient en 5 s. Chiffres de référence d'un calcul
-    complet : p_on 25,8 Pa, p_off 19,4 Pa, rapport 1,33
-    (cf. docs/audit_modele_anche.md).
+    Coûteux (il faut établir un cycle limite) : hors suite par défaut, qui
+    tient en quelques secondes.
+
+    ⚠️ Ne pas y réinscrire de chiffres de référence sans les avoir remesurés.
+    Les précédents (p_on 25,8 Pa, p_off 19,4 Pa, rapport 1,33) dataient du
+    modèle d'avant `Slot.sweep_coupling` et d'avant la dichotomie de
+    `equilibrium` ; ils ne valent plus rien. Le test vérifie la **propriété**
+    — le cycle survit sous le seuil de démarrage, donc la bifurcation est
+    sous-critique — et c'est elle qui compte pour la thèse, pas la valeur.
     """
     rm = _rm()
     h = rm.extinction_threshold(mults=(0.90,), dur=1.0, oversample=8, start_mult=2.5)
