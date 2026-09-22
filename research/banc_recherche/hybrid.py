@@ -701,6 +701,13 @@ class HybridVoice:
         sous-échantillonner les rate silencieusement — on obtient un son, mais
         pas le bon. `settle` coupe le début, le temps que le cycle limite
         s'installe.
+
+        Si l'intégration **diverge**, on lève `FloatingPointError` au lieu de
+        rendre des `nan`. Le silence est un mauvais mode de défaillance :
+        avant ce garde-fou, une anche libre de 880 Hz sous-échantillonnée
+        rendait un signal dont l'analyse annonçait « 4009 Hz » — une note
+        plausible à l'œil, entièrement fabriquée par le débordement. Un
+        modèle doit dire qu'il a échoué, pas proposer un chiffre.
         """
         n_out = int(dur * fs)
         n_settle = int(settle * fs)
@@ -717,6 +724,11 @@ class HybridVoice:
         opn = np.zeros(total)
 
         for i in range(total):
+            if not np.isfinite(state).all():
+                raise FloatingPointError(
+                    f"divergence numérique à t={i / fs:.4f} s "
+                    f"(oversample={int(oversample)}) : le couplage est trop "
+                    "raide pour ce pas — augmente `oversample`")
             for _ in range(int(oversample)):
                 state = self._rk4(state, level, dt)
             _, d, r = self.deriv(state, level)
