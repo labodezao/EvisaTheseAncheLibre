@@ -526,6 +526,24 @@ class FreeReedExciter(Exciter):
     que l'accordéon passe par le même chemin que le reste. Pour la thèse,
     c'est `FreeReedModel` qui fait foi : base modale complète, seuils par
     valeurs propres du jacobien.
+
+    `area_m2` est le volume balayé par la languette, **nul pour une anche
+    libre**. Une anche battante est plaquée sur la table, elle ferme
+    l'ouverture : son balayage est un vrai piston qui comprime la cavité. Une
+    anche libre est *dans* sa fente, à quelques dizaines de microns de jeu :
+    ce qu'elle déplace transite par la fente qu'elle module — `opening()` en
+    rend déjà compte, le compter à nouveau revient à compter son déplacement
+    deux fois. Voir `reed_oscillator.Slot.sweep_coupling`, qui porte la même
+    distinction dans le modèle de référence.
+
+    Ce n'était pas anodin : avec `area_m2 = 9,6·10⁻⁵`, une lame de 110 Hz
+    **jouait 127,6 Hz — +257 cents**, une tierce mineure. Tout le son
+    d'accordéon produit par ce dépôt jusqu'ici était faux d'autant. À zéro,
+    elle joue 110,3 Hz (+5 cents).
+
+    `force_area_m2` reste, lui, bien réel : c'est la surface sur laquelle la
+    pression appuie. Les deux étaient confondus parce qu'ils valaient le même
+    nombre ; ils n'ont pas la même physique.
     """
     freq_hz: float = 102.1
     q: float = 125.0
@@ -533,11 +551,13 @@ class FreeReedExciter(Exciter):
     rest_offset_m: float = 0.10e-3
     max_open_m: float = 0.50e-3
     leak_m: float = 2.0e-6
-    area_m2: float = 9.6e-5              # surface balayée par la languette
+    area_m2: float = 0.0                 # balayage : nul pour une anche libre
     force_area_m2: float = 9.6e-5        # surface sur laquelle la pression agit
     mass_kg: float = 2.0e-4
     vena_contracta: float = 0.7
-    source_impedance: float = 2.0e8      # impédance interne du soufflet
+    source_impedance: float = 5.0e6      # pente (p,q) du soufflet, à mesurer
+    #   2e8 laissait la course atteindre 110 mm sur une lame de 55 mm ;
+    #   5e6 donne le millimètre attendu (cf. reed_oscillator.Source).
 
     n_state = 2
     control_name = "débit de soufflet"
@@ -567,8 +587,10 @@ class FreeReedExciter(Exciter):
         if np.isfinite(self.source_impedance):
             q_src = level - p / self.source_impedance
 
-        # débit net entrant dans la chambre : source − fuite par la fente
-        # − volume balayé par la languette elle-même
+        # Débit net entrant dans la chambre : source − fuite par la fente
+        # − balayage de la languette. Ce dernier est **nul pour une anche
+        # libre** (`area_m2 = 0`) : elle est dans sa fente, elle ne comprime
+        # rien. Il n'est là que pour pouvoir représenter une anche battante.
         net = q_src - q_out - self.area_m2 * dy
         return np.array([dy, acc]), float(net)
 
@@ -940,7 +962,9 @@ def accordeon(f0_hz=110.0, volume_m3=None, **kw):
     for cle, valeur in echelle.items():
         kw.setdefault(cle, valeur)
     if volume_m3 is None:
-        volume_m3 = 40e-6 / r ** 3
+        # Chambre géométrique, pas un « volume effectif » gonflé : les
+        # 40 cm³ d'avant compensaient le balayage fantôme.
+        volume_m3 = 7.9e-6 / r ** 3
 
     ex = FreeReedExciter(freq_hz=f0_hz, **kw)
     res = Resonator(compliance=chamber_compliance(volume_m3), name="chambre")

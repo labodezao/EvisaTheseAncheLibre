@@ -71,9 +71,10 @@ class Chamber:
 
     Il reste un paramètre de recalage, et il compte : plus elle est petite,
     plus le ressort d'air raidit l'ensemble et plus la note monte au-dessus
-    de la fréquence propre de la lame (+30 cents à 7,9 cm³, +9 cents à
-    40 cm³ pour l'anche de référence). **Mesurer ce décalage, c'est mesurer
-    le volume effectif** — et ton accordeur le lit au dixième de cent.
+    de la fréquence propre de la lame — +49 cents au seuil pour l'anche de
+    référence dans sa chambre géométrique, et l'écart décroît quand on
+    l'agrandit. **Mesurer ce décalage, c'est mesurer le volume effectif** —
+    et ton accordeur le lit au dixième de cent.
     """
     volume_m3: float = 7.9e-6      # chambre géométrique 35 x 15 x 15 mm
     patm: float = 1e5
@@ -87,16 +88,38 @@ class Source:
     """Alimentation en débit, avec **impédance interne finie**.
 
     Une source de débit idéale imposerait `q_in` quoi qu'il arrive, y compris
-    quand la languette ferme la fente : la pression y ferait alors un coup de
-    bélier sans limite, et l'amplitude de l'anche croîtrait indéfiniment.
+    quand la languette ferme la fente : la pression y ferait un coup de bélier
+    sans limite et l'amplitude croîtrait indéfiniment.
 
     Une turbine réelle, comme un soufflet réel, débite **moins** quand la
-    pression monte : `q = q₀ − p/R`. C'est cette pente qui borne l'amplitude.
-    `R` est la pente de la caractéristique (p, q) de ta source — celle que le
-    balayage du facteur `Section` de `Mesures.py` permet de mesurer
-    directement. `inf` redonne la source idéale.
+    pression monte : `q = q₀ − p/R`. `R` est la pente de la caractéristique
+    (p, q) de ta source — celle que le balayage du facteur `Section` de
+    `Mesures.py` mesure directement. `inf` redonne la source idéale.
+
+    **C'est elle qui borne l'amplitude, et rien d'autre.** Le défaut valait
+    `2·10⁸`, un chiffre posé là faute de mesure. À cette raideur le modèle
+    laissait la languette atteindre **110 mm de course** à pleine nuance —
+    pour une lame de 55 mm de long. En balayant `R` :
+
+    | R (Pa·s/m³) | course du bout, de 102 à 880 Hz |
+    |---|---|
+    | 2·10⁸ | 3,7 · 22 · 110 mm (à 2×, 8×, 32× le seuil) |
+    | **5·10⁶** | **2,0 · 1,9 · 1,4 · 1,8 mm** — uniforme sur le clavier |
+    | 3·10⁶ | 0,6 · 1,3 · 1,3 · 0,8 mm |
+    | 2·10⁶ | plus rien ne démarre |
+
+    5·10⁶ donne des courses du millimètre partout, ce qu'est une anche
+    d'accordéon, et les plus petits écarts de justesse. Cela correspond à une
+    restriction d'alimentation d'environ 8 mm² — l'ordre de grandeur d'un
+    canal de sommier. Reste **un paramètre à mesurer**, pas une constante :
+    mais 2·10⁸ était démontrablement quarante fois trop raide.
+
+    ⚠️ Elle ne règle en revanche **pas** le seuil de démarrage, qui s'étale
+    toujours sur trois décades du grave à l'aigu (17 Pa à 102 Hz, 25 kPa à
+    880 Hz) là où un accordéon réel en demande à peu près une. C'est le
+    chantier ouvert, et il est ailleurs.
     """
-    impedance_pa_s_m3: float = 2.0e8     # à recaler sur la caractéristique mesurée
+    impedance_pa_s_m3: float = 5.0e6     # à recaler sur la caractéristique mesurée
 
 
 @dataclass
@@ -293,26 +316,47 @@ class FreeReedModel:
         return out
 
     # ---- équilibre statique -------------------------------------------------
-    def equilibrium(self, q_in, tol=1e-12, n_iter=200):
-        """État stationnaire : languette immobile, débit sortant = débit entrant.
+    def equilibrium(self, q_in, tol=1e-14, n_iter=200):
+        """État stationnaire : languette immobile, débit sortant = débit fourni.
 
-        Résolu par point fixe sur la pression : `p` fixe l'ouverture via la
-        déflexion statique, l'ouverture fixe le débit, le débit fixe `p`.
+        Résolu par **dichotomie** sur la pression, et non par point fixe. Le
+        bilan
+
+            g(p) = q_sortant(p) − q_fourni(p)
+
+        est strictement croissant : la pression pousse plus d'air dehors (par
+        Bernoulli *et* en écartant la languette, ce qui ouvre la fente) et en
+        fait entrer moins (la source débite `q₀ − p/R`). Un bilan monotone se
+        résout par encadrement, exactement et toujours.
+
+        Le point fixe sous-relaxé qui tenait cette place convergeait tant que
+        la source était raide, et se mettait à osciller dès qu'on la
+        ramollissait — au point de rater la conservation de la masse d'un
+        facteur deux. Une dichotomie n'a pas cette fragilité : elle ne dépend
+        d'aucun réglage.
         """
-        p = 100.0
-        for _ in range(n_iter):
+        def bilan(p):
             q_stat = np.linalg.solve(self.K, p * self.gamma)
-            tip = float(self.phi_tip @ q_stat)
-            h = float(self.opening(tip))
-            # p tel que le débit sortant égale le débit **réellement fourni**
-            # par la source (qui débite moins quand la pression monte)
-            denom = self.ch.cd * self.slot.width_m * h
-            q_eff = max(self.source_flow(q_in, p), 0.0)
-            p_new = 0.5 * self.ch.rho * (q_eff / denom) ** 2 if denom > 0 else p
-            if abs(p_new - p) < tol * max(1.0, abs(p)):
-                p = p_new
+            h = float(self.opening(float(self.phi_tip @ q_stat)))
+            return self._flow_out(p, h) - self.source_flow(q_in, p)
+
+        lo = 0.0
+        hi = 1.0
+        for _ in range(200):                  # élargir jusqu'à encadrer
+            if bilan(hi) > 0.0:
                 break
-            p = 0.5 * p + 0.5 * p_new       # sous-relaxation : le point fixe est raide
+            hi *= 4.0
+        else:                                  # pas de racine : source trop molle
+            hi = 0.0
+        for _ in range(int(n_iter)):
+            mid = 0.5 * (lo + hi)
+            if hi - lo <= tol * max(1.0, hi):
+                break
+            if bilan(mid) > 0.0:
+                hi = mid
+            else:
+                lo = mid
+        p = 0.5 * (lo + hi)
         q_stat = np.linalg.solve(self.K, p * self.gamma)
         state = np.zeros(2 * self.N + 1)
         state[self.N:2 * self.N] = q_stat
