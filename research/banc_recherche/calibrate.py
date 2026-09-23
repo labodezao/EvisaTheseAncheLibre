@@ -5,21 +5,29 @@ et `reed_oscillator` (le modèle qui produit le son). Elle répond à une
 question simple et concrète : *quelle anche, dans quelle chambre, produirait
 ce son-là ?*
 
-Le point délicat, et qui se trompe facilement : **la fréquence de jeu n'est
-pas la fréquence propre de la languette**. Le ressort d'air de la chambre
-ajoute une raideur au système et remonte la note.
+**La fréquence de jeu est presque celle de la languette** — et c'est
+rassurant, parce que c'est ce que fait l'accordeur depuis toujours : il lime
+la lame, et la note suit. Le ressort d'air de la chambre ajoute une petite
+raideur qui remonte la note, sans plus.
 
-L'écart dépend fortement du registre, parce que cette raideur ajoutée est à
-peu près **fixe** alors que celle de la languette croît avec l'aigu :
+Cette raideur ajoutée est à peu près **fixe**, alors que celle de la
+languette croît comme `f²` : l'écart s'efface donc vers l'aigu.
 
-- grosse anche de basse (102 Hz propres) : joue à 119 Hz, soit **+2,7
-  demi-tons** — l'ignorer fausse tout ;
-- anche médium (220 Hz propres) : joue à 221,7 Hz, **+0,14 demi-ton** —
-  négligeable en pratique.
+| languette | joue à | écart |
+|---|---|---|
+| 102,1 Hz (grosse basse) | 103,9 Hz | **+30 cents** |
+| 220 Hz | 221,2 Hz | +10 cents |
+| 440 Hz | 440,5 Hz | +2 cents |
+| 880 Hz | 880,1 Hz | 0 cent |
 
-`tune_to_playing_frequency` inverse ce décalage quel que soit le registre.
-Elle coûte quelques secondes (chaque itération cherche un seuil) ; dans
-l'aigu, `build_model` seul suffit largement.
+30 cents, ce n'est pas rien pour un accordeur — c'est un tiers de demi-ton,
+et ton accordeur le lit au centième près. `tune_to_playing_frequency` inverse
+le décalage quel que soit le registre. Elle coûte quelques secondes (chaque
+itération cherche un seuil) ; au-dessus de 400 Hz, `build_model` seul suffit.
+
+⚠️ Ces chiffres datent de la correction du balayage fantôme
+(`Slot.sweep_coupling`). Le modèle annonçait auparavant **+2,7 demi-tons** à
+102 Hz — un décalage qui n'existait que dans le code.
 """
 from __future__ import annotations
 

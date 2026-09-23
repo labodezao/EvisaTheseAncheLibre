@@ -495,3 +495,153 @@ Trois nombres, et une manière de les obtenir des deux côtés :
 Si le rapport mesuré diffère nettement de 1,33, c'est le **volume acoustique
 effectif** et l'**impédance de source** qu'il faut recaler en premier : ce
 sont les deux paramètres dont dépend le plus la largeur de l'hystérésis.
+
+---
+
+# La languette ne comprime pas sa chambre
+
+## Le symptôme, et pourquoi il était impossible
+
+Le modèle faisait chanter une anche de **102,1 Hz** à **119,2 Hz**. Soit
+**+267 cents** — une tierce mineure. Et ce décalage ne bougeait pas : de 1,3
+à 8 fois le seuil, la note restait plantée à 118,8 Hz.
+
+Ce n'était pas défendable. Tout le métier de l'accordeur repose sur le
+contraire : on lime la languette, et la note suit. Une lame de 102 Hz sonne
+102 Hz. Un modèle qui la fait sonner une tierce plus haut ne décrit pas une
+anche libre.
+
+## La cause : un terme de piston qui n'a pas lieu d'être
+
+Le bilan de la chambre s'écrivait
+
+    dp/dt = (γ·P/V₀) · (q_entrant − q_sortant − Γ·ẏ)
+
+Le dernier terme, `Γ·ẏ`, est le **volume balayé par la languette**. Il est
+juste pour une anche **battante** — une clarinette, un hautbois : la lame est
+plaquée sur la table, elle *ferme* l'ouverture, c'est un vrai piston dans la
+paroi de la cavité, et ce qu'elle balaie comprime bel et bien l'air.
+
+Une anche **libre** n'est pas plaquée sur quoi que ce soit : elle est *dans*
+sa fente, à quelques dizaines de microns de jeu. Quand elle s'écarte, ce
+qu'elle libère d'un côté de la plaque est repris dans l'instant par la fente
+elle-même — qui est exactement là où elle se trouve. Elle ne comprime rien.
+Elle **module une ouverture**, et `opening()` en rendait déjà compte.
+
+Le terme comptait donc le déplacement de la languette **deux fois**, et
+ajoutait une raideur parasite `γ·P_atm·Γ²/V₀` en série avec celle de la lame.
+D'où les 267 cents.
+
+C'est, littéralement, la différence entre l'anche battante et l'anche libre —
+et dans ce modèle elle ne se voyait nulle part ailleurs que dans ce terme.
+
+## La correction
+
+`Slot.sweep_coupling`, **0 par défaut** (anche libre), 1 pour une battante.
+Un coefficient, une ligne dans `deriv`.
+
+## Ce que ça change, mesuré
+
+**La note redevient celle de la lame**, et l'écart résiduel se comporte comme
+il doit : la raideur d'air ajoutée est à peu près fixe, celle de la languette
+croît comme `f²`, donc l'écart s'efface vers l'aigu.
+
+| languette | avant | après | écart après |
+|---|---|---|---|
+| 102,1 Hz | 119,2 Hz (+267 c) | **103,9 Hz** | **+30 cents** |
+| 220 Hz | — | 221,2 Hz | +10 cents |
+| 440 Hz | — | 440,5 Hz | +2 cents |
+| 880 Hz | — | 880,1 Hz | 0 cent |
+
+**La chambre réelle suffit.** Il fallait auparavant gonfler le volume à
+40 cm³ — cinq fois la chambre géométrique — pour obtenir un démarrage. Ce
+n'était pas un « volume acoustique effectif », c'était un cautère sur le
+terme fantôme. Avec 7,9 cm³ (35 × 15 × 15 mm, une cote qu'on mesure au pied à
+coulisse), le modèle démarre. Le défaut de `Chamber` est revenu à cette
+valeur.
+
+**La note baisse quand on pousse.** De 1,3× à 2× le seuil : **−15,7 cents**.
+C'est le sens que connaît tout accordéoniste, et que l'ancien modèle prenait
+à l'envers (+8 cents sur toute la plage). À vérifier au banc — c'est une
+prédiction chiffrée et ton accordeur la lit au centième.
+
+**Hors bande, l'écoulement lâche complètement.** Au-dessus de l'étouffement,
+l'ouverture sature, `∂h/∂y = 0`, et comme il ne reste aucun autre chemin de
+`ẏ` vers `p`, le taux de croissance tombe **exactement** sur `−ζω₁`. C'est
+propre, et c'est vérifiable à la virgule.
+
+## Deux tests figeaient le bug
+
+Il faut le consigner, parce que la leçon vaut pour la suite.
+
+1. `test_frequence_de_demarrage_proche_du_mode_de_l_anche` tolérait
+   `1.0 < f_jeu/f_lame < 1.4` — jusqu'à **+580 cents**. Une borne assez large
+   pour laisser passer une tierce mineure d'erreur. **Une borne large ne
+   teste rien.** Elle est maintenant à ±50/+80 cents.
+
+2. `test_hors_bande_l_ecoulement_dissipe_fortement` affirmait que
+   l'écoulement dissipe « quinze fois plus que l'anche » (≈ −40 s⁻¹ contre
+   −2,6). Ces 40 s⁻¹ étaient produits par le terme de balayage fantôme, pas
+   par l'écoulement. Le test mesurait un bug et le protégeait.
+
+3. `test_chambre_trop_petite_ne_demarre_pas` figeait le fait que la chambre
+   réelle ne démarre pas — conséquence du bug, promue en propriété.
+
+Trois garde-fous sur quinze protégeaient l'erreur qu'ils auraient dû
+attraper. Un test qui fige un comportement sans le confronter à une grandeur
+mesurable fige aussi bien un bug qu'une loi.
+
+## Ce qui reste franchement faux
+
+**Le seuil de démarrage.** Il vaut maintenant 1,80 Pa à 102 Hz et 1781 Pa à
+880 Hz — trois décades sur l'étendue du clavier, là où un accordéon réel en
+demande à peu près une (de l'ordre de 100 à 1000 Pa partout). Le grave part
+beaucoup trop facilement, l'aigu beaucoup trop difficilement.
+
+Ce n'est pas l'amortissement de la lame qui l'expliquera : le seuil varie
+comme `ζ²`, il faudrait un `Q` de 12 pour remonter le grave à 180 Pa, alors
+qu'une anche pincée sonne plusieurs secondes. Il manque donc un terme dans le
+**moteur**, pas dans les pertes. Pistes, dans l'ordre :
+
+1. **La force de pression ne s'applique pas sur toute la languette.** Le
+   modèle applique `p·Γ` sur toute sa surface en permanence. La chute de
+   pression se fait en réalité *à travers la fente* : une fois la languette
+   dégagée, elle est dans le jet et ne voit plus `p`.
+2. **Les pertes visqueuses dans le jeu de fente** (20 à 50 µm), que Bernoulli
+   seul ignore : à petite ouverture le débit n'est pas en `h·√p` mais bien
+   plus faible.
+**L'amplitude n'est plus bornée du tout** — et c'est la contrepartie
+honnête de la correction, qu'il faut dire sans l'enjoliver :
+
+| q / q_on | 2 | 4 | 8 | 16 |
+|---|---|---|---|---|
+| course crête-crête | 2,15 mm | 9,5 mm | 21,2 mm | **47,4 mm** |
+| note (vs 1,3×) | −15,7 c | −36,4 c | −37,8 c | −39,1 c |
+
+47 mm de course pour une languette de 55 mm de long, c'est une absurdité
+mécanique. Le terme de balayage fantôme, en plus de fausser la note, servait
+de frein : il prélevait de l'énergie proportionnellement à la vitesse. En le
+retirant, on découvre qu'**il n'y avait pas d'autre mécanisme de
+limitation** — la saturation de cycle limite à 1,1364 mm consignée plus haut
+était produite par le bug, pas par la physique.
+
+La colonne de droite est en revanche un vrai gain : la note **baisse quand on
+pousse**, ce que fait toute anche d'accordéon et que l'ancien modèle prenait
+à l'envers (+8 cents sur toute la plage). −39 cents à pleine nuance, à
+confronter au banc.
+
+Le limiteur manquant est très probablement le point 1 ci-dessus, et les deux
+défauts n'en font qu'un : le modèle applique `p·Γ` sur toute la languette
+**quelle que soit sa position**. Une fois la languette dégagée de la fente,
+elle est dans le jet et ne voit plus la chute de pression — la force
+s'effondre et la ramène. Cette même dépendance en position expliquerait à la
+fois le seuil trop bas dans le grave et l'amplitude non bornée.
+
+⚠️ À vérifier : ces courses sont mesurées sur 1,2 s de simulation, et
+l'établissement du cycle limite demande ~1,5 s (cf. plus haut). Elles
+croissent encore peut-être. Le sens du résultat ne change pas.
+
+C'est le prochain chantier, et il se teste avec le même outil :
+`growth_rate`, une minute par hypothèse. À noter : la force dépendante de la
+position avait déjà été essayée et écartée — mais **avec le terme fantôme
+encore en place**, qui dominait tout. L'essai est à refaire.

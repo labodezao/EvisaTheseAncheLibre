@@ -60,7 +60,7 @@
 \maintain_unincluded_children false
 \language english
 \language_package none
-\inputencoding default
+\inputencoding utf8
 \fontencoding default
 \font_roman "default" "default"
 \font_sans "default" "default"
@@ -1178,6 +1178,177 @@ Leaks detection
 
 \begin_layout Chapter
 Leaks detection
+\end_layout
+
+\begin_layout Chapter
+Feuille de route — ce qui reste à faire
+\end_layout
+
+\begin_layout Standard
+Récapitulatif de travail, à la date du 21 septembre 2026, de tout ce qui a été identifié comme restant à faire au fil des échanges sur ce projet — modèle physique, banc de mesure, pont vers TUTT, instrument jouable, écriture. Le détail de chaque point vit dans les fichiers .md du dossier \begin_inset Quotes eld
+\end_inset
+
+docs/\begin_inset Quotes erd
+\end_inset
+
+ ; cette liste ne fait que les rassembler, pour qu'aucun ne se perde entre deux séances.
+\end_layout
+
+\begin_layout Section
+Le modèle physique — ce qu'il ne fait pas encore
+\end_layout
+
+\begin_layout Itemize
+fait : les trous latéraux sont posés. Ltran9.for montre comment TUTT les traite — chaque cheminée est un tuyau de plus, branché en dérivation, ouvert ou fermé selon le doigté — et un doigté ouvert se calcule maintenant comme un doigté fermé. De là, gamme_des_doigtes rend la gamme d'une perce et live.build_instrument_from_bore la donne à jouer, sans corriger sa justesse ;
+\end_layout
+
+\begin_layout Itemize
+volume équivalent d'anche (Ninob, \emph on
+Modes propres d'un tronc de cône
+\emph default
+) — on sait maintenant ce qu'il fait et comment le trouver : il corrige l'octave d'un cône tronqué (+95 cents à vide, +2 avec 1,5 cm³), et cavite_qui_accorde_l_octave le cherche par dichotomie. Reste à le confronter à une vraie anche mesurée ;
+\end_layout
+
+\begin_layout Itemize
+résolu : le cône ne donnait pas l'octave parce que le calcul empilait des cylindres, ce qui perd les termes en \begin_inset Formula $\Delta=(D_{L}-D_{0})/(D_{0}L)$
+\end_inset
+ de l'onde sphérique. Le source de TUTT (Perce2.for, Ltran9.for) les donne ; implémentés, le cône rend 1 : 2,02 : 3,06 et la cavité d'anche de Ninob ramène l'octave d'un cône tronqué de +95 à +2 cents. Reste : les coniques idéalisées à un tronçon gardent un fondamental trop faible (2\begin_inset Formula $^{e}$
+\end_inset
+ sommet 3 dB au-dessus du 1\begin_inset Formula $^{er}$
+\end_inset
+), donc saut d'octave au clavier — il y faut une vraie perce et un modèle d'embouchure ;
+\end_layout
+
+\begin_layout Itemize
+anche double traitée comme une anche simple mieux réglée — pas de dynamique de jet confiné entre les lames, donc pas le grain propre du hautbois ou de la bombarde ;
+\end_layout
+
+\begin_layout Itemize
+archet : l'hystérésis thermique du collophane est ignorée ;
+\end_layout
+
+\begin_layout Itemize
+corps de l'instrument (table du violon, pavillon) absent du résonateur ;
+\end_layout
+
+\begin_layout Itemize
+loi d'échelle de l'anche libre (similitude géométrique, masse en 1/f³, volume de chambre en 1/f³) : cohérente, jamais confrontée à un vrai jeu d'anches — c'est l'objet de l'expérience E18 ci-dessous.
+\end_layout
+
+\begin_layout Section
+Dix-huit expériences, listées et aucune encore menée
+\end_layout
+
+\begin_layout Standard
+Le détail complet — ce qu'on mesure, avec quoi, ce que ça débloque, le chiffre du modèle à confronter — est dans docs/experiences_a_mener.md. Aucune ne demande d'équipement cher : carte son, micro, accéléromètre piezo, pied à coulisse.
+\end_layout
+
+\begin_layout Itemize
+priorité 1, tout en dépend — E1 caractéristique pression-débit de la source ; E2 volume acoustique effectif, par le décalage de fréquence ;
+\end_layout
+
+\begin_layout Itemize
+priorité 2, valider ou casser le modèle — E3 hystérésis p_on/p_off (prédiction 1,33, le cœur de la thèse) ; E4 seuil d'étouffement (379,8 Pa) ; E5 loi d'amplitude en racine ; E6 excursion réelle du bout d'anche ;
+\end_layout
+
+\begin_layout Itemize
+priorité 3, la géométrie d'entrée — E7 profil d'épaisseur de l'anche de référence ; E8 fréquences propres de la languette libre ; E9 amortissement ζ ;
+\end_layout
+
+\begin_layout Itemize
+priorité 4, la source et la synthèse — E10 jeu de notes séparant source et résonateur ; E11 matrice notes × nuances ; E12 spectre réel contre spectre du modèle ;
+\end_layout
+
+\begin_layout Itemize
+priorité 5, la question ouverte — E13 anche seule contre anche + chambre : celle qui peut tout remettre en cause, à garder en tête même en dernier ;
+\end_layout
+
+\begin_layout Itemize
+priorité 6, la famille élargie — E14 impédance d'entrée d'une perce réelle (la plus rentable des six) ; E15 matrice force × position d'archet sur la vielle à roue ; E16 rapport cyclique et équilibre pair/impair ; E17 profilage réel sur une vraie carte STM32 ; E18 loi d'échelle d'un jeu d'anches libres réel.
+\end_layout
+
+\begin_layout Standard
+Ordre conseillé : E1 et E2 d'abord, tout s'appuie dessus ; puis E3 et E4 ; E7 à E9 en parallèle, ce sont des mesures de paillasse ; E10 à E12 ensemble, c'est le bloc de la synthèse ; E13 en dernier, mais sans l'oublier.
+\end_layout
+
+\begin_layout Section
+TUTT et B.B. Ninob
+\end_layout
+
+\begin_layout Itemize
+docs/tutt_ninob.md porte encore une question marquée \begin_inset Quotes eld
+\end_inset
+
+Reste pour Ninob\begin_inset Quotes erd
+\end_inset
+
+ (TUTT sait-il sortir les partiels d'un doigté ?) alors qu'elle est déjà résolue plus haut dans le même document, par la lecture du Fortran — à corriger (marquer résolue) la prochaine fois qu'on y touche ;
+\end_layout
+
+\begin_layout Itemize
+décision d'Ewen prise le 21 septembre 2026 (« oui tout dans le dépôt, tout est coauteurs mets tout ») : ses perces et les sources Fortran de TUTT 4.1 sont versées dans research/scripts/legacy/, avec un CREDITS.md qui attribue TUTT à B.B. « Ninob ». Reste ouvert : obtenir de B.B. lui-même une autorisation explicite de redistribution, l'attribution seule n'en tenant pas lieu ;
+\end_layout
+
+\begin_layout Itemize
+vérifier s'il reste d'autres sources utiles sur le Drive, côté bb ninob — Ewen a mentionné en avoir encore beaucoup d'autres dans soft/ ; garder la convention research/scripts/legacy/ (+ models/) avec les fileId, pour redémarrer à la demande.
+\end_layout
+
+\begin_layout Section
+L'instrument jouable, et la carte
+\end_layout
+
+\begin_layout Itemize
+tester banc-recherche-jouer sur un vrai Windows — le moteur n'a tourné que sous Linux jusqu'ici ; le premier message d'erreur exact permettrait de corriger sur pièces plutôt qu'en devinant ;
+\end_layout
+
+\begin_layout Itemize
+le projet d'instrument autonome sur STM32 pour le live reste, au fond, à construire comme objet physique : le moteur C compile déjà pour cible embarquée (embedded.export_c), mais il manque encore le firmware complet — carte, codec audio, boutons ou capteurs de jeu, boîtier. Le banc logiciel est prêt, la lutherie électronique ne l'est pas encore ;
+\end_layout
+
+\begin_layout Itemize
+l'expérience E17 est la première pierre de ce chantier : chronométrer hv_render sur une vraie carte plutôt que sur une estimation en MFLOP/s, optimiste de 20 à 40 % de l'aveu même de la prédiction.
+\end_layout
+
+\begin_layout Section
+Le manuscrit et l'écriture
+\end_layout
+
+\begin_layout Itemize
+compilation LaTeX complète (biber puis pdflatex) jamais vérifiée de bout en bout : le gabarit Legrand Orange Book (structure.tex) n'est pas dans le dépôt — à contrôler côté auteur ;
+\end_layout
+
+\begin_layout Itemize
+research/docs/livre_au_seuil_de_lanche.md : squelette en sept parties, encarts \begin_inset Quotes eld
+\end_inset
+
+⟢ ton expérience\begin_inset Quotes erd
+\end_inset
+
+ volontairement laissés vides — c'est le seul endroit du dépôt qui n'appartient qu'à Ewen, la Vipassana, le vécu, la troisième tresse ;
+\end_layout
+
+\begin_layout Itemize
+ces deux manuscrits (design_theory.lyx, design_practical.lyx) restent pour l'instant des textes techniques classiques, en anglais : le tressage dehors / dedans / vivant de la vision Penrose n'y est pas encore entré — à faire évoluer dans cette direction, chapitre par chapitre, plutôt que d'un coup.
+\end_layout
+
+\begin_layout Section
+En attente, côté Ewen
+\end_layout
+
+\begin_layout Itemize
+retour sur le WAV de démonstration des sept instruments (accordéon, clarinette, saxophone, bombarde, cornemuse, violon, vielle), envoyé le 20 septembre ;
+\end_layout
+
+\begin_layout Itemize
+l'accord explicite de B.B. « Ninob » pour la redistribution des sources de TUTT 4.1, désormais versées au dépôt sur décision d'Ewen : l'attribution est faite, l'autorisation reste à formaliser ;
+\end_layout
+
+\begin_layout Itemize
+le premier message d'erreur exact, si l'essai sous Windows est tenté.
+\end_layout
+
+\begin_layout Standard
+Rien de tout cela n'est relancé tant que la réponse ne vient pas — cette liste sert à ne rien perdre entre-temps, pas à presser.
 \end_layout
 
 \begin_layout Chapter*

@@ -528,3 +528,55 @@ def test_la_hauteur_du_registre_suit_la_deuxieme_resonance():
     for c2 in (-20.0, 20.0, 40.0):
         ecart = 1200 * np.log2(joue(c2) / ref)
         assert abs(ecart - c2) < 5.0        # suivi au cent près, 5 de tolérance
+
+
+def test_le_moteur_par_defaut_de_chaque_vent_est_celui_qui_joue_juste():
+    """Choix mesuré, pas de principe : la clarinette (cylindre) joue juste
+    par TUTT ; les coniques idéalisées à un tronçon y sautent à l'octave sur
+    une partie de la tessiture (fondamental trop faible, cf. `_wind`), donc
+    elles gardent la série postulée. Un changement ici doit être délibéré.
+    """
+    import inspect
+    attendu = {'clarinette': 'tutt', 'saxophone': 'ideal',
+               'bombarde': 'ideal', 'cornemuse': 'ideal'}
+    for nom, moteur in attendu.items():
+        d = inspect.signature(hybrid.INSTRUMENTS[nom]).parameters['engine'].default
+        assert d == moteur, (nom, d)
+
+
+def test_la_perce_decide_du_registre_et_pas_l_anche():
+    """Même excitateur des deux côtés : seule la géométrie change, et c'est
+    elle qui donne la douzième ou l'octave."""
+    cyl = hybrid.clarinette(147.0, engine='tutt').resonator.modes
+    cone = hybrid.saxophone(233.0, engine='tutt').resonator.modes
+    assert 2.9 < cyl[1].freq_hz / cyl[0].freq_hz < 3.15      # douzième
+    assert 1.9 < cone[1].freq_hz / cone[0].freq_hz < 2.2     # octave
+
+
+def test_la_clarinette_tutt_reste_utilisable_en_ideal():
+    """`engine='ideal'` doit rester un secours qui marche, pas juste un mot
+    dans une docstring."""
+    v = hybrid.clarinette(147.0, engine='ideal')
+    assert v.resonator.n_modes > 0
+    ratios = [m.freq_hz / v.resonator.modes[0].freq_hz for m in v.resonator.modes[:3]]
+    assert ratios == pytest.approx([1.0, 3.0, 5.0], abs=1e-6)
+
+
+def test_l_accordeon_de_reference_joue_la_note_de_sa_lame():
+    """`HybridVoice.simulate` faisait jouer une lame de 110 Hz à 127,6 Hz :
+    +257 cents, parce que `FreeReedExciter` retranchait au bilan de la chambre
+    le volume balayé par la languette. C'est juste pour une anche battante,
+    plaquée sur la table ; faux pour une anche libre, qui est dans sa fente et
+    ne comprime rien (cf. `reed_oscillator.Slot.sweep_coupling`).
+
+    Le moteur temps réel n'a jamais eu ce terme — le son joué était juste. Ce
+    test garde la voie de référence alignée sur lui.
+    """
+    import numpy as np
+    from banc_recherche import hybrid
+    v = hybrid.accordeon(f0_hz=110.0)
+    assert v.exciter.area_m2 == 0.0, "une anche libre ne comprime pas sa chambre"
+    r = v.simulate(dur=0.3, fs=44100.0, level=1e-6, oversample=8, settle=0.4)
+    f = hybrid.playing_frequency(r.radiated, 44100.0)
+    cents = 1200.0 * np.log2(f / 110.0)
+    assert abs(cents) < 40.0, f"la lame de 110 Hz joue à {cents:+.0f} cents"

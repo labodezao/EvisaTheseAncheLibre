@@ -364,6 +364,52 @@ Le Dream SAM5716 n'est pas la bonne puce pour ça : c'est un moteur de lecture
 d'échantillons, pas un DSP à boucle de rétroaction. Un STM32 + un codec, même
 boîte, même prix, et ça calcule vraiment un modèle physique.
 
+**TUTT comme moteur du résonateur — et une erreur retrouvée dans son
+source.** Le calcul d'impédance de perce découpait les cônes en cylindres
+empilés. Le cylindre sortait juste, le cône sortait faux d'un demi-ton : au
+lieu de l'octave il donnait `tan(kL)=kL`, la signature d'un tube fermé au
+petit bout. Le source Fortran de TUTT (`Perce2.for`, `Ltran9.for`) donne la
+réponse en trois lignes : un tronçon tronconique porte des ondes
+**sphériques**, `p(x) = (A·e^{jkx} + B·e^{−jkx})/(1 + Δx)` avec la conicité
+`Δ = (DL−D0)/(D0·L)`, et ce sont les termes en `Δ` — perdus par tout
+empilement de cylindres — qui font qu'un cône est un cône. Implémenté tel
+quel (`tutt._z_troncon`), le cylindre ne bouge pas et le cône donne enfin
+**1 : 2,02 : 3,06 : 4,12**. Un tronçon se traite en un seul pas : plus juste
+*et* plus rapide.
+
+La boucle se referme avec la **cavité d'anche** de Ninob (*Modes propres d'un
+tronc de cône*) : un cône tronqué a son octave +95 cents trop haute, et
+1,5 cm³ de cavité au petit bout la ramène à +2 cents — c'est ce qui permet à
+un saxophone d'octavier juste, et le paramètre `reed_volume_m3` existait déjà
+sans qu'on sache à quoi il servait.
+
+`clarinette` passe donc par `engine='tutt'` (0,3 cent d'écart médian sur la
+tessiture). Les trois coniques gardent la série postulée pour le jeu : la
+physique est juste, mais une perce conique idéalisée **à un seul tronçon** a
+un fondamental trop faible (2ᵉ sommet 3 dB au-dessus du 1ᵉʳ), et l'anche s'y
+accroche — la note sortirait une octave trop haut. Le calcul conique exact
+sert à tout ce qui passe par une **vraie** perce. Détail, mesures et ce qui
+reste à faire : `docs/modele_hybride_generalise.md`, §9.
+
+**Une vraie perce, jouée par ses doigtés.** Les trous latéraux sont posés
+(chaque cheminée est un tuyau de plus, branché en dérivation, ouvert ou fermé
+selon le doigté), donc `live.build_instrument_from_bore` sait prendre une
+perce — **une seule pièce**, celle du fichier — calculer chacun de ses
+doigtés et ranger les notes obtenues sur le clavier. La géométrie ne bouge
+pas : ce sont les doigts qui changent la note, comme sur l'instrument. Et la
+justesse n'y est **pas** corrigée, contrairement au reste du dépôt : l'écart
+entre ce que la perce donne et ce qu'elle devrait donner est précisément le
+résultat qu'on vient chercher. C'est le rapport de justesse d'une perce — ce
+pour quoi TUTT existe — sauf qu'on peut maintenant aussi l'écouter.
+
+```python
+from banc_recherche import tutt, live
+dat = tutt.read_dat("ma_bombarde.dat")
+inst = live.build_instrument_from_bore(dat, famille='bombarde')
+for nom, trous, f_hz, note in inst.fingerings:
+    print(nom, round(f_hz, 1), "Hz")
+```
+
 ## Jouer le modèle au clavier MIDI (`live`)
 
 Tout ce qui précède calcule juste mais **ne joue pas** : `hybrid` intègre en
@@ -421,7 +467,13 @@ banc-recherche-jouer --liste                    # instruments, sorties, ports MI
 banc-recherche-jouer cornemuse                  # clavier d'ordinateur
 banc-recherche-jouer violon --midi "LPK25"      # vrai clavier MIDI
 banc-recherche-jouer accordeon --wav essai.wav  # aucune carte son requise
+banc-recherche-jouer bombarde --perce ma_perce.dat   # une VRAIE perce TUTT
 ```
+
+Avec `--perce`, la géométrie ne bouge plus : ce sont les **doigtés du
+fichier** qui font les notes, et le rapport de justesse s'imprime avant de
+jouer — l'écart de chaque doigté à la touche sur laquelle il tombe. Il n'est
+pas corrigé : c'est le résultat qu'on vient chercher.
 
 Au clavier d'ordinateur, disposition de tracker (AZERTY par défaut, `--disposition
 qwerty` sinon) : `w x c v b n , ;` pour les blanches, `s d g h j` pour les

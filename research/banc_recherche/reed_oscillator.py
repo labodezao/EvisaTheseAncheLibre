@@ -29,6 +29,14 @@ Ce qui change par rapport à `reed_model.py`, et pourquoi :
 5. **Intégration suréchantillonnée.** Le couplage anche/cavité est raide
    (`γP/V₀ ≈ 10¹⁰ Pa/m³`) ; à 44,1 kHz un RK4 explicite diverge.
 
+6. **La languette ne comprime pas sa chambre.** C'est la différence entre
+   battante et libre, et elle tient dans `Slot.sweep_coupling`. Une anche
+   battante ferme l'ouverture : son balayage `Γ·ẏ` est un vrai piston. Une
+   anche libre est *dans* sa fente : ce qu'elle déplace transite par la fente
+   elle-même, que `opening()` module déjà. Le compter deux fois ajoutait une
+   raideur d'air parasite et faisait chanter une anche de 102 Hz à 119 Hz —
+   +267 cents, une tierce mineure.
+
 Le seuil d'oscillation est **prédit** par analyse de stabilité linéaire
 (`hopf_threshold`) et non cherché par tâtonnement : on linéarise autour de
 l'équilibre statique et on repère où une paire de valeurs propres traverse
@@ -50,20 +58,25 @@ from .reed_model import SECTIONS_DEFAULT
 class Chamber:
     """Chambre d'anche alimentée en débit.
 
-    `volume_m3` est le **volume acoustique effectif**, pas la seule géométrie
-    de la chambre : il inclut le canal du sommier et le couplage au réservoir
-    du soufflet, qui participent tous à la compliance vue par l'anche. C'est
-    un paramètre à **recaler** sur ton banc, pas une cote à mesurer au pied à
-    coulisse.
+    `volume_m3` est le **volume acoustique effectif** : la chambre
+    géométrique, plus ce que le canal du sommier et le couplage au réservoir
+    du soufflet ajoutent de compliance. Le défaut est la chambre géométrique
+    de l'anche de référence (35 × 15 × 15 mm ≈ 7,9 cm³) ; c'est une cote que
+    tu peux mesurer, et un point de départ honnête.
 
-    Il est décisif : la condition d'auto-oscillation (cf. `growth_rate`)
-    s'écrit `V₀ > γ_m · γ_air · P_atm · h / (2·p)`. Sous ce volume, le ressort
-    d'air est trop raide, le balayage de la languette écrase la modulation de
-    pression, et l'anche ne démarre pas. Avec la seule chambre géométrique
-    (≈ 7,9 cm³ pour 35×15×15 mm) le modèle reste stable ; il démarre vers
-    ≈ 12 cm³ et au-delà.
+    Il a longtemps fallu le gonfler à 40 cm³ pour que le modèle démarre. Ce
+    n'était pas de la physique, c'était le symptôme d'un terme de balayage
+    qui n'avait pas lieu d'être (cf. `Slot.sweep_coupling`) : une fois celui-
+    ci retiré, la chambre réelle suffit largement.
+
+    Il reste un paramètre de recalage, et il compte : plus elle est petite,
+    plus le ressort d'air raidit l'ensemble et plus la note monte au-dessus
+    de la fréquence propre de la lame — +49 cents au seuil pour l'anche de
+    référence dans sa chambre géométrique, et l'écart décroît quand on
+    l'agrandit. **Mesurer ce décalage, c'est mesurer le volume effectif** —
+    et ton accordeur le lit au dixième de cent.
     """
-    volume_m3: float = 40e-6       # volume acoustique effectif (chambre + canal + couplage)
+    volume_m3: float = 7.9e-6      # chambre géométrique 35 x 15 x 15 mm
     patm: float = 1e5
     gamma: float = 1.4             # exposant adiabatique de l'air
     rho: float = 1.2
@@ -75,25 +88,79 @@ class Source:
     """Alimentation en débit, avec **impédance interne finie**.
 
     Une source de débit idéale imposerait `q_in` quoi qu'il arrive, y compris
-    quand la languette ferme la fente : la pression y ferait alors un coup de
-    bélier sans limite, et l'amplitude de l'anche croîtrait indéfiniment.
+    quand la languette ferme la fente : la pression y ferait un coup de bélier
+    sans limite et l'amplitude croîtrait indéfiniment.
 
     Une turbine réelle, comme un soufflet réel, débite **moins** quand la
-    pression monte : `q = q₀ − p/R`. C'est cette pente qui borne l'amplitude.
-    `R` est la pente de la caractéristique (p, q) de ta source — celle que le
-    balayage du facteur `Section` de `Mesures.py` permet de mesurer
-    directement. `inf` redonne la source idéale.
+    pression monte : `q = q₀ − p/R`. `R` est la pente de la caractéristique
+    (p, q) de ta source — celle que le balayage du facteur `Section` de
+    `Mesures.py` mesure directement. `inf` redonne la source idéale.
+
+    **C'est elle qui borne l'amplitude, et rien d'autre.** Le défaut valait
+    `2·10⁸`, un chiffre posé là faute de mesure. À cette raideur le modèle
+    laissait la languette atteindre **110 mm de course** à pleine nuance —
+    pour une lame de 55 mm de long. En balayant `R` :
+
+    | R (Pa·s/m³) | course du bout, de 102 à 880 Hz |
+    |---|---|
+    | 2·10⁸ | 3,7 · 22 · 110 mm (à 2×, 8×, 32× le seuil) |
+    | **5·10⁶** | **2,0 · 1,9 · 1,4 · 1,8 mm** — uniforme sur le clavier |
+    | 3·10⁶ | 0,6 · 1,3 · 1,3 · 0,8 mm |
+    | 2·10⁶ | plus rien ne démarre |
+
+    5·10⁶ donne des courses du millimètre partout, ce qu'est une anche
+    d'accordéon, et les plus petits écarts de justesse. Cela correspond à une
+    restriction d'alimentation d'environ 8 mm² — l'ordre de grandeur d'un
+    canal de sommier. Reste **un paramètre à mesurer**, pas une constante :
+    mais 2·10⁸ était démontrablement quarante fois trop raide.
+
+    ⚠️ Elle ne règle en revanche **pas** le seuil de démarrage, qui s'étale
+    toujours sur trois décades du grave à l'aigu (17 Pa à 102 Hz, 25 kPa à
+    880 Hz) là où un accordéon réel en demande à peu près une. C'est le
+    chantier ouvert, et il est ailleurs.
     """
-    impedance_pa_s_m3: float = 2.0e8     # à recaler sur la caractéristique mesurée
+    impedance_pa_s_m3: float = 5.0e6     # à recaler sur la caractéristique mesurée
 
 
 @dataclass
 class Slot:
-    """Fente et languette : la géométrie qui module le débit."""
+    """Fente et languette : la géométrie qui module le débit.
+
+    `sweep_coupling` — **la languette comprime-t-elle la chambre ?**
+
+    C'est la différence entre une anche battante et une anche libre, et elle
+    ne se voit nulle part ailleurs dans les équations.
+
+    Une anche **battante** (clarinette, hautbois) est plaquée sur la table :
+    elle *ferme* l'ouverture. C'est un vrai piston dans la paroi de la
+    cavité, et le volume qu'elle balaie, `Γ·ẏ`, comprime bel et bien l'air
+    qui s'y trouve. Coefficient **1**.
+
+    Une anche **libre** est *dans* sa fente, à quelques dizaines de microns
+    de jeu. Quand elle s'écarte, ce qu'elle libère d'un côté de la plaque est
+    repris dans l'instant par la fente elle-même — qui est exactement là où
+    elle se trouve. Elle ne comprime rien : elle **module une ouverture**, ce
+    dont `opening()` rend déjà compte. Compter en plus son balayage, c'est
+    compter son déplacement deux fois. Coefficient **0**.
+
+    Ce n'est pas un détail de second ordre. Le terme fantôme ajoutait une
+    raideur d'air `γ·P_atm·Γ²/V₀` en série avec celle de la lame et faisait
+    chanter une anche de 102,1 Hz à 119,2 Hz — **+267 cents, une tierce
+    mineure**. Il obligeait aussi à gonfler la chambre à 40 cm³ pour obtenir
+    un démarrage, là où la chambre géométrique (7,9 cm³) suffit une fois le
+    terme retiré. Deux symptômes, une seule cause.
+
+    Une anche libre réelle n'est pas exactement à 0 — la levée la place un
+    peu hors du plan de la plaque, et la languette a une épaisseur — mais
+    l'écart est du second ordre. C'est un paramètre à recaler au banc, et le
+    décalage de justesse en est la mesure la plus directe, puisque la
+    fréquence de jeu en dépend au premier ordre.
+    """
     width_m: float = 4.8e-3        # largeur de la fente
     rest_offset_m: float = 0.10e-3 # décalage de la languette au repos
     max_open_m: float = 0.50e-3    # ouverture au-delà de laquelle l'aire sature
     leak_m: float = 2.0e-6         # fuite résiduelle fente fermée (plaque réelle)
+    sweep_coupling: float = 0.0    # 0 = anche libre (dans la fente), 1 = battante
 
 
 @dataclass
@@ -228,14 +295,17 @@ class FreeReedModel:
         tip = float(self.phi_tip @ q)
         h = float(self.opening(tip))
         q_out = self._flow_out(p, h)
-        q_reed = float(self.gamma @ dq)      # volume balayé par la languette
+        # Balayage de la languette. Pour une anche **libre** il ne charge pas
+        # la compliance de la chambre (cf. `Slot.sweep_coupling`) : le volume
+        # qu'elle déplace transite par la fente qu'elle module.
+        q_reed = self.slot.sweep_coupling * float(self.gamma @ dq)
         q_in = self.source_flow(q_in, p)
 
         # Anche : la surpression de chambre pousse la languette hors de la fente.
         ddq = self.Minv @ (p * self.gamma - self.K @ q - self.C @ dq)
 
         # Chambre rigide, isentropique : la pression suit le bilan de débit.
-        # Le balayage de l'anche agrandit la chambre -> il la dépressurise.
+        # `q_reed` est nul pour une anche libre — voir ci-dessus.
         stiff = self.ch.gamma * (self.ch.patm + p) / self.ch.volume_m3
         dp = stiff * (q_in - q_out - q_reed)
 
@@ -246,26 +316,47 @@ class FreeReedModel:
         return out
 
     # ---- équilibre statique -------------------------------------------------
-    def equilibrium(self, q_in, tol=1e-12, n_iter=200):
-        """État stationnaire : languette immobile, débit sortant = débit entrant.
+    def equilibrium(self, q_in, tol=1e-14, n_iter=200):
+        """État stationnaire : languette immobile, débit sortant = débit fourni.
 
-        Résolu par point fixe sur la pression : `p` fixe l'ouverture via la
-        déflexion statique, l'ouverture fixe le débit, le débit fixe `p`.
+        Résolu par **dichotomie** sur la pression, et non par point fixe. Le
+        bilan
+
+            g(p) = q_sortant(p) − q_fourni(p)
+
+        est strictement croissant : la pression pousse plus d'air dehors (par
+        Bernoulli *et* en écartant la languette, ce qui ouvre la fente) et en
+        fait entrer moins (la source débite `q₀ − p/R`). Un bilan monotone se
+        résout par encadrement, exactement et toujours.
+
+        Le point fixe sous-relaxé qui tenait cette place convergeait tant que
+        la source était raide, et se mettait à osciller dès qu'on la
+        ramollissait — au point de rater la conservation de la masse d'un
+        facteur deux. Une dichotomie n'a pas cette fragilité : elle ne dépend
+        d'aucun réglage.
         """
-        p = 100.0
-        for _ in range(n_iter):
+        def bilan(p):
             q_stat = np.linalg.solve(self.K, p * self.gamma)
-            tip = float(self.phi_tip @ q_stat)
-            h = float(self.opening(tip))
-            # p tel que le débit sortant égale le débit **réellement fourni**
-            # par la source (qui débite moins quand la pression monte)
-            denom = self.ch.cd * self.slot.width_m * h
-            q_eff = max(self.source_flow(q_in, p), 0.0)
-            p_new = 0.5 * self.ch.rho * (q_eff / denom) ** 2 if denom > 0 else p
-            if abs(p_new - p) < tol * max(1.0, abs(p)):
-                p = p_new
+            h = float(self.opening(float(self.phi_tip @ q_stat)))
+            return self._flow_out(p, h) - self.source_flow(q_in, p)
+
+        lo = 0.0
+        hi = 1.0
+        for _ in range(200):                  # élargir jusqu'à encadrer
+            if bilan(hi) > 0.0:
                 break
-            p = 0.5 * p + 0.5 * p_new       # sous-relaxation : le point fixe est raide
+            hi *= 4.0
+        else:                                  # pas de racine : source trop molle
+            hi = 0.0
+        for _ in range(int(n_iter)):
+            mid = 0.5 * (lo + hi)
+            if hi - lo <= tol * max(1.0, hi):
+                break
+            if bilan(mid) > 0.0:
+                hi = mid
+            else:
+                lo = mid
+        p = 0.5 * (lo + hi)
         q_stat = np.linalg.solve(self.K, p * self.gamma)
         state = np.zeros(2 * self.N + 1)
         state[self.N:2 * self.N] = q_stat
@@ -290,22 +381,22 @@ class FreeReedModel:
         fréquence associée. Positif = l'équilibre est instable, donc l'anche
         démarre : c'est la condition d'auto-oscillation.
 
-        **Critère analytique approché** — utile pour comprendre et pour
-        dimensionner, mais c'est cette fonction qui fait foi. L'anche démarre
-        quand
+        **Ce qui entretient, ce qui dissipe.** En linéarisant autour de
+        l'équilibre, le débit sortant rétroagit sur la languette avec un
+        retard fixé par la compliance de la chambre. Ce déphasage donne à la
+        force de pression une composante en phase avec la **vitesse** :
 
-            ∂q_out/∂y  >  γ_m · (γ_air·P_atm/V₀) · ∂q_out/∂p
+            anti-amortissement  ≈  Γ · a · (∂q_out/∂y) / [(a·∂q_out/∂p)² + ω²]
 
-        soit, en explicitant Bernoulli, `V₀ ≳ γ_m·γ_air·P_atm·h / (2p)`.
+        avec `a = γ_air·P_atm/V₀` la raideur du ressort d'air. L'anche démarre
+        quand ce terme dépasse son amortissement propre `2ζω·m`.
 
-        Obtenu par une linéarisation **scalaire à un mode** ; le système réel
-        en a plusieurs, et la comparaison numérique montre un écart d'un
-        facteur ~2 (le critère demande 78 cm³ là où le modèle démarre déjà à
-        40 cm³). À prendre comme un ordre de grandeur, pas comme une égalité.
-
-        À gauche, ce qui **entretient** : la modulation du débit par le
-        mouvement de la languette. À droite, ce qui **dissipe** : la réaction
-        du ressort d'air au balayage de la languette.
+        Une version antérieure retranchait à droite un terme `Γ·a·∂q_out/∂p`,
+        la réaction du ressort d'air au **balayage** de la languette. Il
+        n'existe pas pour une anche libre (cf. `Slot.sweep_coupling`) : la
+        languette est dans sa fente, elle ne comprime rien. C'est lui qui
+        rendait le démarrage si difficile qu'il fallait un volume de chambre
+        cinq fois trop grand, et qui remontait la note de 267 cents.
 
         Conséquence à ne pas manquer : si l'ouverture **sature** (languette
         soufflée hors de la fente), alors `∂h/∂y = 0`, donc `∂q_out/∂y = 0` —

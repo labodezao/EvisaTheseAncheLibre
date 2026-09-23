@@ -289,9 +289,33 @@ def _curvature(x, phi, i):
                       + phi[i + 1] / (h2 * (h1 + h2))))
 
 
-def kramers_from_potential(x, phi, D: float, from_left: bool = True):
+def kramers_from_potential(x, phi, D: float, from_left: bool = True,
+                           reduit: bool = True):
     """Taux de Kramers depuis un potentiel double-puits échantillonné : trouve
-    le puits de départ, la barrière et calcule ΔU + courbures → `kramers_rate`."""
+    le puits de départ, la barrière et calcule ΔU + courbures → `kramers_rate`.
+
+    **Attention aux unités du potentiel, c'est un piège à dix ordres de
+    grandeur.** `potential_from_drift` calcule `Φ = −∫ D₁/D₂ dx` et
+    `potential_from_pdf` calcule `Φ = −ln p` : dans les deux cas le potentiel
+    obtenu est **déjà divisé par l'intensité du bruit**, `Φ = U/D`. Le
+    redonner à `kramers_rate` avec le `D` physique divise une seconde fois et
+    rend un taux absurde — sur un double puits d'essai, 1,8·10⁻¹² /s là où la
+    simulation en compte 1,2·10⁻² /s.
+
+    D'où `reduit=True`, le cas normal : on part de `Φ = U/D`, dont
+    l'exponentielle `exp(−ΔΦ)` est déjà la bonne, mais dont les **courbures**
+    valent `Φ'' = U''/D`. Comme le préfacteur porte `√(U''_min·|U''_barrière|)
+    = D·√(Φ''_min·|Φ''_barrière|)`, il faut remultiplier par `D` une fois :
+
+        `r = (D/2π)·√(Φ''_min·|Φ''_barrière|)·exp(−ΔΦ)`
+
+    Vérifié contre un comptage direct de passages sur `dx = (x−x³)dt + √(2D)dW`
+    avec `D = 0,10` : 0,0185 /s par cette voie, 0,0117 /s comptés — l'écart
+    qui reste est celui qu'on attend de Kramers quand `ΔU/D` ne vaut que 2,5,
+    la formule étant asymptotique en barrière haute.
+
+    `reduit=False` si le potentiel est déjà en unités d'énergie physique.
+    """
     x = np.asarray(x, dtype="float64"); phi = np.asarray(phi, dtype="float64")
     mins = potential_minima(x, phi)
     if len(mins) < 2:
@@ -302,4 +326,7 @@ def kramers_from_potential(x, phi, D: float, from_left: bool = True):
     dU = phi[barrier] - phi[start]
     cv_min = _curvature(x, phi, start)
     cv_bar = abs(_curvature(x, phi, barrier))
-    return kramers_rate(dU, cv_min, cv_bar, D)
+    if not reduit:
+        return kramers_rate(dU, cv_min, cv_bar, D)
+    # Φ = U/D : l'exposant est bon tel quel, le préfacteur demande un D.
+    return float(D * kramers_rate(dU, cv_min, cv_bar, 1.0))

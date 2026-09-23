@@ -110,19 +110,27 @@ def test_simulation_reste_physique():
     assert (r.opening <= rm.slot.max_open_m + 1e-15).all()
 
 
-def test_hors_bande_l_ecoulement_dissipe_fortement():
-    """**Hors** de la bande d'instabilité, le couplage à l'écoulement n'amortit
-    pas un peu : il amortit beaucoup. À 5e-5 m³/s (au-dessus du seuil
-    d'étouffement) le taux vaut ≈ -40 s⁻¹, soit une quinzaine de fois
-    l'amortissement propre de l'anche (-ζω ≈ -2,6 s⁻¹). C'est ce qui rend le
-    démarrage si sensible au volume de la chambre."""
+def test_hors_bande_l_ecoulement_decouple_completement():
+    """Au-dessus de l'étouffement, l'écoulement ne dissipe pas : il **lâche**.
+
+    La languette est soufflée hors de la fente, l'ouverture sature, donc
+    `∂h/∂y = 0` : le déplacement ne module plus rien. Et comme une anche
+    libre ne comprime pas sa chambre (`Slot.sweep_coupling = 0`), il ne reste
+    aucun chemin de `ẏ` vers `p`. L'anche est rendue à elle-même et décroît à
+    son propre amortissement, `-ζω₁`, à la virgule près.
+
+    Ce test affirmait l'inverse — « l'écoulement dissipe quinze fois plus que
+    l'anche », ≈ -40 s⁻¹ contre -2,6. Ces 40 s⁻¹ étaient produits par le
+    terme de balayage fantôme, pas par l'écoulement. En le retirant, le taux
+    tombe pile sur `-ζω₁`. L'ancien chiffre mesurait un bug.
+    """
     rm = _rm()
     _, haut = rm.instability_band(n_scan=14)
-    assert haut is not None and 5e-5 > haut[0]      # bien hors bande
-    r, _, _ = rm.growth_rate(5e-5)
-    amortissement_propre = -rm.zeta * rm.omega[0]
+    assert haut is not None
+    q_trop = haut[0] * 5.0
+    r, _, _ = rm.growth_rate(q_trop)
     assert r < 0
-    assert r < 5 * amortissement_propre        # nettement plus amorti (r plus négatif)
+    assert abs(r - (-rm.zeta * rm.omega[0])) < 1e-6 * rm.omega[0]
 
 
 def test_bande_d_instabilite_existe():
@@ -141,16 +149,23 @@ def test_bande_d_instabilite_existe():
     assert p_off > p_on
 
 
-def test_frequence_de_demarrage_proche_du_mode_de_l_anche():
-    """La note doit être celle de l'anche, pas son double (une ouverture
-    symétrique donnerait l'octave au-dessus). Le ressort d'air la remonte
-    de ~15 %, ce qui est attendu."""
+def test_la_note_est_celle_de_la_lame():
+    """Une anche libre chante **la note de sa lame**. C'est tout le métier de
+    l'accordeur : on lime la languette, la note suit. Le modèle doit donc
+    tomber à quelques dizaines de cents de la fréquence propre — pas à une
+    tierce.
+
+    Ce test a longtemps toléré `1.0 < f_on/f_anche < 1.4`, soit jusqu'à
+    +580 cents, et laissait passer un modèle qui sortait +267 cents (une
+    tierce mineure au-dessus). La borne lâche cachait le terme de balayage
+    fantôme corrigé dans `Slot.sweep_coupling`. Une borne large ne teste
+    rien : c'est la leçon à retenir de ce garde-fou.
+    """
     rm = _rm()
     bas, _ = rm.instability_band(n_scan=14)
     assert bas is not None
-    f_on = bas[2]
-    f_anche = rm.f_modes[0]
-    assert 1.0 < f_on / f_anche < 1.4
+    cents = 1200 * np.log2(bas[2] / rm.f_modes[0])
+    assert -50.0 < cents < 80.0, f"note à {cents:+.0f} cents de la lame"
 
 
 def test_saturation_de_l_ouverture_eteint_l_oscillation():
@@ -167,12 +182,39 @@ def test_saturation_de_l_ouverture_eteint_l_oscillation():
     assert float(rm.opening(tip)) >= rm.slot.max_open_m - 1e-12
 
 
-def test_chambre_trop_petite_ne_demarre_pas():
-    """Le volume acoustique effectif est décisif : avec la seule chambre
-    géométrique (7,9 cm³) le ressort d'air est trop raide et rien ne démarre."""
+def test_la_chambre_geometrique_suffit_a_demarrer():
+    """Il fallait auparavant gonfler le volume à 40 cm³ pour obtenir un
+    démarrage — cinq fois la chambre réelle. Ce n'était pas de la physique
+    mais le symptôme du balayage fantôme : une fois celui-ci retiré, la
+    chambre qu'on peut mesurer au pied à coulisse (35×15×15 mm) suffit.
+    """
     from banc_recherche.reed_oscillator import Chamber
     rm = FreeReedModel(n_modes=2, zeta=0.004, chamber=Chamber(volume_m3=7.9e-6))
-    assert rm.instability_band(n_scan=14)[0] is None
+    assert rm.instability_band(n_scan=14)[0] is not None
+
+
+def test_la_languette_libre_ne_comprime_pas_la_chambre():
+    """La distinction anche libre / anche battante, dans un seul coefficient.
+
+    Une anche battante est plaquée sur la table : elle ferme l'ouverture,
+    c'est un piston dans la paroi, son balayage comprime l'air. Une anche
+    libre est *dans* sa fente : ce qu'elle déplace transite par la fente
+    elle-même. Compter son balayage revient à compter son déplacement deux
+    fois — `opening()` le prend déjà en charge.
+
+    Le prix de l'erreur, mesuré : une raideur d'air parasite qui remontait la
+    note de **+267 cents** et interdisait le démarrage avec la chambre
+    réelle. On fige ici les deux symptômes.
+    """
+    rm = _rm()
+    assert rm.slot.sweep_coupling == 0.0, "une anche libre ne comprime pas"
+
+    battante = _rm(slot=Slot(sweep_coupling=1.0))
+    bas_libre, _ = rm.instability_band(n_scan=14)
+    bas_battante, _ = battante.instability_band(n_scan=14)
+    assert bas_libre is not None
+    assert bas_battante is None, (
+        "avec le balayage compté, la chambre réelle ne démarrait plus")
 
 
 @pytest.mark.skipif(not os.environ.get("BANC_TESTS_LENTS"),
@@ -183,10 +225,15 @@ def test_hysterese_sous_critique():
     démarrage. C'est `p_on > p_off`, ce que mesure `seuil.py` au banc par
     rampe montante puis descendante — et ce que font les anches réelles.
 
-    Coûteux (il faut établir un cycle limite, ~1,5 s de signal simulé) : hors
-    suite par défaut, qui tient en 5 s. Chiffres de référence d'un calcul
-    complet : p_on 25,8 Pa, p_off 19,4 Pa, rapport 1,33
-    (cf. docs/audit_modele_anche.md).
+    Coûteux (il faut établir un cycle limite) : hors suite par défaut, qui
+    tient en quelques secondes.
+
+    ⚠️ Ne pas y réinscrire de chiffres de référence sans les avoir remesurés.
+    Les précédents (p_on 25,8 Pa, p_off 19,4 Pa, rapport 1,33) dataient du
+    modèle d'avant `Slot.sweep_coupling` et d'avant la dichotomie de
+    `equilibrium` ; ils ne valent plus rien. Le test vérifie la **propriété**
+    — le cycle survit sous le seuil de démarrage, donc la bifurcation est
+    sous-critique — et c'est elle qui compte pour la thèse, pas la valeur.
     """
     rm = _rm()
     h = rm.extinction_threshold(mults=(0.90,), dur=1.0, oversample=8, start_mult=2.5)

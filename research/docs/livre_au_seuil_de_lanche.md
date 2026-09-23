@@ -127,11 +127,29 @@ laser**) :
 | Bruit, cohérence, seuil stochastique | `stochastic`, `ramp` |
 | Honnêteté expérimentale | `doe_analysis` (ANOVA, effets, optimiseur) |
 
+## Ce qui est écrit
+
+Ce fichier est la **trame**. Les chapitres rédigés vivent dans `livre/`, un
+fichier par partie, pour que le plan reste lisible à mesure que le texte
+grossit.
+
+| | fichier | état |
+|---|---|---|
+| Prélude — Le souffle avant le son | `livre/00_prelude.md` | rédigé |
+| Partie I — Le seuil | `livre/01_le_seuil.md` | rédigé |
+| Partie II — Ce qui s'accroche | `livre/02_ce_qui_s_accroche.md` | rédigé |
+| Partie III — La naissance de chaque chose | `livre/03_la_naissance_de_chaque_chose.md` | rédigé |
+| Parties IV à VII | — | à venir |
+
+Les encarts ⟢ des chapitres rédigés sont **laissés vides**, comme prévu.
+
 ## Prochaines pistes d'écriture
-- Choisir **une** partie et l'écrire en entier (je propose la Partie I ou II —
-  le seuil et l'hystérésis sont les plus « chauds »).
+- Continuer par la **Partie IV** (espace des phases) : la Partie III s'y
+  jette dans sa dernière ligne, en posant la question sous la forme
+  « comment regarde-t-on une chose en train de bouger sans la saisir ? ».
 - Faire tourner l'outil correspondant sur **une vraie mesure à toi** et mettre
   la figure dans le chapitre : le savoir devient chaud quand la courbe est la
-  tienne.
-- Décider du support final : ce squelette peut devenir un `.lyx` (comme
+  tienne. C'est la seule chose qui manque vraiment à la Partie I — elle décrit
+  un protocole, elle ne montre pas encore *ta* courbe.
+- Décider du support final : ces chapitres peuvent devenir un `.lyx` (comme
   `design_theory.lyx`) pour la mise en page livre.

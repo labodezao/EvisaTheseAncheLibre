@@ -289,13 +289,24 @@ class Instrument:
     level_default: float = 1.0
     control_unit: str = ""
     output_scale: float = 1.0
+    #: pour un instrument bâti sur une vraie perce : la gamme de ses doigtés,
+    #: `[(nom, trous, fréquence, note MIDI), …]`. Vide sinon.
+    fingerings: list = field(default_factory=list, repr=False)
     _params: dict = field(default_factory=dict, repr=False)
     _keep: list = field(default_factory=list, repr=False)
 
     def params_for(self, note):
-        """Structure C de la note, ou de la plus proche disponible."""
+        """Structure C de la note, ou de la plus proche disponible.
+
+        Une perce réelle ne remplit pas le clavier : elle a les notes de ses
+        doigtés, et rien entre. On rend alors la plus proche — jouer une
+        touche vide doit donner *quelque chose*, comme un doigté approché.
+        """
         n = int(np.clip(int(note), self.lo, self.hi))
-        return self._params[n]
+        if n in self._params:
+            return self._params[n]
+        dispo = min(self._params, key=lambda k: abs(k - n))
+        return self._params[dispo]
 
     def __len__(self):
         return len(self._params)
@@ -358,6 +369,28 @@ def _accorder(name, cible_hz, niveau, samplerate, passes=2, **kw):
     return cp, garde
 
 
+def niveau_nominal(ex) -> float:
+    """Niveau de jeu nominal d'un excitateur, **dans son unité à lui**.
+
+    Chaque famille se commande avec une grandeur différente, et les échelles
+    n'ont rien de commun : un archet se pousse en newtons, une anche battante
+    en pascals, une anche libre en **mètres cubes par seconde**. Mélanger les
+    deux dernières, c'est passer 2480 là où il faut 2,9·10⁻⁶ — neuf ordres de
+    grandeur, et un instrument muet ou explosé.
+
+    Ce choix était dupliqué entre `build_instrument` et `build_from_dat`, et
+    les deux copies avaient divergé : la seconde avait perdu la branche de
+    l'anche libre et rabattait tout sur la pression de fermeture. Monter une
+    anche libre sur une perce — ce que `hybrid` permet justement — donnait
+    alors un débit de 2480 m³/s.
+    """
+    if isinstance(ex, hybrid.BowExciter):
+        return 0.25
+    if isinstance(ex, hybrid.FreeReedExciter):
+        return 2.9e-6
+    return 0.62 * getattr(ex, 'closing_pressure_pa', 4000.0)
+
+
 def build_instrument(name="clarinette", lo=36, hi=96, samplerate=48000.0,
                      a4_hz=440.0, on_progress=None, tune=True, **kw):
     """Prépare un instrument jouable : une perce par demi-ton.
@@ -372,12 +405,7 @@ def build_instrument(name="clarinette", lo=36, hi=96, samplerate=48000.0,
     """
     voix_ref = hybrid.build(name)
     ex = voix_ref.exciter
-    if isinstance(ex, hybrid.BowExciter):
-        niveau = 0.25
-    elif isinstance(ex, hybrid.FreeReedExciter):
-        niveau = 2.9e-6
-    else:
-        niveau = 0.62 * ex.closing_pressure_pa
+    niveau = niveau_nominal(ex)
 
     inst = Instrument(name=name, lo=int(lo), hi=int(hi),
                       samplerate=float(samplerate), a4_hz=float(a4_hz),
@@ -418,6 +446,80 @@ def _limiteur(x, seuil=0.7):
         comprime = seuil + marge * np.tanh((a[haut] - seuil) / marge)
         x[haut] = np.sign(x[haut]) * comprime
     return x
+
+
+def build_instrument_from_bore(dat, famille='cornemuse', doigtes=None,
+                              samplerate=48000.0, a4_hz=440.0, n_modes=10,
+                              cutoff_hz=None, reed_volume_m3=None,
+                              on_progress=None, **kw):
+    """Un instrument jouable bâti sur une **vraie perce**, doigté par doigté.
+
+    C'est l'aboutissement du pont vers TUTT, et il change la nature de
+    l'objet. `build_instrument` fabrique une perce *par demi-ton* : pratique
+    au clavier, mais aucun instrument réel ne marche comme ça. Ici, la perce
+    est **une seule et même pièce** — celle du fichier — et ce sont les
+    **doigts** qui changent la note, comme sur l'instrument. Chaque doigté
+    est calculé (impédance d'entrée, cheminées ouvertes ou fermées, résonances
+    réelles), puis rangé sur la touche MIDI dont il est le plus proche.
+
+    Ce que ça implique, et qu'il vaut mieux savoir avant de jouer :
+
+    - la tessiture est celle de l'instrument, pas celle du clavier. Une perce
+      à six trous donne sept notes, pas soixante-et-une ;
+    - si deux doigtés tombent sur la même touche, le plus proche gagne et
+      l'autre est perdu — c'est le fichier qui le dit, pas nous ;
+    - **la justesse n'est pas corrigée**. `build_instrument` accorde chaque
+      note sur le moteur ; ici, surtout pas : l'écart entre ce que la perce
+      donne et ce qu'elle devrait donner *est* le résultat qu'on vient
+      chercher. Le corriger reviendrait à effacer la mesure.
+
+    `famille` choisit l'excitateur (n'importe quel nom de `hybrid.INSTRUMENTS`
+    à perce) ; la géométrie, elle, vient entièrement du fichier.
+    """
+    from . import tutt as _tutt
+
+    gamme = _tutt.gamme_des_doigtes(dat, doigtes=doigtes,
+                                    reed_volume_m3=reed_volume_m3)
+    if not gamme:
+        raise ValueError("aucun doigté exploitable dans cette perce")
+
+    modele = hybrid.build(famille)
+    ex = modele.exciter
+    niveau = niveau_nominal(ex)
+
+    notes = [int(round(69 + 12 * np.log2(f / a4_hz))) for _, _, f in gamme]
+    inst = Instrument(name=f"{dat.title or 'perce'} ({famille})",
+                      lo=min(notes), hi=max(notes),
+                      samplerate=float(samplerate), a4_hz=float(a4_hz),
+                      level_default=float(niveau),
+                      control_unit=getattr(ex, 'control_unit', '') or '')
+
+    _ecarts: dict[int, float] = {}
+    for k, ((nom, trous, f_hz), note) in enumerate(zip(gamme, notes)):
+        res, _infos = _tutt.resonator_from_dat(
+            dat, fmin=max(20.0, 0.5 * f_hz), fmax=min(9000.0, f_hz * 12.0),
+            n_peaks=int(n_modes), cutoff_hz=cutoff_hz, fingering=trous,
+            reed_volume_m3=reed_volume_m3)
+        voix = hybrid.HybridVoice(type(ex)(**kw) if kw else ex, res,
+                                  name=f"{famille} {nom}")
+        p = params_from_voice(voix, samplerate=samplerate, name=famille)
+        cp, garde = _to_c_params(p)
+        # Deux doigtés peuvent tomber sur la même touche (les notes sont
+        # arrondies au MIDI). C'est le plus **proche** du tempéré qui gagne,
+        # comme l'annonce la docstring — pas le dernier lu.
+        ecart = abs(1200.0 * np.log2(f_hz / midi_to_hz(note, a4_hz)))
+        if note in inst._params and ecart >= _ecarts.get(note, np.inf):
+            continue
+        _ecarts[note] = ecart
+        inst._params[note] = cp
+        inst._keep.append(garde)
+        inst.fingerings = [e for e in inst.fingerings if e[3] != note]
+        inst.fingerings.append((nom, trous, f_hz, note))
+        if on_progress:
+            on_progress(k + 1, len(gamme))
+
+    inst.output_scale = _mesurer_echelle(inst, notes=sorted(set(notes)))
+    return inst
 
 
 def _crete_etablie(inst: Instrument, note, dur=2.5, fenetre=0.1):
@@ -860,6 +962,13 @@ def main(argv=None):
     p.add_argument('--sortie', help="périphérique de sortie audio (nom ou index)")
     p.add_argument('--brut', action='store_true',
                    help="ne pas accorder les notes (montre l'écart de géométrie)")
+    p.add_argument('--perce', metavar='FICHIER.dat',
+                   help="jouer une VRAIE perce TUTT, par ses doigtés : la "
+                        "géométrie ne bouge pas, ce sont les doigts qui "
+                        "changent la note. La justesse n'est pas corrigée.")
+    p.add_argument('--cavite-cm3', type=float, default=None,
+                   help="volume de cavité d'anche (corrige l'octave d'un cône "
+                        "tronqué ; cf. tutt.cavite_qui_accorde_l_octave)")
     args = p.parse_args(argv)
 
     if args.liste:
@@ -885,12 +994,27 @@ def main(argv=None):
               f"connus : {', '.join(sorted(hybrid.INSTRUMENTS))}", file=sys.stderr)
         return 2
 
-    print(f"préparation de « {args.instrument} » : une perce par demi-ton"
-          + ("" if args.brut else ", puis accordage note à note") + "…",
-          file=sys.stderr)
-    inst = build_instrument(args.instrument, lo=args.grave, hi=args.aigu,
-                            samplerate=args.sr, a4_hz=args.la,
-                            tune=not args.brut)
+    if args.perce:
+        from . import tutt as _tutt
+        print(f"lecture de « {args.perce} »…", file=sys.stderr)
+        dat = _tutt.read_dat(args.perce)
+        print(f"  {dat}", file=sys.stderr)
+        inst = build_instrument_from_bore(
+            dat, famille=args.instrument, samplerate=args.sr, a4_hz=args.la,
+            reed_volume_m3=(args.cavite_cm3 * 1e-6 if args.cavite_cm3 else None))
+        print(f"  {len(inst.fingerings)} doigté(s) — la justesse est celle de "
+              f"la perce, elle n'est pas corrigée :", file=sys.stderr)
+        for nom, _trous, f_hz, note in inst.fingerings:
+            ecart = 1200 * np.log2(f_hz / midi_to_hz(note, args.la))
+            print(f"    {nom:<8} {f_hz:8.2f} Hz   touche {note:3d}   "
+                  f"{ecart:+7.1f} cents", file=sys.stderr)
+    else:
+        print(f"préparation de « {args.instrument} » : une perce par demi-ton"
+              + ("" if args.brut else ", puis accordage note à note") + "…",
+              file=sys.stderr)
+        inst = build_instrument(args.instrument, lo=args.grave, hi=args.aigu,
+                                samplerate=args.sr, a4_hz=args.la,
+                                tune=not args.brut)
     synth = Synth(inst, polyphony=args.polyphonie, gain=args.gain)
 
     if args.wav:

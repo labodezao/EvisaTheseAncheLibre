@@ -816,67 +816,127 @@ function drawPitchCurve() {
   }
 }
 
-// Stroboscope multi-harmonique. Une bande par partiel k=1..N : elle défile à
-// la VITESSE DE BATTEMENT réelle de ce partiel contre sa cible (k×fréquence
-// cible), exactement comme un strobe mécanique. Immobile = juste. Les hautes
-// bandes battent k fois plus vite → résolution démultipliée (le principe du
-// strobe). Chaque bande utilise la mesure d'harmonique du moteur si elle
-// existe (inharmonicité réelle visible), sinon le modèle harmonique idéal
-// k×(f−cible) — cohérent avec le reste de l'accordeur.
-const STROBE_BANDS = 5;
+// Stroboscope PAR ANCHE. Une ligne par anche mesurée (8'−, 8', 8'+, 16'…),
+// toutes en même temps — plus besoin de bloquer les autres pour en lire une.
+// À gauche, l'écart de l'anche à sa cible en cents (vert dans la tolérance).
+// À droite, une bande par partiel ×1..×4 : elle défile au battement RÉEL de
+// ce partiel contre k × la cible, exactement comme un strobe mécanique —
+// immobile = juste, et les hautes bandes démultiplient l'écart.
+//
+// Les bandes sont de vraies mesures par partiel (traqueurs cachés du moteur,
+// `group.partials`), pas k×(f−cible). Au bout de chaque bande, l'écart de ce
+// partiel en cents : si une anche avait des partiels non harmoniques, ses
+// bandes n'afficheraient pas la même valeur — le strobe le montre.
+// Une bande vide (« … ») : partiel pas encore séparable des anches voisines,
+// ou absent du son — on n'affiche pas une valeur qu'on ne peut pas mesurer.
+const STROBE_BANDS = 4;
+// Un canevas ne résout pas les variables CSS : `ctx.font = '… var(--mono)'`
+// est ignoré en silence et la police précédente reste en place. On lit donc
+// la pile de polices une fois, en clair.
+let MONO_CACHE = null;
+const monoFont = () => (MONO_CACHE ??= (getComputedStyle(document.documentElement)
+  .getPropertyValue('--mono').trim() || 'monospace'));
+const STROBE_ROW = 72;
+// « +0.00 » plutôt que « −0.00 » : un zéro n'a pas de signe à l'affichage.
+const signed = (x, d) => { const r = Number(x.toFixed(d)); return `${r >= 0 ? '+' : ''}${(r === 0 ? 0 : r).toFixed(d)}`; };
+function strobeReeds(t) {
+  const out = [];
+  for (const g of t?.groups ?? []) {
+    if (g.isHarmonic || g.isSub) continue;
+    for (const v of g.voices) out.push({ g, v });
+  }
+  return out;
+}
 function drawStrobe(dt) {
+  const MONO = monoFont();
   const cv = $('strobe'), ctx = cv.getContext('2d');
-  const W = cv.width, H = cv.height;
   const t = state.tick;
-  const v = selectedVoice(t);
+  const reeds = strobeReeds(t);
+  const n = Math.max(1, reeds.length);
+  // Dessiné à la taille RÉELLE de l'écran (pixels CSS × densité) : les
+  // chiffres en cents gardent leur taille, même sur un téléphone, au lieu
+  // d'être réduits avec tout le canevas.
+  const dpr = window.devicePixelRatio || 1;
+  const W = Math.max(280, cv.clientWidth || 560);
+  const H = 6 + n * STROBE_ROW;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) {
+    cv.width = Math.round(W * dpr);
+    cv.height = Math.round(H * dpr);
+    cv.style.height = `${H}px`;
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   const th = theme();
-  if (state.strobePhase.length !== STROBE_BANDS) state.strobePhase = new Array(STROBE_BANDS).fill(0);
+  if (!(state.strobePhase instanceof Map)) state.strobePhase = new Map();
   ctx.clearRect(0, 0, W, H);
-
-  // Battement (Hz) du partiel k : mesure d'harmonique si suivie, sinon idéal.
-  const beatOf = (k) => {
-    if (!v || !v.tracked || v.dTargetCents == null) return null;
-    if (k === 1) return v.fMeas - v.target;
-    for (const g of t?.groups ?? []) {
-      if (g.isSub) continue;
-      for (const vv of g.voices) {
-        if (vv.tracked && vv.def.label === `H${k}` && vv.midi === v.midi) {
-          return vv.fMeas - k * v.target;
+  if (!reeds.length) {
+    ctx.fillStyle = th.dim2; ctx.font = '13px system-ui'; ctx.textAlign = 'center';
+    ctx.fillText('jouez une note…', W / 2, H / 2 + 4);
+    return;
+  }
+  const leftW = Math.min(170, W * 0.36), rightW = 58, period = 34;
+  const bandH = (STROBE_ROW - 12) / STROBE_BANDS;
+  reeds.forEach(({ g, v }, r) => {
+    const y = 4 + r * STROBE_ROW;
+    const id = v.def.id;
+    const label = v.def.label
+      || (v.def.fixedMidi != null ? noteLabel(v.def.fixedMidi + (cfg.transpose || 0)).full : 'anche');
+    // --- colonne gauche : l'anche et son écart --------------------------------
+    const c = v.tracked ? v.dTargetCents : null;
+    const cls = c == null ? null : centsClass(c, cfg.tolCents);
+    const col = c == null ? th.dim2 : cls === 'ok' ? th.okStrong : cls === 'warn' ? th.warn : th.bad;
+    ctx.textAlign = 'left';
+    ctx.fillStyle = th.dim; ctx.font = '600 13px system-ui';
+    ctx.fillText(label, 6, y + 16);
+    const txt = c == null ? '—' : signed(c, 2);
+    ctx.fillStyle = col; ctx.font = `700 ${W < 400 ? 26 : 30}px ${MONO}`;
+    ctx.fillText(txt, 6, y + 44);
+    const wTxt = ctx.measureText(txt).width;
+    ctx.font = '600 13px system-ui';
+    if (c != null) ctx.fillText('¢', 6 + wTxt + 3, y + 44);
+    ctx.fillStyle = th.dim2; ctx.font = `11px ${MONO}`;
+    if (v.tracked) ctx.fillText(`${v.fMeas.toFixed(3)} Hz`, 6, y + 62);
+    // --- bandes ×1..×4 ------------------------------------------------------
+    const x0 = leftW, x1 = W - rightW;
+    for (let bi = 0; bi < STROBE_BANDS; bi++) {
+      const k = bi + 1;
+      const by = y + 2 + bi * bandH;
+      const fk = g.partials?.[k]?.[id];
+      const beat = fk != null ? fk - k * v.target : null;          // Hz, battement du partiel
+      const key = `${g.key}:${id}:${k}`;
+      let ph = state.strobePhase.get(key) ?? 0;
+      if (beat != null && !state.frozen) ph += beat * dt;           // en cycles
+      state.strobePhase.set(key, ph);
+      const still = beat != null && Math.abs(beat) < 0.12;
+      const on = beat == null ? th.panel2 : (still ? th.okStrong : th.accentMuted);
+      ctx.save();
+      ctx.beginPath(); ctx.rect(x0, by, x1 - x0, bandH - 2); ctx.clip();
+      if (beat == null) {
+        ctx.fillStyle = th.panel2; ctx.fillRect(x0, by, x1 - x0, bandH - 2);
+      } else {
+        const off = (((ph % 1) + 1) % 1) * period;
+        for (let x = x0 - period; x < x1 + period; x += period) {
+          const gx = x + off;
+          const grd = ctx.createLinearGradient(gx, 0, gx + period, 0);
+          grd.addColorStop(0, th.canvasBg); grd.addColorStop(0.5, on); grd.addColorStop(1, th.canvasBg);
+          ctx.fillStyle = grd; ctx.fillRect(gx, by, period, bandH - 2);
         }
       }
+      ctx.restore();
+      // repère ×k et écart du partiel en cents
+      ctx.font = `10px ${MONO}`;
+      ctx.textAlign = 'right';
+      ctx.fillStyle = th.dim2;
+      ctx.fillText(`×${k}`, x0 - 4, by + bandH / 2 + 2);
+      ctx.textAlign = 'left';
+      const ck = fk != null ? 1200 * Math.log2(fk / (k * v.target)) : null;
+      ctx.fillStyle = ck == null ? th.dim2 : (Math.abs(ck) <= cfg.tolCents ? th.okStrong : th.dim);
+      ctx.fillText(ck == null ? '…' : signed(ck, 2), x1 + 5, by + bandH / 2 + 2);
     }
-    return k * (v.fMeas - v.target);
-  };
-
-  const labelW = 30;
-  const bandH = (H - 4) / STROBE_BANDS;
-  const period = 42;
-  ctx.textAlign = 'left';
-  ctx.font = '11px var(--mono, monospace)';
-  for (let bi = 0; bi < STROBE_BANDS; bi++) {
-    const k = bi + 1;
-    const y0 = 2 + bi * bandH;
-    const beat = beatOf(k);
-    if (beat != null && !state.frozen) state.strobePhase[bi] += beat * dt; // en cycles
-    const ph = beat != null ? ((state.strobePhase[bi] % 1) + 1) % 1 : 0;
-    const off = ph * period;
-    const still = beat != null && Math.abs(beat) < 0.12;
-    const on = beat == null ? th.panel2 : (still ? th.okStrong : th.accentMuted);
-    ctx.save();
-    ctx.beginPath(); ctx.rect(labelW, y0, W - labelW, bandH - 3); ctx.clip();
-    for (let x = labelW - period; x < W + period; x += period) {
-      const gx = x + off;
-      const g = ctx.createLinearGradient(gx, 0, gx + period, 0);
-      g.addColorStop(0, th.canvasBg);
-      g.addColorStop(0.5, on);
-      g.addColorStop(1, th.canvasBg);
-      ctx.fillStyle = g;
-      ctx.fillRect(gx, y0, period, bandH - 3);
+    if (r < reeds.length - 1) {
+      ctx.strokeStyle = th.grid; ctx.beginPath();
+      ctx.moveTo(4, y + STROBE_ROW - 2); ctx.lineTo(W - 4, y + STROBE_ROW - 2); ctx.stroke();
     }
-    ctx.restore();
-    ctx.fillStyle = still ? th.okStrong : th.dim2;
-    ctx.fillText(`×${k}`, 3, y0 + bandH / 2 + 3);
-  }
+  });
 }
 
 function drawSpectrum() {

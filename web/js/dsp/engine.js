@@ -14,6 +14,114 @@ import {
 const HOP = 4096;             // période d'analyse (~85 ms à 48 kHz)
 const MAXWIN = { fast: 128, normal: 256, precise: 512 };
 
+// Harmonique sur lequel mesurer un groupe d'anches à l'unisson.
+//
+// Deux anches à 1,6 Hz d'écart (une musette en La4) ne sont séparées par la
+// FFT zoom qu'une fois sa fenêtre longue de ~2,7 s. Avant, les lobes se
+// chevauchent, le raffinement de phase de chaque anche est pollué par sa
+// voisine, et la courbe saute de 1 à 2 cents par image — c'est ce qui poussait
+// à bloquer les anches pour en mesurer une à la fois.
+//
+// Or une anche libre en régime est un oscillateur entretenu : son son est
+// exactement périodique, ses partiels exactement harmoniques (le modèle
+// physique le confirme, et la fusion multi-harmonique du mode auto repose déjà
+// dessus). Sur l'harmonique k, les anches sont k fois plus écartées — donc
+// séparées k fois plus tôt — et un cent y vaut toujours un cent.
+//
+// On vise un écart d'au moins SEP_HZ entre anches sur l'harmonique suivi :
+// ~4 cases de FFT à la première fenêtre (64 points à ~94 Hz de bande), ce que
+// le fenêtrage de Hann sépare proprement. Mesuré (test/bench_gigue.mjs,
+// musette La4 ±1,6 Hz) : erreur entre 1 et 2 s de ±2,5 ¢ sur H1, ±0,02 ¢
+// sur H5. Deux bornes : toutes les anches doivent tenir dans la bande du
+// zoom, y compris une anche désaccordée, et on ne monte pas au-delà de
+// ~4 kHz, où les partiels faiblissent et où la mesure se perd.
+const SEP_HZ = 6;
+const BAND_HZ = 30;        // demi-bande utile du zoom (±0,45·srd ≈ ±42 Hz, avec marge)
+const OUT_OF_TUNE_HZ = 1.5; // marge pour une anche encore loin de sa cible
+const K_FREQ_MAX = 4000;
+const K_MAX = 8;
+
+// Garde-fou : on ne mesure sur le partiel k que s'il est RÉELLEMENT présent
+// dans le spectre large bande de la note (à moins de 30 dB du plus fort de
+// ses dix premiers partiels).
+//
+// Deux raisons. Une anche peut avoir un partiel faible — il ne faut pas la
+// mesurer là où elle n'est pas. Et si la note est mal détectée (mesuré : une
+// musette très ouverte en Do6 lue comme un Sol#2), la bande du zoom centrée
+// sur un partiel qui n'existe pas ne contient que la fondamentale réelle
+// repliée par la décimation — elle ressortait comme une « mesure » fausse de
+// 4000 cents. Sans partiel présent, on redescend : l'accordeur n'affiche
+// alors rien, comme avant, plutôt qu'une valeur inventée.
+function partialPresent(coarse, f0, k) {
+  if (!coarse?.mag || !coarse.binHz) return true;   // pas d'information : ne rien empêcher
+  const peakAround = (f) => {
+    const tol = Math.max(1.5 * coarse.binHz, 0.015 * f);
+    const a = Math.max(0, Math.floor((f - tol) / coarse.binHz));
+    const b = Math.min(coarse.mag.length - 1, Math.ceil((f + tol) / coarse.binHz));
+    let m = 0;
+    for (let i = a; i <= b; i++) if (coarse.mag[i] > m) m = coarse.mag[i];
+    return m;
+  };
+  let ref = 0;
+  for (let n = 1; n <= 10; n++) ref = Math.max(ref, peakAround(f0 * n));
+  return ref > 0 && peakAround(f0 * k) >= ref / 31.6;
+}
+
+// Écart minimal (Hz) entre les cibles d'un groupe d'unisson ; à défaut de
+// cibles distinctes (auto-anches), l'écart attendu à la note.
+function targetSpacing(g) {
+  const targets = g.voices.map((v) => v.target).sort((a, b) => a - b);
+  let spacing = Infinity;
+  for (let i = 1; i < targets.length; i++) {
+    const d = targets[i] - targets[i - 1];
+    if (d > 1e-6) spacing = Math.min(spacing, d);
+  }
+  if (!Number.isFinite(spacing)) {
+    const ref = g.center * (g.kTrack && g.voices[0]?.target > g.center * 1.5 ? g.kTrack : 1);
+    spacing = Math.max(...targets.map((t) => Math.abs(t - ref)));
+  }
+  return spacing;
+}
+
+// Partiels mesurés pour le stroboscope par anche : ×1..×4, sauf celui déjà
+// mesuré par le groupe de base, présents dans le spectre, et où toutes les
+// anches tiennent dans la bande du zoom.
+const STROBE_PARTIALS = 4;
+export function strobePartials(g, coarse = null) {
+  const out = [];
+  const spread = Math.max(...g.voices.map((v) => Math.abs(v.target - g.center)));
+  for (let k = 1; k <= STROBE_PARTIALS; k++) {
+    if (k === g.kTrack) continue;
+    if (g.center * k > 6000) break;
+    if (k * (spread + OUT_OF_TUNE_HZ) > BAND_HZ) break;
+    if (!partialPresent(coarse, g.center, k)) continue;
+    out.push(k);
+  }
+  return out;
+}
+
+export function unisonHarmonic(g, cfg, coarse = null) {
+  const kBase = g.kTrack;
+  if (cfg.polyHarmonic) return Math.max(1, cfg.polyHarmonic | 0);
+  const targets = g.voices.map((v) => v.target).sort((a, b) => a - b);
+  let spacing = Infinity;
+  for (let i = 1; i < targets.length; i++) {
+    const d = targets[i] - targets[i - 1];
+    if (d > 1e-6) spacing = Math.min(spacing, d);
+  }
+  const spread = Math.max(...targets.map((t) => Math.abs(t - g.center)));
+  // Emplacements d'unisson sans cible distincte (auto-anches) : l'écart
+  // attendu est celui de la courbe de battement à cette note.
+  if (!Number.isFinite(spacing)) spacing = spread;
+  if (!(spacing > 0)) return kBase;
+  const kSep = Math.ceil(SEP_HZ / spacing);
+  const kBand = Math.floor(BAND_HZ / (spread + OUT_OF_TUNE_HZ));
+  const kFreq = Math.floor(K_FREQ_MAX / g.center);
+  let k = Math.max(kBase, Math.min(kSep, kBand, kFreq, K_MAX));
+  while (k > kBase && !partialPresent(coarse, g.center, k)) k--;
+  return k;
+}
+
 export class Engine {
   constructor(sampleRate, cfg = {}) {
     this.sr = sampleRate;
@@ -29,6 +137,8 @@ export class Engine {
       fuseHarmonics: true,     // fusion multi-harmonique cohérente (mode auto)
       trackSub: false,         // bandes f/2 et 3f/2 (détection de bifurcation)
       subspace: false,         // analyse paramétrique Matrix Pencil (voix de base)
+      polyHarmonic: null,      // harmonique de mesure des anches à l'unisson
+                               // (null = choisi pour les séparer vite, cf. unisonHarmonic)
       reedOctaves: [0],        // octaves scrutés en auto-anches (0 = octave jouée ;
                                // l'utilisateur ajoute 16'/4'/2' à la main)
       maxUnison: 3,            // nb max d'anches à l'unisson par octave (auto-anches)
@@ -111,6 +221,7 @@ export class Engine {
 
   // (Re)centre les traqueurs sur la note jouée courante.
   retune(force = false) {
+    if (force) this.plan = null;
     const played = this.playedMidi;
     if (played == null && this.cfg.mode !== 'manual') {
       if (force) this.trackers.clear();
@@ -154,7 +265,47 @@ export class Engine {
       g.voices.push({ def: v, ...t });
     }
     const groups = [...map.values()];
+    // Plan harmonique FIGÉ par note. `groupVoices` est rappelé à chaque image,
+    // mais les traqueurs ne sont recentrés qu'au changement de note (`retune`).
+    // Si le partiel de mesure était réévalué à chaque image, un creux de
+    // battement qui le fait passer sous le seuil de présence changerait k
+    // sans recentrer le traqueur : la division par k deviendrait fausse. On
+    // décide donc une fois par note, et on s'y tient.
+    if (!this.plan || this.plan.midi !== playedMidi) {
+      this.plan = { midi: playedMidi, k: new Map(), partials: new Map() };
+      for (const g of groups) {
+        if (g.voices.length < 2) continue;
+        const k = unisonHarmonic(g, c, this.lastCoarse);
+        this.plan.k.set(g.key, k);
+        this.plan.partials.set(g.key, strobePartials({ ...g, kTrack: k }, this.lastCoarse));
+      }
+    }
+    for (const g of groups) if (this.plan.k.has(g.key)) g.kTrack = this.plan.k.get(g.key);
     for (const g of groups) g.fc = g.center * g.kTrack;
+
+    // Stroboscope par anche : chaque anche d'un groupe d'unisson est aussi
+    // mesurée sur ses partiels ×1..×4, par des traqueurs cachés ancrés sur sa
+    // propre mesure. Ce sont de VRAIES mesures par partiel, pas k×(f−cible) :
+    // si les partiels d'une anche n'étaient pas harmoniques, ses bandes le
+    // montreraient.
+    for (const g of groups.slice()) {
+      for (const k of this.plan.partials.get(g.key) ?? []) {
+        groups.push({
+          key: `${g.key}p${k}`,
+          baseKey: g.key,
+          center: g.center,
+          kTrack: k,
+          fc: g.center * k,
+          isHarmonic: true,
+          isPartial: true,
+          hidden: true,
+          voices: g.voices.map((v) => ({
+            def: v.def, midi: v.midi,
+            nominal: v.nominal * k, beat: v.beat * k, target: v.target * k,
+          })),
+        });
+      }
+    }
 
     // Suivi individuel des harmoniques : un traqueur zoom dédié par partiel
     // (2..n). Chaque partiel est mesuré à sa fréquence réelle — l'anche
@@ -349,6 +500,7 @@ export class Engine {
     // dernière image côté interface.
     const priorF0 = this.playedMidi != null ? midiToFreq(this.playedMidi, c) : null;
     const coarse = (!quiet && this.coarse.ready()) ? this.coarse.analyze(priorF0) : null;
+    if (coarse) this.lastCoarse = coarse;   // sert à vérifier qu'un partiel existe (unisonHarmonic)
     let f0 = coarse?.f0 ? coarse.f0.freq * calib : null;
 
     // Détection temporelle McLeod (NSDF) : hauteur monophonique robuste aux
@@ -430,6 +582,7 @@ export class Engine {
     // quasi équidistants de la cible nominale : l'appariement bascule de
     // l'un à l'autre → pics discontinus sur la courbe des harmoniques.
     const baseFByCenter = new Map();
+    const baseVoicesByKey = new Map();   // voix de base par groupe (ancres des partiels)
     // Tri par centre, puis explicitement base → harmonique → sous-harmonique
     // à centre égal : garantit que le groupe de base remplit `baseFByCenter`
     // avant que ses groupes harmoniques ne le lisent (indépendant de la
@@ -443,7 +596,14 @@ export class Engine {
       if (!t) continue;
       const az = t.analyze(maxWin, Math.max(3, g.voices.length + 1));
       let anchor = null;
-      if (g.isHarmonic && !g.isSub) {
+      if (g.isPartial) {
+        // Une ancre PAR anche : son partiel k est cherché autour de k fois sa
+        // propre fondamentale mesurée, pas autour de celle d'une voisine.
+        anchor = new Map();
+        for (const bv of baseVoicesByKey.get(g.baseKey) ?? []) {
+          if (bv.tracked) anchor.set(bv.def.id, bv.fMeas * g.kTrack);
+        }
+      } else if (g.isHarmonic && !g.isSub) {
         const bf = baseFByCenter.get(g.center);
         if (bf) anchor = bf * g.kTrack;
       }
@@ -458,6 +618,14 @@ export class Engine {
         cont = this.lastFine.f;
       }
       const voices = this.matchVoices(g, az, calib, claimed, anchor, cont);
+      // On ne publie pas ce qui ne peut pas encore être séparé : sur ce
+      // partiel, les anches doivent être écartées d'au moins 4 cases de la
+      // FFT courante. Avant, la bande du strobe resterait vide plutôt que de
+      // montrer une valeur polluée par la voisine.
+      if (g.isPartial && az && targetSpacing(g) < 4 * (az.srd / az.W)) {
+        for (const v of voices) this.fillVoice(v, null, az.W);
+      }
+      if (!g.isHarmonic) baseVoicesByKey.set(g.key, voices);
       if (!g.isHarmonic) {
         // Les harmoniques mesurées d'une voix de base sont « revendiquées »
         // pour les groupes plus aigus ; les groupes harmoniques, eux,
@@ -486,6 +654,8 @@ export class Engine {
         isHarmonic: !!g.isHarmonic,
         isSub: !!g.isSub,
         hidden: !!g.hidden,
+        isPartial: !!g.isPartial,
+        baseKey: g.baseKey ?? null,
         srd: t.srd,
         W: az?.W ?? 0,
         fill: az?.fill ?? 0,
@@ -738,7 +908,7 @@ export class Engine {
       attack: this.lastAttack,
       // Les groupes cachés (traqueurs de fusion) ne sont pas transmis :
       // ils servent au calcul, pas à l'affichage.
-      groups: groups.filter((g) => !g.hidden),
+      groups: withPartials(groups),
       coarseSpectrum: coarse ? logResample(coarse.mag, coarse.binHz, 1024) : null,
     };
   }
@@ -761,14 +931,22 @@ export class Engine {
     // mais interdit de sauter sur une raie parasite au voisinage du nominal.
     const useAnchor = anchor != null && group.isHarmonic && !group.isSub;
     for (const v of expected) v.mt = v.target;
-    if (useAnchor) expected[0].mt = anchor;
+    if (useAnchor) {
+      // Ancre par anche (Map id → fréquence du partiel) ou ancre unique.
+      if (anchor instanceof Map) {
+        for (const v of expected) if (anchor.has(v.def.id)) v.mt = anchor.get(v.def.id);
+      } else {
+        expected[0].mt = anchor;
+      }
+    }
+    const anchorRef = anchor instanceof Map ? group.center * k : anchor;
     // Tolérance : ±85 cents en général ; ±40 cents pour un partiel ancré ;
     // ±20 cents pour les bandes sous-harmoniques (un doublement de période
     // est verrouillé sur la fondamentale — un pic éloigné est du bruit).
     const tolHz = group.isSub
       ? Math.max(1.5, group.fc * 0.012)
       : useAnchor
-        ? Math.max(2.5, anchor * 0.023)
+        ? Math.max(2.5, anchorRef * 0.023)
         : Math.max(2.5, (group.center * (group.isHarmonic ? k : 1)) * 0.05);
     let comps = az
       ? az.components.map((cp) => ({ ...cp, freq: (cp.freq * calib) / div }))
@@ -839,6 +1017,30 @@ export class Engine {
       v.dTargetCents = null; v.tracked = false;
     }
   }
+}
+
+// Joint à chaque groupe visible les mesures par partiel de ses anches, pour
+// le stroboscope : `partials[k][id]` = fréquence mesurée du partiel k de
+// l'anche `id` (Hz), ou absente si pas (encore) résolue. Le partiel sur lequel
+// le groupe est lui-même mesuré (kTrack) y figure aussi : c'est la même
+// mesure, ramenée au partiel.
+function withPartials(groups) {
+  const byBase = new Map();
+  for (const g of groups) {
+    if (!g.isPartial) continue;
+    const m = byBase.get(g.baseKey) ?? {};
+    m[g.kTrack] = {};
+    for (const v of g.voices) if (v.tracked) m[g.kTrack][v.def.id] = v.fMeas;
+    byBase.set(g.baseKey, m);
+  }
+  return groups.filter((g) => !g.hidden).map((g) => {
+    if (g.isHarmonic || g.isSub) return g;
+    const partials = { ...(byBase.get(g.key) ?? {}) };
+    const k = g.kTrack || 1;
+    partials[k] = {};
+    for (const v of g.voices) if (v.tracked) partials[k][v.def.id] = v.fMeas * k;
+    return { ...g, partials };
+  });
 }
 
 // Rééchantillonnage log-fréquence du spectre large bande pour l'affichage.

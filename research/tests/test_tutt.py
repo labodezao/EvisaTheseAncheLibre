@@ -1,8 +1,11 @@
 """Pont vers TUTT : lecture des perces, impédance d'entrée, résonances.
 
-Les fichiers d'exemple sont fabriqués dans le test lui-même : la banque de
-perces d'Ewen n'est pas versionnée (elle ne m'appartient pas), et un test qui
-dépend d'un fichier absent est un test qui ne sert à rien.
+La plupart des fixtures sont fabriquées dans le test lui-même — un test qui
+dépend d'un fichier absent est un test qui ne sert à rien. Depuis qu'Ewen a
+demandé que ses propres perces entrent dans le dépôt (`research/scripts/
+legacy/perces/`), quelques tests lisent aussi les vraies, en fin de fichier :
+c'est plus honnête qu'une géométrie inventée, et ça vaut la peine de le
+garder à jour avec ce que la perce contient réellement.
 """
 import pathlib
 
@@ -357,3 +360,589 @@ def test_le_souffle_chaud_est_du_cote_de_l_embouchure(tmp_path):
     # les deux diffèrent : la température n'est pas moyennée le long du tube,
     # elle est pondérée exponentiellement vers l'embouchure
     assert abs(1200 * np.log2(chaud_au_bec / froid_au_bec)) > 5.0
+
+
+# =============================================================================
+# Perce idéale — TUTT comme moteur par défaut du cylindre, pas encore du cône
+# =============================================================================
+
+def test_le_cylindre_ideal_vise_a_peu_pres_la_bonne_note():
+    """Solide : aucune troncature de cône à trancher.
+
+    La longueur vient d'un quart d'onde exact ; le calcul y ajoute pertes et
+    rayonnement, qui font sonner le tuyau un peu plus grave — l'écart est
+    donc attendu, petit, et du côté prévisible (jamais plus aigu que visé).
+    """
+    dat = tutt.bore_dat_ideal('cylindrique', 220.0, 14.6)
+    freqs, qs, pics = tutt.resonances(dat, 50, 3000, n_peaks=4)
+    assert freqs, "aucune résonance trouvée"
+    ecart_cents = 1200 * np.log2(freqs[0] / 220.0)
+    assert -150.0 < ecart_cents < 0.0
+
+
+def test_le_cylindre_ideal_garde_la_serie_impaire():
+    """Signature d'un tuyau fermé à l'anche : que des rangs impairs."""
+    dat = tutt.bore_dat_ideal('cylindrique', 220.0, 14.6)
+    freqs, qs, pics = tutt.resonances(dat, 50, 3000, n_peaks=4)
+    ratios = np.array(freqs) / freqs[0]
+    attendu = np.array([1.0, 3.0, 5.0, 7.0])[:len(ratios)]
+    assert np.max(np.abs(ratios - attendu)) < 0.15
+
+
+def test_le_cone_donne_bien_le_registre_a_l_octave():
+    """Un cône doit donner la série harmonique complète — l'octave, pas la
+    douzième. C'est ce qui distingue un saxophone d'une clarinette.
+
+    Ce test a d'abord été écrit **à l'envers** : il figeait le constat qu'un
+    cône idéalisé ne donnait *pas* l'octave (rapports 1 : 1,72 : 2,42, la
+    signature de `tan(kL)=kL`), en prévoyant d'échouer si quelqu'un corrigeait
+    un jour le modèle. C'est exactement ce qui est arrivé : la faute était à
+    l'empilement de cylindres, pas au cône. Avec la vraie ligne de transfert
+    conique de TUTT (`_z_troncon`), l'octave revient toute seule.
+    """
+    dat = tutt.bore_dat_ideal('conique', 220.0, 5.0, taper=10.0)
+    freqs, qs, pics = tutt.resonances(dat, 40, 2000, n_peaks=4)
+    ratios = np.array(freqs) / freqs[0]
+    attendu = np.array([1.0, 2.0, 3.0, 4.0])[:len(ratios)]
+    # un cône tronqué reste un peu étiré : on demande le bon rang, pas la
+    # perfection — la troncature se corrige par la cavité d'anche (ci-dessous)
+    assert np.max(np.abs(ratios - attendu) / attendu) < 0.06
+
+
+def test_le_cylindre_garde_la_douzieme_et_le_cone_prend_l_octave():
+    """Les deux familles se séparent sur la seule géométrie, comme il faut."""
+    cyl = tutt.bore_dat_ideal('cylindrique', 220.0, 14.6)
+    cone = tutt.bore_dat_ideal('conique', 220.0, 5.0, taper=10.0)
+    r_cyl = np.array(tutt.resonances(cyl, 40, 2000, n_peaks=2)[0])
+    r_cone = np.array(tutt.resonances(cone, 40, 2000, n_peaks=2)[0])
+    assert 2.9 < r_cyl[1] / r_cyl[0] < 3.15      # la douzième
+    assert 1.9 < r_cone[1] / r_cone[0] < 2.12    # l'octave
+
+
+def test_la_cavite_d_anche_corrige_l_octave_du_cone_tronque():
+    """Le résultat de Ninob (*Modes propres d'un tronc de cône*), vérifié.
+
+    Un cône tronqué a son octave trop haute — il manque le bout pointu. Une
+    anche solide au petit bout se comporte comme une cavité ajoutée, qui
+    abaisse les modes graves plus que les aigus et **corrige l'octave**.
+    C'est ce qui permet à un saxophone ou à un hautbois d'octavier juste.
+
+    Mesuré ici : sans cavité +95 cents, avec 1,5 cm³ +2 cents.
+    """
+    dat = tutt.bore_dat_ideal('conique', 294.0, 5.0, taper=4.5)
+
+    def octave_cents(volume):
+        f = np.array(tutt.resonances(dat, 40, 2600, n_peaks=2,
+                                     reed_volume_m3=volume)[0])
+        return 1200 * np.log2((f[1] / f[0]) / 2.0)
+
+    sans = octave_cents(None)
+    avec = octave_cents(1.5e-6)
+    assert sans > 60.0                 # nettement trop haute sans cavité
+    assert abs(avec) < 15.0            # corrigée
+    assert avec < sans
+
+
+def test_ideal_resonator_renvoie_un_resonateur_hybrid_utilisable():
+    res, infos = tutt.ideal_resonator('cylindrique', 220.0, 14.6, n_modes=6)
+    assert res.n_modes >= 3
+    assert infos['tronçons'] == 1
+
+
+# =============================================================================
+# Mise à l'échelle — la vraie réponse à « peut-on simplifier une perce »
+# =============================================================================
+
+def _perce_a_trois_troncons():
+    return tutt.BoreDat(
+        n_sections=3, closed_bottom=False,
+        d0=np.array([0.005, 0.010, 0.015]),
+        dl=np.array([0.010, 0.015, 0.022]),
+        lengths=np.array([0.15, 0.20, 0.25]),
+        ofilib=np.ones(3), temperature_c=(32.0, 20.0),
+    )
+
+
+def test_scale_bore_garde_les_rapports_de_resonance():
+    """C'est ce qui décide le registre : une forme réduite à un tronçon les
+    perd (test_le_cone_idealise_tronque_n_est_pas_encore_juste), une forme
+    mise à l'échelle les garde.
+    """
+    dat = _perce_a_trois_troncons()
+    freqs0, _, _ = tutt.resonances(dat, 30, 2000, n_peaks=4)
+    ratios0 = np.array(freqs0) / freqs0[0]
+
+    for k in (0.5, 0.8, 1.3, 2.0):
+        dat_k = tutt.scale_bore(dat, k)
+        freqs_k, _, _ = tutt.resonances(dat_k, 30 / k, 2000 / k, n_peaks=4)
+        ratios_k = np.array(freqs_k) / freqs_k[0]
+        # On ne compare que les trois premiers rangs. Le quatrième de cette
+        # perce d'essai est à −30 dB pile, la hauteur du seuil d'élagage :
+        # comme les pertes ne suivent pas la mise à l'échelle (couche limite
+        # en 1/√f), il passe au-dessus ou en dessous selon le facteur, et
+        # l'entrée n° 4 de la liste change alors de mode. Ce n'est pas une
+        # dérive du registre, c'est un mode marginal qui entre et sort.
+        n = 3
+        derive = np.abs(ratios_k[:n] - ratios0[:n]) / ratios0[:n]
+        assert np.max(derive) < 0.02, (k, ratios_k, ratios0)
+
+
+def test_scale_bore_deplace_la_fondamentale_en_1_sur_k():
+    dat = _perce_a_trois_troncons()
+    f0, _, _ = tutt.resonances(dat, 30, 2000, n_peaks=1)
+    for k in (0.5, 2.0):
+        dat_k = tutt.scale_bore(dat, k)
+        fk, _, _ = tutt.resonances(dat_k, 30 / k, 2000 / k, n_peaks=1)
+        assert fk[0] == pytest.approx(f0[0] / k, rel=0.02)
+
+
+def test_scale_bore_ne_touche_pas_l_ofilib_ni_l_embouchure():
+    """La rugosité est sans dimension ; l'anche suivrait sa propre loi —
+    pas encore écrite ici, donc pas mise à l'échelle en douce."""
+    dat = _perce_a_trois_troncons()
+    dat.ofilib = np.array([1.3, 1.3, 1.3])
+    dat.embouchure = {'MREED': 2.0e-4, 'KREED': 800.0}
+    dat2 = tutt.scale_bore(dat, 1.5)
+    assert np.array_equal(dat2.ofilib, dat.ofilib)
+    assert dat2.embouchure == dat.embouchure
+
+
+def test_scale_bore_refuse_un_facteur_negatif_ou_nul():
+    dat = _perce_a_trois_troncons()
+    with pytest.raises(ValueError):
+        tutt.scale_bore(dat, 0.0)
+    with pytest.raises(ValueError):
+        tutt.scale_bore(dat, -1.0)
+
+
+def test_scale_bore_to_converge_en_deux_ou_trois_passes():
+    dat = _perce_a_trois_troncons()
+    cible = 220.0
+    d = dat
+    for _ in range(3):
+        d = tutt.scale_bore_to(d, cible, fmin=30, fmax=2000)
+    f, _, _ = tutt.resonances(d, 30, 2000, n_peaks=1)
+    assert f[0] == pytest.approx(cible, abs=1.0)
+
+
+# =============================================================================
+# Trous latéraux — le chantier nommé « prochain » depuis le début
+# =============================================================================
+
+def _flute_a_six_trous(d_trou=0.008, h_trou=0.004):
+    """Tube de 500 mm, six cheminées régulières, plus un raccord sans trou."""
+    n = 7
+    return tutt.BoreDat(
+        n_sections=n, closed_bottom=False,
+        d0=np.full(n, 0.015), dl=np.full(n, 0.015),
+        lengths=np.full(n, 0.5 / n),
+        hole_d0=np.array([d_trou] * 6 + [0.0]),
+        hole_dl=np.array([d_trou] * 6 + [0.0]),
+        hole_len=np.array([h_trou] * 6 + [0.0]),
+        ofilib=np.ones(n), temperature_c=(20.0, 20.0),
+    )
+
+
+def test_sans_doigte_tout_est_ferme_et_rien_ne_change():
+    """Le défaut doit redonner exactement l'ancien module, trous éteints."""
+    cyl = tutt.BoreDat(n_sections=1, closed_bottom=False,
+                       d0=np.array([0.015]), dl=np.array([0.015]),
+                       lengths=np.array([0.5]), ofilib=np.ones(1),
+                       temperature_c=(20.0, 20.0))
+    f = tutt.resonances(cyl, 50, 1400, n_peaks=3)[0]
+    assert f[0] == pytest.approx(167.4, abs=1.0)
+    assert f[1] / f[0] == pytest.approx(3.0, abs=0.1)
+
+
+def test_ouvrir_un_trou_fait_monter_la_note():
+    """La vérification qui compte : c'est à ça que sert un trou."""
+    dat = _flute_a_six_trous()
+    ferme = tutt.resonances(dat, 50, 1600, n_peaks=1)[0][0]
+    precedent = ferme
+    for k in range(1, 7):
+        doigte = [0] * k + [1] * (7 - k)      # on ouvre depuis le pavillon
+        f = tutt.resonances(dat, 50, 2200, n_peaks=1, fingering=doigte)[0][0]
+        assert f > precedent, f"ouvrir le trou {k} devrait monter la note"
+        precedent = f
+    assert precedent / ferme > 2.0            # plus d'une octave au total
+
+
+def test_un_trou_ferme_n_est_pas_neutre():
+    """Il reste le volume de la cheminée, qui alourdit un peu la colonne.
+
+    C'est pour ça que TUTT garde les trous fermés dans le calcul au lieu de
+    les effacer — et c'est mesurable : la note descend légèrement.
+    """
+    avec = _flute_a_six_trous()
+    sans = _flute_a_six_trous(d_trou=0.0, h_trou=0.0)
+    f_avec = tutt.resonances(avec, 50, 1200, n_peaks=1)[0][0]
+    f_sans = tutt.resonances(sans, 50, 1200, n_peaks=1)[0][0]
+    assert f_avec < f_sans
+    assert 0 < 1200 * np.log2(f_sans / f_avec) < 60.0     # quelques cents
+
+
+def test_un_trou_plus_gros_fait_monter_plus_haut():
+    """Une grande cheminée court-circuite mieux qu'une petite."""
+    doigte = [0] + [1] * 6
+    petit = tutt.resonances(_flute_a_six_trous(d_trou=0.004), 50, 1600,
+                            n_peaks=1, fingering=doigte)[0][0]
+    grand = tutt.resonances(_flute_a_six_trous(d_trou=0.010), 50, 1600,
+                            n_peaks=1, fingering=doigte)[0][0]
+    assert grand > petit
+
+
+def test_le_doigte_se_donne_par_nom_ou_par_tableau():
+    dat = _flute_a_six_trous()
+    dat.fingerings = [('sol', [0, 1, 1, 1, 1, 1, 1])]
+    par_nom = tutt.resonances(dat, 50, 1600, n_peaks=1, fingering='sol')[0][0]
+    par_tab = tutt.resonances(dat, 50, 1600, n_peaks=1,
+                              fingering=[0, 1, 1, 1, 1, 1, 1])[0][0]
+    assert par_nom == pytest.approx(par_tab)
+    with pytest.raises(ValueError):
+        tutt.resonances(dat, 50, 1600, n_peaks=1, fingering='zorglub')
+
+
+def test_un_dans_le_doigte_veut_bien_dire_ferme():
+    """Le piège d'inversion : on dit « boucher un trou » et on écrit 1.
+
+    Si la convention était lue à l'envers, tout doigté jouerait l'inverse de
+    ce qu'il dit — et tous les fichiers de Ninob seraient faux d'un coup.
+    """
+    dat = _flute_a_six_trous()
+    tout_ferme = tutt.resonances(dat, 50, 2200, n_peaks=1,
+                                 fingering=[1] * 7)[0][0]
+    tout_ouvert = tutt.resonances(dat, 50, 2200, n_peaks=1,
+                                  fingering=[0] * 6 + [1])[0][0]
+    assert tout_ouvert > tout_ferme
+
+
+# =============================================================================
+# Le critère de TUTT : les zéros de Im(Z), et Proxi pour choisir
+# =============================================================================
+
+def _cylindre_nu():
+    return tutt.BoreDat(n_sections=1, closed_bottom=False,
+                        d0=np.array([0.015]), dl=np.array([0.015]),
+                        lengths=np.array([0.5]), ofilib=np.ones(1),
+                        temperature_c=(20.0, 20.0))
+
+
+def test_les_zeros_de_im_z_tombent_sur_les_sommets_de_module():
+    """Validation croisée des deux critères, l'un par l'autre.
+
+    TUTT cherche les zéros de la partie imaginaire ; ce module cherchait les
+    sommets du module. Sur un tube peu amorti les deux doivent coïncider —
+    et s'ils coïncident, c'est que les deux sont bons.
+    """
+    cyl = _cylindre_nu()
+    zeros = np.array(tutt.playing_frequencies(cyl, 50, 1400))
+    sommets = np.array(tutt.resonances(cyl, 50, 1400, n_peaks=4)[0])
+    for f in sommets:
+        assert np.min(np.abs(zeros - f)) < 0.5, f       # à moins d'un demi-hertz
+
+
+def test_les_zeros_alternent_sommets_et_creux():
+    """Im(Z)=0 aux résonances **et** aux antirésonances — d'où Proxi.
+
+    C'est précisément pourquoi TUTT ne peut pas se contenter de la liste :
+    il faut ensuite choisir, et c'est le rôle de `mode_le_plus_proche`.
+    """
+    cyl = _cylindre_nu()
+    zeros = np.array(tutt.playing_frequencies(cyl, 50, 1400))
+    assert zeros.size >= 6
+    sommets = np.array(tutt.resonances(cyl, 50, 1400, n_peaks=3)[0])
+    # un zéro sur deux est un sommet ; ceux du milieu n'en sont pas
+    for f in sommets:
+        assert np.min(np.abs(zeros - f)) < 0.5
+    entre = zeros[1]
+    assert np.min(np.abs(sommets - entre)) > 50.0
+
+
+def test_mode_le_plus_proche_fait_ce_que_fait_proxi():
+    modes = [167.5, 506.0, 845.1, 1184.6]
+    rang, f, cents = tutt.mode_le_plus_proche(modes, 500.0)
+    assert rang == 1 and f == pytest.approx(506.0)
+    assert cents == pytest.approx(1200 * np.log2(506.0 / 500.0), abs=1e-6)
+
+    # débordements : TUTT prend le mode extrême plutôt que de refuser
+    assert tutt.mode_le_plus_proche(modes, 20.0)[0] == 0
+    assert tutt.mode_le_plus_proche(modes, 5000.0)[0] == len(modes) - 1
+    with pytest.raises(ValueError):
+        tutt.mode_le_plus_proche([], 440.0)
+
+
+def test_l_impedance_d_anche_change_de_signe_a_sa_resonance():
+    """`j(mω − k/ω)/A²` : raideur en dessous, masse au-dessus, nulle dessus.
+
+    C'est ce qui fait que l'anche tire la note vers sa propre fréquence
+    d'autant plus fort qu'elle en est proche.
+    """
+    m, k, a = 2.0e-6, 800.0, 1.0e-4
+    f_anche = np.sqrt(k / m) / (2 * np.pi)
+    z = tutt.reed_impedance([f_anche * 0.5, f_anche, f_anche * 2.0], m, k, a)
+    assert np.imag(z[0]) < 0                       # dominée par la raideur
+    assert abs(np.imag(z[1])) < 1e-6 * abs(np.imag(z[0]))
+    assert np.imag(z[2]) > 0                       # dominée par la masse
+    with pytest.raises(ValueError):
+        tutt.reed_impedance([440.0], m, k, 0.0)
+
+
+def test_la_cavite_qui_accorde_l_octave_la_trouve():
+    """Le geste du facteur : on ajuste jusqu'à ce que l'octave tombe juste."""
+    dat = tutt.bore_dat_ideal('conique', 294.0, 5.0, taper=4.5)
+    avant = tutt.resonances(dat, 40, 2600, n_peaks=2)[0]
+    ecart_avant = 1200 * np.log2((avant[1] / avant[0]) / 2.0)
+    assert ecart_avant > 60.0                       # nettement trop haute
+
+    v, ecart = tutt.cavite_qui_accorde_l_octave(dat)
+    assert 0 < v < 5e-6                             # quelques cm³
+    assert abs(ecart) < 1.0                         # juste au cent près
+
+
+def test_la_cavite_trouvee_depend_de_la_troncature():
+    """Moins le cône est tronqué, moins il manque de volume à rendre."""
+    court = tutt.bore_dat_ideal('conique', 294.0, 5.0, taper=4.5)
+    long_ = tutt.bore_dat_ideal('conique', 294.0, 5.0, taper=8.0)
+    v_court, _ = tutt.cavite_qui_accorde_l_octave(court)
+    v_long, _ = tutt.cavite_qui_accorde_l_octave(long_)
+    assert v_court > v_long
+
+
+def test_sur_un_cylindre_il_n_y_a_pas_d_octave_a_accorder():
+    """Un cylindre ne fait pas l'octave mais la douzième : la fonction doit
+    le dire en rendant le meilleur essai, pas lever une erreur."""
+    cyl = tutt.bore_dat_ideal('cylindrique', 294.0, 14.6)
+    v, ecart = tutt.cavite_qui_accorde_l_octave(cyl)
+    assert v == 0.0
+    assert ecart > 600.0                            # c'est une douzième
+
+
+def test_gamme_des_doigtes_rend_la_gamme_de_la_perce():
+    """Une vraie perce ne se transpose pas : elle a des trous, et chaque
+    combinaison de doigts donne une note. C'est cette liste-là."""
+    dat = _flute_a_six_trous()
+    dat.fingerings = [(f'd{k}', [0] * k + [1] * (7 - k)) for k in range(7)]
+    gamme = tutt.gamme_des_doigtes(dat, fmax=2400)
+    assert len(gamme) == 7
+    freqs = [f for _, _, f in gamme]
+    assert freqs == sorted(freqs)                 # rendue du grave à l'aigu
+    assert freqs[-1] / freqs[0] > 2.0
+    with pytest.raises(ValueError):
+        tutt.gamme_des_doigtes(tutt.BoreDat())
+
+
+def test_un_nom_de_doigte_peut_contenir_des_chiffres(tmp_path):
+    """« do5 », « fa#4 » : les noms de notes en ont, et la première version
+    de la lecture les tronquait silencieusement à la première décimale."""
+    p = pathlib.Path(tmp_path) / 'doigtes.dat'
+    p.write_text(
+        "essai de doigtés\n"
+        "NOMBRE DE TRONCONS DE LA LIGNE (-1) N\n3\n"
+        "BAS DE LIGNE OUVERT OU FERME C1 (0=OUVERT, 1=FERME)\n0\n"
+        "TABLEAU PERCE D0 (DIMENSION N+1)\n0.015 0.015 0.015 0.015\n"
+        "TABLEAU PERCE DL (DIMENSION N+1)\n0.015 0.015 0.015 0.015\n"
+        "TABLEAU DES TRONCONS DE LA LIGNE PRINCIPALE L (DIMENSION N+1)\n"
+        "0.12 0.12 0.12 0.12\n"
+        "1 1 1 'do5 ' 100\n"
+        "0 1 1 'fa#4 ' 100\n", encoding='latin-1')
+    noms = [nom.strip() for nom, _ in tutt.read_dat(p).fingerings]
+    assert 'do5' in noms and 'fa#4' in noms
+
+
+# =============================================================================
+# La cheminée effective — LCZB, la correction que le fichier ne donne pas
+# =============================================================================
+
+def test_un_trou_ferme_garde_sa_hauteur_percee():
+    """`LCZB` n'applique ses corrections que si le trou est **ouvert**.
+
+    C'est tout le mécanisme du doigté fourchu : reboucher un trou sous le
+    premier trou ouvert rend à la colonne la longueur que la correction lui
+    retirait.
+    """
+    brute = 0.00235
+    assert tutt.cheminee_effective(0.00998, 0.00949, brute, 0.0171,
+                                   ouvert=False) == pytest.approx(brute)
+
+
+def test_un_trou_ouvert_voit_sa_cheminee_beaucoup_plus_longue():
+    """Sur une paroi mince, la correction intérieure domine la cheminée.
+
+    Les chiffres sont ceux du trou le plus bas d'une bombarde réelle :
+    Ø 9,98/9,49 mm, cheminée percée 2,35 mm, perce 17,1 mm. Nederveen donne
+    `c = (d/2)(1,3 − 0,9 d/D)` ≈ 3,8 mm, soit une cheminée effective de
+    l'ordre de 6 mm — plus du double du bois percé.
+    """
+    lp = tutt.cheminee_effective(0.00998, 0.00949, 0.00235, 0.0171,
+                                 ouvert=True)
+    assert lp == pytest.approx(0.00615, abs=2e-4)
+    assert lp > 2.5 * 0.00235
+
+
+def test_le_diametre_effectif_suit_la_sveltesse_de_la_cheminee():
+    """Haute, c'est le diamètre intérieur ; basse, c'est le plus étroit."""
+    haute = tutt.diametre_effectif_trou(d0p=0.010, dlp=0.006, lp0=0.050)
+    basse = tutt.diametre_effectif_trou(d0p=0.010, dlp=0.006, lp0=1e-5)
+    assert haute == pytest.approx(0.006, rel=1e-3)
+    assert basse == pytest.approx(0.006, rel=1e-3)   # ici min == dlp
+    # avec un sous-coupé (plus large dedans), les deux limites se séparent
+    haute = tutt.diametre_effectif_trou(d0p=0.006, dlp=0.010, lp0=0.050)
+    basse = tutt.diametre_effectif_trou(d0p=0.006, dlp=0.010, lp0=1e-5)
+    # la bascule est exponentielle, jamais tout à fait atteinte
+    assert haute == pytest.approx(0.010, rel=1e-2)
+    assert basse == pytest.approx(0.006, rel=1e-3)
+
+
+def test_la_correction_de_cheminee_desserre_la_gamme():
+    """Sans elle, chaque trou ouvert court-circuite trop et la gamme s'étire.
+
+    On compare la même perce avec et sans la correction : la note tous trous
+    ouverts doit descendre quand on la rétablit. C'est le défaut exact qu'on
+    mesurait sur une vraie bombarde — +14 % sur chaque intervalle.
+    """
+    dat = _flute_a_six_trous()
+    ouvert = [0] * 6 + [1]
+    avec = tutt.resonances(dat, 50, 1600, n_peaks=1, fingering=ouvert)[0][0]
+
+    vrai = tutt.cheminee_effective
+    try:
+        tutt.cheminee_effective = (
+            lambda d0p, dlp, lp0, d_perce, ouvert, **kw: lp0)
+        sans = tutt.resonances(dat, 50, 1600, n_peaks=1,
+                               fingering=ouvert)[0][0]
+    finally:
+        tutt.cheminee_effective = vrai
+    assert avec < sans
+    assert 1200 * np.log2(sans / avec) > 30.0
+
+
+def test_un_trou_rebouche_sous_le_premier_ouvert_fait_baisser_la_note():
+    """Le doigté fourchu, en une ligne : c'est ce que la correction rend possible."""
+    dat = _flute_a_six_trous()
+    #                 pavillon → embouchure ; 0 = ouvert
+    droit = [0, 0, 0, 1, 1, 1, 1]
+    fourche = [0, 1, 0, 1, 1, 1, 1]          # on rebouche le deuxième
+    f_droit = tutt.resonances(dat, 50, 1600, n_peaks=1, fingering=droit)[0][0]
+    f_fourche = tutt.resonances(dat, 50, 1600, n_peaks=1,
+                                fingering=fourche)[0][0]
+    assert f_fourche < f_droit
+
+
+# =============================================================================
+# LTRANS : la seconde écriture de la même ligne
+# =============================================================================
+
+def _cone(d_petit=0.004, d_grand=0.030, longueur=0.5):
+    """Tronc de cône d'un seul tronçon, ouvert au grand bout."""
+    return tutt.BoreDat(
+        n_sections=0, closed_bottom=False,
+        d0=np.array([d_petit]), dl=np.array([d_grand]),
+        lengths=np.array([longueur]), ofilib=np.ones(1),
+        temperature_c=(20.0, 20.0))
+
+
+@pytest.mark.parametrize('perce', ['cylindre', 'cone'])
+def test_les_deux_ecritures_de_la_ligne_donnent_la_meme_impedance(perce):
+    """Le contrôle croisé : deux dérivations, une seule physique.
+
+    `input_impedance` transforme une impédance de proche en proche ;
+    `champ_de_pression` propage les amplitudes `A` et `B` comme `LTRANS`.
+    Rien ne les oblige à tomber d'accord — sinon d'être justes toutes les
+    deux. Sur une ligne sans trou elles concordent à la précision machine,
+    et c'est ce qui a permis de trouver que la section du bas de ligne
+    n'était pas celle du pavillon mais celle de l'origine du tronçon.
+    """
+    if perce == 'cylindre':
+        dat = tutt.BoreDat(n_sections=0, closed_bottom=False,
+                           d0=np.array([0.015]), dl=np.array([0.015]),
+                           lengths=np.array([0.5]), ofilib=np.ones(1),
+                           temperature_c=(20.0, 20.0))
+    else:
+        dat = _cone()
+    freqs = np.linspace(80.0, 2000.0, 800)
+    z1 = tutt.input_impedance(dat, freqs)
+    z2 = tutt.champ_de_pression(dat, freqs)['z']
+    assert np.allclose(z1, z2, rtol=1e-9)
+
+
+def test_ltrans_garde_la_serie_harmonique_du_cone():
+    """Un cône doit donner 1 : 2 : 3, pas les quintes d'un cylindre."""
+    freqs = np.linspace(80.0, 1200.0, 4000)
+    z = np.abs(tutt.champ_de_pression(_cone(), freqs)['z'])
+    i = np.where((z[1:-1] > z[:-2]) & (z[1:-1] > z[2:]))[0] + 1
+    f = freqs[i][:3]
+    assert f[1] / f[0] == pytest.approx(2.0, abs=0.08)
+    assert f[2] / f[0] == pytest.approx(3.0, abs=0.15)
+
+
+def test_le_champ_donne_une_pression_normalisee_par_trou():
+    """`PRESSN` : la pression au droit de chaque trou, rapportée au maximum."""
+    dat = _flute_a_six_trous()
+    champ = tutt.champ_de_pression(dat, np.array([300.0, 600.0]))
+    p = champ['pressn']
+    assert p.shape == (6, 2)
+    assert np.all(p >= 0.0) and np.all(p <= 1.0 + 1e-12)
+
+
+def test_une_flute_et_une_anche_ne_jouent_pas_le_meme_extremum():
+    """Anche solide : sommets de |Z|. Anche aérienne : creux. Jamais l'inverse."""
+    dat = _cone()
+    dat.embouchure['IFLUTE'] = 1.0            # anche solide
+    f_anche = tutt.frequence_de_jeu(dat, 300.0, jet=False)
+    dat.embouchure['IFLUTE'] = 0.0            # flûte à bec
+    f_flute = tutt.frequence_de_jeu(dat, 300.0, jet=False)
+    assert f_anche == pytest.approx(291.7, abs=6.0)
+    assert f_flute != pytest.approx(f_anche, abs=5.0)
+
+
+def test_la_gamme_officielle_sort_du_fichier(tmp_path):
+    """`GAMME` : `NDEGA = NDEGG − NTESSB − 1`, donc le degré 1 tombe
+    `NTESSB` demi-tons sous le la — quatre ici, soit fa."""
+    dat = tutt.BoreDat(a4_hz=440.0, n_degres=13, degre_du_grave=4,
+                       temperament_octave_juste=True)
+    g = tutt.frequences_de_la_gamme(dat)
+    assert g[0] == pytest.approx(440.0 * 2 ** (-4 / 12), rel=1e-9)
+    assert g[0] == pytest.approx(349.23, abs=0.02)      # fa4
+    assert g[12] / g[0] == pytest.approx(2.0, rel=1e-9)
+    dat.temperament_octave_juste = False      # égal à quintes justes
+    g = tutt.frequences_de_la_gamme(dat)
+    assert g[7] / g[0] == pytest.approx(1.5, rel=1e-9)
+
+
+# =============================================================================
+# Les vraies perces d'Ewen — plus une géométrie inventée
+# =============================================================================
+
+PERCES = (pathlib.Path(__file__).resolve().parents[1]
+          / "scripts" / "legacy" / "perces")
+
+
+@pytest.mark.skipif(not PERCES.exists(), reason="perces d'Ewen non présentes")
+def test_la_bombarde_d_ewen_se_lit_et_donne_un_cone_juste():
+    """`bombarde_sol_finale.dat` : la perce qui a servi à trouver LCZB.
+
+    Tous trous fermés, elle doit donner la série harmonique complète — c'est
+    ce qui a permis de distinguer, dès la première mesure, une perce conique
+    juste d'un bug de tronçonnement.
+    """
+    dat = tutt.read_dat(PERCES / "bombarde_ewen_daviau" / "bombarde_sol_finale.dat")
+    assert dat.solid_reed is True
+    assert len(dat.lengths) == 22
+    assert dat.total_length_m == pytest.approx(0.438, abs=0.001)
+    assert len(dat.fingerings) == 29
+
+    freqs, _, _ = tutt.resonances(dat, 200, 2500, n_peaks=5)
+    freqs = np.asarray(freqs)
+    rapports = freqs / freqs[0]
+    assert rapports[:4] == pytest.approx([1, 2, 3, 4], rel=0.03)
+
+
+@pytest.mark.skipif(not PERCES.exists(), reason="perces d'Ewen non présentes")
+def test_la_clarinette_folk_a_bien_ses_doigtes_fourchus():
+    """`clarifolk.dat` : une anche solide, 27 doigtés réels — pas 6 trous
+    idéalisés d'un tube d'essai."""
+    dat = tutt.read_dat(PERCES / "clarinette_folk_ewen_daviau" / "clarifolk.dat")
+    assert dat.solid_reed is True
+    assert len(dat.fingerings) == 27
+    noms = [nom.strip().lower() for nom, _ in dat.fingerings]
+    assert 'fa#' in noms or 'fa #' in noms

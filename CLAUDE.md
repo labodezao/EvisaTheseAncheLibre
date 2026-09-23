@@ -54,3 +54,10 @@ n'a de sens que reliée à ce qui se passe dans le cadre du corps.
 - Tests `research` pensés **numpy seul** (deps lourdes importées paresseusement).
 - Sources d'origine (Drive) versées dans `research/scripts/legacy/` (+ `models/`),
   avec les fileId pour re-télécharger à la demande.
+- **TUTT et les perces d'Ewen sont versionnés** (décision d'Ewen, 2026-09-21 :
+  « oui tout dans le dépôt, tout est coauteurs mets tout »). Sources Fortran de
+  TUTT 4.1 dans `research/scripts/legacy/tutt/` (œuvre de B.B. « Ninob » —
+  `CREDITS.md` du dossier crédite explicitement) ; perces réelles d'Ewen
+  (bombarde, clarinette folk) dans `research/scripts/legacy/perces/`. Le reste
+  de sa bibliothèque Drive (saxophones, hautbois, cuivres, cromornes…) n'est
+  pas encore rapatrié — à faire à la demande, même convention.

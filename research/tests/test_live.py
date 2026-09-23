@@ -325,3 +325,59 @@ def test_mingw_lie_libgcc_statiquement(tmp_path, monkeypatch):
                                      tmp_path / 'hybrid_voice.c',
                                      tmp_path / 'hybridvoice.dll')
     assert '-static-libgcc' not in cmd
+
+
+# --- une vraie perce, jouée par ses doigtés ---------------------------------
+
+def _perce_a_six_trous():
+    """Perce fabriquée sur place : la banque d'Ewen n'est pas versionnée."""
+    from banc_recherche import tutt
+    n = 7
+    dat = tutt.BoreDat(
+        n_sections=n, closed_bottom=False,
+        d0=np.full(n, 0.015), dl=np.full(n, 0.015),
+        lengths=np.full(n, 0.5 / n),
+        hole_d0=np.array([0.008] * 6 + [0.0]),
+        hole_dl=np.array([0.008] * 6 + [0.0]),
+        hole_len=np.array([0.004] * 6 + [0.0]),
+        ofilib=np.ones(n), temperature_c=(20.0, 20.0), title='essai')
+    dat.fingerings = [(f'd{k}', [0] * k + [1] * (7 - k)) for k in range(7)]
+    return dat
+
+
+def test_une_perce_reelle_donne_un_instrument_jouable():
+    inst = live.build_instrument_from_bore(_perce_a_six_trous(),
+                                           famille='clarinette')
+    assert len(inst.fingerings) == 7
+    notes = [n for _, _, _, n in inst.fingerings]
+    assert notes == sorted(notes) and len(set(notes)) == 7
+    s = live.Synth(inst, polyphony=1)
+    s.note_on(notes[0], 100)
+    a = s.render(24000).astype('float64')
+    f = hybrid.playing_frequency(a[9000:], inst.samplerate)
+    attendu = inst.fingerings[0][2]
+    assert abs(1200 * np.log2(f / attendu)) < 40.0
+
+
+def test_la_justesse_d_une_vraie_perce_n_est_pas_corrigee():
+    """`build_instrument` accorde chaque note ; ici surtout pas.
+
+    L'écart entre ce que la perce donne et ce qu'elle devrait donner **est**
+    le résultat qu'on vient chercher — le corriger effacerait la mesure.
+    """
+    inst = live.build_instrument_from_bore(_perce_a_six_trous(),
+                                           famille='clarinette')
+    ecarts = [1200 * np.log2(f / live.midi_to_hz(n))
+              for _, _, f, n in inst.fingerings]
+    assert max(abs(e) for e in ecarts) > 10.0     # la perce d'essai est fausse
+    assert all(abs(e) < 100.0 for e in ecarts)    # mais rangée sur la bonne touche
+
+
+def test_une_touche_sans_doigte_rend_la_plus_proche():
+    """Une perce réelle ne remplit pas le clavier : jouer entre deux doigtés
+    doit donner quelque chose, pas planter."""
+    inst = live.build_instrument_from_bore(_perce_a_six_trous(),
+                                           famille='clarinette')
+    notes = sorted(n for _, _, _, n in inst.fingerings)
+    trou = next(n for n in range(notes[0], notes[-1]) if n not in notes)
+    assert inst.params_for(trou) is not None

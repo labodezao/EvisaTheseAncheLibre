@@ -392,10 +392,9 @@ douzième 12,5 cents faux, sans aucun moyen de le savoir.
 
 ### Ce qui reste à faire
 
-Les **trous latéraux** ne sont pas encore posés dans le calcul d'impédance :
-seule la colonne principale l'est. Un doigté tous trous fermés est donc juste,
-un doigté ouvert ne l'est pas. TUTT, lui, les traite. Le module le dit dans
-son rapport (`trous_latéraux: NON POSÉS`) plutôt que de laisser croire.
+Les **trous latéraux** sont posés depuis §9 : chaque cheminée est un tronc de
+cône en dérivation, ouvert ou fermé selon le doigté. Le rapport du module dit
+combien il en a trouvé et lequel des doigtés il a appliqué.
 
 Et le **volume équivalent d'anche** — Ninob montre (*Modes propres d'un tronc
 de cône*) qu'une anche solide au petit bout d'un cône se comporte comme une
@@ -484,3 +483,478 @@ la crête cesse de monter. Une corde frottée monte par paliers — 0,87 puis
 prendre, sous-estimait la vielle de 25 %, et la saturait ensuite en jeu. On
 rend désormais la durée entière, sur cinq notes de la tessiture, et
 `Synth.render` finit au limiteur doux plutôt qu'au `clip`.
+
+---
+
+## 9. TUTT comme moteur du résonateur — et une erreur retrouvée dans son source
+
+« TUTT est une référence ultime en tant que modèle physique » — c'est le
+mandat. En allant le chercher dans le Drive, c'est le **source Fortran** qui a
+tranché une question que trois jours de mesures n'avaient pas réussi à
+trancher.
+
+### L'échec d'abord : le cône idéalisé ne donnait pas l'octave
+
+Première version du moteur : une perce idéalisée à un tronçon, cylindre ou
+cône, passée dans la chaîne d'impédance du module (matrices de transfert,
+pertes de Kirchhoff/Mason, rayonnement). Le **cylindre** sortait juste — série
+impaire exacte, registre à la douzième. Le **cône** sortait faux d'un demi-ton :
+au lieu de l'octave attendue (rapports 1 : 2 : 3), il donnait 1 : 1,72 : 2,42,
+jusqu'à 330 cents d'écart.
+
+Trois hypothèses éliminées par la mesure, dans l'ordre :
+
+1. *un manque de finesse de découpage* — non, le sous-découpage convergeait
+   déjà ;
+2. *une question d'échelle* — non, réduire le rayon tronqué de 0,5 mm à 0,5 µm
+   ne change rien ;
+3. *une question de longueur virtuelle manquante* — non, pousser le rapport
+   pavillon/anche de 4,5 à 100 ne bouge pas le motif des rapports.
+
+Le motif, lui, était identifiable : les rapports 1 : 1,719 : 2,427 : 3,130
+sont les racines de `tan(kL) = kL`, la signature d'un cône **fermé** à son
+petit bout. Le calcul faisait donc quelque chose de cohérent — mais pas ce
+qu'on lui demandait. Conclusion prudente de l'époque : garder les trois
+instruments coniques sur la série postulée, écrire le résultat négatif, et
+poser un test qui **échouerait exprès** si quelqu'un corrigeait un jour le
+modèle sans mettre l'avertissement à jour.
+
+### Le source de TUTT donne la réponse en trois lignes
+
+`Perce2.for` caractérise chaque tronçon par une seule grandeur :
+
+    DELTA = (DL − D0) / (D0 · L)        « CARACTERISE LA CONICITE DU TRONCON »
+
+et la passe à `LTRANS`. `Ltran9.for` dit alors ce que sont les champs dans un
+tronçon tronconique — et ce ne sont **pas** des ondes planes :
+
+    p(x) = (A·e^(jkx) + B·e^(−jkx)) / (1 + Δx)
+    w(x) = −S₀/(jωρ) · [A·(jk + Δ(jkx−1))·e^(jkx) − B·(jk + Δ(jkx+1))·e^(−jkx)]
+
+Le `1/(1 + Δx)` sur la pression est la décroissance sphérique du cône ; les
+termes en `Δ` sur le débit en sont la contrepartie. **Ce sont eux qui font
+qu'un cône est un cône.** Un empilement de cylindres — ce que faisait ce
+module — les perd tous : chaque tranche est un tuyau droit, la section change
+d'une tranche à l'autre mais l'onde à l'intérieur reste plane. D'où un
+résultat qui se comporte comme un tube **fermé** au petit bout, et le
+`tan(kL) = kL`.
+
+L'erreur n'était donc ni dans TUTT, ni dans le cône, ni dans la troncature :
+elle était dans mon approximation.
+
+### Ce que ça donne une fois corrigé
+
+`tutt._z_troncon` implémente la formule telle quelle — un tronçon en **un
+seul pas**, si long soit-il, au lieu d'un découpage à convergence surveillée.
+Plus juste *et* plus rapide, ce qui n'arrive pas si souvent. TUTT le dit
+d'ailleurs lui-même : « LES TRONCONS SONT SUPPOSES TRONCONIQUES ; ILS PEUVENT
+ETRE LONGS CAR ON TIENT COMPTE DES VARIATIONS SPATIALES DE PRESSION ET DE
+DEBIT ».
+
+| perce | avant (cylindres empilés) | après (tronçon conique exact) |
+|---|---|---|
+| cylindre Ø 15 mm, 500 mm | 167,4 / 505,9 / 845,1 Hz | 167,3 / 505,9 / 845,0 Hz |
+| cône, rapport 10 | 1 : 8,55 : 14,7 | **1 : 2,02 : 3,06 : 4,12** |
+| cône, rapport 4,5 | 1 : 5,83 : 9,98 | **1 : 2,11 : 3,30 : 4,52** |
+
+Le cylindre ne bouge pas (la formule y dégénère exactement), et le cône donne
+enfin l'octave. Le test négatif a été retourné en test positif, comme prévu.
+
+### Et la cavité d'anche de Ninob referme la boucle
+
+Il reste, sur le cône à rapport 4,5, une octave trop haute de **+95 cents** :
+c'est la troncature — il manque le bout pointu. Ninob l'a traitée dans *Modes
+propres d'un tronc de cône* : une anche solide au petit bout se comporte comme
+une **cavité ajoutée**, qui abaisse les modes graves plus que les aigus et
+corrige l'octave. C'est ce qui permet à un saxophone ou à un hautbois
+d'octavier juste.
+
+Vérifié ici, sur la perce ci-dessus (volume de cône manquant : 1,12 cm³) :
+
+| cavité d'anche | octave |
+|---|---|
+| aucune | +95,1 cents |
+| 0,5 cm³ | +66,8 |
+| 1,12 cm³ (le cône manquant) | +27,0 |
+| **1,50 cm³** | **+1,8** |
+| 2,0 cm³ | −29,9 |
+
+Le volume qui corrige vaut environ 1,3 fois le cône géométriquement manquant.
+Le paramètre existait déjà dans le module (`reed_volume_m3`) et n'était
+« jamais appliqué automatiquement » faute de savoir à quoi il servait
+vraiment. Maintenant on sait, et on sait le mesurer.
+
+### Ce qui reste, et pourquoi les coniques ne passent pas encore en jeu
+
+La physique est juste ; c'est la **géométrie idéalisée** qui ne l'est pas
+assez. Une perce conique à un seul tronçon a un fondamental trop faible : son
+deuxième sommet d'impédance sort **3 dB au-dessus** du premier, et l'anche s'y
+accroche — au clavier, la note sort une octave trop haut sur une partie de la
+tessiture. La cavité d'anche corrige la justesse de l'octave, pas ce
+déséquilibre-là (elle l'accentue même : +5,4 dB).
+
+C'est d'ailleurs un trait réel des perces coniques étroites — une bombarde est
+réputée difficile à faire parler dans le grave. Mais ici il vient surtout de la
+troncature. Deux choses le lèveraient, et aucune n'est un réglage :
+
+- une **vraie perce**, dont le profil complet renforce le fondamental — et
+  `tutt.scale_bore` sait déjà en couvrir un clavier entier ;
+- un modèle d'**embouchure** : le pincement des lèvres, ce par quoi un sonneur
+  choisit son registre. Notre excitateur n'a rien de tel.
+
+D'ici là : `clarinette` passe par `engine='tutt'` (0,3 cent d'écart médian sur
+la tessiture), les trois coniques gardent la série postulée, et le calcul
+conique exact sert à tout ce qui passe par une **vraie** perce.
+
+### Ce que le source a donné d'autre, et qui n'est pas encore exploité
+
+`Ltran9.for` contient deux choses de plus, lues et notées :
+
+- **les trous latéraux** — tableau `CP` (0 = ouvert, 1 = fermé), branches
+  latérales `AP`/`BP` avec leur propre constante de propagation et leur
+  impédance de bout. C'est l'algorithme exact du chantier « trous latéraux »,
+  qui n'a plus besoin d'être inventé ;
+- **la définition même de la résonance** : TUTT ne cherche pas les sommets de
+  |Z| du tube nu, mais les **zéros de la partie imaginaire** de
+  `Z = Z_anche + (Z_tube + Z_bouche)/FC`, anche comprise
+  (`Z_anche = j(M·ω − K/ω)/A²`). D'où cette remarque de Ninob, qui vaut pour
+  toute la suite : avec une anche **solide** on joue près des *antirésonances*
+  du tube, avec une anche **aérienne** (flûte) près de ses *résonances*.
+
+### Les trous latéraux, enfin posés
+
+C'était le chantier nommé « prochain » depuis le début du module, et il n'a
+plus rien d'un chantier une fois `Ltran9.for` lu : TUTT décrit l'instrument
+comme « UNE COLONNE D'AIR RAMIFIEE EN ARETE DE POISSON », et chaque trou y est
+**un tuyau de plus** — tableaux `D0P`, `DLP`, `LP0` pour sa géométrie, sa
+propre constante de propagation `KP`, sa propre impédance de bout `zboup`.
+
+Un trou n'est donc pas un bouton qu'on enfonce. C'est une cheminée branchée
+**en dérivation** sur la perce : perce et cheminée débouchent sur le même
+nœud, donc leurs admittances s'ajoutent. Ouverte, la cheminée porte son
+impédance de rayonnement — petite — et court-circuite tout ce qui est en
+dessous : le tuyau se comporte comme s'il s'arrêtait là, et la note monte.
+Fermée, il reste le volume de la cheminée, qui alourdit un peu la colonne.
+
+`tutt.input_impedance(..., fingering=...)` prend soit le **nom** d'un doigté du
+fichier (`'fa'`), soit son tableau de 0/1. La convention est celle du `CP` de
+TUTT : **`1` = fermé**, ce qui est le contraire de ce que la main suggère —
+on « bouche » un trou et on écrit 1. Un test est là uniquement pour ça : lue à
+l'envers, la convention ferait jouer tous les fichiers de Ninob à l'envers
+sans rien signaler.
+
+Mesuré sur un tube d'essai de 500 mm à six cheminées de 8 mm :
+
+| doigté | note |
+|---|---|
+| tous fermés | 166,2 Hz |
+| 1 trou ouvert | 188,2 Hz (+2,2 demi-tons) |
+| 2 trous | 224,1 Hz (+5,2) |
+| 3 trous | 277,2 Hz (+8,9) |
+| 4 trous | 362,9 Hz (+13,5) |
+| 6 trous | 915,5 Hz (+29,5) |
+
+Deux vérifications qui valent mieux qu'un tracé : une perce **sans** trou rend
+exactement ce que le module rendait avant (167,4 / 505,9 / 845,0 Hz — rien n'a
+bougé), et une cheminée **plus grosse** fait monter plus haut qu'une petite,
+parce qu'elle court-circuite mieux.
+
+Un trou fermé n'est pas neutre : sur ce même tube, les six cheminées bouchées
+descendent la note de 166,2 contre 167,4 Hz sans elles. C'est pour ça que TUTT
+les garde dans le calcul au lieu de les effacer — et c'est la raison pour
+laquelle un doigté « tous trous fermés » d'une vraie perce n'est pas tout à
+fait la colonne nue.
+
+### Le critère de résonance de TUTT, et pourquoi il faut ensuite choisir
+
+Ce module cherchait les **sommets de |Z|** du tube nu. TUTT pose autre chose
+(`Ltran9.for`) : les **zéros de la partie imaginaire** de l'impédance totale,
+anche comprise —
+
+    Z = Z_anche + (Z_tube + Z_bouche) / FC,   Z_anche = j(Mω − K/ω)/A²
+
+— et la raison est physique : à ces fréquences-là, et à elles seules, l'anche
+peut osciller en régime permanent sans que rien ne la pousse ni ne la freine
+en quadrature. C'est l'équation de sa dynamique, pas une commodité de calcul.
+
+`tutt.playing_frequencies` l'implémente. Deux gains :
+
+1. **Validation croisée.** Sur le cylindre d'essai, les zéros de `Im(Z)`
+   tombent à **0,07 Hz** (0,7 cent) des sommets de |Z| calculés par l'autre
+   chemin. Les deux critères se valident l'un l'autre, ce qui vaut mieux que
+   de faire confiance à un seul.
+2. **Un zéro se trouve mieux qu'un sommet.** Il se coince entre deux points de
+   signe opposé et s'interpole linéairement ; pas de parabole à ajuster, pas
+   de résolution de balayage qui traîne.
+
+Mais un zéro de `Im(Z)` tombe aussi bien sur une **résonance** que sur une
+**antirésonance** : la liste alterne. Sur le cylindre : 167,5 — 336,5 — 506,0
+— 675,4 — 845,1… un sur deux est un sommet, l'autre un creux. TUTT ne tranche
+donc pas *a priori* : il calcule toute la liste, puis `Proxi.for` prend celui
+qui tombe le plus près de la note visée. `tutt.mode_le_plus_proche` fait
+pareil, débordements compris — le source les nomme « !!!grave!!! » et
+« !!!benin!!! » et prend alors le mode extrême plutôt que de refuser.
+
+Ninob note au passage la règle qui gouverne tout ça : avec une anche
+**solide** les fréquences permises sont proches des **antirésonances** du
+tube ; avec une anche **aérienne** (un jet de flûte), proches de ses
+**résonances**. C'est la même distinction que le dépôt fait depuis le début
+entre l'anche qui impose sa hauteur et celle qui la reçoit, retrouvée dans
+l'impédance.
+
+**Ce qui n'est pas validé, et qui est dit comme tel** : le terme d'anche est
+écrit d'après le source mais n'est vérifié sur rien. Il demande les vraies
+valeurs de `MREED`, `KREED` et de la surface vibrante, qui ne viennent qu'avec
+un fichier réel. En inventer un jeu plausible déplace la note de plus d'une
+octave — ce qui ne prouve rien d'autre que l'invention. D'où le défaut
+`coupling=0`, qui ne laisse que le tube : la seule branche mesurée.
+
+### Pourquoi les coniques ne reviennent quand même pas en jeu
+
+Une fois la ligne conique juste, il restait à savoir si les trois instruments
+coniques pouvaient repasser par TUTT pour de bon. La réponse est non, et elle
+est mesurée plutôt que supposée.
+
+Le reproche fait à la perce idéalisée était son **fondamental trop faible** :
+son deuxième sommet d'impédance sort au-dessus du premier, l'anche s'y
+accroche, et la note sort une octave trop haut. On pouvait espérer que ce soit
+un effet de la troncature, auquel cas allonger le cône l'aurait réglé. Balayé,
+sur la même perce, en faisant varier le rapport pavillon/anche :
+
+| rapport | troncature | octave | sommets 2 à 5, en dB sous le fondamental |
+|---|---|---|---|
+| 4,5 | 28,6 % | +95,1 c | +3,6 +3,4 +2,5 +1,5 |
+| 8 | 14,3 % | +28,3 c | +5,4 +6,3 +5,7 +4,5 |
+| 12 | 9,1 % | +11,4 c | +5,0 +5,9 +5,4 +4,5 |
+| 20 | 5,3 % | +3,4 c | +3,1 +4,2 +4,8 +5,3 |
+| 30 | 3,4 % | −1,8 c | +3,3 +5,6 +7,5 +9,4 |
+
+La **justesse de l'octave** se corrige très bien en allongeant le cône (+95 →
+−2 cents). La **force du fondamental**, non : il reste 3 à 9 dB sous ses
+voisins dans tous les cas. Ce n'est donc pas un défaut de troncature mais un
+trait du cône nu — ce qui fait parler un vrai instrument dans le grave est
+ailleurs : le réseau de trous, le pavillon, et surtout l'embouchure.
+
+D'où la position tenue : la clarinette passe par TUTT, les trois coniques
+gardent la série postulée **pour le jeu**, et le calcul conique exact sert à
+tout ce qui passe par une vraie perce — où le profil complet, lui, sait
+renforcer son fondamental.
+
+### Un outil qui manquait : trouver la cavité qui accorde l'octave
+
+`tutt.cavite_qui_accorde_l_octave` cherche par dichotomie le volume de cavité
+d'anche qui annule l'écart d'octave. C'est le geste d'un facteur — on ne
+calcule pas la cavité, on l'ajuste jusqu'à ce que ça tombe juste — et l'écart
+variant de façon monotone avec le volume, la dichotomie converge sans
+surprise.
+
+| perce | cavité trouvée | octave obtenue |
+|---|---|---|
+| cône, rapport 4,5 | 1,53 cm³ | −0,17 cent |
+| cône, rapport 8 | 0,70 cm³ | +0,31 cent |
+
+Moins le cône est tronqué, moins il manque de volume à rendre : c'est
+cohérent, et c'est un test. Sur un **cylindre** la fonction ne force rien :
+elle rend le meilleur essai en signalant qu'il reste 712 cents — parce qu'un
+cylindre ne fait pas l'octave mais la douzième, et qu'aucune cavité n'y
+changera rien.
+
+### Le bout du pont : jouer une vraie perce, par ses doigtés
+
+Tout ce qui précède converge ici. `live.build_instrument_from_bore` prend une
+perce — **une seule pièce**, celle du fichier — calcule chacun de ses doigtés
+(impédance d'entrée, cheminées ouvertes ou fermées, résonances réelles) et
+range chaque note obtenue sur la touche MIDI dont elle est la plus proche.
+
+Ce n'est pas la même chose que `build_instrument`, et la différence est de
+nature. `build_instrument` fabrique **une perce par demi-ton** : commode au
+clavier, mais aucun instrument réel ne marche comme ça. Ici la géométrie ne
+bouge pas, ce sont les **doigts** qui changent la note — comme sur
+l'instrument.
+
+Trois conséquences, qu'il vaut mieux connaître avant de jouer :
+
+- la tessiture est celle de l'instrument, pas celle du clavier : une perce à
+  six trous donne sept notes, pas soixante-et-une. Une touche sans doigté rend
+  la plus proche, comme un doigté approché ;
+- si deux doigtés tombent sur la même touche, le plus proche gagne. C'est le
+  fichier qui le dit, pas nous ;
+- **la justesse n'est pas corrigée**, et c'est délibéré. Partout ailleurs le
+  dépôt accorde note à note ; ici jamais. L'écart entre ce que la perce donne
+  et ce qu'elle devrait donner **est** le résultat qu'on vient chercher — le
+  corriger reviendrait à effacer la mesure.
+
+Sur un tube d'essai à six cheminées régulières (donc volontairement mal
+placées, puisqu'un facteur les espace pour obtenir une gamme) :
+
+| doigté | note calculée | touche | écart |
+|---|---|---|---|
+| tous fermés | 166,2 Hz | mi₂ | +15 cents |
+| 1 ouvert | 188,2 | fa♯₂ | +30 |
+| 2 | 224,1 | la₂ | +32 |
+| 3 | 277,2 | do♯₃ | −0 |
+| 4 | 362,9 | fa♯₃ | −34 |
+| 5 | 523,7 | do₄ | +1 |
+| 6 | 915,5 | la♯₄ | −32 |
+
+Cette colonne d'écarts, c'est le rapport de justesse d'une perce — ce pour
+quoi TUTT existe. La différence, maintenant, c'est qu'on peut aussi
+**l'écouter**.
+
+Il ne manque plus qu'un fichier d'Ewen.
+
+---
+
+## 10. Le fichier est arrivé
+
+« Il y a plutôt des `.dat` dans mon drive, regarde. » Il y en avait — une
+bibliothèque entière, classée par instrument : cromornes, cornemuses,
+traversos baroques, hautbois, saxophones, *vouvouzémois*. Et deux dossiers
+qui portent son nom : **bombarde ewen daviau** et **clarinette folk ewen
+daviau**.
+
+`bombarde_sol_finale.dat`, 22 tronçons, 438 mm, huit trous, 29 doigtés.
+Elle passe dans `read_dat` sans broncher, et sa première ligne répond au
+passage à une question restée ouverte. Depuis, Ewen a demandé que tout entre
+dans le dépôt — ses perces comme les sources de TUTT qui les calculent — et
+elles vivent maintenant dans `research/scripts/legacy/perces/` (les siennes)
+et `research/scripts/legacy/tutt/` (celles de B.B. « Ninob », créditées comme
+telles dans le `CREDITS.md` du dossier) :
+
+```
+ interpolation,factdiaA= 0.998 factdiaB= 0.000 faclongA= 0.998 faclongB= 0.000
+```
+
+L'« interpolation » de TuttEdit, c'est une homothétie affine à deux
+paramètres par dimension — un facteur sur les diamètres, un sur les
+longueurs, chacun avec un terme constant. Notre `scale_bore` en est le cas
+particulier `factdia = faclong`, sans terme affine.
+
+### Ce que la perce a dit tout de suite
+
+Tous trous fermés : **1 : 2,02 : 3,05 : 4,07 : 5,07**. Série harmonique
+complète — la perce est un cône juste, et le tronçon conique exact tient.
+
+Mais la gamme sortait **étirée de 14 % sur chaque intervalle**, et les
+doigtés fourchus ne fourchaient pas : `sol♯` tombait à 5 cents de `la`, au
+lieu des cent qui les séparent. Écart-type de la justesse : 174 cents.
+
+### `LCZB` : le fichier ne donne pas ce que l'air voit
+
+La réponse est dans les commentaires de `Ltran9.for`, en une phrase :
+
+> `LP = TABLEAU DES LONGUEURS **EFFECTIVES** DES LIGNES LATÉRALES ASSOCIÉES
+> AUX TROUS … COMPTE TENU DES **CORRECTIONS DE LONGUEUR** ÉVALUÉES
+> PRÉALABLEMENT.`
+
+Le `LP0` du fichier est l'épaisseur de bois sous le doigt. Ce n'est pas la
+cheminée acoustique. `Lczb2.for` dit comment passer de l'un à l'autre :
+
+- **diamètre effectif**, pondéré par la sveltesse de la cheminée :
+  `d_eff = e^{−LP0/DLP}·min(D0P, DLP) + (1−e^{−LP0/DLP})·DLP`. Haute devant
+  son diamètre, c'est le diamètre intérieur qui mène ; basse — un gros trou
+  dans une paroi mince, la bombarde exactement — c'est le plus étroit ;
+- **correction intérieure de Nederveen** (*Acustica* 28, 1973, p. 12),
+  `c_int = (d_eff/2)·(1,3 − 0,9·d_eff/D)`, **appliquée seulement si le trou
+  est ouvert**. Sur le trou du bas de la bombarde : 3,80 mm ajoutés à une
+  cheminée percée de 2,35 mm. Elle la triple ;
+- **correction extérieure**, dite effet de jet :
+  `c_out = ζ·p̃·flutec·d_eff`, ζ = 4, `flutec` = 1 pour une anche et 0,1
+  pour une flûte, `p̃` la pression acoustique au droit du trou normalisée
+  par son maximum dans le tuyau ;
+- **impédance de bout** `ZBOUT` : rayonnement en `0,35·d` et perte de charge
+  de Stokes.
+
+Le « seulement si ouvert » est tout le mécanisme du doigté fourchu.
+Reboucher un trou sous le premier trou ouvert lui retire sa correction, et
+rend à la colonne la longueur que cette correction lui prenait.
+
+### Le champ de pression, et pourquoi il a fallu réécrire la ligne
+
+`c_out` dépend de la pression au droit du trou. Une écriture qui remonte la
+ligne en transformant une **impédance** ne peut pas la donner. Il a donc
+fallu traduire `LTRANS` pour de vrai : propager les amplitudes d'onde `A` et
+`B` depuis le bas de la ligne, et n'en tirer l'impédance qu'au dernier nœud,
+`Z = PEMB/WEMB`. `PRESSN(i) = |A(i)+B(i)| / max|p|` vient alors avec.
+
+Les deux écritures n'ont aucune raison de tomber d'accord, sinon d'être
+justes toutes les deux. C'est le meilleur contrôle qu'on ait, et il a servi
+tout de suite : **le cône sortait en quintes**. La faute était dans la
+condition au bas de la ligne, où j'avais mis la section du **pavillon**.
+C'est celle de l'**origine** du tronçon qu'il faut : dans
+
+`U(x) = S₀(1+Δx)²·u(x)`,  `∂p/∂x ∝ 1/(1+Δx)²`,
+
+les deux facteurs se simplifient exactement et `S₀` reste seul. Une fois
+corrigé : accord à 10⁻¹⁶ sur le cylindre **et** sur le cône, 10⁻⁵ sur une
+vraie perce tous trous fermés. Un test croisé attrape ce qu'aucun des deux
+calculs ne pouvait signaler seul.
+
+### La première confrontation avec TUTT lui-même
+
+Le dossier des sources contient `tutt25.dat` — un traverso baroque, bourré
+de doigtés fourchus — **et** `justess.out`, la justesse que TUTT a calculée
+pour ses 33 doigtés. C'est un étalon, et il n'avait jamais servi.
+
+Le traverso est une flûte : son embouchure demande `LCZBE`, une section de
+lèvres engendrée à la volée, un modèle de recouvrement dépendant du degré de
+la gamme. Rien de tout ça n'est implémenté. On le remplace donc par **une
+seule longueur ajustée** — un paramètre pour tout l'appareil — et on regarde
+ce qui reste.
+
+| | corrélation avec TUTT | dispersion | dérive |
+|---|---|---|---|
+| sans effet de jet | 0,51 | 23 cents | +1,7 cent/demi-ton |
+| avec effet de jet | **0,75** | **17 cents** | +1,3 |
+
+Et la structure du résidu parle : sur tout le registre aigu (rangs 13 à 32),
+l'écart est **plat**, entre +25 et +34 cents. C'est un décalage constant,
+donc l'embouchure qu'on a remplacée par une constante. Deux doigtés font
+exception, les rangs 24 et 33 — et ce sont ceux où **TUTT lui-même
+décroche** (−116 et −351 cents) : `PROXI` y a attrapé un mode voisin. On les
+signale plutôt que de les cacher.
+
+### Où en est la bombarde
+
+```
+banc-recherche-cli justesse bombarde_sol_finale.dat
+```
+
+| doigté | visé | obtenu | cents |
+|---|---|---|---|
+| fa | 349,2 | 343,7 | −27,5 |
+| sol | 392,0 | 386,2 | −26,0 |
+| la | 440,0 | 432,0 | −31,9 |
+| si | 493,9 | 485,7 | −28,9 |
+| do | 523,3 | 516,3 | −23,1 |
+| ré | 587,3 | 582,0 | −15,8 |
+| mi | 659,3 | 653,3 | −15,8 |
+| **sol♯** (fourche) | 415,3 | 427,5 | **+50,0** |
+| **la♯** (fourche) | 466,2 | 480,2 | **+51,4** |
+| **do♯** (fourche) | 554,4 | 574,3 | **+61,1** |
+
+Les **naturelles du premier registre tiennent dans 16 cents** autour d'un
+écart commun de −25. Cet écart-là se rattrape : on pousse l'anche, on
+raccourcit le bocal. C'est la dispersion qui juge une perce, et pour les
+naturelles elle est maintenant celle d'un instrument accordé.
+
+Les **fourches** restent à +50 à +60 cents. C'est le chantier suivant, et il
+est nommé : à ce stade, les trous ouverts court-circuitent encore un peu
+trop, et le treillis en dessous pèse moins qu'il ne devrait.
+
+### Ce qui manque encore, dans l'ordre
+
+1. **Les fourches.** Piste la plus probable : la correction de jet est
+   calculée au champ de la note, mais `OPOIL` normalise par le maximum de
+   `|p|` **le long du tuyau**, tronçon par tronçon sous-découpé en `NB = 40`
+   points — pas seulement aux nœuds. Notre `PMAX` est pris sur les nœuds
+   seuls, donc trop petit, donc `p̃` trop grand… ou trop petit selon les
+   cas. À vérifier en sous-découpant.
+2. **L'embouchure.** `LCZBE` pour les flûtes (correction intérieure de
+   Nederveen sur la cheminée, `ZBOUE` de rayonnement, recouvrement des
+   lèvres en fonction du degré) et la cavité d'anche pour les anches
+   solides. C'est le décalage constant qu'on fitte aujourd'hui.
+3. **L'anche couplée.** `Z = Z_anche + (Z_tube + Z_bouche)/FC` avec
+   `FC = FCM·e^{jFCP}` : le fichier de la bombarde met `FCM = 0`, donc
+   TUTT y calcule le tuyau seul. Avec de vrais `MREED`/`KREED`, la branche
+   couplée de `playing_frequencies` deviendrait vérifiable.
