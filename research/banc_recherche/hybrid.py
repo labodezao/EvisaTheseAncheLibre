@@ -536,10 +536,15 @@ class FreeReedExciter(Exciter):
     deux fois. Voir `reed_oscillator.Slot.sweep_coupling`, qui porte la même
     distinction dans le modèle de référence.
 
-    Ce n'était pas anodin : avec `area_m2 = 9,6·10⁻⁵`, une lame de 110 Hz
-    **jouait 127,6 Hz — +257 cents**, une tierce mineure. Tout le son
-    d'accordéon produit par ce dépôt jusqu'ici était faux d'autant. À zéro,
-    elle joue 110,3 Hz (+5 cents).
+    Ce n'était pas anodin : avec `area_m2 = 9,6·10⁻⁵`, `HybridVoice.simulate`
+    faisait jouer une lame de 110 Hz à **127,6 Hz — +257 cents**, une tierce
+    mineure. À zéro, elle joue 110,3 Hz (+5 cents).
+
+    Le moteur **temps réel** (`embedded.RealtimeVoice` et son portage C, ce
+    que `live` et `banc-recherche-jouer` font sonner) n'a jamais eu ce
+    défaut : il stocke `reed_area_m2` mais ne s'en sert pas, son excitateur
+    rend `q_src − q_out`. Le son qu'on a écouté était juste ; seule la voie de
+    référence Python était fausse.
 
     `force_area_m2` reste, lui, bien réel : c'est la surface sur laquelle la
     pression appuie. Les deux étaient confondus parce qu'ils valaient le même
@@ -555,9 +560,12 @@ class FreeReedExciter(Exciter):
     force_area_m2: float = 9.6e-5        # surface sur laquelle la pression agit
     mass_kg: float = 2.0e-4
     vena_contracta: float = 0.7
-    source_impedance: float = 5.0e6      # pente (p,q) du soufflet, à mesurer
-    #   2e8 laissait la course atteindre 110 mm sur une lame de 55 mm ;
-    #   5e6 donne le millimètre attendu (cf. reed_oscillator.Source).
+    source_impedance: float = 2.0e8      # impédance interne du soufflet
+    #   Gardée à la valeur validée du moteur temps réel, auquel elle se
+    #   propage (`src_admit`). `reed_oscillator.Source` est passé à 5e6,
+    #   mais ce qui borne l'amplitude dans CE modèle-là n'a pas été
+    #   démontré dans la réduction temps réel : la recaler est une étape
+    #   mesurée à part, pas une valeur par défaut à recopier.
 
     n_state = 2
     control_name = "débit de soufflet"
@@ -974,9 +982,12 @@ def accordeon(f0_hz=110.0, volume_m3=None, **kw):
     for cle, valeur in echelle.items():
         kw.setdefault(cle, valeur)
     if volume_m3 is None:
-        # Chambre géométrique, pas un « volume effectif » gonflé : les
-        # 40 cm³ d'avant compensaient le balayage fantôme.
-        volume_m3 = 7.9e-6 / r ** 3
+        # Valeur validée du moteur temps réel, qui la reçoit par la
+        # compliance. Dans `reed_oscillator` les 40 cm³ compensaient le
+        # balayage fantôme et la chambre géométrique suffit ; ici le
+        # moteur temps réel n'avait pas ce terme, et changer sa chambre
+        # sans le recaler le rend muet (mesuré : test_live).
+        volume_m3 = 40e-6 / r ** 3
 
     ex = FreeReedExciter(freq_hz=f0_hz, **kw)
     res = Resonator(compliance=chamber_compliance(volume_m3), name="chambre")

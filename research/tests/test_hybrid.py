@@ -560,3 +560,23 @@ def test_la_clarinette_tutt_reste_utilisable_en_ideal():
     assert v.resonator.n_modes > 0
     ratios = [m.freq_hz / v.resonator.modes[0].freq_hz for m in v.resonator.modes[:3]]
     assert ratios == pytest.approx([1.0, 3.0, 5.0], abs=1e-6)
+
+
+def test_l_accordeon_de_reference_joue_la_note_de_sa_lame():
+    """`HybridVoice.simulate` faisait jouer une lame de 110 Hz à 127,6 Hz :
+    +257 cents, parce que `FreeReedExciter` retranchait au bilan de la chambre
+    le volume balayé par la languette. C'est juste pour une anche battante,
+    plaquée sur la table ; faux pour une anche libre, qui est dans sa fente et
+    ne comprime rien (cf. `reed_oscillator.Slot.sweep_coupling`).
+
+    Le moteur temps réel n'a jamais eu ce terme — le son joué était juste. Ce
+    test garde la voie de référence alignée sur lui.
+    """
+    import numpy as np
+    from banc_recherche import hybrid
+    v = hybrid.accordeon(f0_hz=110.0)
+    assert v.exciter.area_m2 == 0.0, "une anche libre ne comprime pas sa chambre"
+    r = v.simulate(dur=0.3, fs=44100.0, level=1e-6, oversample=8, settle=0.4)
+    f = hybrid.playing_frequency(r.radiated, 44100.0)
+    cents = 1200.0 * np.log2(f / 110.0)
+    assert abs(cents) < 40.0, f"la lame de 110 Hz joue à {cents:+.0f} cents"
