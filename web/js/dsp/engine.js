@@ -14,6 +14,81 @@ import {
 const HOP = 4096;             // période d'analyse (~85 ms à 48 kHz)
 const MAXWIN = { fast: 128, normal: 256, precise: 512 };
 
+// Harmonique sur lequel mesurer un groupe d'anches à l'unisson.
+//
+// Deux anches à 1,6 Hz d'écart (une musette en La4) ne sont séparées par la
+// FFT zoom qu'une fois sa fenêtre longue de ~2,7 s. Avant, les lobes se
+// chevauchent, le raffinement de phase de chaque anche est pollué par sa
+// voisine, et la courbe saute de 1 à 2 cents par image — c'est ce qui poussait
+// à bloquer les anches pour en mesurer une à la fois.
+//
+// Or une anche libre en régime est un oscillateur entretenu : son son est
+// exactement périodique, ses partiels exactement harmoniques (le modèle
+// physique le confirme, et la fusion multi-harmonique du mode auto repose déjà
+// dessus). Sur l'harmonique k, les anches sont k fois plus écartées — donc
+// séparées k fois plus tôt — et un cent y vaut toujours un cent.
+//
+// On vise un écart d'au moins SEP_HZ entre anches sur l'harmonique suivi :
+// ~4 cases de FFT à la première fenêtre (64 points à ~94 Hz de bande), ce que
+// le fenêtrage de Hann sépare proprement. Mesuré (test/bench_gigue.mjs,
+// musette La4 ±1,6 Hz) : erreur entre 1 et 2 s de ±2,5 ¢ sur H1, ±0,02 ¢
+// sur H5. Deux bornes : toutes les anches doivent tenir dans la bande du
+// zoom, y compris une anche désaccordée, et on ne monte pas au-delà de
+// ~4 kHz, où les partiels faiblissent et où la mesure se perd.
+const SEP_HZ = 6;
+const BAND_HZ = 30;        // demi-bande utile du zoom (±0,45·srd ≈ ±42 Hz, avec marge)
+const OUT_OF_TUNE_HZ = 1.5; // marge pour une anche encore loin de sa cible
+const K_FREQ_MAX = 4000;
+const K_MAX = 8;
+
+// Garde-fou : on ne mesure sur le partiel k que s'il est RÉELLEMENT présent
+// dans le spectre large bande de la note (à moins de 30 dB du plus fort de
+// ses dix premiers partiels).
+//
+// Deux raisons. Une anche peut avoir un partiel faible — il ne faut pas la
+// mesurer là où elle n'est pas. Et si la note est mal détectée (mesuré : une
+// musette très ouverte en Do6 lue comme un Sol#2), la bande du zoom centrée
+// sur un partiel qui n'existe pas ne contient que la fondamentale réelle
+// repliée par la décimation — elle ressortait comme une « mesure » fausse de
+// 4000 cents. Sans partiel présent, on redescend : l'accordeur n'affiche
+// alors rien, comme avant, plutôt qu'une valeur inventée.
+function partialPresent(coarse, f0, k) {
+  if (!coarse?.mag || !coarse.binHz) return true;   // pas d'information : ne rien empêcher
+  const peakAround = (f) => {
+    const tol = Math.max(1.5 * coarse.binHz, 0.015 * f);
+    const a = Math.max(0, Math.floor((f - tol) / coarse.binHz));
+    const b = Math.min(coarse.mag.length - 1, Math.ceil((f + tol) / coarse.binHz));
+    let m = 0;
+    for (let i = a; i <= b; i++) if (coarse.mag[i] > m) m = coarse.mag[i];
+    return m;
+  };
+  let ref = 0;
+  for (let n = 1; n <= 10; n++) ref = Math.max(ref, peakAround(f0 * n));
+  return ref > 0 && peakAround(f0 * k) >= ref / 31.6;
+}
+
+export function unisonHarmonic(g, cfg, coarse = null) {
+  const kBase = g.kTrack;
+  if (cfg.polyHarmonic) return Math.max(1, cfg.polyHarmonic | 0);
+  const targets = g.voices.map((v) => v.target).sort((a, b) => a - b);
+  let spacing = Infinity;
+  for (let i = 1; i < targets.length; i++) {
+    const d = targets[i] - targets[i - 1];
+    if (d > 1e-6) spacing = Math.min(spacing, d);
+  }
+  const spread = Math.max(...targets.map((t) => Math.abs(t - g.center)));
+  // Emplacements d'unisson sans cible distincte (auto-anches) : l'écart
+  // attendu est celui de la courbe de battement à cette note.
+  if (!Number.isFinite(spacing)) spacing = spread;
+  if (!(spacing > 0)) return kBase;
+  const kSep = Math.ceil(SEP_HZ / spacing);
+  const kBand = Math.floor(BAND_HZ / (spread + OUT_OF_TUNE_HZ));
+  const kFreq = Math.floor(K_FREQ_MAX / g.center);
+  let k = Math.max(kBase, Math.min(kSep, kBand, kFreq, K_MAX));
+  while (k > kBase && !partialPresent(coarse, g.center, k)) k--;
+  return k;
+}
+
 export class Engine {
   constructor(sampleRate, cfg = {}) {
     this.sr = sampleRate;
@@ -29,6 +104,8 @@ export class Engine {
       fuseHarmonics: true,     // fusion multi-harmonique cohérente (mode auto)
       trackSub: false,         // bandes f/2 et 3f/2 (détection de bifurcation)
       subspace: false,         // analyse paramétrique Matrix Pencil (voix de base)
+      polyHarmonic: null,      // harmonique de mesure des anches à l'unisson
+                               // (null = choisi pour les séparer vite, cf. unisonHarmonic)
       reedOctaves: [0],        // octaves scrutés en auto-anches (0 = octave jouée ;
                                // l'utilisateur ajoute 16'/4'/2' à la main)
       maxUnison: 3,            // nb max d'anches à l'unisson par octave (auto-anches)
@@ -154,6 +231,7 @@ export class Engine {
       g.voices.push({ def: v, ...t });
     }
     const groups = [...map.values()];
+    for (const g of groups) if (g.voices.length > 1) g.kTrack = unisonHarmonic(g, c, this.lastCoarse);
     for (const g of groups) g.fc = g.center * g.kTrack;
 
     // Suivi individuel des harmoniques : un traqueur zoom dédié par partiel
@@ -349,6 +427,7 @@ export class Engine {
     // dernière image côté interface.
     const priorF0 = this.playedMidi != null ? midiToFreq(this.playedMidi, c) : null;
     const coarse = (!quiet && this.coarse.ready()) ? this.coarse.analyze(priorF0) : null;
+    if (coarse) this.lastCoarse = coarse;   // sert à vérifier qu'un partiel existe (unisonHarmonic)
     let f0 = coarse?.f0 ? coarse.f0.freq * calib : null;
 
     // Détection temporelle McLeod (NSDF) : hauteur monophonique robuste aux

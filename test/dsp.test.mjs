@@ -562,6 +562,30 @@ console.log('\nTest 21 — le moteur sépare un unisson tremblé via Matrix Penc
 }
 
 // ---------------------------------------------------------------------------
+console.log('\nTest 23 — musette MMM : les trois anches propres dès la première seconde');
+{
+  // Mesurées sur la fondamentale, trois anches à ±1,6 Hz ne sont séparées
+  // qu'après ~2,7 s : avant, la courbe sautait de 1 à 2 cents par image
+  // (c'est ce qui poussait à bloquer les anches). Sur l'harmonique choisi par
+  // `unisonHarmonic`, elles sont k fois plus écartées et se séparent tout de
+  // suite. On vérifie l'erreur RÉELLE entre 1 et 2 s.
+  const truth = [438.4, 440.0, 441.6];
+  const engine = new Engine(SR, { mode: 'register', register: 'MMM', response: 'normal' });
+  const sig = reedSignal({ freqs: [{ f: 438.4 }, { f: 440.0 }, { f: 441.6, a: 0.9 }], seconds: 2.2 });
+  const err = [[], [], []];
+  for (let i = 0; i < sig.length; i += 512) {
+    const r = engine.process(sig.subarray(i, i + 512));
+    const t = (i + 512) / SR;
+    if (!r || t < 1.0) continue;
+    const g = r.groups.find((gg) => !gg.isHarmonic && !gg.isSub);
+    g?.voices.forEach((v, k) => err[k].push(v.tracked ? cents(v.fMeas, truth[k]) : NaN));
+  }
+  const pire = Math.max(...err.map((e) => Math.sqrt(e.reduce((a, x) => a + x * x, 0) / e.length)));
+  assert(Number.isFinite(pire) && pire < 0.2,
+    `erreur RMS de la pire anche entre 1 et 2 s = ${pire.toFixed(3)} ¢ (< 0,2 ; ~2 ¢ sur la fondamentale)`);
+}
+
+// ---------------------------------------------------------------------------
 console.log('\nTest 22 — hystérésis de note : la note tenue résiste à une bascule de quinte');
 {
   // Spectre ambigu Sol3 (196 Hz) / Do2 (65,4 Hz) : Sol3 = 3·Do2, piège de
