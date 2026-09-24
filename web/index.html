@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" data-version="19">
+<html lang="fr" data-version="23">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -65,12 +65,37 @@
       <option value="reeds">Auto-anches</option>
       <option value="register">Registre</option>
       <option value="manual">Notes définies</option>
+      <option value="chord">Accord (degrés)</option>
     </select>
   </label>
   <label id="qRegWrap">Registre <select id="qRegister"></select></label>
+  <span id="qChordWrap" class="q-chord">
+    <label>Accord
+      <select id="qChord">
+        <option value="auto">reconnu tout seul (majeur, mineur, 7e, dim., quinte)</option>
+        <option value="quinte">quinte (1 5)</option>
+        <option value="majeur">majeur (1 3 5)</option>
+        <option value="mineur">mineur (1 ♭3 5)</option>
+        <option value="septieme">septième (1 3 ♭7)</option>
+        <option value="diminue">diminué (1 ♭3 6)</option>
+        <option value="sept5">septième + quinte (1 3 5 ♭7)</option>
+        <option value="perso">degrés…</option>
+      </select>
+    </label>
+    <input type="text" id="qDegrees" size="10" placeholder="1 3 5" title="Degrés au-dessus de la fondamentale : 1 3 5, 1 b3 5, 1 3 b7, 1 b3 6…">
+  </span>
   <span id="qNotesWrap" class="q-notes">
     <span id="qNotes" class="note-chips"></span>
     <button id="btnPickNotes" type="button">🎹 Choisir les notes…</button>
+  </span>
+  <span id="qChordNow" class="chord-now hidden" aria-live="polite"></span>
+  <span id="qBeat" class="beat-now hidden" aria-live="polite" title="Battement lu dans l'enveloppe du son : deux anches d'écart Δf battent Δf fois par seconde"></span>
+  <label class="q-a4" title="La de référence (diapason)">La <input type="number" id="qA4" min="340" max="540" step="0.1"> Hz</label>
+  <span class="vu-wrap" title="Niveau d'entrée. Glissez le repère : sous ce seuil, le son est considéré comme un silence (la mesure se gèle).">
+    <span class="vu"><span id="vuFill"></span><span id="vuGate"></span></span>
+    <input type="range" id="qGate" min="-100" max="-10" step="1" aria-label="Seuil de silence (dB)">
+    <span id="vuTxt" class="vu-txt">seuil −70 dB</span>
+    <button id="btnGateAuto" type="button" title="Mesure le bruit de la pièce pendant 2 s (ne jouez pas) et place le seuil juste au-dessus">Seuil auto</button>
   </span>
 </div>
 <div id="twoReeds" class="two-reeds hidden" role="status"></div>
@@ -191,7 +216,7 @@
       <div id="attackInfo">Temps de réponse de l'anche : <b>—</b></div>
       <ul id="attackList" class="attack-list"></ul>
       <label>Seuil de gel du temps
-        <input type="range" id="gateDb" min="-80" max="-40" step="1" value="-70">
+        <input type="range" id="gateDb" min="-90" max="-20" step="1" value="-70">
         <span id="gateDbVal">−70</span> dB
       </label>
       <p class="hint">Sous ce niveau d'entrée, l'horloge se gèle : les traqueurs et la
@@ -227,6 +252,7 @@
           <option value="reeds">Auto-anches (détection du nombre d'anches)</option>
           <option value="register">Registre (multi-anches)</option>
           <option value="manual">Notes définies (accords, basses)</option>
+          <option value="chord">Accord en degrés (fondamentale reconnue)</option>
         </select>
       </label>
       <div id="modeRegister" class="subctl">
@@ -461,7 +487,7 @@
   <span>Accordeur pour instruments à anche libre — plage Mi0 → Do9 · précision &lt; 0,1 cent · </span>
   <a href="aide.html" target="_blank">guide d'utilisation</a> ·
   <a href="#" id="aboutLink">à propos</a> ·
-  <span id="appVersion">version 19</span>
+  <span id="appVersion">version 23</span>
 </footer>
 <div id="versionBanner" class="version-banner hidden"></div>
 

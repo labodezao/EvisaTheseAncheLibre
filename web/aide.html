@@ -293,10 +293,71 @@
   </div>
 
   <div class="callout">
+    <b>Accord (degrés) — pour enchaîner les accords sans rien cliquer.</b> Mode
+    « Accord (degrés) » dans la barre Mode : choisissez une fois le type —
+    quinte (1 5), majeur (1 3 5), mineur (1 ♭3 5), septième (1 3 ♭7), diminué
+    (1 ♭3 6) — ou tapez vos degrés (« 1 b3 5 »). Jouez ensuite les boutons les
+    uns après les autres : l'accordeur <b>reconnaît la fondamentale</b> de chaque
+    accord, l'affiche (« Fond. Ré · 1 Ré4 · 5 La4 ») et mesure chaque note
+    séparément. Les accords <b>renversés</b> sont reconnus : chaque note est
+    cherchée là où elle sonne, pas forcément au-dessus de la fondamentale. Les
+    courbes gardent une couleur par degré (1, 3, 5…) d'un accord à l'autre.
+  </div>
+
+  <div class="callout">
+    <b>Accord reconnu tout seul.</b> Dans le mode Accord, le choix « reconnu tout
+    seul » trouve la fondamentale ET le type — majeur, mineur, septième, diminué,
+    quinte — et affiche son nom (« Rém », « La7 », « Si dim », « Sol 5 »), comme
+    l'accordeur de Dirk : on enchaîne les boutons de basses sans rien régler.
+    Jouez chaque bouton d'accord seul : avec la basse en plus, les notes de
+    l'accord tombent sur les harmoniques de la basse (Do4 = 3 × Fa2) et deviennent
+    ambiguës.
+  </div>
+
+  <div class="callout">
+    <b>〰 Battement (bat/min).</b> Dans la barre Mode, le battement du son est
+    affiché en battements par minute et par seconde : « 〰 138 bat/min · 2,30 Hz
+    · deux anches ». Il est lu dans l'<b>enveloppe</b> du son (le volume de deux
+    anches proches monte et descend Δf fois par seconde) : ça marche dans tous
+    les modes, même quand les deux anches sont trop proches pour être séparées.
+    En comparant plusieurs partiels, l'accordeur distingue deux anches qui
+    battent (le partiel k bat k fois plus vite) d'une <b>modulation</b>
+    d'ensemble — soufflet secoué — où tous les partiels battent au même rythme.
+    En registre Trémolo, l'écart des deux fréquences mesurées est affiché
+    (« écart des anches »), encore plus précis.
+  </div>
+
+  <div class="callout">
+    <b>La de référence</b> : visible et modifiable dans la barre Mode, sur tous
+    les onglets.
+  </div>
+
+  <div class="callout">
+    <b>🔒 Verrouillé.</b> Quand la valeur lue n'a pas bougé de plus de 0,2 ¢ depuis
+    1,2 s, l'état passe au vert : « verrouillé ». Rien n'est figé pour autant (le
+    gel reste ❄ / F).
+  </div>
+
+  <div class="callout">
+    <b>Seuil de silence sur le vumètre.</b> Le vumètre de la barre Mode montre le
+    niveau d'entrée ; le trait rouge est le seuil. Glissez-le : sous ce niveau,
+    le son est considéré comme un silence et la mesure se gèle. Le régler ne
+    remet pas la mesure à zéro. <b>Seuil auto</b> : restez silencieux 2 s, le seuil
+    se place 8 dB au-dessus du bruit de la pièce. Si le micro sature, le vumètre
+    l'affiche en rouge (« saturé : éloignez le micro »).
+  </div>
+
+  <div class="callout">
+    <b>Courbes stables.</b> Une anche qui perd la mesure un instant garde sa
+    dernière valeur (1 s au plus), et un pic d'une seule image est filtré
+    (médiane de 3 images, ~85 ms de retard). Une vraie marche — l'anche du tiré
+    et celle du poussé ne sont pas accordées pareil — reste nette.
+  </div>
+
+  <div class="callout">
     <b>Registre « Quinte ».</b> La basse et sa quinte juste au-dessus, comme la
-    basse fondamentale d'un chromatique : chaque anche est mesurée séparément.
-    (Le son d'une quinte a une période commune une octave <i>sous</i> la basse ;
-    l'accordeur le sait et ne s'y trompe pas.)
+    basse fondamentale d'un chromatique : chaque anche est mesurée séparément,
+    avec la même reconnaissance que le mode Accord (quinte renversée comprise).
   </div>
 
   <div class="callout">
@@ -337,6 +398,7 @@
     <tr class="kbdrow"><td><kbd>S</kbd></td><td>Strobe plein écran (et retour)</td></tr>
     <tr class="kbdrow"><td><kbd>F</kbd></td><td>Geler / dégeler l'écran</td></tr>
     <tr class="kbdrow"><td><kbd>L</kbd></td><td>Verrouiller / déverrouiller la note suivie</td></tr>
+    <tr class="kbdrow"><td><kbd>←</kbd> <kbd>→</kbd></td><td>Note verrouillée un demi-ton plus bas / plus haut (avec <kbd>Maj</kbd> : une octave)</td></tr>
     <tr class="kbdrow"><td><kbd>B</kbd></td><td>Basculer le sens du soufflet (tirer ↔ pousser)</td></tr>
     <tr class="kbdrow"><td><kbd>T</kbd></td><td>Jouer / arrêter le son de référence</td></tr>
   </table>

@@ -8,6 +8,7 @@ import {
 } from './music.js';
 import { Report } from './report.js';
 import { zipBytes } from './zip.js';
+import { CHORD_TYPES, parseDegrees, degreesText, degreeLabel, chordName } from './dsp/chord.js';
 import { initBench } from './bench.js';
 
 const $ = (id) => document.getElementById(id);
@@ -18,7 +19,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '19';
+const APP_VERSION = '23';
 function versionMismatch(what, got) {
   const b = document.getElementById('versionBanner');
   if (!b) return;
@@ -40,6 +41,8 @@ const cfg = Object.assign({
   mode: 'auto',
   register: 'MM',
   manualNotes: null,
+  chordType: 'quinte',     // mode Accord : type d'accord (CHORD_TYPES) ou 'perso'
+  chordDegrees: [0, 7],    // … ses degrés en demi-tons au-dessus de la fondamentale
   trackHarmonics: 0,
   trackSub: false,
   subspace: false,
@@ -351,7 +354,11 @@ function pushConfig() {
 
 // ---- Réception des analyses --------------------------------------------------
 function onTick(t) {
+  state.tickAt = performance.now();
   showTwoReeds(t);
+  showBeat(t);
+  drawVu(t);
+  showChord(t);
   if (state.frozen) {
     // Reprise automatique du gel auto : nouvelle attaque (soufflet remis en
     // pression) OU changement de note détecté par le moteur — indispensable
@@ -409,15 +416,6 @@ function onTick(t) {
     });
     while (state.history.length && state.history[0].t < t.time - HISTORY_KEEP) {
       state.history.shift();
-    }
-  } else {
-    // Début d'un silence (inversion du soufflet, fin de note) : une entrée
-    // vide coupe le trait. Sans elle, la courbe reliait la dernière valeur
-    // avant le silence à la première après, un trait vertical qui n'a jamais
-    // été mesuré.
-    const last = state.history[state.history.length - 1];
-    if (last && Object.keys(last.vals).length) {
-      state.history.push({ t: t.time, midi: last.midi, vals: {}, fast: null });
     }
   }
 
@@ -501,8 +499,18 @@ function updateHeader(t) {
       fv.textContent = '—'; cv.textContent = '—';
     }
     const fill = Math.min(...t.groups.map((g) => g.fill));
+    // « Verrouillé » (le « Lock » de l'accordeur de Dirk) : la voix suivie
+    // n'a pas bougé de plus de 0,2 ¢ (crête à crête) depuis 1,2 s — la valeur
+    // lue est la bonne, on peut regarder la lame.
+    const hist = state.lockHist ?? (state.lockHist = []);
+    if (!t.quiet && v?.tracked && !v.held) hist.push({ t: t.time, c: v.dTargetCents, m: t.playedMidi });
+    while (hist.length && (hist[0].t < t.time - 1.2 || hist[0].m !== t.playedMidi)) hist.shift();
+    const span = hist.length >= 12 ? Math.max(...hist.map((h) => h.c)) - Math.min(...hist.map((h) => h.c)) : Infinity;
+    const locked = !t.quiet && span <= 0.2;
+    cs.classList.toggle('locked', locked);
     cs.textContent = t.quiet ? 'silence (mesure gelée)'
-      : fill >= 0.999 ? 'convergé' : `convergence ${(fill * 100).toFixed(0)} %`;
+      : locked ? `🔒 verrouillé (stable à ±${Math.max(0.01, span / 2).toFixed(2)} ¢)`
+        : fill >= 0.999 ? 'convergé, en mouvement' : `convergence ${(fill * 100).toFixed(0)} %`;
   }
   updateVerdict(t);
   $('levelBar').style.width = `${Math.min(100, Math.max(0, 100 + (20 * Math.log10((t?.level ?? 0) + 1e-9) + 10)))}%`;
@@ -892,8 +900,12 @@ function drawPitchCurve() {
     };
     for (const e of hist) {
       const v = e.vals[k];
-      if (!v) { flush(); prevT = null; continue; }
-      if (seg.length && (e.midi !== segMidi || (prevT != null && e.t - prevT > 0.5))) flush();
+      // Pas de trou dans le trait (demande d'Ewen) : une mesure absente un
+      // instant (reprise après une inversion du soufflet, silence bref) est
+      // enjambée par le trait. Le trait n'est coupé qu'au changement de note
+      // ou après un vrai arrêt (> 1,5 s).
+      if (!v) continue;
+      if (seg.length && (e.midi !== segMidi || (prevT != null && e.t - prevT > 1.5))) flush();
       const x = xFor(e.t);
       prevT = e.t;
       if (x < pad.l) continue;
@@ -974,9 +986,19 @@ function strobeReeds(t) {
 }
 // La phase de chaque bande avance UNE fois par image : le strobe compact
 // (onglet Accordage) et le grand strobe (onglet Strobe) lisent la même.
+// Pas de son : sous le seuil (tick.quiet), micro arrêté, ou plus aucune
+// mesure reçue depuis 0,4 s (fin d'un fichier rejoué).
+function strobeSilent() {
+  return !state.running || !state.tick || !!state.tick.quiet
+    || performance.now() - (state.tickAt ?? 0) > 400;
+}
+
 function advanceStrobe(dt) {
   if (!(state.strobePhase instanceof Map)) state.strobePhase = new Map();
   if (state.frozen) return;
+  // Plus de son (sous le seuil) ou micro arrêté : le disque s'arrête. Avant,
+  // il continuait de tourner sur la dernière mesure (remarque d'Ewen).
+  if (strobeSilent()) return;
   // Deux phases par anche : Φ, sa dérive propre (∫(f − cible)dt), et pour
   // chaque partiel h, ψₕ = ∫(fₕ − h·f)dt, son écart à l'harmonicité. Le motif
   // utilise h·Φ + ψₕ : une anche harmonique glisse d'un bloc, sans que son
@@ -1071,6 +1093,9 @@ function drawStrobe(id, big = false) {
   const rightW = big ? (stacked ? 56 : 74) : 58;
   const period = big ? (stacked ? 44 : 64) : 34;
   const bandH = stacked ? 26 : (row - (big ? 16 : 12)) / STROBE_BANDS;
+  // Silence : comme un stroboscope sans signal, les bandes s'éteignent et la
+  // dernière mesure reste lisible, en gris.
+  const silent = strobeSilent();
   reeds.forEach(({ g, v }, r) => {
     const y = 4 + r * row;
     const id = v.def.id;
@@ -1079,7 +1104,7 @@ function drawStrobe(id, big = false) {
     // --- colonne gauche : l'anche et son écart --------------------------------
     const c = v.tracked ? v.dTargetCents : null;
     const cls = c == null ? null : centsClass(c, cfg.tolCents);
-    const col = c == null ? th.dim2 : cls === 'ok' ? th.okStrong : cls === 'warn' ? th.warn : th.bad;
+    const col = c == null || silent ? th.dim2 : cls === 'ok' ? th.okStrong : cls === 'warn' ? th.warn : th.bad;
     ctx.textAlign = 'left';
     ctx.fillStyle = th.dim; ctx.font = `600 ${big ? 15 : 13}px system-ui`;
     const note = big && v.midi != null ? `  ${noteLabel(v.midi + (cfg.transpose || 0)).full}` : '';
@@ -1124,7 +1149,7 @@ function drawStrobe(id, big = false) {
     }
     // --- bandes ×1..×4 ------------------------------------------------------
     const x0 = leftW, x1 = W - rightW;
-    const parts = reedPartials(g, v);
+    const parts = silent ? [] : reedPartials(g, v);
     for (let bi = 0; bi < STROBE_BANDS; bi++) {
       const k = bi + 1;
       const by = y + (stacked ? TXT_H : big ? 6 : 2) + bi * bandH;
@@ -1178,6 +1203,14 @@ function drawStrobe(id, big = false) {
       // une mesure en attente (« … »).
       const empty = g.avoidEven && k % 2 === 0 ? 'oct.' : '…';
       ctx.fillText(ck == null ? empty : signed(ck, 2), x1 + 5, by + bandH / 2 + 3);
+    }
+    if (silent) {
+      const yb = y + (stacked ? TXT_H : big ? 6 : 2);
+      ctx.fillStyle = th.dim2; ctx.textAlign = 'center';
+      ctx.font = `600 ${big ? 16 : 12}px system-ui`;
+      ctx.fillText(state.running ? 'silence — dernière mesure en gris' : 'micro arrêté',
+        (x0 + x1) / 2, yb + (bandH * STROBE_BANDS) / 2 + 5);
+      ctx.textAlign = 'left';
     }
     if (r < reeds.length - 1) {
       ctx.strokeStyle = th.grid; ctx.beginPath();
@@ -1818,7 +1851,7 @@ function calibrateFromMeasure() {
   beep(1046, 0.08);
   alert(`Micro calibré : ${cfg.calibrationPpm} ppm `
     + `(correction de ${residualPpm >= 0 ? '+' : ''}${residualPpm.toFixed(2)} ppm, `
-    + `soit ${(residualPpm * 1.2e-3).toFixed(3)} cent).`);
+    + `soit ${(residualPpm * 1200 / Math.LN2 * 1e-6).toFixed(3)} cent).`);
 }
 
 function recordNow() {
@@ -1968,6 +2001,7 @@ function bindControls() {
   $('instrName').value = report.name;
   if (cfg.manualNotes) $('manualNotes').value = cfg.manualNotes.map((m) => noteLabel(m).full).join(' ');
   updateModeVisibility();
+  drawVu(null);
 
   $('btnStart').onclick = () => (state.running ? stopAudio() : startAudio());
   $('btnFreeze').onclick = toggleFreeze;
@@ -2028,11 +2062,7 @@ function bindControls() {
 
   $('gateDb').value = cfg.gateDb;
   $('gateDbVal').textContent = String(cfg.gateDb);
-  $('gateDb').oninput = () => {
-    cfg.gateDb = Number($('gateDb').value);
-    $('gateDbVal').textContent = String(cfg.gateDb);
-    pushConfig();
-  };
+  $('gateDb').oninput = () => setGate(Number($('gateDb').value));
   $('trackSub').checked = !!cfg.trackSub;
   $('trackSub').onchange = () => { cfg.trackSub = $('trackSub').checked; pushConfig(); };
   $('subspace').checked = !!cfg.subspace;
@@ -2069,7 +2099,16 @@ function bindControls() {
   showDevStatus(null);
   $('btnCurvePng').onclick = exportCurvePng;
   updateLockButton();
-  $('a4').onchange = () => { cfg.a4 = clamp(Number($('a4').value) || 440, 340, 540); $('a4').value = cfg.a4; pushConfig(); };
+  const setA4 = (v) => {
+    cfg.a4 = clamp(Number(v) || 440, 340, 540);
+    $('a4').value = cfg.a4;
+    $('qA4').value = cfg.a4;
+    pushConfig();
+  };
+  $('a4').onchange = () => setA4($('a4').value);
+  // Le La de référence, visible et modifiable depuis tous les onglets.
+  $('qA4').value = cfg.a4;
+  $('qA4').onchange = () => setA4($('qA4').value);
   tSel.onchange = () => { cfg.temperament = tSel.value; pushConfig(); };
   trSel.onchange = () => { cfg.transpose = Number(trSel.value); pushConfig(); };
   $('calib').onchange = () => { cfg.calibrationPpm = Number($('calib').value) || 0; pushConfig(); };
@@ -2078,6 +2117,31 @@ function bindControls() {
   rSel.onchange = () => setRegister(rSel.value);
   $('qRegister').onchange = () => setRegister($('qRegister').value);
   $('btnPickNotes').onclick = openNotePicker;
+  $('qChord').onchange = () => {
+    cfg.chordType = $('qChord').value;
+    if (CHORD_TYPES[cfg.chordType]) cfg.chordDegrees = CHORD_TYPES[cfg.chordType].degrees;
+    $('qDegrees').value = degreesText(cfg.chordDegrees);
+    $('qDegrees').classList.toggle('hidden', cfg.chordType === 'auto');
+    pushConfig();
+  };
+  $('qDegrees').onchange = () => {
+    const d = parseDegrees($('qDegrees').value);
+    if (!d) { alert('Degrés non reconnus. Exemples : 1 5 · 1 3 5 · 1 b3 5 · 1 3 b7 · 1 b3 6'); return; }
+    cfg.chordDegrees = d;
+    const known = Object.entries(CHORD_TYPES).find(([, v]) => v.degrees.join() === d.join());
+    cfg.chordType = known ? known[0] : 'perso';
+    $('qChord').value = cfg.chordType;
+    $('qDegrees').value = degreesText(d);
+    pushConfig();
+  };
+  // Seuil de silence, réglé directement sur le vumètre.
+  $('qGate').value = cfg.gateDb;
+  $('qGate').oninput = () => setGate(Number($('qGate').value));
+  $('btnGateAuto').onclick = () => {
+    if (!state.running) { alert('Démarrez le micro, restez silencieux 2 s : le seuil se place juste au-dessus du bruit de la pièce.'); return; }
+    state.gateAuto = { t0: performance.now(), levels: [] };
+    $('btnGateAuto').textContent = '… 2 s';
+  };
   $('btnPickNotes2').onclick = openNotePicker;
   initNotePicker();
   $('twoReeds').addEventListener('click', onTwoReedsClick);
@@ -2122,6 +2186,18 @@ function bindControls() {
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
     switch (e.key === 'Enter' ? 'Enter' : e.key.toLowerCase()) {
       case 'Enter': e.preventDefault(); recordNow(); break;
+      // ← → : note verrouillée un demi-ton plus bas / plus haut (Maj : une
+      // octave), comme les boutons « − Tone + » de l'accordeur de Dirk.
+      case 'arrowleft': case 'arrowright': {
+        const base = cfg.lockNote ?? state.tick?.playedMidi;
+        if (base == null || cfg.mode === 'manual' || cfg.mode === 'chord') break;
+        e.preventDefault();
+        const step = (e.key === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 12 : 1);
+        cfg.lockNote = Math.max(16, Math.min(108, base + step));
+        updateLockButton();
+        pushConfig();
+        break;
+      }
       case 'f': toggleFreeze(); break;
       case 'l': $('btnLock').click(); break;
       case 'b': setBellows(cfg.bellows === 'T' ? 'P' : 'T'); break;
@@ -2176,6 +2252,59 @@ function applyManual() {
   const notes = parseNoteList($('manualNotes').value);
   if (!notes) { alert('Notes non reconnues. Exemple : Do4 Mi4 Sol4 ou C4 E4 G4'); return; }
   setManualNotes(notes);
+}
+
+// ---- Vumètre et seuil de silence ---------------------------------------------
+// Échelle du vumètre : −100 dB … −10 dB.
+const VU_LO = -100, VU_HI = -10;
+const vuPct = (db) => Math.max(0, Math.min(100, ((db - VU_LO) / (VU_HI - VU_LO)) * 100));
+
+function setGate(db) {
+  cfg.gateDb = Math.max(-90, Math.min(-20, Math.round(db)));
+  $('gateDb').value = cfg.gateDb;
+  $('gateDbVal').textContent = String(cfg.gateDb);
+  $('qGate').value = cfg.gateDb;
+  drawVu(state.tick);
+  pushConfig();
+}
+
+function drawVu(t) {
+  const db = t ? 20 * Math.log10((t.level ?? 0) + 1e-9) : null;
+  // Seuil auto : on relève le niveau de la pièce pendant 2 s de silence.
+  if (state.gateAuto && t && state.running) {
+    state.gateAuto.levels.push(db);
+    if (performance.now() - state.gateAuto.t0 > 2000) {
+      const lv = state.gateAuto.levels.sort((a, b) => a - b);
+      const p95 = lv[Math.floor(lv.length * 0.95)] ?? -80;
+      state.gateAuto = null;
+      $('btnGateAuto').textContent = 'Seuil auto';
+      // Un « bruit de pièce » au-dessus de −45 dB, c'est qu'une note sonnait :
+      // on ne place pas le seuil là (tout deviendrait silence).
+      if (p95 > -45) {
+        alert(`Trop fort pour être le bruit de la pièce (${p95.toFixed(0)} dB) : `
+          + 'relancez « Seuil auto » sans jouer pendant 2 s. Seuil inchangé.');
+      } else {
+        setGate(p95 + 8);                                 // 8 dB au-dessus du bruit de la pièce
+      }
+    }
+  }
+  // Saturation (crête ≥ −0,2 dB pleine échelle) : la mesure reste juste,
+  // mais le son écrêté a des partiels faussés ; l'accordeur de Dirk le dit
+  // aussi (« input signal too strong »).
+  const clip = t && state.running && (t.peak ?? 0) >= 0.98;
+  if (clip) state.clipT = performance.now();
+  const clipShown = state.running && performance.now() - (state.clipT ?? -1e9) < 1500;
+  const fill = $('vuFill');
+  fill.style.width = `${db == null ? 0 : vuPct(db)}%`;
+  fill.classList.toggle('below', db != null && db < cfg.gateDb);
+  $('vuGate').style.left = `${vuPct(cfg.gateDb)}%`;
+  const vt = $('vuTxt');
+  vt.classList.toggle('clip', clipShown);
+  vt.textContent = clipShown ? '⚠ saturé : éloignez le micro'
+    : state.gateAuto ? 'silence… mesure du bruit'
+      : db == null || !state.running
+        ? `seuil ${cfg.gateDb} dB`
+        : `${db.toFixed(0)} dB · seuil ${cfg.gateDb}`;
 }
 
 // ---- Mode de mesure, depuis la barre sous les onglets ou depuis Réglages ------
@@ -2315,20 +2444,69 @@ function openNotePicker() {
 // une anche seule a des partiels exactement harmoniques ; s'ils ne le sont
 // pas, deux anches sonnent (octave, quinte…) et la valeur affichée n'est la
 // hauteur d'aucune des deux. On le dit, et on propose le bon mode.
+// Battement du trémolo, en battements par minute (et par seconde) — deux
+// anches qui battent, ou une modulation d'ensemble (soufflet secoué). Lissé
+// sur 1 s pour que le chiffre se lise.
+function showBeat(t) {
+  const el = $('qBeat');
+  const b = t.beat;
+  const hzRaw = b ? (b.pairHz ?? (b.conf >= 0.5 ? b.hz : null)) : null;
+  if (t.quiet || hzRaw == null || !(hzRaw > 0.05)) {
+    if (!t.quiet && performance.now() - (state.beatT ?? 0) > 1500) el.classList.add('hidden');
+    return;
+  }
+  state.beatT = performance.now();
+  state.beatHz = state.beatHz == null || Math.abs(hzRaw - state.beatHz) > 0.1 * state.beatHz
+    ? hzRaw : state.beatHz + 0.3 * (hzRaw - state.beatHz);
+  const hz = state.beatHz;
+  const what = b.pairHz != null ? 'écart des anches'
+    : b.kind === 'modulation' ? 'modulation (soufflet ?)' : 'deux anches';
+  el.textContent = `〰 ${(hz * 60).toFixed(0)} bat/min · ${hz.toFixed(2)} Hz · ${what}${b.sure || b.pairHz != null ? '' : ' ?'}`;
+  el.classList.toggle('unsure', !(b.sure || b.pairHz != null));
+  el.classList.remove('hidden');
+}
+
+// Accord reconnu (mode Accord, registre Quinte) : la fondamentale, puis
+// chaque degré avec sa note — « Fond. Ré · 1 Ré4 · 5 La4 ».
+function showChord(t) {
+  const el = $('qChordNow');
+  if (!t.chord) {
+    if (cfg.mode !== 'chord') { el.classList.add('hidden'); return; }
+    el.textContent = 'jouez l\'accord…';
+    el.classList.remove('hidden');
+    return;
+  }
+  const tr = cfg.transpose || 0;
+  const root = noteLabel(t.chord.rootMidi + tr).name;
+  const head = t.chord.type ? chordName(root, t.chord.type) : `Fond. ${root}`;
+  const txt = `${head} · ` + t.chord.notes
+    .map((n) => `${degreeLabel(n.semi)} ${noteLabel(n.midi + tr).full}`).join(' · ');
+  if (el.textContent !== txt) el.textContent = txt;
+  el.classList.remove('hidden');
+}
+
 function showTwoReeds(t) {
   const el = $('twoReeds');
-  const d = cfg.mode === 'auto' ? t.partialsDisagree : null;
+  const d = cfg.mode === 'auto' ? (t.partialsDisagree
+    ?? (t.unison ? { unison: true, cents: t.unison.cents } : null)) : null;
   const now = performance.now();
   if (d && state.twoReedsDismissed !== t.playedMidi) {
     state.twoReedsT = now;
-    const txt = `H${d.k} est à ${d.cents > 0 ? '+' : ''}${d.cents.toFixed(1)} ¢ de H${d.kBase}`;
+    const txt = d.unison
+      ? `deux anches à ${d.cents.toFixed(0)} ¢ l'une de l'autre sonnent ensemble`
+      : `H${d.k} est à ${d.cents > 0 ? '+' : ''}${d.cents.toFixed(1)} ¢ de H${d.kBase}`;
     if (el.dataset.txt !== txt) {
       el.dataset.txt = txt;
-      el.innerHTML = `⚠ <b>Deux anches ?</b> Les partiels ne disent pas la même hauteur : ${txt}. `
+      el.innerHTML = d.unison
+        ? `⚠ <b>Trémolo ?</b> ${txt} : le mode Automatique n'en suit qu'une. `
+        + '<button type="button" data-tr="MM">Trémolo 8\'+8\'</button>'
+        + '<button type="button" data-tr="reeds">Auto-anches</button>'
+        + '<button type="button" data-tr="x" title="Masquer pour cette note">✕</button>'
+        : `⚠ <b>Deux anches ?</b> Les partiels ne disent pas la même hauteur : ${txt}. `
         + 'Une anche seule a des partiels d\'accord à 0,1 ¢ près ; ici, le mode Automatique fond deux anches '
         + 'en une valeur qui n\'est la hauteur d\'aucune. '
         + '<button type="button" data-tr="LM">Octave (16\'+8\')</button>'
-        + '<button type="button" data-tr="Q">Quinte</button>'
+        + '<button type="button" data-tr="chord">Quinte / accord (degrés)</button>'
         + '<button type="button" data-tr="pick">🎹 Choisir les notes…</button>'
         + '<button type="button" data-tr="x" title="Masquer pour cette note">✕</button>';
     }
@@ -2344,6 +2522,8 @@ function onTwoReedsClick(e) {
   if (!a) return;
   if (a === 'x') { state.twoReedsDismissed = state.tick?.playedMidi ?? null; $('twoReeds').classList.add('hidden'); return; }
   if (a === 'pick') { openNotePicker(); return; }
+  if (a === 'reeds') { setMode('reeds'); $('twoReeds').classList.add('hidden'); return; }
+  if (a === 'chord') { setMode('chord'); $('twoReeds').classList.add('hidden'); return; }
   setRegister(a);
   setMode('register');
   $('twoReeds').classList.add('hidden');
@@ -2366,6 +2546,11 @@ function updateModeVisibility() {
   $('qMode').value = cfg.mode;
   $('qRegister').value = cfg.register;
   $('qRegWrap').classList.toggle('hidden', cfg.mode !== 'register');
+  $('qChordWrap').classList.toggle('hidden', cfg.mode !== 'chord');
+  $('qChord').value = cfg.chordType || 'perso';
+  $('qDegrees').value = degreesText(cfg.chordDegrees || [0, 7]);
+  $('qDegrees').classList.toggle('hidden', cfg.chordType === 'auto');
+  if (cfg.mode !== 'chord' && !(cfg.mode === 'register' && cfg.register === 'Q')) $('qChordNow').classList.add('hidden');
   $('qNotesWrap').classList.toggle('hidden', cfg.mode !== 'manual');
   renderQuickNotes();
   $('modeRegister').classList.toggle('hidden', cfg.mode !== 'register');

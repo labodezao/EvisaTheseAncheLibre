@@ -7,6 +7,7 @@ import { ZoomTracker } from './zoom.js';
 import { FFT } from './fft.js';
 import { NsdfTracker } from './nsdf.js';
 import { matrixPencil } from './subspace.js';
+import { chordFromPeaks, chordAuto, degreeLabel } from './chord.js';
 import {
   midiToFreq, nearestMidi, centsBetween, voiceTargetFreq,
   MIDI_MIN, MIDI_MAX, REGISTER_PRESETS,
@@ -14,7 +15,7 @@ import {
 
 // Version du moteur : doit être celle de la page et de app.js (cf. le
 // contrôle de cohérence dans app.js et le test dans dsp.test.mjs).
-export const ENGINE_VERSION = '19';
+export const ENGINE_VERSION = '23';
 
 const HOP = 4096;             // période d'analyse (~85 ms à 48 kHz)
 const MAXWIN = { fast: 128, normal: 256, precise: 512 };
@@ -29,6 +30,9 @@ const STEP_CENTS = 2;
 const STEP_PLATEAU = 1;
 const STEP_LEVEL_DB = 3;
 const STEP_KEEP = 40;
+// Réglages sans effet sur les cibles : les changer ne remet pas la mesure à zéro.
+const NO_RETUNE = new Set(['gateDb', 'tolCents', 'autoFreeze', 'readout', 'devMode', 'bellows', '_v']);
+const STEP_MAX_CENTS = 40;
 const STEP_QW = 16;
 // Reprise après un silence (inversion du soufflet) : on ne garde que ce qui
 // suit la reprise (8 échantillons décimés ≈ une image).
@@ -37,6 +41,9 @@ const RESUME_KEEP = 8;
 // plus de DISAGREE_CENTS pendant plus de DISAGREE_HOLD_S.
 const DISAGREE_CENTS = 1.5;
 const DISAGREE_HOLD_S = 1.5;
+// Sortie stabilisée (cf. stabilize) : une anche qui perd la mesure garde sa
+// dernière valeur jusqu'à STAB_HOLD_S.
+const STAB_HOLD_S = 1.0;
 
 // Harmonique sur lequel mesurer un groupe d'anches à l'unisson.
 //
@@ -187,6 +194,7 @@ export class Engine {
     this.acc = 0;
     this.rmsAcc = 0;
     this.rmsN = 0;
+    this.peakAcc = 0;
     this.playedMidi = null;
     this.candMidi = null;
     this.candCount = 0;
@@ -199,20 +207,48 @@ export class Engine {
     this.attackPending = null;
     this.lastAttack = null;
     this.steps = new Map();     // détection de saut par groupe (cf. detectStep)
+    this.stab = new Map();      // sortie stabilisée par anche (cf. stabilize)
     this.lastFine = null;       // dernière mesure fine de la voix de base (maintien en creux de battement)
   }
 
   get gate() { return Math.pow(10, (this.cfg.gateDb ?? -70) / 20); }
 
   configure(patch) {
+    const before = JSON.stringify([this.cfg.mode, this.cfg.register, this.cfg.chordDegrees, this.cfg.chordType]);
+    // Réglages qui ne changent pas les cibles (seuil de silence, affichage) :
+    // ils ne doivent pas remettre la mesure à zéro — sinon glisser le seuil
+    // sur le vumètre effaçait la mesure à chaque mouvement.
+    const changed = Object.keys(patch).filter((k) => JSON.stringify(patch[k]) !== JSON.stringify(this.cfg[k]));
     Object.assign(this.cfg, patch);
+    if (JSON.stringify([this.cfg.mode, this.cfg.register, this.cfg.chordDegrees, this.cfg.chordType]) !== before) this.chord = null;
     if (patch.beatCurve) this.cfg.beatCurve = { ...patch.beatCurve };
+    if (changed.every((k) => NO_RETUNE.has(k))) return;
     // Tout changement de cible invalide les traqueurs.
     this.retune(true);
   }
 
+  // Accord en degrés (mode « Accord », ou registre Quinte = degrés 1 5) :
+  // la fondamentale est reconnue dans le son (chordFromPeaks), chaque degré
+  // devient une voix sur SA note, là où elle a été trouvée.
+  chordDegrees() {
+    const c = this.cfg;
+    if (c.mode === 'chord') {
+      // Type reconnu tout seul : les degrés sont ceux de l'accord trouvé.
+      if (c.chordType === 'auto') return this.chord?.degrees ?? [0];
+      return c.chordDegrees?.length ? c.chordDegrees : [0, 4, 7];
+    }
+    if (c.mode === 'register' && c.register === 'Q') return [0, 7];
+    return null;
+  }
+
   voices() {
     const c = this.cfg;
+    if (this.chordDegrees()) {
+      return (this.chord?.notes ?? []).map((n) => {
+        const lbl = degreeLabel(n.semi);
+        return { id: lbl, label: lbl, oct: 0, beatSign: 0, fixedMidi: n.midi, chordDeg: n.semi };
+      });
+    }
     if (c.mode === 'register') {
       const preset = REGISTER_PRESETS[c.register] ?? REGISTER_PRESETS.M;
       return preset.voices;
@@ -254,7 +290,10 @@ export class Engine {
     // de zéro — les cibles reprennent la main pour l'appariement.
     this.prevF = new Map();
     this.steps = new Map();      // détection de saut par groupe (cf. detectStep)
+    this.stab = new Map();       // sortie stabilisée par anche (cf. stabilize)
     this.disagreeSince = null;
+    this.unisonSince = null;
+    this.retuneT = this.samplesTotal / this.sr;
     const played = this.playedMidi;
     if (played == null && this.cfg.mode !== 'manual') {
       if (force) this.trackers.clear();
@@ -288,7 +327,10 @@ export class Engine {
         ? { midi: v.fixedMidi, nominal: midiToFreq(v.fixedMidi, c), beat: 0,
             target: midiToFreq(v.fixedMidi, c) }
         : voiceTargetFreq(playedMidi, v, c);
-      const key = v.fixedMidi != null ? `m${v.fixedMidi}` : `o${v.oct}${v.semi ? `q${v.semi}` : ''}`;
+      // Accord : une clé par DEGRÉ (la courbe « 5 » reste la même d'un accord
+      // à l'autre, la légende ne s'allonge pas à chaque accord joué).
+      const key = v.chordDeg != null ? `c${v.chordDeg}`
+        : v.fixedMidi != null ? `m${v.fixedMidi}` : `o${v.oct}${v.semi ? `q${v.semi}` : ''}`;
       let g = map.get(key);
       if (!g) {
         const kTrack = Math.max(1, Math.ceil(150 / t.nominal));
@@ -480,8 +522,13 @@ export class Engine {
     this.samplesTotal += chunk.length;
     const gate = this.gate;
 
-    let sum = 0;
-    for (let i = 0; i < chunk.length; i++) sum += chunk[i] * chunk[i];
+    let sum = 0, pk = 0;
+    for (let i = 0; i < chunk.length; i++) {
+      const a = chunk[i];
+      sum += a * a;
+      if (a > pk) pk = a; else if (-a > pk) pk = -a;
+    }
+    if (pk > this.peakAcc) this.peakAcc = pk;       // crête sur la période d'analyse (saturation)
     const rms = Math.sqrt(sum / chunk.length);
     this.rmsAcc += sum;
     this.rmsN += chunk.length;
@@ -566,6 +613,7 @@ export class Engine {
     const c = this.cfg;
     const level = Math.sqrt(this.rmsAcc / Math.max(1, this.rmsN));
     this.rmsAcc = 0; this.rmsN = 0;
+    const peak = this.peakAcc; this.peakAcc = 0;
     const quiet = level < this.gate;
     const calib = 1 + (c.calibrationPpm || 0) * 1e-6;
 
@@ -605,10 +653,43 @@ export class Engine {
     }
 
     // Note verrouillée par l'utilisateur : la détection est court-circuitée.
-    if (c.lockNote != null && c.mode !== 'manual') {
+    if (c.lockNote != null && c.mode !== 'manual' && !this.chordDegrees()) {
       if (this.playedMidi !== c.lockNote) {
         this.playedMidi = c.lockNote;
         this.retune();
+      }
+    } else if (this.chordDegrees()) {
+      // Accord : reconnu dans les raies du spectre, confirmé sur 3 images
+      // comme une note (mêmes gardes : niveau franc, 0,2 s après bascule).
+      const tNow = this.samplesTotal / this.sr;
+      const auto = c.mode === 'chord' && c.chordType === 'auto';
+      const ch = (!quiet && coarse)
+        ? (auto
+          ? chordAuto(coarse.peaks, { a4: c.a4, prev: this.chord })
+          : chordFromPeaks(coarse.peaks, this.chordDegrees(), { a4: c.a4, prevRoot: this.chord?.rootPc ?? null,
+            prevNotes: this.chord?.notes.map((n) => n.midi) ?? null }))
+        : null;
+      if (ch) ch.degrees = ch.notes.map((n) => n.semi);
+      if (ch) {
+        const sig = ch.notes.map((n) => n.midi).join(',');
+        const cur = this.chord ? this.chord.notes.map((n) => n.midi).join(',') : null;
+        const need = this.chord == null ? 2 : 3;
+        const held = tNow - (this.lastSwitchT ?? -1e9) < 0.2;
+        const loud = level > this.gate * 4;
+        if (sig === cur) {
+          this.candCount = 0;
+        } else if (sig === this.candChord) {
+          if (++this.candCount >= need && !held && loud) {
+            this.chord = ch;
+            this.playedMidi = ch.rootMidi;
+            this.candCount = 0;
+            this.lastSwitchT = tNow;
+            this.retune();
+          }
+        } else {
+          this.candChord = sig;
+          this.candCount = 1;
+        }
       }
     } else if (!quiet && f0 && c.mode !== 'manual') {
       let midi = nearestMidi(f0, c);
@@ -616,16 +697,6 @@ export class Engine {
         // La fondamentale détectée correspond à la voix la plus grave.
         const minOct = Math.min(...this.voices().map((v) => v.oct));
         midi -= 12 * minOct;
-        // Registre à la quinte (fondamentale r + quinte 3r/2) : le son a pour
-        // période commune r/2, et la détection trouve cette « fondamentale »
-        // fantôme, une octave sous la basse (mesuré sur Do3 + Sol3 : Do2).
-        // Signature : rien aux rangs 1, 5, 7 de r/2 (ils n'appartiennent à
-        // aucune des deux anches), mais les rangs 2 et 3 présents.
-        if (this.voices().some((v) => ((v.semi || 0) % 12 + 12) % 12 === 7) && coarse) {
-          const g0 = f0;
-          const has = (k) => partialPresent(coarse, g0, k);
-          if (!has(1) && !has(5) && !has(7) && has(2) && has(3)) midi += 12;
-        }
       }
       if (midi >= MIDI_MIN && midi <= MIDI_MAX) {
         // Première acquisition : bascule rapide (2 trames). Note déjà tenue :
@@ -672,6 +743,7 @@ export class Engine {
       } else if (this.silentSince != null) {
         this.silentSince = null;
         for (const tr of this.trackers.values()) tr.restart(RESUME_KEEP);
+        this.stab = new Map();   // pas de maintien À TRAVERS le silence : l'autre sens n'est pas celui-ci
         this.prevF = new Map();
         this.steps = new Map();
         this.lastFine = null;
@@ -736,9 +808,25 @@ export class Engine {
         cont = this.lastFine.f;
       }
       const voices = this.matchVoices(g, az, calib, claimed, anchor, cont);
+      // Mode Automatique : deux raies franches au lieu d'une autour de la note
+      // (trémolo joué en « une anche ») → on le signalera (tick.unison).
+      if (c.mode === 'auto' && !g.isHarmonic && !g.isSub && !quiet && az?.components?.length > 1) {
+        const k = g.kTrack || 1;
+        const near = az.components.filter((cp) => Math.abs(centsBetween(cp.freq / k, g.center)) < 60);
+        let mMax = 0;
+        for (const cp of near) mMax = Math.max(mMax, cp.mag);
+        const strongC = near.filter((cp) => cp.mag >= mMax * 0.15).sort((a, b) => b.mag - a.mag);
+        const sep = strongC.length > 1 ? Math.abs(centsBetween(strongC[1].freq, strongC[0].freq)) : 0;
+        if (sep > 3) {
+          if (this.unisonSince == null) this.unisonSince = this.samplesTotal / this.sr;
+          this.unison = { cents: sep };
+        } else {
+          this.unisonSince = null;
+        }
+      }
       if (!quiet) {
         const others = claimed.filter((_, i) => claimedBy[i] !== g.center);
-        this.detectStep(g, t, voices, calib, others);
+        this.detectStep(g, t, voices, calib, others, az);
       }
       // Auto-anches : une octave ajoutée à la main (16', 4', 2') n'est
       // déclarée présente que sur preuve. Pas de partiel à elle dans le
@@ -793,6 +881,7 @@ export class Engine {
         W: az?.W ?? 0,
         fill: az?.fill ?? 0,
         spectrum: az ? az.mags : null,
+
         voices,
       });
     }
@@ -839,7 +928,12 @@ export class Engine {
           // Juste après une reprise sur la même note, les traqueurs se
           // remplissent (~0,4 s) : un trou vaut mieux qu'une estimation rapide
           // fausse de plusieurs cents.
-          && !(this.resume && this.resume.midi === played && tNow - this.resume.t < 0.6)) {
+          && !(this.resume && this.resume.midi === played && tNow - this.resume.t < 0.6)
+          // …ni au début d'une note : la mesure fine arrive en ~0,4 s, et
+          // l'estimation rapide y variait de ±4 ¢ d'une image à l'autre
+          // (mesuré) — des pics sur la courbe. Elle ne sert plus qu'à suivre
+          // une hauteur qui bouge trop pour la mesure fine (chant, glissando).
+          && tNow - (this.retuneT ?? -1e9) >= 0.6) {
         v.fMeas = followF0;
         v.amp = level;
         v.dCents = centsBetween(followF0, v.nominal);
@@ -1036,16 +1130,28 @@ export class Engine {
       }
     }
 
+    if (!quiet) this.stabilize(groups);
+    const beat = quiet ? null : this.measureBeat(groups);
+
     return {
       type: 'tick',
       version: ENGINE_VERSION,
       time: this.samplesTotal / this.sr,
       level,
+      peak,         // crête du signal (1 = pleine échelle) : saturation du micro si ≥ 0,98
       quiet,
       f0,
       f0Cents,
       // Mode Automatique : partiels en désaccord depuis plus de 1,5 s → sans
       // doute deux anches. { k, kBase, cents } ou null.
+      beat,
+      chord: this.chordDegrees() && this.chord
+        ? { rootPc: this.chord.rootPc, rootMidi: this.chord.rootMidi, notes: this.chord.notes,
+          type: this.chord.type ?? null } : null,
+      // Mode Automatique : deux anches à l'unisson (trémolo) depuis plus de
+      // 1,5 s → { cents : écart entre elles } ou null.
+      unison: c.mode === 'auto' && !quiet && this.unisonSince != null
+        && this.samplesTotal / this.sr - this.unisonSince >= DISAGREE_HOLD_S ? this.unison : null,
       partialsDisagree: c.mode === 'auto' && !quiet && this.disagreeSince != null
         && this.samplesTotal / this.sr - this.disagreeSince >= DISAGREE_HOLD_S ? this.disagree : null,
       clarity,
@@ -1058,6 +1164,99 @@ export class Engine {
       groups: withPartials(groups),
       coarseSpectrum: coarse ? logResample(coarse.mag, coarse.binHz, 1024) : null,
     };
+  }
+
+  // Battement du trémolo, en battements par seconde (× 60 = par minute) —
+  // demande d'Ewen : « deux anches en vibrato : combien de fois par minute ça
+  // bat ? ». Lu dans l'enveloppe de chaque partiel suivi de la note (cf.
+  // ZoomTracker.beatFromEnvelope), puis on tranche :
+  //  - deux anches d'écart Δf : le partiel k bat à k·Δf → les rythmes bruts
+  //    divisés par leur rang s'accordent ; le battement est Δf ;
+  //  - modulation d'ensemble (secousse du soufflet, boucle d'un sample) :
+  //    tous les partiels battent au même rythme brut.
+  // Mesuré sur un Mi2 Ballone Burini : 1,23 Hz sur le partiel 2 ET sur le
+  // partiel 4 → modulation à 1,23 Hz, pas deux anches à 0,62 Hz.
+  // En registre (deux anches séparées dans le spectre), l'écart des deux
+  // fréquences mesurées est plus précis : on le donne aussi.
+  measureBeat(groups) {
+    const base = groups.find((g) => !g.isHarmonic && !g.isSub);
+    if (!base) return null;
+    const pair = base.voices.find((v) => v.tracked && v.beatMeas != null && Math.abs(v.beatMeas) > 0.01);
+    const raws = [];
+    for (const g of groups) {
+      if (g.isSub || g.center !== base.center) continue;
+      const t = this.trackers.get(g.key);
+      const k = g.kTrack || 1;
+      if (!t || raws.some((r) => r.k === k)) continue;
+      const b = t.beatFromEnvelope(1);
+      if (b && b.conf >= 0.4) raws.push({ k, hz: b.hz, conf: b.conf, depth: b.depth });
+    }
+    let out = null;
+    // Décision robuste : pour chaque hypothèse, la médiane des estimations et
+    // le nombre de partiels qui s'y accordent à 3 % près. Un partiel dont les
+    // deux anches sortent de la bande analysée (k·Δf > 14 Hz) donne n'importe
+    // quoi : il ne sera simplement pas « d'accord ».
+    const ok = raws.filter((r) => r.hz <= 14);
+    if (ok.length) {
+      const judge = (vals) => {
+        const sorted = [...vals].sort((x, y) => x - y);
+        const med = sorted[sorted.length >> 1];
+        const agree = vals.filter((v) => Math.abs(v - med) <= 0.03 * med);
+        return { hz: agree.reduce((x, y) => x + y, 0) / agree.length, n: agree.length };
+      };
+      const reeds = judge(ok.map((r) => r.hz / r.k));
+      const mod = judge(ok.map((r) => r.hz));
+      const pick = mod.n > reeds.n ? { ...mod, kind: 'modulation' } : { ...reeds, kind: 'anches' };
+      out = { hz: pick.hz, kind: pick.kind, conf: ok[0].conf, depth: ok[0].depth,
+        sure: pick.n >= 2 && (pick.kind === 'anches' ? reeds.n > mod.n : true) };
+      out.nPartials = pick.n;
+    }
+    if (pair) {
+      out = { ...(out ?? {}), pairHz: Math.abs(pair.beatMeas) };
+      if (out.hz == null) { out.hz = out.pairHz; out.kind = 'anches'; out.sure = true; }
+    }
+    return out;
+  }
+
+  // Sortie stabilisée de chaque anche affichée (demande d'Ewen : « des
+  // courbes avec des trous ou des pics ne sont pas exploitables »).
+  //  - Pas de trou : une anche qui perd la mesure une image (fenêtre qui se
+  //    remplit après une reprise, raie brièvement couverte) garde sa dernière
+  //    valeur, jusqu'à STAB_HOLD_S, marquée « maintenue ».
+  //  - Pas de pic : médiane des 3 dernières mesures (une image de retard,
+  //    ~85 ms). Une vraie marche détectée (detectStep) remet la médiane à
+  //    zéro : elle n'est pas retardée.
+  // Tout repart de zéro au changement de note ou d'accord (retune).
+  stabilize(groups) {
+    const tNow = this.samplesTotal / this.sr;
+    for (const g of groups) {
+      if (g.isSub || g.isPartial || g.hidden) continue;
+      for (const v of g.voices) {
+        const key = `${g.key}:${v.def.id}`;
+        let st = this.stab.get(key);
+        if (v.tracked && !v.coarse) {
+          if (!st || v.step || v.held) st = { recent: [] };
+          if (!v.held) {
+            st.recent.push(v.fMeas);
+            if (st.recent.length > 3) st.recent.shift();
+          }
+          const sorted = [...st.recent].sort((a, b) => a - b);
+          if (sorted.length) v.fMeas = sorted[sorted.length >> 1];
+          st.f = v.fMeas; st.t = tNow; st.amp = v.amp;
+          this.stab.set(key, st);
+        } else if (!v.tracked && st?.f != null && tNow - st.t < STAB_HOLD_S) {
+          v.fMeas = st.f;
+          v.amp = st.amp;
+          v.tracked = true;
+          v.held = true;
+        } else {
+          continue;
+        }
+        v.dCents = centsBetween(v.fMeas, v.nominal);
+        v.dHz = v.fMeas - v.nominal;
+        v.dTargetCents = centsBetween(v.fMeas, v.target);
+      }
+    }
   }
 
   // Saut de hauteur. La mesure fine est une moyenne sur une longue fenêtre
@@ -1078,7 +1277,7 @@ export class Engine {
   // stable n'est jamais concernée (la fenêtre courte y tombe à quelques
   // centièmes de cent de la longue) ; un soufflet qui ondule d'un cent non
   // plus.
-  detectStep(g, t, voices, calib, others = []) {
+  detectStep(g, t, voices, calib, others = [], az = null) {
     if (voices.length !== 1 || !t || g.isSub) return;   // un unisson bat : pas une marche
     const v = voices[0];
     const key = g.key;
@@ -1099,7 +1298,18 @@ export class Engine {
     // du 8' d'un registre LM) : la fenêtre courte ne voit que leur somme,
     // qui bat. Seule la longue fenêtre les sépare — on ne la coupe pas.
     const fAbs = ref * div;
-    if (others.some((f) => Math.abs(f - fAbs) < (2 * t.srd) / STEP_QW)) return;
+    const res = (2 * t.srd) / STEP_QW;                 // pouvoir séparateur de la fenêtre courte
+    if (others.some((f) => Math.abs(f - fAbs) < res)) return;
+    // Même chose avec une AUTRE anche du même groupe que la fenêtre longue voit
+    // (trémolo joué en mode Automatique : mesuré, deux anches à 22 ¢ l'une de
+    // l'autre sur un Sol♯4). La fenêtre courte voit leur somme et « saute »
+    // vers la plus forte : ce n'est pas une marche.
+    if (az?.components?.length > 1) {
+      const fBand = fAbs / calib;
+      let mine = null;
+      for (const cp of az.components) if (!mine || Math.abs(cp.freq - fBand) < Math.abs(mine.freq - fBand)) mine = cp;
+      if (az.components.some((cp) => cp !== mine && cp.mag > mine.mag / 10 && Math.abs(cp.freq - mine.freq) < res)) return;
+    }
     const q = t.quick(fAbs / calib - t.fc, STEP_QW);
     const st = this.steps.get(key) ?? { fq: null, mag: 0 };
     this.steps.set(key, st);
@@ -1117,7 +1327,10 @@ export class Engine {
       && Math.abs(centsBetween(fq, st.fq)) < Math.max(STEP_PLATEAU, 0.3 * Math.abs(d))
       && Math.abs(20 * Math.log10((q.mag + 1e-30) / (st.mag + 1e-30))) < STEP_LEVEL_DB;
     st.fq = fq; st.mag = q.mag;
-    if (Math.abs(d) <= STEP_CENTS || !plateau) return;
+    // Une marche de plus de STEP_MAX_CENTS n'est pas une anche qui change de
+    // hauteur (le tiré et le poussé d'une note diffèrent de quelques cents) :
+    // c'est la fenêtre courte qui s'est accrochée ailleurs.
+    if (Math.abs(d) <= STEP_CENTS || Math.abs(d) > STEP_MAX_CENTS || !plateau) return;
     t.restart(STEP_KEEP);
     // La mesure de cette image devient l'estimation courte : c'est elle qui
     // dit où est l'anche maintenant. La continuité suit.
