@@ -14,7 +14,7 @@ import {
 
 // Version du moteur : doit être celle de la page et de app.js (cf. le
 // contrôle de cohérence dans app.js et le test dans dsp.test.mjs).
-export const ENGINE_VERSION = '18';
+export const ENGINE_VERSION = '19';
 
 const HOP = 4096;             // période d'analyse (~85 ms à 48 kHz)
 const MAXWIN = { fast: 128, normal: 256, precise: 512 };
@@ -30,6 +30,13 @@ const STEP_PLATEAU = 1;
 const STEP_LEVEL_DB = 3;
 const STEP_KEEP = 40;
 const STEP_QW = 16;
+// Reprise après un silence (inversion du soufflet) : on ne garde que ce qui
+// suit la reprise (8 échantillons décimés ≈ une image).
+const RESUME_KEEP = 8;
+// Deux anches déguisées en une (mode Automatique) : partiels en désaccord de
+// plus de DISAGREE_CENTS pendant plus de DISAGREE_HOLD_S.
+const DISAGREE_CENTS = 1.5;
+const DISAGREE_HOLD_S = 1.5;
 
 // Harmonique sur lequel mesurer un groupe d'anches à l'unisson.
 //
@@ -247,6 +254,7 @@ export class Engine {
     // de zéro — les cibles reprennent la main pour l'appariement.
     this.prevF = new Map();
     this.steps = new Map();      // détection de saut par groupe (cf. detectStep)
+    this.disagreeSince = null;
     const played = this.playedMidi;
     if (played == null && this.cfg.mode !== 'manual') {
       if (force) this.trackers.clear();
@@ -274,13 +282,13 @@ export class Engine {
     const c = this.cfg;
     const map = new Map();
     for (const v of this.voices()) {
-      const base = v.fixedMidi ?? (playedMidi + 12 * v.oct);
+      const base = v.fixedMidi ?? (playedMidi + 12 * v.oct + (v.semi || 0));
       if (base < MIDI_MIN - 1 || base > MIDI_MAX + 1) continue;
       const t = v.fixedMidi != null
         ? { midi: v.fixedMidi, nominal: midiToFreq(v.fixedMidi, c), beat: 0,
             target: midiToFreq(v.fixedMidi, c) }
         : voiceTargetFreq(playedMidi, v, c);
-      const key = v.fixedMidi != null ? `m${v.fixedMidi}` : `o${v.oct}`;
+      const key = v.fixedMidi != null ? `m${v.fixedMidi}` : `o${v.oct}${v.semi ? `q${v.semi}` : ''}`;
       let g = map.get(key);
       if (!g) {
         const kTrack = Math.max(1, Math.ceil(150 / t.nominal));
@@ -302,8 +310,24 @@ export class Engine {
     const maxOct = octs.length ? Math.max(...octs) : 0;
     for (const g of groups) {
       const o = octOf(g);
-      g.avoidEven = o != null && o < maxOct;
+      g.avoidEven = o != null && o < maxOct && !groups.some((h) => h.voices[0].def.semi);
       if (g.avoidEven && g.kTrack % 2 === 0) g.kTrack++;
+    }
+    // Plus généralement (quinte, accord, notes définies) : le partiel de
+    // mesure d'une anche ne doit tomber sur AUCUN partiel d'une autre anche
+    // jouée — sinon la fenêtre voit leur somme. À la quinte Do2 + Sol2, le
+    // partiel 3 de Do2 (196,2 Hz) est le partiel 2 de Sol2 (196,0 Hz) : on
+    // mesure Do2 sur son partiel 4. (Les unissons ont leur propre choix, plus
+    // bas : unisonHarmonic.)
+    if (groups.length > 1) {
+      for (const g of groups) {
+        if (g.voices.length > 1 || g.avoidEven) continue;
+        const clash = (k) => groups.some((h) => h !== g && Array.from({ length: 16 }, (_, j) => j + 1)
+          .some((j) => Math.abs(k * g.center - j * h.center) < SEP_HZ));
+        let k = g.kTrack;
+        while (k < K_MAX && clash(k)) k++;
+        if (!clash(k)) g.kTrack = k;
+      }
     }
     // Plan harmonique FIGÉ par note. `groupVoices` est rappelé à chaque image,
     // mais les traqueurs ne sont recentrés qu'au changement de note (`retune`).
@@ -592,6 +616,16 @@ export class Engine {
         // La fondamentale détectée correspond à la voix la plus grave.
         const minOct = Math.min(...this.voices().map((v) => v.oct));
         midi -= 12 * minOct;
+        // Registre à la quinte (fondamentale r + quinte 3r/2) : le son a pour
+        // période commune r/2, et la détection trouve cette « fondamentale »
+        // fantôme, une octave sous la basse (mesuré sur Do3 + Sol3 : Do2).
+        // Signature : rien aux rangs 1, 5, 7 de r/2 (ils n'appartiennent à
+        // aucune des deux anches), mais les rangs 2 et 3 présents.
+        if (this.voices().some((v) => ((v.semi || 0) % 12 + 12) % 12 === 7) && coarse) {
+          const g0 = f0;
+          const has = (k) => partialPresent(coarse, g0, k);
+          if (!has(1) && !has(5) && !has(7) && has(2) && has(3)) midi += 12;
+        }
       }
       if (midi >= MIDI_MIN && midi <= MIDI_MAX) {
         // Première acquisition : bascule rapide (2 trames). Note déjà tenue :
@@ -623,6 +657,28 @@ export class Engine {
       }
     }
     if (c.mode === 'manual' && this.trackers.size === 0) this.retune(true);
+
+    // Retour du son après un silence — typiquement l'inversion du soufflet :
+    // ce ne sont plus les mêmes anches qui parlent (tiré / poussé), ni la
+    // même hauteur. Les traqueurs, gelés pendant le silence, contiennent
+    // encore l'autre sens : on les fait repartir de zéro. La courbe montre
+    // alors un trou franc puis la nouvelle hauteur, au lieu de traîner
+    // l'ancienne valeur puis de sauter (mesuré sur une session d'Ewen :
+    // valeur figée 0,5 s après la reprise, puis saut de 4 à 6 ¢).
+    {
+      const tNow = this.samplesTotal / this.sr;
+      if (quiet) {
+        if (this.silentSince == null) this.silentSince = tNow;
+      } else if (this.silentSince != null) {
+        this.silentSince = null;
+        for (const tr of this.trackers.values()) tr.restart(RESUME_KEEP);
+        this.prevF = new Map();
+        this.steps = new Map();
+        this.lastFine = null;
+        this.disagreeSince = null;
+        this.resume = { t: tNow, midi: this.playedMidi };
+      }
+    }
 
     // Mesures fines par groupe, du grave vers l'aigu : les harmoniques des
     // voix déjà mesurées sont « revendiquées » pour que, par exemple, la 2e
@@ -779,7 +835,11 @@ export class Engine {
         v.tracked = true;
         v.held = true; // maintenu pendant un creux, ni fin ni rapide
         v.beatMeas = 0;
-      } else if (v && !v.tracked && Math.abs(centsBetween(followF0, v.nominal)) < 120) {
+      } else if (v && !v.tracked && Math.abs(centsBetween(followF0, v.nominal)) < 120
+          // Juste après une reprise sur la même note, les traqueurs se
+          // remplissent (~0,4 s) : un trou vaut mieux qu'une estimation rapide
+          // fausse de plusieurs cents.
+          && !(this.resume && this.resume.midi === played && tNow - this.resume.t < 0.6)) {
         v.fMeas = followF0;
         v.amp = level;
         v.dCents = centsBetween(followF0, v.nominal);
@@ -805,11 +865,18 @@ export class Engine {
         let num = wBase * bv.fMeas;
         let den = wBase;
         let nFused = 1;
+        let ampRef = bv.amp;
+        for (const g of groups) if (g.isHarmonic && !g.isSub && g.voices[0]?.tracked) ampRef = Math.max(ampRef, g.voices[0].amp);
+        let worst = null;                 // partiel le plus en désaccord avec la voix de base
         for (const g of groups) {
           if (!g.isHarmonic || g.isSub) continue;
           const v = g.voices[0];
           if (!v?.tracked) continue;
           const fEq = v.fMeas / g.kTrack; // fMeas en domaine du partiel
+          if (!v.step && v.amp >= ampRef / 31.6) {
+            const sd = centsBetween(fEq, bv.fMeas);
+            if (!worst || Math.abs(sd) > Math.abs(worst.cents)) worst = { k: g.kTrack, cents: sd };
+          }
           // Porte PROGRESSIVE : poids plein jusqu'à 0,5 ¢ d'écart, nul à 1,5 ¢.
           // Une porte franche faisait entrer et sortir un partiel d'une image à
           // l'autre quand il frôlait le seuil : une marche sur la courbe à
@@ -821,6 +888,18 @@ export class Engine {
           num += w * fEq;
           den += w;
           nFused++;
+        }
+        // Une anche seule en régime est périodique : ses partiels disent
+        // EXACTEMENT la même hauteur (mesuré : à 0,1 ¢ près sur les samples
+        // Ballone Burini). S'ils restent en désaccord plus de 1,5 s, ce sont
+        // deux anches (octave, quinte…) que le mode Automatique fond à tort
+        // en une seule valeur — on le signale (cf. app.js).
+        const tNow = this.samplesTotal / this.sr;
+        if (worst && Math.abs(worst.cents) > DISAGREE_CENTS) {
+          if (this.disagreeSince == null) this.disagreeSince = tNow;
+          this.disagree = { k: worst.k, kBase: base.kTrack || 1, cents: worst.cents };
+        } else {
+          this.disagreeSince = null;
         }
         if (nFused > 1) {
           bv.fMeas = num / den;
@@ -965,6 +1044,10 @@ export class Engine {
       quiet,
       f0,
       f0Cents,
+      // Mode Automatique : partiels en désaccord depuis plus de 1,5 s → sans
+      // doute deux anches. { k, kBase, cents } ou null.
+      partialsDisagree: c.mode === 'auto' && !quiet && this.disagreeSince != null
+        && this.samplesTotal / this.sr - this.disagreeSince >= DISAGREE_HOLD_S ? this.disagree : null,
       clarity,
       playedMidi: played,
       transpose: c.transpose,

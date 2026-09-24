@@ -281,7 +281,41 @@
   définit le tremolo cible. Le bouton <b>Copier battements mesurés → liste
   cible</b> reproduit l'accord d'un instrument existant sur un autre.</p>
   <p>Chaque note d'accordéon a une anche par <b>sens du soufflet</b> : tirer et
-  pousser sont mémorisés séparément dans le rapport, la grille et l'export.</p>
+  pousser sont mémorisés séparément dans le rapport, la grille et l'export.
+  À chaque inversion du soufflet (le son passe par un silence), la mesure
+  repart de zéro : la courbe montre un <b>trou</b>, puis directement la hauteur
+  de l'autre anche, au lieu de traîner l'ancienne valeur.</p>
+
+  <div class="callout">
+    <b>Changer de mode sans aller dans Réglages.</b> La barre <b>Mode</b>, sous les
+    onglets, est visible partout : Automatique, Auto-anches, Registre (avec son
+    choix de registre) ou Notes définies (avec ses notes).
+  </div>
+
+  <div class="callout">
+    <b>Registre « Quinte ».</b> La basse et sa quinte juste au-dessus, comme la
+    basse fondamentale d'un chromatique : chaque anche est mesurée séparément.
+    (Le son d'une quinte a une période commune une octave <i>sous</i> la basse ;
+    l'accordeur le sait et ne s'y trompe pas.)
+  </div>
+
+  <div class="callout">
+    <b>🎹 Choisir les notes</b> (mode Notes définies) : un clavier de Do1 à Do7 —
+    chaque touche cochée est une anche mesurée — et les accords de la main gauche
+    en deux clics : fondamentale, octave, puis quinte, octave, majeur, mineur,
+    septième ou diminué ; « Remplacer » ou « Ajouter ». Plus besoin de taper les
+    notes (on peut encore, dans Réglages).
+  </div>
+
+  <div class="callout warn">
+    <b>« Deux anches ? »</b> En mode Automatique, l'accordeur suppose une seule
+    anche. Or une anche seule en régime est périodique : ses partiels disent
+    <b>exactement</b> la même hauteur (à 0,1 ¢ près, mesuré). S'ils restent en
+    désaccord plus de 1,5 s, c'est que deux anches sonnent (octave, quinte…) :
+    la valeur affichée ne serait la hauteur d'aucune des deux. Un bandeau le
+    signale et propose le bon mode en un clic : <b>Octave (16'+8')</b>,
+    <b>Quinte</b> ou <b>Choisir les notes</b>.
+  </div>
 
   <h2 id="analyse">6. Analyse physique (pour la recherche)</h2>
   <ul class="tight">

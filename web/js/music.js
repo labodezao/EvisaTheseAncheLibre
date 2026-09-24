@@ -203,6 +203,15 @@ export const REGISTER_PRESETS = {
       { id: '4', label: "4'", oct: 1, beatSign: 0 },
     ],
   },
+  Q: {
+    // Basse et sa quinte, comme la basse fondamentale d'un chromatique :
+    // deux anches à la quinte juste au-dessus, mesurées chacune.
+    name: 'Quinte (fondamentale + quinte)',
+    voices: [
+      { id: '1', label: 'fond.', oct: 0, beatSign: 0 },
+      { id: '5', label: 'quinte', oct: 0, semi: 7, beatSign: 0 },
+    ],
+  },
   LMMMH: {
     name: "16'+musette+4' (5 anches)",
     voices: [
@@ -233,7 +242,7 @@ export function beatTarget(midi, curve) {
 
 // Fréquence cible d'une voix pour une note jouée donnée.
 export function voiceTargetFreq(playedMidi, voice, cfg) {
-  const midi = playedMidi + 12 * voice.oct;
+  const midi = playedMidi + 12 * voice.oct + (voice.semi || 0);   // semi : quinte, tierce…
   const f = midiToFreq(midi, cfg);
   const beat = voice.beatSign ? voice.beatSign * beatTarget(playedMidi, cfg.beatCurve) : 0;
   return { midi, nominal: f, beat, target: f + beat };

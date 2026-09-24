@@ -755,5 +755,78 @@ console.log('\nTest 29 — export du mode dev : une seule archive ZIP lisible');
   assert(ok, `structure ZIP (en-têtes locaux, répertoire central, 2 fichiers) — ${z.length} octets`);
 }
 
+function twoReeds(reeds, seconds = 8, gaps = []) {
+  const n = SR * seconds, x = new Float32Array(n);
+  for (const { f, a = 1, fAfter } of reeds) {
+    const H = [1, 0.8, 0.5, 0.4, 0.25, 0.15];
+    let ph = 0;
+    for (let i = 0; i < n; i++) {
+      const t = i / SR;
+      const silent = gaps.some(([a0, a1]) => t >= a0 && t < a1);
+      const after = gaps.length && t >= gaps[0][1];
+      ph += (2 * Math.PI * (after && fAfter ? fAfter : f)) / SR;
+      if (silent) continue;
+      for (let h = 0; h < H.length; h++) x[i] += 0.08 * a * H[h] * Math.sin((h + 1) * ph + h);
+    }
+  }
+  for (let i = 0; i < n; i++) x[i] += 3e-4 * (Math.random() * 2 - 1);
+  return x;
+}
+const at = (m, ct) => midiToFreq(m) * 2 ** (ct / 1200);
+
+console.log('\nTest 30 — registre « Quinte » : la basse et sa quinte, chacune mesurée');
+{
+  // La quinte (3:2) a une période commune une octave SOUS la basse : la
+  // détection trouvait Do2 pour Do3 + Sol3. Et à la quinte grave, le partiel 3
+  // de la basse tombe sur le partiel 2 de la quinte.
+  for (const root of [36, 48, 57]) {
+    const e = new Engine(SR, { mode: 'register', register: 'Q' });
+    const last = run(e, twoReeds([{ f: at(root, -4) }, { f: at(root + 7, 3), a: 0.8 }]));
+    const vs = last.groups.filter((g) => !g.isHarmonic && !g.isSub).flatMap((g) => g.voices);
+    const f1 = vs.find((v) => v.def.id === '1'), f5 = vs.find((v) => v.def.id === '5');
+    assert(last.playedMidi === root && f1?.tracked && f5?.tracked
+      && Math.abs(f1.dTargetCents + 4) < 0.1 && Math.abs(f5.dTargetCents - 3) < 0.1,
+      `${noteLabel(root).full} + ${noteLabel(root + 7).full} : note ${noteLabel(last.playedMidi ?? 0).full}, `
+      + `fond. ${f1?.dTargetCents?.toFixed(2)} ¢ (−4), quinte ${f5?.dTargetCents?.toFixed(2)} ¢ (+3)`);
+  }
+}
+
+console.log('\nTest 31 — mode Automatique : alerte « deux anches ? » quand les partiels se contredisent');
+{
+  const count = (reeds) => {
+    const e = new Engine(SR, { mode: 'auto' });
+    const x = twoReeds(reeds);
+    let n = 0;
+    for (let i = 0; i + 512 <= x.length; i += 512) { const r = e.process(x.subarray(i, i + 512)); if (r?.partialsDisagree) n++; }
+    return n;
+  };
+  const oct = count([{ f: at(48, 9), a: 0.7 }, { f: at(60, 4) }]);
+  const fifth = count([{ f: at(48, -4) }, { f: at(55, 3), a: 0.8 }]);
+  const one = count([{ f: at(60, 4) }]);
+  const one2 = count([{ f: at(69, -2) }]);
+  assert(oct > 20 && fifth > 20, `deux anches signalées (octave : ${oct} images, quinte : ${fifth} images)`);
+  assert(one === 0 && one2 === 0, `une anche seule jamais signalée (${one}, ${one2} images)`);
+}
+
+console.log('\nTest 32 — inversion du soufflet (silence) : trou franc, puis la nouvelle hauteur directement');
+{
+  // Tiré à −3 ¢, silence de 0,4 s, poussé à +4 ¢. Avant, la valeur figée
+  // restait affichée ~0,5 s après la reprise puis sautait.
+  const e = new Engine(SR, { mode: 'auto' });
+  const x = twoReeds([{ f: at(62, -3), fAfter: at(62, 4) }], 8, [[4, 4.4]]);
+  let stale = 0, first = null;
+  for (let i = 0; i + 512 <= x.length; i += 512) {
+    const r = e.process(x.subarray(i, i + 512));
+    if (!r || r.quiet || r.time < 4.4) continue;
+    const v = r.groups.find((g) => !g.isHarmonic && !g.isSub)?.voices[0];
+    if (!v?.tracked) continue;
+    if (Math.abs(v.dTargetCents + 3) < 1) stale++;
+    if (first == null) first = { t: r.time - 4.4, c: v.dTargetCents };
+  }
+  assert(stale === 0, `aucune valeur de l'ancien sens après la reprise (${stale} image(s))`);
+  assert(first && first.t < 0.6 && Math.abs(first.c - 4) < 1,
+    `première mesure ${first?.t.toFixed(2)} s après la reprise, à ${first?.c.toFixed(2)} ¢ (+4 attendu)`);
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);
