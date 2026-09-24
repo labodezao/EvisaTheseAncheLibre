@@ -19,7 +19,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '22';
+const APP_VERSION = '23';
 function versionMismatch(what, got) {
   const b = document.getElementById('versionBanner');
   if (!b) return;
@@ -356,6 +356,7 @@ function pushConfig() {
 function onTick(t) {
   state.tickAt = performance.now();
   showTwoReeds(t);
+  showBeat(t);
   drawVu(t);
   showChord(t);
   if (state.frozen) {
@@ -2098,7 +2099,16 @@ function bindControls() {
   showDevStatus(null);
   $('btnCurvePng').onclick = exportCurvePng;
   updateLockButton();
-  $('a4').onchange = () => { cfg.a4 = clamp(Number($('a4').value) || 440, 340, 540); $('a4').value = cfg.a4; pushConfig(); };
+  const setA4 = (v) => {
+    cfg.a4 = clamp(Number(v) || 440, 340, 540);
+    $('a4').value = cfg.a4;
+    $('qA4').value = cfg.a4;
+    pushConfig();
+  };
+  $('a4').onchange = () => setA4($('a4').value);
+  // Le La de référence, visible et modifiable depuis tous les onglets.
+  $('qA4').value = cfg.a4;
+  $('qA4').onchange = () => setA4($('qA4').value);
   tSel.onchange = () => { cfg.temperament = tSel.value; pushConfig(); };
   trSel.onchange = () => { cfg.transpose = Number(trSel.value); pushConfig(); };
   $('calib').onchange = () => { cfg.calibrationPpm = Number($('calib').value) || 0; pushConfig(); };
@@ -2434,6 +2444,28 @@ function openNotePicker() {
 // une anche seule a des partiels exactement harmoniques ; s'ils ne le sont
 // pas, deux anches sonnent (octave, quinte…) et la valeur affichée n'est la
 // hauteur d'aucune des deux. On le dit, et on propose le bon mode.
+// Battement du trémolo, en battements par minute (et par seconde) — deux
+// anches qui battent, ou une modulation d'ensemble (soufflet secoué). Lissé
+// sur 1 s pour que le chiffre se lise.
+function showBeat(t) {
+  const el = $('qBeat');
+  const b = t.beat;
+  const hzRaw = b ? (b.pairHz ?? (b.conf >= 0.5 ? b.hz : null)) : null;
+  if (t.quiet || hzRaw == null || !(hzRaw > 0.05)) {
+    if (!t.quiet && performance.now() - (state.beatT ?? 0) > 1500) el.classList.add('hidden');
+    return;
+  }
+  state.beatT = performance.now();
+  state.beatHz = state.beatHz == null || Math.abs(hzRaw - state.beatHz) > 0.1 * state.beatHz
+    ? hzRaw : state.beatHz + 0.3 * (hzRaw - state.beatHz);
+  const hz = state.beatHz;
+  const what = b.pairHz != null ? 'écart des anches'
+    : b.kind === 'modulation' ? 'modulation (soufflet ?)' : 'deux anches';
+  el.textContent = `〰 ${(hz * 60).toFixed(0)} bat/min · ${hz.toFixed(2)} Hz · ${what}${b.sure || b.pairHz != null ? '' : ' ?'}`;
+  el.classList.toggle('unsure', !(b.sure || b.pairHz != null));
+  el.classList.remove('hidden');
+}
+
 // Accord reconnu (mode Accord, registre Quinte) : la fondamentale, puis
 // chaque degré avec sa note — « Fond. Ré · 1 Ré4 · 5 La4 ».
 function showChord(t) {

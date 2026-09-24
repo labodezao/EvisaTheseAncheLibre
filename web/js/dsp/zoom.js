@@ -60,6 +60,79 @@ export class ZoomTracker {
     this.start = Math.max(this.start, this.count - keep);
   }
 
+  // Battement lu dans l'ENVELOPPE de la bande (demande d'Ewen : « combien de
+  // fois par minute bat mon trémolo ? »). Deux anches proches font monter et
+  // descendre le volume de leur somme au rythme de leur écart de fréquence ;
+  // la période de cette enveloppe se lit par autocorrélation, même quand les
+  // deux anches sont trop proches pour que le spectre les sépare. Sur le
+  // partiel k, l'enveloppe bat k fois plus vite : on divise par k.
+  // Fenêtre : les `maxS` dernières secondes depuis le dernier redémarrage
+  // (au moins 2,5 s, et deux périodes). Retourne { hz, conf } ou null.
+  beatFromEnvelope(k = 1, maxS = 8) {
+    // Toute la mémoire de la bande depuis le changement de note (les
+    // redémarrages de la fenêtre de mesure n'y changent rien : le son est
+    // continu). 8 s : un battement lent (0,5 Hz, 30/min) y fait 4 périodes.
+    const avail = Math.min(this.count, RING);
+    const N = Math.min(avail, Math.round(maxS * this.srd));
+    if (N < 2.5 * this.srd) return null;
+    let M = 1;
+    while (M < 2 * N) M <<= 1;
+    const fft = FFT.get(M);
+    // 1) Isoler l'amas de l'anche suivie : FFT de la bande, on ne garde que
+    //    ±BW Hz autour de la raie la plus forte (les deux anches d'un trémolo
+    //    y sont ; les restes des autres partiels repliés par la décimation,
+    //    qui faisaient « battre » une anche seule à 9 Hz, n'y sont pas).
+    const re = new Float64Array(M), im = new Float64Array(M);
+    for (let i = 0; i < N; i++) {
+      const idx = (((this.count - N + i) % RING) + RING) % RING;
+      re[i] = this.ringRe[idx]; im[i] = this.ringIm[idx];
+    }
+    fft.transform(re, im);
+    let pk = 0, pm = -1;
+    for (let i = 0; i < M; i++) { const m = re[i] * re[i] + im[i] * im[i]; if (m > pm) { pm = m; pk = i; } }
+    const BW = Math.min(16, 0.45 * this.srd), binHz = this.srd / M;
+    const half = Math.round(BW / binHz);
+    for (let i = 0; i < M; i++) {
+      let d = Math.abs(i - pk); d = Math.min(d, M - d);
+      if (d > half) { re[i] = 0; im[i] = 0; }
+    }
+    // FFT inverse par conjugaison : x = conj(FFT(conj(X))) / M.
+    for (let i = 0; i < M; i++) im[i] = -im[i];
+    fft.transform(re, im);
+    // 2) Enveloppe, sans les bords (transitoires du filtre).
+    const e0 = Math.round(0.1 * this.srd), n = N - 2 * e0;
+    const env = new Float64Array(n);
+    let mean = 0;
+    for (let i = 0; i < n; i++) { env[i] = Math.hypot(re[i + e0], im[i + e0]); mean += env[i]; }
+    mean /= n;
+    let v = 0;
+    for (let i = 0; i < n; i++) { env[i] -= mean; v += env[i] * env[i]; }
+    if (!(mean > 0) || Math.sqrt(v / n) < 0.03 * mean) return null;   // volume stable : pas de battement
+    // 3) Autocorrélation de l'enveloppe (FFT), première crête franche.
+    re.fill(0); im.fill(0);
+    re.set(env);
+    fft.transform(re, im);
+    for (let i = 0; i < M; i++) { re[i] = re[i] * re[i] + im[i] * im[i]; im[i] = 0; }
+    fft.transform(re, im);
+    const r0 = re[0];
+    const r = (t) => (re[t] / r0) * (n / (n - t));   // non biaisée
+    const tMin = Math.max(2, Math.floor(this.srd / 15));   // battement ≤ 15 Hz sur le partiel
+    const tMax = Math.floor(n / 2);                        // au moins deux périodes vues
+    // La première crête APRÈS le premier passage sous zéro (cherché dès le
+    // début : pour un battement rapide, le creux tombe avant tMin).
+    let dipped = false, best = -1;
+    for (let t = 1; t < tMax; t++) {
+      const x = r(t);
+      if (x < 0) dipped = true;
+      if (t >= tMin && dipped && x > 0.3 && x >= r(t - 1) && x >= r(t + 1)) { best = t; break; }
+    }
+    if (best < 0) return null;
+    const a = r(best - 1), b = r(best), c = r(best + 1);
+    let d = (0.5 * (a - c)) / (a - 2 * b + c);
+    if (!isFinite(d) || Math.abs(d) > 0.5) d = 0;
+    return { hz: this.srd / (best + d) / k, conf: b, depth: Math.sqrt(v / n) / mean };
+  }
+
   // Estimation RAPIDE (fenêtre courte de `W` échantillons, ~0,34 s) de la
   // raie la plus proche du décalage `off` (Hz dans la bande) : sert à voir
   // qu'une hauteur a bougé, pas à la mesurer finement. Ignore `start`.

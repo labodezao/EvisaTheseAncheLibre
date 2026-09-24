@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" data-version="22">
+<html lang="fr" data-version="23">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -89,6 +89,8 @@
     <button id="btnPickNotes" type="button">🎹 Choisir les notes…</button>
   </span>
   <span id="qChordNow" class="chord-now hidden" aria-live="polite"></span>
+  <span id="qBeat" class="beat-now hidden" aria-live="polite" title="Battement lu dans l'enveloppe du son : deux anches d'écart Δf battent Δf fois par seconde"></span>
+  <label class="q-a4" title="La de référence (diapason)">La <input type="number" id="qA4" min="340" max="540" step="0.1"> Hz</label>
   <span class="vu-wrap" title="Niveau d'entrée. Glissez le repère : sous ce seuil, le son est considéré comme un silence (la mesure se gèle).">
     <span class="vu"><span id="vuFill"></span><span id="vuGate"></span></span>
     <input type="range" id="qGate" min="-100" max="-10" step="1" aria-label="Seuil de silence (dB)">
@@ -485,7 +487,7 @@
   <span>Accordeur pour instruments à anche libre — plage Mi0 → Do9 · précision &lt; 0,1 cent · </span>
   <a href="aide.html" target="_blank">guide d'utilisation</a> ·
   <a href="#" id="aboutLink">à propos</a> ·
-  <span id="appVersion">version 22</span>
+  <span id="appVersion">version 23</span>
 </footer>
 <div id="versionBanner" class="version-banner hidden"></div>
 

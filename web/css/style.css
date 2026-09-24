@@ -501,3 +501,8 @@ button.note-chip { cursor: pointer; }
 #convState.locked { color: var(--ok-strong); font-weight: 700; }
 .vu-txt.clip { color: var(--bad); font-weight: 700; }
 #btnGateAuto { padding: 3px 8px; font-size: 12px; }
+
+/* Battement du trémolo et La de référence (barre Mode) */
+.beat-now { font: 600 13px var(--mono); color: var(--text); padding: 2px 8px; border-radius: 10px; background: var(--panel2); border: 1px solid var(--line); }
+.beat-now.unsure { color: var(--dim); }
+.q-a4 input { width: 7ch; }

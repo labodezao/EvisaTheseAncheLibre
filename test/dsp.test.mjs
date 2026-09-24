@@ -933,5 +933,25 @@ console.log('\nTest 35 — accord reconnu TOUT SEUL (type et fondamentale), comm
   assert(ok, `reconnus : ${got.join(', ')} (attendu : ${chords.map((c) => c.name).join(', ')})`);
 }
 
+console.log('\nTest 36 — battement du trémolo (bat/min), en mode Automatique');
+{
+  // Demande d'Ewen : deux anches en « vibrato » — combien de battements par
+  // minute ? Lu dans l'enveloppe, sans séparer les anches.
+  const cases = [
+    { nom: 'La4 + 2,30 Hz', reeds: [{ f: 440 }, { f: 442.3, a: 0.9 }], hz: 2.3 },
+    { nom: 'Do4 + 0,60 Hz (lent)', reeds: [{ f: 261.63 }, { f: 262.23, a: 0.8 }], hz: 0.6 },
+    { nom: 'Mi5 + 6,0 Hz (rapide)', reeds: [{ f: 659.26 }, { f: 665.26, a: 0.9 }], hz: 6.0 },
+    { nom: 'Do2 + 1,0 Hz (basse)', reeds: [{ f: 65.41 }, { f: 66.41, a: 0.9 }], hz: 1.0 },
+  ];
+  for (const c of cases) {
+    const last = run(new Engine(SR, { mode: 'auto' }), twoReeds(c.reeds, 10));
+    const b = last.beat;
+    assert(b && b.kind === 'anches' && Math.abs(b.hz - c.hz) < 0.01 * c.hz,
+      `${c.nom} : ${b ? `${b.hz.toFixed(3)} Hz = ${(b.hz * 60).toFixed(1)} bat/min (${b.kind})` : 'rien'}`);
+  }
+  const solo = run(new Engine(SR, { mode: 'auto' }), twoReeds([{ f: 440 }], 10));
+  assert(!solo.beat, `anche seule : aucun battement (${solo.beat ? `${solo.beat.hz.toFixed(2)} Hz` : 'rien'})`);
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);
