@@ -187,11 +187,28 @@ export class ZoomTracker {
       }
       comps.push({ off: offI, freq: this.fc + offI, mag: m, bin: k });
     }
-    comps.sort((a, b) => b.mag - a.mag);
-    const kept = comps.slice(0, maxPeaks).sort((a, b) => a.off - b.off);
+    // Une raie à 3 cases ou moins d'une raie 12 dB plus forte n'est pas une
+    // anche : c'est l'épaule du lobe principal (±2 cases) ou le premier lobe
+    // secondaire de la fenêtre de Hann, déformés par la modulation lente du
+    // soufflet (±0,15 ¢ à 0,6 Hz suffit : pic parasite à −20 dB, 3 cases).
+    // Son raffinement de phase est en plus tiré vers la raie forte. Il était
+    // apparié à la place de la vraie anche dès qu'il tombait plus près de la
+    // cible : la courbe plongeait de 0,6 ¢ pendant trois images puis
+    // remontait — les « dents de scie ». Deux vraies anches sont, elles,
+    // écartées d'au moins 4 cases (cf. SEP_HZ dans engine.js).
+    const isSideband = (c) => comps.some((s) => s !== c && s.mag > 4 * c.mag
+      && Math.min(Math.abs(s.bin - c.bin), W - Math.abs(s.bin - c.bin)) <= 3);
+    const clean = comps.filter((c) => !isSideband(c));
+    clean.sort((a, b) => b.mag - a.mag);
+    const kept = clean.slice(0, maxPeaks).sort((a, b) => a.off - b.off);
     return {
       components: kept,
       mags,
+      // Spectre complexe de la fenêtre courante (tampon réutilisé : valable
+      // jusqu'au prochain analyze() de CE traqueur) — sert à isoler l'amas
+      // d'une anche et à suivre sa phase (engine.js, clusterFreq).
+      re: cur.re,
+      im: cur.im,
       W,
       srd: this.srd,
       fc: this.fc,

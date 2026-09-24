@@ -638,5 +638,50 @@ console.log('\nTest 25 — auto-anches : un 16\' coché mais absent n\'est pas i
   assert(t8.length === 1 && Math.abs(cents(t8[0].fMeas, 220)) < 0.1, `une seule anche 8', à 220 Hz (${t8.map((v) => v.fMeas.toFixed(3)).join(', ')})`);
 }
 
+// ---------------------------------------------------------------------------
+console.log('\nTest 26 — courbe sans dents de scie sous un soufflet vivant (MMM, ±1 ¢ à 1,5 Hz)');
+{
+  // Le soufflet module la hauteur : chaque partiel devient un amas de raies
+  // (porteuse + raies latérales presque aussi fortes). Avant, le traqueur
+  // sautait de la porteuse à une raie latérale d'une image à l'autre :
+  // +1,2 ¢, 0, +1,2 ¢… sur l'anche 8'+.
+  // Spectre mesuré sur un vrai Mi4 (Gaillard) : partiels hauts presque
+  // aussi forts que la fondamentale — c'est là que la modulation se voit.
+  const spectre = [-1, -19, 0, -1.4, 0, -0.8, -2.5, -6, -9.5, -13.5, -7.8, -5.4, -15, -9.8].map((d) => 10 ** (d / 20));
+  const truth = [438.4, 440, 441.6], sens = [0.8, 1, 1.3], amp = [1, 1, 0.9];
+  const n = SR * 8, sig = new Float32Array(n);
+  truth.forEach((f, r) => {
+    let ph = 0;
+    const phi = spectre.map((_, h) => 1.7 * h + 2.3 * r);
+    for (let i = 0; i < n; i++) {
+      const m = Math.sin(2 * Math.PI * 1.5 * i / SR);
+      ph += 2 * Math.PI * f * 2 ** (sens[r] * m / 1200) / SR;
+      const env = Math.min(1, i / SR / 0.3) * 10 ** (6 * m / 20);
+      let y = 0;
+      for (let h = 0; h < spectre.length; h++) y += spectre[h] * Math.sin((h + 1) * ph + phi[h]);
+      sig[i] += 0.05 * amp[r] * env * y;
+    }
+  });
+  for (let i = 0; i < n; i++) sig[i] += 3e-4 * (Math.random() * 2 - 1);
+  const engine = new Engine(SR, { mode: 'register', register: 'MMM' });
+  const prev = [null, null, null], jump = [0, 0, 0], err = [[], [], []];
+  for (let i = 0; i + 512 <= n; i += 512) {
+    const r = engine.process(sig.subarray(i, i + 512));
+    if (!r || (i + 512) / SR < 3.5) continue;
+    const g = r.groups.find((gg) => !gg.isHarmonic && !gg.isSub);
+    g.voices.forEach((v, k) => {
+      if (!v.tracked) return;
+      const c = cents(v.fMeas, truth[k]);
+      err[k].push(c);
+      if (prev[k] != null) jump[k] = Math.max(jump[k], Math.abs(c - prev[k]));
+      prev[k] = c;
+    });
+  }
+  const worstJump = Math.max(...jump);
+  const worstMean = Math.max(...err.map((e) => Math.abs(e.reduce((a, x) => a + x, 0) / Math.max(1, e.length))));
+  assert(worstJump < 0.1, `plus grand saut image à image = ${worstJump.toFixed(3)} ¢ (< 0,1 ; 1,2 ¢ avant)`);
+  assert(worstMean < 0.05, `écart moyen de la pire anche = ${worstMean.toFixed(3)} ¢ (< 0,05)`);
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);
