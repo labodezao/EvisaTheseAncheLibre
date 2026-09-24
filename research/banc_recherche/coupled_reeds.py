@@ -467,7 +467,7 @@ class CoupledReedsModel:
         return out
 
     def simulate(self, dur, supply_pa=1000.0, fs=22050.0, oversample=8,
-                 attack_s=0.02, seed=0):
+                 attack_s=0.02, seed=0, kick_tip_m=0.0):
         """RK4 suréchantillonné. Le soufflet monte en `attack_s` (attaque).
 
         Une infime asymétrie initiale (`seed`) évite que deux anches
@@ -483,6 +483,11 @@ class CoupledReedsModel:
         for i in range(2):
             if self.muted[i]:
                 s[2 * i] = 0.0
+            elif kick_tip_m:
+                # Languette lancée à la main (pichenette) : déplacement initial
+                # du bout, pour chercher une oscillation qui ne démarre pas
+                # seule mais tient une fois lancée (sous-critique).
+                s[2 * i + 1] = kick_tip_m / self.phi[i]
         if self.direction == 'tirer':
             # au repos, le canal et les chambres sont à la pression du dehors
             pass
