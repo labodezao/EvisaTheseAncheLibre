@@ -8,7 +8,7 @@ import {
 } from './music.js';
 import { Report } from './report.js';
 import { zipBytes } from './zip.js';
-import { CHORD_TYPES, parseDegrees, degreesText, degreeLabel } from './dsp/chord.js';
+import { CHORD_TYPES, parseDegrees, degreesText, degreeLabel, chordName } from './dsp/chord.js';
 import { initBench } from './bench.js';
 
 const $ = (id) => document.getElementById(id);
@@ -19,7 +19,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '21';
+const APP_VERSION = '22';
 function versionMismatch(what, got) {
   const b = document.getElementById('versionBanner');
   if (!b) return;
@@ -498,8 +498,18 @@ function updateHeader(t) {
       fv.textContent = '—'; cv.textContent = '—';
     }
     const fill = Math.min(...t.groups.map((g) => g.fill));
+    // « Verrouillé » (le « Lock » de l'accordeur de Dirk) : la voix suivie
+    // n'a pas bougé de plus de 0,2 ¢ (crête à crête) depuis 1,2 s — la valeur
+    // lue est la bonne, on peut regarder la lame.
+    const hist = state.lockHist ?? (state.lockHist = []);
+    if (!t.quiet && v?.tracked && !v.held) hist.push({ t: t.time, c: v.dTargetCents, m: t.playedMidi });
+    while (hist.length && (hist[0].t < t.time - 1.2 || hist[0].m !== t.playedMidi)) hist.shift();
+    const span = hist.length >= 12 ? Math.max(...hist.map((h) => h.c)) - Math.min(...hist.map((h) => h.c)) : Infinity;
+    const locked = !t.quiet && span <= 0.2;
+    cs.classList.toggle('locked', locked);
     cs.textContent = t.quiet ? 'silence (mesure gelée)'
-      : fill >= 0.999 ? 'convergé' : `convergence ${(fill * 100).toFixed(0)} %`;
+      : locked ? `🔒 verrouillé (stable à ±${Math.max(0.01, span / 2).toFixed(2)} ¢)`
+        : fill >= 0.999 ? 'convergé, en mouvement' : `convergence ${(fill * 100).toFixed(0)} %`;
   }
   updateVerdict(t);
   $('levelBar').style.width = `${Math.min(100, Math.max(0, 100 + (20 * Math.log10((t?.level ?? 0) + 1e-9) + 10)))}%`;
@@ -1840,7 +1850,7 @@ function calibrateFromMeasure() {
   beep(1046, 0.08);
   alert(`Micro calibré : ${cfg.calibrationPpm} ppm `
     + `(correction de ${residualPpm >= 0 ? '+' : ''}${residualPpm.toFixed(2)} ppm, `
-    + `soit ${(residualPpm * 1.2e-3).toFixed(3)} cent).`);
+    + `soit ${(residualPpm * 1200 / Math.LN2 * 1e-6).toFixed(3)} cent).`);
 }
 
 function recordNow() {
@@ -2101,6 +2111,7 @@ function bindControls() {
     cfg.chordType = $('qChord').value;
     if (CHORD_TYPES[cfg.chordType]) cfg.chordDegrees = CHORD_TYPES[cfg.chordType].degrees;
     $('qDegrees').value = degreesText(cfg.chordDegrees);
+    $('qDegrees').classList.toggle('hidden', cfg.chordType === 'auto');
     pushConfig();
   };
   $('qDegrees').onchange = () => {
@@ -2116,6 +2127,11 @@ function bindControls() {
   // Seuil de silence, réglé directement sur le vumètre.
   $('qGate').value = cfg.gateDb;
   $('qGate').oninput = () => setGate(Number($('qGate').value));
+  $('btnGateAuto').onclick = () => {
+    if (!state.running) { alert('Démarrez le micro, restez silencieux 2 s : le seuil se place juste au-dessus du bruit de la pièce.'); return; }
+    state.gateAuto = { t0: performance.now(), levels: [] };
+    $('btnGateAuto').textContent = '… 2 s';
+  };
   $('btnPickNotes2').onclick = openNotePicker;
   initNotePicker();
   $('twoReeds').addEventListener('click', onTwoReedsClick);
@@ -2160,6 +2176,18 @@ function bindControls() {
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName) || e.ctrlKey || e.metaKey || e.altKey) return;
     switch (e.key === 'Enter' ? 'Enter' : e.key.toLowerCase()) {
       case 'Enter': e.preventDefault(); recordNow(); break;
+      // ← → : note verrouillée un demi-ton plus bas / plus haut (Maj : une
+      // octave), comme les boutons « − Tone + » de l'accordeur de Dirk.
+      case 'arrowleft': case 'arrowright': {
+        const base = cfg.lockNote ?? state.tick?.playedMidi;
+        if (base == null || cfg.mode === 'manual' || cfg.mode === 'chord') break;
+        e.preventDefault();
+        const step = (e.key === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 12 : 1);
+        cfg.lockNote = Math.max(16, Math.min(108, base + step));
+        updateLockButton();
+        pushConfig();
+        break;
+      }
       case 'f': toggleFreeze(); break;
       case 'l': $('btnLock').click(); break;
       case 'b': setBellows(cfg.bellows === 'T' ? 'P' : 'T'); break;
@@ -2232,13 +2260,41 @@ function setGate(db) {
 
 function drawVu(t) {
   const db = t ? 20 * Math.log10((t.level ?? 0) + 1e-9) : null;
+  // Seuil auto : on relève le niveau de la pièce pendant 2 s de silence.
+  if (state.gateAuto && t && state.running) {
+    state.gateAuto.levels.push(db);
+    if (performance.now() - state.gateAuto.t0 > 2000) {
+      const lv = state.gateAuto.levels.sort((a, b) => a - b);
+      const p95 = lv[Math.floor(lv.length * 0.95)] ?? -80;
+      state.gateAuto = null;
+      $('btnGateAuto').textContent = 'Seuil auto';
+      // Un « bruit de pièce » au-dessus de −45 dB, c'est qu'une note sonnait :
+      // on ne place pas le seuil là (tout deviendrait silence).
+      if (p95 > -45) {
+        alert(`Trop fort pour être le bruit de la pièce (${p95.toFixed(0)} dB) : `
+          + 'relancez « Seuil auto » sans jouer pendant 2 s. Seuil inchangé.');
+      } else {
+        setGate(p95 + 8);                                 // 8 dB au-dessus du bruit de la pièce
+      }
+    }
+  }
+  // Saturation (crête ≥ −0,2 dB pleine échelle) : la mesure reste juste,
+  // mais le son écrêté a des partiels faussés ; l'accordeur de Dirk le dit
+  // aussi (« input signal too strong »).
+  const clip = t && state.running && (t.peak ?? 0) >= 0.98;
+  if (clip) state.clipT = performance.now();
+  const clipShown = state.running && performance.now() - (state.clipT ?? -1e9) < 1500;
   const fill = $('vuFill');
   fill.style.width = `${db == null ? 0 : vuPct(db)}%`;
   fill.classList.toggle('below', db != null && db < cfg.gateDb);
   $('vuGate').style.left = `${vuPct(cfg.gateDb)}%`;
-  $('vuTxt').textContent = db == null || !state.running
-    ? `seuil ${cfg.gateDb} dB`
-    : `${db.toFixed(0)} dB · seuil ${cfg.gateDb}`;
+  const vt = $('vuTxt');
+  vt.classList.toggle('clip', clipShown);
+  vt.textContent = clipShown ? '⚠ saturé : éloignez le micro'
+    : state.gateAuto ? 'silence… mesure du bruit'
+      : db == null || !state.running
+        ? `seuil ${cfg.gateDb} dB`
+        : `${db.toFixed(0)} dB · seuil ${cfg.gateDb}`;
 }
 
 // ---- Mode de mesure, depuis la barre sous les onglets ou depuis Réglages ------
@@ -2390,7 +2446,8 @@ function showChord(t) {
   }
   const tr = cfg.transpose || 0;
   const root = noteLabel(t.chord.rootMidi + tr).name;
-  const txt = `Fond. ${root} · ` + t.chord.notes
+  const head = t.chord.type ? chordName(root, t.chord.type) : `Fond. ${root}`;
+  const txt = `${head} · ` + t.chord.notes
     .map((n) => `${degreeLabel(n.semi)} ${noteLabel(n.midi + tr).full}`).join(' · ');
   if (el.textContent !== txt) el.textContent = txt;
   el.classList.remove('hidden');
@@ -2460,6 +2517,7 @@ function updateModeVisibility() {
   $('qChordWrap').classList.toggle('hidden', cfg.mode !== 'chord');
   $('qChord').value = cfg.chordType || 'perso';
   $('qDegrees').value = degreesText(cfg.chordDegrees || [0, 7]);
+  $('qDegrees').classList.toggle('hidden', cfg.chordType === 'auto');
   if (cfg.mode !== 'chord' && !(cfg.mode === 'register' && cfg.register === 'Q')) $('qChordNow').classList.add('hidden');
   $('qNotesWrap').classList.toggle('hidden', cfg.mode !== 'manual');
   renderQuickNotes();

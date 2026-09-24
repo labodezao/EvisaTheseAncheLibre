@@ -896,5 +896,42 @@ console.log('\nTest 34 — régler le seuil de silence ne remet pas la mesure à
   assert(before >= 256 && after >= 256, `fenêtre gardée pleine : ${before} → ${after} échantillons`);
 }
 
+console.log('\nTest 35 — accord reconnu TOUT SEUL (type et fondamentale), comme l\'accordeur de Dirk');
+{
+  // Les accords d'un chromatique enchaînés sans rien régler : majeur, mineur
+  // renversé, septième (sans quinte, comme sur les basses), diminué, quinte.
+  const { chordName } = await import('../web/js/dsp/chord.js');
+  const chords = [
+    { name: 'Do', notes: [60, 64, 67] },
+    { name: 'Rém', notes: [57, 62, 65] },          // La3 Ré4 Fa4 (renversé)
+    { name: 'La7', notes: [57, 61, 67] },          // La3 Do#4 Sol4
+    { name: 'Si dim', notes: [59, 62, 68] },       // Si3 Ré4 Sol#4 (1 ♭3 6)
+    { name: 'Sol 5', notes: [55, 62] },            // Sol3 Ré4
+  ];
+  const seg = 4, n = SR * seg * chords.length, x = new Float32Array(n);
+  chords.forEach((ch, ci) => {
+    for (const m of ch.notes) {
+      const f = midiToFreq(m), H = [1, 0.7, 0.45, 0.3, 0.2, 0.12, 0.08];
+      for (let h = 0; h < H.length; h++) {
+        const w = (2 * Math.PI * f * (h + 1)) / SR;
+        for (let i = ci * seg * SR; i < (ci + 1) * seg * SR; i++) x[i] += 0.05 * H[h] * Math.sin(w * i + h + m);
+      }
+    }
+  });
+  for (let i = 0; i < n; i++) x[i] += 3e-4 * (Math.random() * 2 - 1);
+  const e = new Engine(SR, { mode: 'chord', chordType: 'auto' });
+  const got = chords.map(() => null);
+  for (let i = 0; i + 512 <= n; i += 512) {
+    const r = e.process(x.subarray(i, i + 512));
+    if (!r) continue;
+    const ci = Math.floor(r.time / seg), local = r.time - ci * seg;
+    if (ci < chords.length && local > 3.5 && local < 3.99 && r.chord) {
+      got[ci] = chordName(noteLabel(r.chord.rootMidi).name, r.chord.type);
+    }
+  }
+  const ok = chords.every((c, i) => got[i] === c.name);
+  assert(ok, `reconnus : ${got.join(', ')} (attendu : ${chords.map((c) => c.name).join(', ')})`);
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);

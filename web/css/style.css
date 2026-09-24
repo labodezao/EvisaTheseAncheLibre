@@ -496,3 +496,8 @@ button.note-chip { cursor: pointer; }
 }
 .vu-txt { font: 12px var(--mono); color: var(--dim); min-width: 11ch; }
 @media (max-width: 560px) { .vu, #qGate { width: 110px; } .vu-wrap { margin-left: 0; } }
+
+/* Mesure verrouillée (stable) : le témoin passe au vert. */
+#convState.locked { color: var(--ok-strong); font-weight: 700; }
+.vu-txt.clip { color: var(--bad); font-weight: 700; }
+#btnGateAuto { padding: 3px 8px; font-size: 12px; }

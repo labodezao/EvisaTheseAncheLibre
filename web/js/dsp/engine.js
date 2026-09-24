@@ -7,7 +7,7 @@ import { ZoomTracker } from './zoom.js';
 import { FFT } from './fft.js';
 import { NsdfTracker } from './nsdf.js';
 import { matrixPencil } from './subspace.js';
-import { chordFromPeaks, degreeLabel } from './chord.js';
+import { chordFromPeaks, chordAuto, degreeLabel } from './chord.js';
 import {
   midiToFreq, nearestMidi, centsBetween, voiceTargetFreq,
   MIDI_MIN, MIDI_MAX, REGISTER_PRESETS,
@@ -15,7 +15,7 @@ import {
 
 // Version du moteur : doit être celle de la page et de app.js (cf. le
 // contrôle de cohérence dans app.js et le test dans dsp.test.mjs).
-export const ENGINE_VERSION = '21';
+export const ENGINE_VERSION = '22';
 
 const HOP = 4096;             // période d'analyse (~85 ms à 48 kHz)
 const MAXWIN = { fast: 128, normal: 256, precise: 512 };
@@ -31,7 +31,7 @@ const STEP_PLATEAU = 1;
 const STEP_LEVEL_DB = 3;
 const STEP_KEEP = 40;
 // Réglages sans effet sur les cibles : les changer ne remet pas la mesure à zéro.
-const NO_RETUNE = new Set(['gateDb', 'tolCents', 'autoFreeze', 'readout', 'devMode', 'bellows', 'chordType', '_v']);
+const NO_RETUNE = new Set(['gateDb', 'tolCents', 'autoFreeze', 'readout', 'devMode', 'bellows', '_v']);
 const STEP_MAX_CENTS = 40;
 const STEP_QW = 16;
 // Reprise après un silence (inversion du soufflet) : on ne garde que ce qui
@@ -194,6 +194,7 @@ export class Engine {
     this.acc = 0;
     this.rmsAcc = 0;
     this.rmsN = 0;
+    this.peakAcc = 0;
     this.playedMidi = null;
     this.candMidi = null;
     this.candCount = 0;
@@ -213,13 +214,13 @@ export class Engine {
   get gate() { return Math.pow(10, (this.cfg.gateDb ?? -70) / 20); }
 
   configure(patch) {
-    const before = JSON.stringify([this.cfg.mode, this.cfg.register, this.cfg.chordDegrees]);
+    const before = JSON.stringify([this.cfg.mode, this.cfg.register, this.cfg.chordDegrees, this.cfg.chordType]);
     // Réglages qui ne changent pas les cibles (seuil de silence, affichage) :
     // ils ne doivent pas remettre la mesure à zéro — sinon glisser le seuil
     // sur le vumètre effaçait la mesure à chaque mouvement.
     const changed = Object.keys(patch).filter((k) => JSON.stringify(patch[k]) !== JSON.stringify(this.cfg[k]));
     Object.assign(this.cfg, patch);
-    if (JSON.stringify([this.cfg.mode, this.cfg.register, this.cfg.chordDegrees]) !== before) this.chord = null;
+    if (JSON.stringify([this.cfg.mode, this.cfg.register, this.cfg.chordDegrees, this.cfg.chordType]) !== before) this.chord = null;
     if (patch.beatCurve) this.cfg.beatCurve = { ...patch.beatCurve };
     if (changed.every((k) => NO_RETUNE.has(k))) return;
     // Tout changement de cible invalide les traqueurs.
@@ -231,7 +232,11 @@ export class Engine {
   // devient une voix sur SA note, là où elle a été trouvée.
   chordDegrees() {
     const c = this.cfg;
-    if (c.mode === 'chord') return c.chordDegrees?.length ? c.chordDegrees : [0, 4, 7];
+    if (c.mode === 'chord') {
+      // Type reconnu tout seul : les degrés sont ceux de l'accord trouvé.
+      if (c.chordType === 'auto') return this.chord?.degrees ?? [0];
+      return c.chordDegrees?.length ? c.chordDegrees : [0, 4, 7];
+    }
     if (c.mode === 'register' && c.register === 'Q') return [0, 7];
     return null;
   }
@@ -517,8 +522,13 @@ export class Engine {
     this.samplesTotal += chunk.length;
     const gate = this.gate;
 
-    let sum = 0;
-    for (let i = 0; i < chunk.length; i++) sum += chunk[i] * chunk[i];
+    let sum = 0, pk = 0;
+    for (let i = 0; i < chunk.length; i++) {
+      const a = chunk[i];
+      sum += a * a;
+      if (a > pk) pk = a; else if (-a > pk) pk = -a;
+    }
+    if (pk > this.peakAcc) this.peakAcc = pk;       // crête sur la période d'analyse (saturation)
     const rms = Math.sqrt(sum / chunk.length);
     this.rmsAcc += sum;
     this.rmsN += chunk.length;
@@ -603,6 +613,7 @@ export class Engine {
     const c = this.cfg;
     const level = Math.sqrt(this.rmsAcc / Math.max(1, this.rmsN));
     this.rmsAcc = 0; this.rmsN = 0;
+    const peak = this.peakAcc; this.peakAcc = 0;
     const quiet = level < this.gate;
     const calib = 1 + (c.calibrationPpm || 0) * 1e-6;
 
@@ -642,7 +653,7 @@ export class Engine {
     }
 
     // Note verrouillée par l'utilisateur : la détection est court-circuitée.
-    if (c.lockNote != null && c.mode !== 'manual') {
+    if (c.lockNote != null && c.mode !== 'manual' && !this.chordDegrees()) {
       if (this.playedMidi !== c.lockNote) {
         this.playedMidi = c.lockNote;
         this.retune();
@@ -651,10 +662,14 @@ export class Engine {
       // Accord : reconnu dans les raies du spectre, confirmé sur 3 images
       // comme une note (mêmes gardes : niveau franc, 0,2 s après bascule).
       const tNow = this.samplesTotal / this.sr;
+      const auto = c.mode === 'chord' && c.chordType === 'auto';
       const ch = (!quiet && coarse)
-        ? chordFromPeaks(coarse.peaks, this.chordDegrees(), { a4: c.a4, prevRoot: this.chord?.rootPc ?? null,
-          prevNotes: this.chord?.notes.map((n) => n.midi) ?? null })
+        ? (auto
+          ? chordAuto(coarse.peaks, { a4: c.a4, prev: this.chord })
+          : chordFromPeaks(coarse.peaks, this.chordDegrees(), { a4: c.a4, prevRoot: this.chord?.rootPc ?? null,
+            prevNotes: this.chord?.notes.map((n) => n.midi) ?? null }))
         : null;
+      if (ch) ch.degrees = ch.notes.map((n) => n.semi);
       if (ch) {
         const sig = ch.notes.map((n) => n.midi).join(',');
         const cur = this.chord ? this.chord.notes.map((n) => n.midi).join(',') : null;
@@ -1121,13 +1136,15 @@ export class Engine {
       version: ENGINE_VERSION,
       time: this.samplesTotal / this.sr,
       level,
+      peak,         // crête du signal (1 = pleine échelle) : saturation du micro si ≥ 0,98
       quiet,
       f0,
       f0Cents,
       // Mode Automatique : partiels en désaccord depuis plus de 1,5 s → sans
       // doute deux anches. { k, kBase, cents } ou null.
       chord: this.chordDegrees() && this.chord
-        ? { rootPc: this.chord.rootPc, rootMidi: this.chord.rootMidi, notes: this.chord.notes } : null,
+        ? { rootPc: this.chord.rootPc, rootMidi: this.chord.rootMidi, notes: this.chord.notes,
+          type: this.chord.type ?? null } : null,
       // Mode Automatique : deux anches à l'unisson (trémolo) depuis plus de
       // 1,5 s → { cents : écart entre elles } ou null.
       unison: c.mode === 'auto' && !quiet && this.unisonSince != null
