@@ -327,15 +327,25 @@ console.log('\nTest 13 — fusion multi-harmonique : gain de précision sous bru
     }
     return sig;
   };
+  // Erreur quadratique moyenne sur la dernière seconde et demie (fenêtre
+  // pleine), pas sur une seule image : à 0,001 ¢ près, une image isolée ne dit
+  // rien (la sortie est une médiane de 3 images, cf. stabilize).
   const run2 = (fuse) => {
     const engine = new Engine(SR, { mode: 'auto', response: 'normal', fuseHarmonics: fuse });
-    const last = run(engine, makeSig());
-    const v = last.groups[0]?.voices[0];
-    return v?.tracked ? Math.abs(cents(v.fMeas, fTrue)) : Infinity;
+    const sig = makeSig();
+    let se = 0, k = 0;
+    for (let i = 0; i < sig.length; i += 512) {
+      const r = engine.process(sig.subarray(i, Math.min(i + 512, sig.length)));
+      if (!r || r.time < 2.5) continue;
+      const v = r.groups[0]?.voices[0];
+      if (!v?.tracked) return Infinity;
+      se += cents(v.fMeas, fTrue) ** 2; k++;
+    }
+    return k ? Math.sqrt(se / k) : Infinity;
   };
   const errFused = run2(true);
   const errSingle = run2(false);
-  console.log(`  erreur mono-partiel : ${errSingle.toFixed(4)} ¢ · fusionnée : ${errFused.toFixed(4)} ¢`);
+  console.log(`  erreur mono-partiel : ${errSingle.toFixed(6)} ¢ · fusionnée : ${errFused.toFixed(6)} ¢`);
   assert(errFused < 0.1, `erreur fusionnée = ${errFused.toFixed(4)} cent (< 0,1 requis malgré le bruit)`);
   assert(errFused <= errSingle + 1e-9, 'la fusion ne dégrade jamais la mesure mono-partiel');
 }
@@ -826,6 +836,64 @@ console.log('\nTest 32 — inversion du soufflet (silence) : trou franc, puis la
   assert(stale === 0, `aucune valeur de l'ancien sens après la reprise (${stale} image(s))`);
   assert(first && first.t < 0.6 && Math.abs(first.c - 4) < 1,
     `première mesure ${first?.t.toFixed(2)} s après la reprise, à ${first?.c.toFixed(2)} ¢ (+4 attendu)`);
+}
+
+console.log('\nTest 33 — mode Accord (degrés) : fondamentale reconnue, accords renversés, enchaînés');
+{
+  // Demande d'Ewen : 36 accords de basses d'un chromatique à vérifier. On dit
+  // « majeur » une fois ; chaque accord joué est reconnu, même renversé (sur
+  // les basses, les notes d'un accord sont repliées dans une octave).
+  const chords = [
+    { name: 'Sol majeur renversé (Ré4 Sol4 Si4)', notes: [[62, 3], [67, -2], [71, 5]], root: 7, deg: { 1: 67, 3: 71, 5: 62 } },
+    { name: 'Do majeur (Do4 Mi4 Sol4)', notes: [[60, -4], [64, 2], [67, 1]], root: 0, deg: { 1: 60, 3: 64, 5: 67 } },
+    { name: 'Fa majeur renversé (Do4 Fa4 La4)', notes: [[60, 0], [65, -3], [69, 4]], root: 5, deg: { 1: 65, 3: 69, 5: 60 } },
+  ];
+  const seg = 4, n = SR * seg * chords.length, x = new Float32Array(n);
+  chords.forEach((ch, ci) => {
+    for (const [m, ct] of ch.notes) {
+      const f = midiToFreq(m) * 2 ** (ct / 1200), H = [1, 0.7, 0.45, 0.3, 0.2];
+      for (let h = 0; h < H.length; h++) {
+        const w = (2 * Math.PI * f * (h + 1)) / SR;
+        for (let i = ci * seg * SR; i < (ci + 1) * seg * SR; i++) x[i] += 0.05 * H[h] * Math.sin(w * i + h + m);
+      }
+    }
+  });
+  for (let i = 0; i < n; i++) x[i] += 3e-4 * (Math.random() * 2 - 1);
+  const e = new Engine(SR, { mode: 'chord', chordDegrees: [0, 4, 7] });
+  const seen = chords.map(() => null);
+  for (let i = 0; i + 512 <= n; i += 512) {
+    const r = e.process(x.subarray(i, i + 512));
+    if (!r) continue;
+    const ci = Math.floor(r.time / seg), local = r.time - ci * seg;
+    if (ci < chords.length && local > 3.6 && local < 3.99) seen[ci] = r;
+  }
+  chords.forEach((ch, ci) => {
+    const r = seen[ci];
+    const vs = r ? r.groups.filter((g) => !g.isHarmonic && !g.isSub).flatMap((g) => g.voices) : [];
+    const byDeg = Object.fromEntries(vs.map((v) => [v.def.label, v]));
+    const want = Object.fromEntries(ch.notes.map(([m, ct]) => [m, ct]));
+    const ok = r?.chord?.rootPc === ch.root && Object.entries(ch.deg).every(([d, m]) =>
+      byDeg[d]?.midi === m && byDeg[d].tracked && Math.abs(byDeg[d].dTargetCents - want[m]) < 0.3);
+    assert(ok, `${ch.name} : fondamentale ${r?.chord ? noteLabel(r.chord.rootMidi).name : '—'}, `
+      + Object.entries(ch.deg).map(([d, m]) => `${d}=${byDeg[d] ? noteLabel(byDeg[d].midi).full : '—'} `
+        + `${byDeg[d]?.dTargetCents?.toFixed(2) ?? '—'} ¢ (${want[m] > 0 ? '+' : ''}${want[m]})`).join(', '));
+  });
+}
+
+console.log('\nTest 34 — régler le seuil de silence ne remet pas la mesure à zéro');
+{
+  const e = new Engine(SR, { mode: 'auto' });
+  const x = twoReeds([{ f: at(69, 2) }], 6);
+  let before = null, after = null;
+  for (let i = 0; i + 512 <= x.length; i += 512) {
+    if (i === 512 * Math.floor((4 * SR) / 512)) e.configure({ gateDb: -60 });
+    const r = e.process(x.subarray(i, i + 512));
+    if (!r) continue;
+    const g = r.groups.find((gr) => !gr.isHarmonic && !gr.isSub);
+    if (r.time < 4 && r.time > 3.8) before = g?.W;
+    if (r.time > 4.05 && r.time < 4.2) after = g?.W;
+  }
+  assert(before >= 256 && after >= 256, `fenêtre gardée pleine : ${before} → ${after} échantillons`);
 }
 
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);

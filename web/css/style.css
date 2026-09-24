@@ -479,3 +479,20 @@ button.note-chip { cursor: pointer; }
 .np-sel { margin: 10px 0; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .np-actions { display: flex; gap: 8px; align-items: center; }
 .np-actions .grow { flex: 1; }
+
+/* ---- Accord en degrés, vumètre avec seuil (barre de mode) ---- */
+.q-chord { display: inline-flex; align-items: center; gap: 6px; }
+.chord-now { font: 600 13px var(--mono); color: var(--text); }
+.vu-wrap { position: relative; display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
+.vu {
+  position: relative; display: block; width: 160px; height: 12px; border-radius: 6px;
+  background: var(--canvas-bg); border: 1px solid var(--line); overflow: hidden;
+}
+#vuFill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: linear-gradient(90deg, var(--ok), var(--warn)); }
+#vuFill.below { background: var(--dim2); }
+#vuGate { position: absolute; top: -2px; bottom: -2px; width: 3px; margin-left: -1px; background: var(--bad); }
+#qGate {
+  position: absolute; left: 0; width: 160px; margin: 0; height: 20px; opacity: 0; cursor: ew-resize;
+}
+.vu-txt { font: 12px var(--mono); color: var(--dim); min-width: 11ch; }
+@media (max-width: 560px) { .vu, #qGate { width: 110px; } .vu-wrap { margin-left: 0; } }

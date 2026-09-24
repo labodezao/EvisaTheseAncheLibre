@@ -5,7 +5,7 @@
 // « cache d'abord », qui gelait le code jusqu'à un double rechargement — la
 // cause de « des valeurs s'affichent mais pas la courbe » après une mise à
 // jour (mélange d'anciens et de nouveaux fichiers).
-const CACHE = 'aal-shell-v19';
+const CACHE = 'aal-shell-v20';
 
 const SHELL = [
   '.',
@@ -26,6 +26,7 @@ const SHELL = [
   'js/dsp/nsdf.js',
   'js/dsp/subspace.js',
   'js/dsp/engine.js',
+  'js/dsp/chord.js',
   'js/dsp/worker.js',
 ];
 
