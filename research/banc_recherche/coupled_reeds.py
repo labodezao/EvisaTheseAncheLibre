@@ -44,22 +44,17 @@ Choix et limites, honnêtement :
   devant la longueur d'onde (≈ 78 cm à 440 Hz ; une chambre fait 3 cm). Les
   résonances de Helmholtz chambre/trou tombent vers 2 kHz, canal/clapet
   vers 5 kHz : au-dessus des fondamentales, elles colorent les aigus ;
-- **le démarrage vient de CHAQUE anche.** Une anche d'accordéon est
-  **fermée par le souffle** ((−,+) de Fletcher ; Ricot, Caussé, Misdariis,
-  JASA 117, 2005 ; Millot & Baumann, Acta Acustica 93, 2007) : la pression
-  pousse d'abord la languette DANS sa fente — le passage se referme — puis
-  à travers. Quand elle avance, le débit baisse ; la masse d'air du chemin
-  (trou, canal, clapet) freine cette baisse et fait monter la pression
-  derrière elle, en phase avec sa vitesse : elle est relancée. C'est
-  l'inertance qui entretient, et un trou de table la fournit — exactement
-  le régime (sous la résonance de Helmholtz) où une chambre bien ventilée
-  est inertielle. Aucune résistance calée : `ReedSetting` (levée, épaisseur
-  de plaque, jeu), des cotes qui se mesurent.
-
-  L'ancien modèle traitait l'anche comme **ouverte** par le souffle
-  (`setting=None` ici, `FreeReedModel`) : dans le même réseau, rien ne
-  démarre, et il avait fallu une résistance de source ajustée (5·10⁶) pour
-  le faire chanter — d'où ses seuils étalés sur trois décades ;
+- **le démarrage vient de CHAQUE anche**, et se dérive sans article :
+  si la section de passage DIMINUE quand la languette avance (anche
+  « fermée par le souffle » : levée au repos du côté d'où vient l'air, puis
+  poussée dans sa fente), une avance réduit le débit, et la masse d'air du
+  chemin (trou, canal, clapet) change ce ralentissement en surpression en
+  phase avec la vitesse — une force qui relance. Démontré dans le modèle
+  en retirant un ingrédient à la fois (cf. `docs/audit_deux_anches.md`) :
+  seuls comptent la section qui se ferme et la masse d'air du chemin.
+  **Hypothèse de géométrie à confirmer sur l'instrument**, pas un fait
+  établi. L'ancienne loi (`setting=None`, celle de `FreeReedModel` : le
+  souffle ouvre le passage) ne démarre pas dans le même réseau ;
 - **ce que ça donne** (lames d'acier uniformes, `steel_reed`) : de La2 à
   La5 toutes démarrent entre 200 et 1000 Pa (une décade, contre trois),
   quelques cents SOUS leur lame (−4 à −24 ¢), et la note baisse quand on
@@ -117,13 +112,20 @@ class ReedSetting:
     côté d'où vient l'air. Le souffle la pousse d'abord DANS la fente : le
     passage se referme (il ne reste que le jeu `clearance_m` tant qu'elle
     traverse l'épaisseur `plate_m` de la plaque), puis elle ressort de
-    l'autre côté et le passage se rouvre. C'est la section utile de Millot &
-    Baumann (Acta Acustica 93, 2007) — symétrique autour de la traversée —
-    réduite à la hauteur au bout, les côtés comptant pour `side_fraction` de
-    la longueur (moyenne de la déformée du premier mode : 0,39).
+    l'autre côté et le passage se rouvre.
+
+    **Simplification de ma part, non vérifiée** : seule la hauteur au bout
+    compte, les côtés pèsent `side_fraction` de la longueur (moyenne de la
+    déformée du premier mode : 0,39). C'est grossier près de l'encastrement,
+    où la languette reste dans la plaque quand le bout en sort. L'idée d'une
+    section qui se ferme puis se rouvre vient de Millot & Baumann (2007) ;
+    leur formule n'est pas reprise. Voir `docs/audit_deux_anches.md` §3.3.
 
     Toutes ces cotes se mesurent (pied à coulisse, cale d'épaisseur, loupe).
-    Les défauts sont des ordres de grandeur d'une anche de grave.
+    Les défauts sont DEVINÉS (ordres de grandeur d'une anche de grave) ; la
+    contraction `alpha` = 0,61 est celle d'un jet stationnaire, non vérifiée
+    pour un écart qui oscille ; dans le jeu de 30 µm la viscosité domine
+    (Reynolds ≈ 80) et Bernoulli n'y est pas le bon régime.
     """
     lift_m: float = 0.5e-3          # levée de la pointe au repos (côté amont)
     plate_m: float = 1.2e-3         # épaisseur de la plaque
@@ -286,7 +288,8 @@ class CoupledReedsModel:
                  detune_cents: float = 0.0, direction: str = 'pousser',
                  zeta: float = 0.004, slot_length_m: float | None = None,
                  sweep: float = 1.0, muted=(False, False),
-                 setting: ReedSetting | None = ReedSetting(), settings=None):
+                 setting: ReedSetting | None = ReedSetting(), settings=None,
+                 slot_series: bool = True):
         if reeds is None:
             reeds = [FreeReedModel(n_modes=1, zeta=zeta), FreeReedModel(n_modes=1, zeta=zeta)]
         if len(reeds) != 2:
@@ -324,6 +327,9 @@ class CoupledReedsModel:
         # souffle » de `FreeReedModel` (gardée pour comparer).
         # Un réglage par anche (`settings`), ou le même pour les deux.
         self.settings = list(settings) if settings is not None else [setting, setting]
+        # HYPOTHÈSE (non vérifiée) : la fente en série avec l'écart ; False
+        # = l'écart seul, force pleine Δp. Interrupteur pour l'audit.
+        self.slot_series = bool(slot_series)
         self.setting = self.settings[0]
         if self.setting is not None:
             self.w_eff = [s_.width_m + 2 * st.side_fraction * r.L
@@ -368,6 +374,8 @@ class CoupledReedsModel:
         l'amplitude et le débit.
         """
         su = self._area(i, x)
+        if not self.slot_series:
+            return su, 1.0
         inv = 1.0 / (su * su) + 1.0 / (self.a_slot[i] ** 2)
         a_eff = 1.0 / math.sqrt(inv)
         return a_eff, (a_eff / su) ** 2
