@@ -92,6 +92,7 @@ export function strobePartials(g, coarse = null) {
   const spread = Math.max(...g.voices.map((v) => Math.abs(v.target - g.center)));
   for (let k = 1; k <= STROBE_PARTIALS; k++) {
     if (k === g.kTrack) continue;
+    if (g.avoidEven && k % 2 === 0) continue;   // partagé avec l'anche à l'octave
     if (g.center * k > 6000) break;
     if (k * (spread + OUT_OF_TUNE_HZ) > BAND_HZ) break;
     if (!partialPresent(coarse, g.center, k)) continue;
@@ -118,7 +119,10 @@ export function unisonHarmonic(g, cfg, coarse = null) {
   const kBand = Math.floor(BAND_HZ / (spread + OUT_OF_TUNE_HZ));
   const kFreq = Math.floor(K_FREQ_MAX / g.center);
   let k = Math.max(kBase, Math.min(kSep, kBand, kFreq, K_MAX));
-  while (k > kBase && !partialPresent(coarse, g.center, k)) k--;
+  // Partiel pair interdit quand une anche sonne à l'octave au-dessus (cf.
+  // groupVoices) : kBase est alors impair, la boucle s'y arrête au pire.
+  const ok = (kk) => !(g.avoidEven && kk % 2 === 0) && partialPresent(coarse, g.center, kk);
+  while (k > kBase && !ok(k)) k--;
   return k;
 }
 
@@ -265,6 +269,21 @@ export class Engine {
       g.voices.push({ def: v, ...t });
     }
     const groups = [...map.values()];
+    // Registres à l'octave (LM, LMH, auto-anches 16'/4') : les partiels PAIRS
+    // d'une anche tombent pile sur la fondamentale et les partiels de l'anche
+    // à l'octave au-dessus. Suivre le 16' sur son H2 revenait à mesurer le 8'
+    // et à le diviser par deux — mesuré sur un vrai bandonéon (sample Ballone
+    // Burini La3+La4) : un « 16' » inventé à 110,49 Hz, là où il n'y a rien.
+    // Une anche qui a une voisine à l'octave au-dessus se mesure donc sur un
+    // partiel IMPAIR : lui n'appartient qu'à elle.
+    const octOf = (g) => (g.voices[0].def.fixedMidi == null ? g.voices[0].def.oct ?? 0 : null);
+    const octs = groups.map(octOf).filter((o) => o != null);
+    const maxOct = octs.length ? Math.max(...octs) : 0;
+    for (const g of groups) {
+      const o = octOf(g);
+      g.avoidEven = o != null && o < maxOct;
+      if (g.avoidEven && g.kTrack % 2 === 0) g.kTrack++;
+    }
     // Plan harmonique FIGÉ par note. `groupVoices` est rappelé à chaque image,
     // mais les traqueurs ne sont recentrés qu'au changement de note (`retune`).
     // Si le partiel de mesure était réévalué à chaque image, un creux de
@@ -506,9 +525,14 @@ export class Engine {
     // Détection temporelle McLeod (NSDF) : hauteur monophonique robuste aux
     // erreurs d'octave, à faible latence. Sert d'ancre d'octave à la
     // détection spectrale et de source au suivi continu. En mode registre
-    // (plusieurs anches à l'unisson), la NSDF n'est pas fiable : on l'ignore.
+    // (plusieurs anches à l'unisson), la NSDF est moins fiable (les creux de
+    // battement brouillent la période) : on ne l'y écoute que très franche.
+    // Elle y est pourtant précieuse : sur un registre à l'octave dont la
+    // fondamentale grave est faible (bandonéon Mi2+Mi3, Ballone Burini), la
+    // FFT bascule sur Mi3 au bout de 3 s et tout le registre glisse d'une
+    // octave ; la NSDF, elle, tient Mi2 (clarté 0,99).
     const poly = c.mode === 'register';
-    const nsdfEst = (!quiet && !poly && this.coarse.ready())
+    const nsdfEst = (!quiet && this.coarse.ready())
       ? this.nsdf.estimateFromRing(this.coarse.ring, this.coarse.wpos, this.coarse.win)
       : null;
     const nf0 = nsdfEst ? nsdfEst.f0 * calib : null;
@@ -520,7 +544,7 @@ export class Engine {
     // erreur : quand elle est franche (clarté ≥ 0,85) et qu'elle contredit
     // nettement la valeur spectrale (> 40 cents), on adopte la NSDF. Sinon on
     // garde la mesure spectrale (plus fine sur ton établi).
-    if (f0 && nf0 && clarity >= 0.85 && Math.abs(centsBetween(f0, nf0)) > 40) {
+    if (f0 && nf0 && clarity >= (poly ? 0.95 : 0.85) && Math.abs(centsBetween(f0, nf0)) > 40) {
       f0 = nf0;
     }
 
@@ -618,6 +642,15 @@ export class Engine {
         cont = this.lastFine.f;
       }
       const voices = this.matchVoices(g, az, calib, claimed, anchor, cont);
+      // Auto-anches : une octave ajoutée à la main (16', 4', 2') n'est
+      // déclarée présente que sur preuve. Pas de partiel à elle dans le
+      // spectre large bande → rien ; et une raie confondue avec le partiel
+      // d'une autre anche ne prouve rien (en mode registre, où l'anche est
+      // déclarée, on l'affiche au contraire, marquée confondue).
+      if (c.mode === 'reeds' && !g.isHarmonic && (g.voices[0].def.oct ?? 0) !== 0) {
+        const present = partialPresent(this.lastCoarse, g.center, g.kTrack);
+        for (const v of voices) if (!present || v.merged) this.fillVoice(v, null, az?.W);
+      }
       // On ne publie pas ce qui ne peut pas encore être séparé : sur ce
       // partiel, les anches doivent être écartées d'au moins 4 cases de la
       // FFT courante. Avant, la bande du strobe resterait vide plutôt que de
@@ -971,6 +1004,16 @@ export class Engine {
         ? false
         : claimed.some((f) => Math.abs(abs - f) < tolClaim);
     }
+    // Anche accordée à l'octave juste : sa fondamentale tombe DANS le partiel
+    // pair de l'anche grave, déjà revendiqué. Une raie libre bien plus faible
+    // à côté (bande latérale, bruit de soufflet, boucle d'un sample) n'est pas
+    // une anche : mesuré sur un bandonéon La3+La4, le 8' s'y accrochait et
+    // affichait −7,4 ¢ au lieu de l'octave juste. On écarte donc les raies
+    // libres à plus de 12 dB sous la raie revendiquée ; la voix prend alors
+    // la raie commune, marquée `merged` (« confondue avec l'octave »).
+    let mClaimed = 0;
+    for (const cp of comps) if (cp.claimed) mClaimed = Math.max(mClaimed, cp.mag);
+    if (mClaimed > 0) comps = comps.filter((cp) => cp.claimed || cp.mag >= mClaimed / 4);
 
     // Verrou de continuité (voix unique, mode auto sur un ton battu) : on
     // n'accepte QUE la composante proche (±3 ¢) de la dernière mesure fine —
@@ -991,7 +1034,10 @@ export class Engine {
     }
 
     const chosen = assignOrdered(expected, comps, tolHz);
-    for (let i = 0; i < expected.length; i++) this.fillVoice(expected[i], chosen[i], az?.W);
+    for (let i = 0; i < expected.length; i++) {
+      this.fillVoice(expected[i], chosen[i], az?.W);
+      expected[i].merged = !!chosen[i]?.claimed;
+    }
 
     // Battements mesurés par rapport à la voix de référence du groupe.
     const base = expected.find((v) => v.def.beatSign === 0) ?? expected[0];

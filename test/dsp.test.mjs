@@ -607,5 +607,36 @@ console.log('\nTest 22 — hystérésis de note : la note tenue résiste à une 
   assert(holdDo === 36, `Do2 tenu → conservé (obtenu ${noteLabel(holdDo).full})`);
 }
 
+// ---------------------------------------------------------------------------
+console.log('\nTest 24 — registre LM à l\'octave juste : le 8\' ne fuit pas vers une raie parasite');
+{
+  // Bandonéon La3 + La4 (Ballone Burini) : la fondamentale du 8' tombe dans
+  // le H2 du 16'. Avant, le 8' refusait cette raie « revendiquée » et prenait
+  // une bande latérale 20 dB plus bas (−7,4 ¢ affichés pour une octave juste).
+  const sig = reedSignal({ freqs: [{ f: 220 }, { f: 440 }, { f: 438.2, a: 0.1 * 0.25 }] });
+  const last = run(new Engine(SR, { mode: 'register', register: 'LM' }), sig);
+  const by = Object.fromEntries(last.groups.filter((g) => !g.isHarmonic)
+    .flatMap((g) => g.voices.map((v) => [v.def.id, v])));
+  const e16 = by['16']?.tracked ? cents(by['16'].fMeas, 220) : NaN;
+  const e8 = by['8']?.tracked ? cents(by['8'].fMeas, 440) : NaN;
+  assert(Math.abs(e16) < 0.1, `16' à ${e16.toFixed(3)} ¢ de 220 Hz`);
+  assert(Math.abs(e8) < 0.1, `8' à ${e8.toFixed(3)} ¢ de 440 Hz (la raie à 438,2 Hz est ignorée)`);
+  assert(by['8']?.merged === true, '8\' marqué « confondu avec l\'octave » (merged)');
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nTest 25 — auto-anches : un 16\' coché mais absent n\'est pas inventé');
+{
+  // Seul un 8' sonne. Le 16' était suivi sur son H2… qui est la fondamentale
+  // du 8' : il affichait une « anche » à f/2 qui n'existe pas.
+  const sig = reedSignal({ freqs: [{ f: 220 }] });
+  const last = run(new Engine(SR, { mode: 'reeds', reedOctaves: [0, -1] }), sig);
+  const v16 = last.groups.filter((g) => !g.isHarmonic && g.key === 'o-1').flatMap((g) => g.voices);
+  const v8 = last.groups.filter((g) => !g.isHarmonic && g.key === 'o0').flatMap((g) => g.voices);
+  assert(v16.length > 0 && v16.every((v) => !v.tracked), `aucune anche 16' annoncée (${v16.filter((v) => v.tracked).length} inventée(s))`);
+  const t8 = v8.filter((v) => v.tracked);
+  assert(t8.length === 1 && Math.abs(cents(t8[0].fMeas, 220)) < 0.1, `une seule anche 8', à 220 Hz (${t8.map((v) => v.fMeas.toFixed(3)).join(', ')})`);
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);
