@@ -59,34 +59,88 @@ function devStatus() {
   return dev ? { seconds: dev.n / engine.sr, ticks: dev.ticks.length, full: dev.full, maxS: DEV_MAX_S } : null;
 }
 
+function onChunk(chunk) {
+  if (!engine) return;
+  devAppend(chunk);
+  const t0 = performance.now();
+  const result = engine.process(chunk);
+  if (result) {
+    // Charge DSP : temps de calcul rapporté à la période d'analyse.
+    result.dspMs = performance.now() - t0;
+    devTick(result);
+    if (dev) result.dev = devStatus();
+    // Les spectres sont transférés (zéro copie) plutôt que clonés.
+    const transfer = [];
+    if (result.coarseSpectrum) transfer.push(result.coarseSpectrum.buffer);
+    for (const g of result.groups) if (g.spectrum) transfer.push(g.spectrum.buffer);
+    self.postMessage(result, transfer);
+  }
+}
+
+// Micro lu DIRECTEMENT (MediaStreamTrackProcessor), à l'horloge du micro.
+//
+// Par le chemin Web Audio (AudioContext → AudioWorklet), Chrome fait passer
+// le micro dans un rééchantillonneur qui rattrape la dérive entre l'horloge
+// du micro et celle de la sortie son, en changeant son rapport par à-coups.
+// Mesuré sur un enregistrement d'Ewen (téléphone, 24/09/2026) : TOUT le son
+// — la note, mais aussi le ronflement du secteur à 50 Hz, qui lui ne bouge
+// jamais — sautait de ±6 ¢ toutes les ~2 s, même dans les silences. C'était
+// les « signaux carrés » de la courbe : l'anche, elle, ne sautait pas.
+// Ici, chaque bloc arrive tel que le micro l'a échantillonné.
+async function readStream(readable) {
+  const reader = readable.getReader();
+  let buf = new Float32Array(0), fill = 0;
+  const HOPS = 512;
+  for (;;) {
+    const { value: ad, done } = await reader.read();
+    if (done) break;
+    try {
+      if (!engine || engine.sr !== ad.sampleRate) {
+        const cfg = engine ? engine.cfg : pendingCfg;
+        engine = new Engine(ad.sampleRate, cfg || {});
+        if (dev || pendingDev) devStart();
+        self.postMessage({ type: 'capture', direct: true, sampleRate: ad.sampleRate, format: ad.format });
+      }
+      const n = ad.numberOfFrames;
+      if (buf.length < fill + n) { const b = new Float32Array(2 * (fill + n)); b.set(buf.subarray(0, fill)); buf = b; }
+      const plane = buf.subarray(fill, fill + n);
+      if (/^f32/.test(ad.format)) {
+        ad.copyTo(plane, { planeIndex: 0, format: 'f32-planar' });
+      } else {
+        const tmp = new Int16Array(n * (ad.format.endsWith('planar') ? 1 : ad.numberOfChannels));
+        ad.copyTo(tmp, { planeIndex: 0 });
+        const step = ad.format.endsWith('planar') ? 1 : ad.numberOfChannels;
+        for (let i = 0; i < n; i++) plane[i] = tmp[i * step] / 32768;
+      }
+      fill += n;
+      let o = 0;
+      for (; o + HOPS <= fill; o += HOPS) onChunk(buf.slice(o, o + HOPS));
+      buf.copyWithin(0, o, fill); fill -= o;
+    } finally {
+      ad.close();
+    }
+  }
+}
+
+let pendingCfg = null, pendingDev = false;
+
 self.onmessage = (e) => {
   const d = e.data;
   if (d.type === 'init') {
     engine = new Engine(d.sampleRate, d.cfg || {});
+    pendingCfg = d.cfg || {}; pendingDev = !!d.dev;
     if (d.dev) devStart();
-    if (d.port) {
-      d.port.onmessage = (ev) => {
-        if (!engine) return;
-        devAppend(ev.data);
-        const t0 = performance.now();
-        const result = engine.process(ev.data);
-        if (result) {
-          // Charge DSP : temps de calcul rapporté à la période d'analyse.
-          result.dspMs = performance.now() - t0;
-          devTick(result);
-          if (dev) result.dev = devStatus();
-          // Les spectres sont transférés (zéro copie) plutôt que clonés.
-          const transfer = [];
-          if (result.coarseSpectrum) transfer.push(result.coarseSpectrum.buffer);
-          for (const g of result.groups) if (g.spectrum) transfer.push(g.spectrum.buffer);
-          self.postMessage(result, transfer);
-        }
-      };
-    }
-  } else if (d.type === 'config' && engine) {
-    engine.configure(d.cfg);
+    if (d.port) d.port.onmessage = (ev) => onChunk(ev.data);
+  } else if (d.type === 'stream') {
+    // Le moteur est recréé à la fréquence réelle du micro au premier bloc.
+    engine = null;
+    readStream(d.readable).catch((err) => self.postMessage({ type: 'capture', error: String(err) }));
+  } else if (d.type === 'config') {
+    pendingCfg = { ...(pendingCfg || {}), ...d.cfg };
+    engine?.configure(d.cfg);
   } else if (d.type === 'dev') {
-    if (d.on) { if (!dev) devStart(); } else dev = null;
+    pendingDev = !!d.on;
+    if (d.on) { if (!dev && engine) devStart(); } else dev = null;
     self.postMessage({ type: 'devStatus', dev: devStatus() });
   } else if (d.type === 'devClear') {
     if (dev) devStart();

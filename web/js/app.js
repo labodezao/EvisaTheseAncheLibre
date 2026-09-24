@@ -7,6 +7,7 @@ import {
   midiToFreq, voiceTargetFreq, beatTarget, centsClass, overlappingAllan,
 } from './music.js';
 import { Report } from './report.js';
+import { zipBytes } from './zip.js';
 import { initBench } from './bench.js';
 
 const $ = (id) => document.getElementById(id);
@@ -17,7 +18,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '17';
+const APP_VERSION = '18';
 function versionMismatch(what, got) {
   const b = document.getElementById('versionBanner');
   if (!b) return;
@@ -51,7 +52,7 @@ const cfg = Object.assign({
   autoFreeze: false, // désactivé par défaut : surprenant pour un premier essai
   readout: null,        // clés de voix affichées en lecture numérique (null = toutes)
   response: 'normal',
-  devMode: false,       // mode dev : garde le son et chaque mesure (export WAV + CSV + JSON)
+  devMode: false,       // mode dev : garde le son et chaque mesure (export ZIP : WAV + CSV + JSON)
   beatCurve: { midiLow: 48, bLow: 0.8, midiHigh: 96, bHigh: 3.0, overrides: {} },
 }, loadCfg());
 
@@ -177,6 +178,7 @@ const report = new Report();
 async function startAudio() {
   if (state.running) return;
   $('btnStart').disabled = true;
+  state.capture = null;
   try {
     audioCtx = new AudioContext({ latencyHint: 'interactive' });
     await audioCtx.audioWorklet.addModule('js/capture-worklet.js');
@@ -240,7 +242,18 @@ async function startAudio() {
           channelCount: 1,
         },
       });
-      audioCtx.createMediaStreamSource(mediaStream).connect(node);
+      // Lecture directe du micro quand le navigateur le permet (Chrome, Edge) :
+      // le chemin Web Audio le rééchantillonne avec un rapport qui change par
+      // à-coups (±6 ¢ toutes les ~2 s, mesuré) — cf. worker.js, readStream.
+      const track = mediaStream.getAudioTracks()[0];
+      if (typeof MediaStreamTrackProcessor !== 'undefined' && !cfg.forceWebAudio) {
+        const proc = new MediaStreamTrackProcessor({ track });
+        worker.postMessage({ type: 'stream', readable: proc.readable }, [proc.readable]);
+        state.capture = { direct: true };
+      } else {
+        audioCtx.createMediaStreamSource(mediaStream).connect(node);
+        state.capture = { direct: false };
+      }
       await listDevices();
     }
     await audioCtx.resume();
@@ -248,9 +261,7 @@ async function startAudio() {
     $('btnStart').textContent = '■ Arrêter';
     $('btnFreeze').disabled = false;
     $('btnLock').disabled = false;
-    const lat = ((audioCtx.baseLatency || 0) * 1000).toFixed(1);
-    $('latencyInfo').textContent =
-      `Échantillonnage ${audioCtx.sampleRate} Hz · latence de sortie ${lat} ms · capture par blocs de 512 (≈ ${(512000 / audioCtx.sampleRate).toFixed(0)} ms)`;
+    showCaptureInfo();
   } catch (err) {
     alert(`Impossible de démarrer l'audio : ${err.message}`);
     console.error(err);
@@ -258,9 +269,23 @@ async function startAudio() {
   $('btnStart').disabled = false;
 }
 
+function showCaptureInfo() {
+  if (!audioCtx) return;
+  const c = state.capture || {};
+  const sr = c.sampleRate || audioCtx.sampleRate;
+  const lat = ((audioCtx.baseLatency || 0) * 1000).toFixed(1);
+  $('latencyInfo').textContent = c.error
+    ? `Lecture directe du micro impossible (${c.error}).`
+    : `Échantillonnage ${sr} Hz · ${c.direct
+      ? 'micro lu directement, à sa propre horloge (sans rééchantillonnage)'
+      : `micro via Web Audio (rééchantillonné par le navigateur) · latence de sortie ${lat} ms`}`
+      + ` · capture par blocs de 512 (≈ ${(512000 / sr).toFixed(0)} ms)`;
+}
+
 function onWorkerMessage(e) {
   const d = e.data;
   if (d.type === 'tick') onTick(d);
+  else if (d.type === 'capture') { state.capture = { ...(state.capture || {}), ...d }; showCaptureInfo(); }
   else if (d.type === 'devStatus') showDevStatus(d.dev);
   else if (d.type === 'devData') {
     const w = e.target;
@@ -1813,7 +1838,7 @@ function showDevStatus(st) {
   }
 }
 
-function wavBlob(pcm, sr) {
+function wavBytes(pcm, sr) {
   const n = pcm.length, buf = new ArrayBuffer(44 + 2 * n), v = new DataView(buf);
   const str = (o, x) => { for (let i = 0; i < x.length; i++) v.setUint8(o + i, x.charCodeAt(i)); };
   str(0, 'RIFF'); v.setUint32(4, 36 + 2 * n, true); str(8, 'WAVE');
@@ -1821,7 +1846,7 @@ function wavBlob(pcm, sr) {
   v.setUint32(24, sr, true); v.setUint32(28, 2 * sr, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
   str(36, 'data'); v.setUint32(40, 2 * n, true);
   new Int16Array(buf, 44).set(pcm);
-  return new Blob([buf], { type: 'audio/wav' });
+  return new Uint8Array(buf);
 }
 
 // Une ligne par anche et par mesure. `t_s` = fin de la fenêtre d'analyse,
@@ -1857,15 +1882,20 @@ async function exportDevSession() {
     app: 'Accordeur Anche Libre Pro', mode_dev: 1, date: new Date().toISOString(),
     user_agent: navigator.userAgent, micro: $('deviceSel').selectedOptions?.[0]?.textContent || '',
     source: $('fileInfo').textContent || '', echantillonnage_hz: d.sampleRate,
+    capture: state.capture?.direct ? 'micro lu directement (MediaStreamTrackProcessor)' : 'Web Audio (rééchantillonné par le navigateur)',
     duree_s: d.pcm.length / d.sampleRate, mesures: d.ticks.length, tronque: !!d.full,
     reglages_interface: cfg, reglages_moteur: d.cfg,
     horloge: 't_s du CSV = fin de la fenêtre d\'analyse, même horloge que le WAV (échantillon t_s × fs)',
   };
-  downloadBlob(`${base}.wav`, wavBlob(d.pcm, d.sampleRate));
-  // Plusieurs téléchargements d'affilée : un petit délai évite que le
-  // navigateur n'en bloque un.
-  setTimeout(() => download(`${base}.csv`, devCsv(d.ticks), 'text/csv'), 400);
-  setTimeout(() => download(`${base}.json`, JSON.stringify(meta, null, 2), 'application/json'), 800);
+  // UN seul fichier : sur téléphone, le navigateur ne laisse passer qu'un
+  // téléchargement par geste — les trois d'affilée ne donnaient que le WAV.
+  // Le CSV commence par une marque UTF-8 (BOM) pour que le tableur lise les accents.
+  const zip = zipBytes([
+    { name: `${base}.wav`, data: wavBytes(d.pcm, d.sampleRate) },
+    { name: `${base}.csv`, data: '\ufeff' + devCsv(d.ticks) },
+    { name: `${base}.json`, data: JSON.stringify(meta, null, 2) },
+  ]);
+  downloadBlob(`${base}.zip`, new Blob([zip], { type: 'application/zip' }));
 }
 
 // ---- Liaison des contrôles -------------------------------------------------------
