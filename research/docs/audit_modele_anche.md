@@ -726,3 +726,66 @@ mécanisme de démarrage, lui, relève de l'écoulement dans la fente :
 Navier-Stokes instationnaire avec interaction fluide-structure — un chantier
 de CFD, plus lourd, et le seul qui répondrait à la question ouverte
 ci-dessus.
+
+## Correction : l'anche d'accordéon est fermée par le souffle
+
+Ce qui précède (« rien ne démarre », puis la résistance calée et son
+placement) reposait sur une erreur de géométrie **héritée du modèle à une
+anche** : `FreeReedModel.opening()` traite l'anche comme **ouverte** par le
+souffle — la pression l'écarte et le passage s'agrandit aussitôt.
+
+Une anche d'accordéon fait l'inverse. Levée au repos du côté d'où vient
+l'air, elle est poussée **dans** sa fente : le passage se referme (il ne
+reste que le jeu latéral tant qu'elle traverse l'épaisseur de la plaque),
+puis elle ressort de l'autre côté. C'est l'anche « blown-closed », (−,+)
+dans la notation de Fletcher ; c'est le titre même de Ricot, Caussé et
+Misdariis (JASA 117, 2005), et la section utile de Millot & Baumann (Acta
+Acustica 93, 2007), dont l'analyse linéaire donne la condition de
+démarrage : un chemin d'air dominé par sa **masse** (inertance).
+
+Le mécanisme, en une phrase : quand la languette avance dans sa fente, le
+débit baisse ; la masse d'air du trou, du canal et du clapet résiste à ce
+ralentissement et fait monter la pression derrière elle, en phase avec sa
+vitesse — elle est relancée. Et c'est **propre à chaque anche** : sa levée,
+sa plaque, son jeu, son chemin d'air.
+
+Corrigé dans `coupled_reeds.py` (`ReedSetting`, défaut ; l'ancienne loi
+reste accessible par `setting=None` pour comparer). Plus aucune résistance
+calée. Résultats, lames d'acier uniformes (`steel_reed`) :
+
+| lame | démarre à | jeu / lame |
+|---|---|---|
+| La2 110 Hz (55 mm, 0,40 mm) | 200 Pa | −24 ¢ |
+| La3 220 Hz (36 mm, 0,35 mm) | 200–1000 Pa | −8 à −15 ¢ |
+| La4 440 Hz (24 mm, 0,30 mm) | 1000–3000 Pa | −6 à −9 ¢ |
+| La5 880 Hz (15 mm, 0,25 mm) | 1000–3000 Pa | −4 à −5 ¢ |
+
+Une décade de seuils au lieu de trois, et la note sous la lame, qui baisse
+quand on pousse. Dans le même réseau, l'ancienne loi « ouverte » ne démarre
+pas (test `test_la_loi_ouverte_par_le_souffle_ne_demarre_pas`).
+
+Deux anches (La4, 1000 Pa), **sans paramètre calé**, couplées par le canal
+et le clapet communs :
+
+| désaccord | écart des lames | battement joué |
+|---|---|---|
+| 0,5 ¢ | 0,13 Hz | 0 — verrouillées |
+| 1 ¢ | 0,25 Hz | 0 — verrouillées |
+| 2 ¢ | 0,51 Hz | 0 — verrouillées |
+| 5 ¢ | 1,27 Hz | 1,12 Hz (−12 %) |
+| 20 ¢ | 5,11 Hz | 5,10 Hz |
+
+Les voix « se collent » jusqu'à ~2 ¢ (±0,6 Hz). **À vérifier au banc** :
+accorder une anche l'autre bloquée, débloquer, relire le battement — pour
+de petits désaccords il doit disparaître. L'air, lui, double presque
+(−4 %) : le « ×1,56 » précédent venait de la résistance calée.
+
+Reste faux : courses (4–5 mm pour un La4), débits (0,4 L/s) et rendement
+trop grands. La fente en série (qui prend la chute de pression quand la
+languette est loin, et fait s'effondrer la force) ne les réduit que de
+~15 %. Candidat suivant : la traînée aérodynamique de la languette dans le
+jet. À confronter aux mesures avant d'y toucher.
+
+**`FreeReedModel` garde la loi « ouverte »** : il nourrit le moteur temps
+réel et la synthèse (`hybrid`, `live`, `embedded`), recalés dessus. L'y
+corriger est le chantier suivant, à faire avec des mesures en main.

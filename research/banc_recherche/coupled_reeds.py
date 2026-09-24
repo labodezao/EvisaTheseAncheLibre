@@ -44,27 +44,34 @@ Choix et limites, honnêtement :
   devant la longueur d'onde (≈ 78 cm à 440 Hz ; une chambre fait 3 cm). Les
   résonances de Helmholtz chambre/trou tombent vers 2 kHz, canal/clapet
   vers 5 kHz : au-dessus des fondamentales, elles colorent les aigus ;
-- **le démarrage.** Réseau « honnête » (trous et clapet avec leurs vraies
-  pertes d'orifice), aucune anche ne démarre : balayage de la languette,
-  inertie de l'air dans la fente, petit ou grand trou — tout amortit
-  (croissance = −2,6 /s, l'amortissement de la lame seule, ou pire). La
-  théorie linéaire dit pourquoi : une chambre n'entretient la languette que
-  si son impédance est dominée par la COMPLIANCE à la fréquence de jeu,
-  c'est-à-dire mal ventilée ; avec un vrai trou de table (Helmholtz
-  ≈ 1,9 kHz), c'est l'inverse sur presque tout le clavier. C'est cohérent
-  avec Ricot, Caussé et Misdariis (JASA 117, 2005) : une anche d'accordéon
-  démarre même sans couplage acoustique — par l'aérodynamique de
-  l'écoulement dans sa fente, qu'un modèle à pression uniforme ne contient
-  pas. On garde donc, faute de mieux, le mécanisme calé du modèle à une
-  anche : une résistance effective de 5·10⁶ Pa·s/m³ (`Source`), placée ici
-  dans le trou de CHAQUE chambre (`Voicing.hole_resistance`) ;
-- **où la placer n'est pas un détail.** Partagée au clapet
-  (`supply_resistance`), elle soude les deux anches : verrouillées à
-  l'unisson jusqu'à 80 ¢ de désaccord (4,9 Hz) — aucune musette réelle ne
-  fait ça. Propre à chaque chambre, elles battent à l'écart de leurs lames
-  (20 ¢ : 1,209 Hz joué pour 1,211 Hz entre lames) et ne se tirent que de
-  près (1 ¢ : battement −27 % ; 2 ¢ : −20 % ; 3 ¢ : −12 % ; 5 ¢ : rien) —
-  ce que l'accordeur connaît : « les voix se collent » près de l'unisson ;
+- **le démarrage vient de CHAQUE anche.** Une anche d'accordéon est
+  **fermée par le souffle** ((−,+) de Fletcher ; Ricot, Caussé, Misdariis,
+  JASA 117, 2005 ; Millot & Baumann, Acta Acustica 93, 2007) : la pression
+  pousse d'abord la languette DANS sa fente — le passage se referme — puis
+  à travers. Quand elle avance, le débit baisse ; la masse d'air du chemin
+  (trou, canal, clapet) freine cette baisse et fait monter la pression
+  derrière elle, en phase avec sa vitesse : elle est relancée. C'est
+  l'inertance qui entretient, et un trou de table la fournit — exactement
+  le régime (sous la résonance de Helmholtz) où une chambre bien ventilée
+  est inertielle. Aucune résistance calée : `ReedSetting` (levée, épaisseur
+  de plaque, jeu), des cotes qui se mesurent.
+
+  L'ancien modèle traitait l'anche comme **ouverte** par le souffle
+  (`setting=None` ici, `FreeReedModel`) : dans le même réseau, rien ne
+  démarre, et il avait fallu une résistance de source ajustée (5·10⁶) pour
+  le faire chanter — d'où ses seuils étalés sur trois décades ;
+- **ce que ça donne** (lames d'acier uniformes, `steel_reed`) : de La2 à
+  La5 toutes démarrent entre 200 et 1000 Pa (une décade, contre trois),
+  quelques cents SOUS leur lame (−4 à −24 ¢), et la note baisse quand on
+  pousse. Deux anches d'une note, couplées par le canal et le clapet
+  communs, se verrouillent jusqu'à ~2 ¢ de désaccord (La4, 1000 Pa :
+  ±0,6 Hz) — « les voix se collent » — et battent au-delà (5 ¢ : −12 %,
+  20 ¢ : l'écart des lames). L'air double presque (−4 %) ;
+- **ce qui reste faux** : courses (4–5 mm pour un La4) et débits
+  (0,4 L/s) trop grands, rendement probablement surestimé — rien encore ne
+  freine la languette hors de la plaque sinon l'étranglement par la fente.
+  Candidat suivant : la traînée aérodynamique sur la languette. À confronter
+  au banc avant d'y toucher ;
 - les **valeurs par défaut sont des ordres de grandeur**, pas des mesures
   (dimensions typiques d'un sommier). Chacune est à relever sur ton
   instrument ; une simulation par éléments finis (Elmer, par exemple) sert
@@ -102,6 +109,42 @@ class Orifice:
 
 
 @dataclass
+class ReedSetting:
+    """Réglage d'une anche **fermée par le souffle** (« blown-closed »,
+    (−,+) dans la notation de Fletcher) — l'anche d'accordéon.
+
+    Au repos, la languette est levée de `lift_m` au-dessus de la plaque, du
+    côté d'où vient l'air. Le souffle la pousse d'abord DANS la fente : le
+    passage se referme (il ne reste que le jeu `clearance_m` tant qu'elle
+    traverse l'épaisseur `plate_m` de la plaque), puis elle ressort de
+    l'autre côté et le passage se rouvre. C'est la section utile de Millot &
+    Baumann (Acta Acustica 93, 2007) — symétrique autour de la traversée —
+    réduite à la hauteur au bout, les côtés comptant pour `side_fraction` de
+    la longueur (moyenne de la déformée du premier mode : 0,39).
+
+    Toutes ces cotes se mesurent (pied à coulisse, cale d'épaisseur, loupe).
+    Les défauts sont des ordres de grandeur d'une anche de grave.
+    """
+    lift_m: float = 0.5e-3          # levée de la pointe au repos (côté amont)
+    plate_m: float = 1.2e-3         # épaisseur de la plaque
+    tongue_m: float = 0.4e-3        # épaisseur de la languette au bout
+    clearance_m: float = 30e-6      # jeu latéral languette/fente
+    side_fraction: float = 0.39     # part des côtés dans le périmètre utile
+    alpha: float = 0.61             # vena contracta
+
+    def gap(self, y):
+        """Hauteur de passage au bout pour un déplacement `y` (m, vers
+        l'aval) : au-dessus de la plaque, dedans (0), ou ressortie."""
+        z_d = y - self.lift_m               # face aval / face amont de la plaque
+        z_u = z_d - self.tongue_m           # face amont de la languette
+        if z_d < 0.0:
+            return -z_d
+        if z_u > self.plate_m:
+            return z_u - self.plate_m
+        return 0.0
+
+
+@dataclass
 class Voicing:
     """La géométrie d'une note : chambres, trous, canal, clapet.
 
@@ -112,19 +155,15 @@ class Voicing:
     channel_m3: float = 4.0e-6                  # canal sous le clapet
     pallet: Orifice = field(default_factory=lambda: Orifice(3.0e-4, 0.010))  # clapet levé de ~4 mm
     shared_chamber: bool = False                # True : deux anches, une chambre
-    # Résistance EFFECTIVE du passage commun (clapet), linéaire, en Pa·s/m³.
-    # Ce n'est pas une perte d'orifice calculée — c'est le paramètre calé du
-    # modèle à une anche (`reed_oscillator.Source`, 5·10⁶), qui y porte le
-    # mécanisme de démarrage. Voir la docstring du module : sans elle, un
-    # réseau bien ventilé ne démarre pas, et c'est une vraie question de
-    # physique, pas un réglage.
+    # Résistance EFFECTIVE du passage commun (clapet), linéaire, en Pa·s/m³ —
+    # le paramètre calé du modèle à une anche, pour comparer. 0 par défaut.
     supply_resistance: float = 0.0
-    # Même résistance effective, mais PROPRE à chaque chambre (dans son trou
-    # de table d'harmonie). Les deux placements ne se valent pas : partagée au
-    # clapet, elle soude les deux anches (verrouillées jusqu'à 80 ¢ de
-    # désaccord, alors qu'une musette réelle bat) ; propre à chaque anche,
-    # elle ne les couple que par le canal commun. Cf. `lock_scan`.
-    hole_resistance: float = 5.0e6
+    # Résistance EFFECTIVE propre à chaque chambre (dans son trou de table).
+    # Héritée du premier jet (anche « ouverte par le souffle ») : partagée au
+    # clapet, elle soudait les anches jusqu'à 80 ¢ ; propre à chaque anche,
+    # elles battaient. Avec l'anche fermée par le souffle (défaut), aucune
+    # des deux n'est nécessaire : 0.
+    hole_resistance: float = 0.0
     patm: float = 1e5
     gamma: float = 1.4
     rho: float = 1.2
@@ -245,8 +284,9 @@ class CoupledReedsModel:
 
     def __init__(self, reeds=None, voicing: Voicing | None = None,
                  detune_cents: float = 0.0, direction: str = 'pousser',
-                 zeta: float = 0.004, slot_length_m: float | None = 1.5e-3,
-                 sweep: float = 0.0, muted=(False, False)):
+                 zeta: float = 0.004, slot_length_m: float | None = None,
+                 sweep: float = 1.0, muted=(False, False),
+                 setting: ReedSetting | None = ReedSetting(), settings=None):
         if reeds is None:
             reeds = [FreeReedModel(n_modes=1, zeta=zeta), FreeReedModel(n_modes=1, zeta=zeta)]
         if len(reeds) != 2:
@@ -279,6 +319,19 @@ class CoupledReedsModel:
         # immobile, fente fermée — c'est ce qu'on fait à l'atelier pour
         # mesurer une anche seule, et ce que l'accordeur évite désormais.
         self.muted = tuple(bool(m) for m in muted)
+        # Géométrie d'écoulement : anche fermée par le souffle (accordéon,
+        # défaut) ou, avec `setting=None`, l'ancienne loi « ouverte par le
+        # souffle » de `FreeReedModel` (gardée pour comparer).
+        # Un réglage par anche (`settings`), ou le même pour les deux.
+        self.settings = list(settings) if settings is not None else [setting, setting]
+        self.setting = self.settings[0]
+        if self.setting is not None:
+            self.w_eff = [s_.width_m + 2 * st.side_fraction * r.L
+                          for s_, r, st in zip(self.slot, reeds, self.settings)]
+            # La fente elle-même (empreinte de la languette + jeu) : quand la
+            # languette en est loin, c'est ELLE qui étrangle l'air.
+            self.a_slot = [(s_.width_m + 2 * st.clearance_m) * (r.L + st.clearance_m)
+                           for s_, r, st in zip(self.slot, reeds, self.settings)]
 
     @property
     def f_reeds(self):
@@ -292,10 +345,39 @@ class CoupledReedsModel:
                     q_r=6 + 2 * n, size=8 + 2 * n)
 
     def _slot_open(self, i, x):
+        if self.setting is not None:
+            return self._area(i, x) / self.slot[i].width_m
         s = self.slot[i]
         return min(max(self.phi[i] * x + s.rest_offset_m, s.leak_m), s.max_open_m)
 
+    def _area(self, i, x):
+        """Section utile (m²) — anche fermée par le souffle."""
+        st = self.settings[i]
+        h = st.gap(self.phi[i] * x)
+        return self.w_eff[i] * math.sqrt(h * h + st.clearance_m ** 2)
+
+    def _series(self, i, x):
+        """Section équivalente (m²) de l'écart autour de la languette en
+        série avec la fente, et part de la chute de pression prise par
+        l'écart — c'est-à-dire celle qui pousse la languette.
+
+        Tant que l'écart est étroit, toute la chute s'y fait : la languette
+        prend `Δp` en plein. Quand elle est loin de la plaque, l'écart devient
+        plus grand que la fente, la chute passe dans la fente, et la force
+        sur la languette s'effondre — elle est dans le jet. C'est ce qui borne
+        l'amplitude et le débit.
+        """
+        su = self._area(i, x)
+        inv = 1.0 / (su * su) + 1.0 / (self.a_slot[i] ** 2)
+        a_eff = 1.0 / math.sqrt(inv)
+        return a_eff, (a_eff / su) ** 2
+
     def _reed_flow(self, i, dp, x):
+        if self.setting is not None:
+            a, _ = self._series(i, x)
+            if dp <= 0.0:
+                return 0.0, a
+            return self.settings[i].alpha * a * math.sqrt(2.0 * dp / self.v.rho), a
         s = self.slot[i]
         h = min(max(self.phi[i] * x + s.rest_offset_m, s.leak_m), s.max_open_m)
         if dp <= 0.0:
@@ -337,13 +419,15 @@ class CoupledReedsModel:
                 q_r = max(0.0, s[lay['q_r'] + i])
                 h = self._slot_open(i, x)
                 w = self.slot[i].width_m
-                cdw = self.reeds[i].ch.cd * w * h
+                cd = self.settings[i].alpha if self.setting is not None else self.reeds[i].ch.cd
+                cdw = cd * w * max(h, 1e-9)
                 L = v.rho * (self.slot_length_m + 0.5 * h) / (w * h)
                 dq = (dp - v.rho * q_r * q_r / (2.0 * cdw * cdw)) / L
                 if s[lay['q_r'] + i] <= 0.0 and dq < 0.0:
                     dq = 0.0                    # la soupape bloque le retour
                 out[lay['q_r'] + i] = dq
-            out[2 * i] = (dp * self.g[i] - self.k[i] * x - self.c_damp[i] * xd) / self.m[i]
+            load = dp if self.setting is None else dp * self._series(i, x)[1]
+            out[2 * i] = (load * self.g[i] - self.k[i] * x - self.c_damp[i] * xd) / self.m[i]
             out[2 * i + 1] = xd
             q_in_ch[ch] += q_r
             # Balayage : en poussé la languette avance dans la chambre (aval)
@@ -427,8 +511,39 @@ class CoupledReedsModel:
                              self.v.rho, self.v.c)
 
 
-def lock_scan(detunes_cents, voicing: Voicing | None = None, supply_pa=300.0,
-              dur=3.0, direction='pousser', fs=11025.0, oversample=32, t0=1.2):
+def steel_reed(f_hz, thickness_m=0.3e-3, width_m=3.5e-3, zeta=0.004):
+    """Une vraie lame d'acier, uniforme, accordée par sa longueur.
+
+    `f₁ = (1,875²/2π)·(e/L²)·√(E/12ρ)` : on choisit l'épaisseur et la largeur
+    (mesurables au palmer), la longueur en découle. Renvoie `(lame,
+    réglage)` : la lame (un mode) et un réglage d'anche fermée par le
+    souffle proportionné (levée 1,5·e, plaque 3·e, au moins 0,8 mm).
+
+    Pourquoi pas la lame de référence (`SECTIONS_DEFAULT`) : son tronçon
+    central de 45 µm la rend si souple qu'à 1000 Pa la pression la traverse
+    statiquement — elle reste coincée dans sa fente.
+    """
+    from .reed_oscillator import Slot
+    E, rho = 2.1e11, 7800.0
+    L = math.sqrt(0.5596 * thickness_m * math.sqrt(E / (12 * rho)) / f_hz)
+    sec = np.array([[L, rho, width_m, thickness_m, E]])
+    reed = FreeReedModel(sections=sec, n_modes=1, zeta=zeta, slot=Slot(width_m=width_m))
+    setting = ReedSetting(lift_m=1.5 * thickness_m, tongue_m=thickness_m,
+                          plate_m=max(0.8e-3, 3 * thickness_m))
+    return reed, setting
+
+
+def pair(f_hz, detune_cents=0.0, thickness_m=0.3e-3, width_m=3.5e-3, **kw):
+    """Une note MM : deux lames d'acier identiques, la 2ᵉ désaccordée."""
+    r1, s1 = steel_reed(f_hz, thickness_m, width_m)
+    r2, s2 = steel_reed(f_hz, thickness_m, width_m)
+    return CoupledReedsModel(reeds=[r1, r2], settings=[s1, s2],
+                             detune_cents=detune_cents, **kw)
+
+
+def lock_scan(detunes_cents, f_hz=440.0, voicing: Voicing | None = None,
+              supply_pa=1000.0, dur=2.0, direction='pousser', fs=11025.0,
+              oversample=24, t0=0.6):
     """Battement mesuré en fonction du désaccord imposé entre les lames.
 
     Renvoie une liste de dicts : désaccord (¢), écart des lames (Hz),
@@ -439,7 +554,7 @@ def lock_scan(detunes_cents, voicing: Voicing | None = None, supply_pa=300.0,
     """
     out = []
     for c in detunes_cents:
-        m = CoupledReedsModel(voicing=voicing, detune_cents=c, direction=direction)
+        m = pair(f_hz, detune_cents=c, voicing=voicing, direction=direction)
         r = m.simulate(dur, supply_pa=supply_pa, fs=fs, oversample=oversample)
         fl = m.f_reeds
         out.append(dict(cents=float(c), blade_gap_hz=fl[1] - fl[0], beat_hz=r.beat_hz(t0)))
