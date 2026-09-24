@@ -289,7 +289,7 @@ class CoupledReedsModel:
                  zeta: float = 0.004, slot_length_m: float | None = None,
                  sweep: float = 1.0, muted=(False, False),
                  setting: ReedSetting | None = ReedSetting(), settings=None,
-                 slot_series: bool = True):
+                 slot_series: bool = True, stacks=None):
         if reeds is None:
             reeds = [FreeReedModel(n_modes=1, zeta=zeta), FreeReedModel(n_modes=1, zeta=zeta)]
         if len(reeds) != 2:
@@ -330,6 +330,14 @@ class CoupledReedsModel:
         # HYPOTHÈSE (non vérifiée) : la fente en série avec l'écart ; False
         # = l'écart seul, force pleine Δp. Interrupteur pour l'audit.
         self.slot_series = bool(slot_series)
+        # Modèle de fente complet (`slot_stack`) : supports de part et
+        # d'autre, colonnes d'air, passage, force par les pressions locales,
+        # pas de soupape. Remplace `settings` quand il est donné.
+        self.flows = None
+        if stacks is not None:
+            from .slot_stack import SlotFlow
+            self.flows = [SlotFlow(st_, s_.width_m, r.L, g_, ph_, rho=self.v.rho if hasattr(self, 'v') else 1.2)
+                          for st_, s_, r, g_, ph_ in zip(stacks, self.slot, reeds, self.g, self.phi)]
         self.setting = self.settings[0]
         if self.setting is not None:
             self.w_eff = [s_.width_m + 2 * st.side_fraction * r.L
@@ -417,8 +425,16 @@ class CoupledReedsModel:
                 dp = p_c - 0.0                  # chambre → anche → soufflet (réf. 0)
             if self.muted[i]:
                 out[2 * i] = out[2 * i + 1] = 0.0
-                if self.slot_length_m is not None:
+                if self.slot_length_m is not None or self.flows is not None:
                     out[lay['q_r'] + i] = 0.0
+                continue
+            if self.flows is not None:
+                xdd, q_t = self.flows[i].quasi_static(
+                    self.phi[i] * x, xd, dp, self.m[i], self.k[i], self.c_damp[i], x)
+                out[2 * i] = xdd
+                out[2 * i + 1] = xd
+                out[lay['q_r'] + i] = 0.0
+                q_in_ch[ch] += q_t + self.g[i] * xd      # débit traversant + volume balayé
                 continue
             if self.slot_length_m is None:
                 q_r, _ = self._reed_flow(i, dp, x)
@@ -516,6 +532,9 @@ class CoupledReedsModel:
                 p_c = s[lay['p_ch'] + ch(i)]
                 dp = (supply_pa - p_c) if self.direction == 'pousser' else p_c
                 rq[i, j] = (0.0 if self.muted[i]
+                            else self.flows[i].quasi_static(self.phi[i] * x, s[2 * i], dp, self.m[i],
+                                                            self.k[i], self.c_damp[i], x)[1]
+                            if self.flows is not None
                             else self._reed_flow(i, dp, x)[0] if self.slot_length_m is None
                             else max(0.0, s[lay['q_r'] + i]))
             qp[j] = s[lay['q_p']]

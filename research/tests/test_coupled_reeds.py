@@ -103,3 +103,44 @@ def test_orifice_et_parametres():
     assert o.loss(-1e-4, 1.2) == pytest.approx(-o.loss(1e-4, 1.2))
     with pytest.raises(ValueError):
         CoupledReedsModel(direction='souffler')
+
+
+# --- pile de supports des deux côtés (slot_stack) ---------------------------
+
+from banc_recherche.slot_stack import SlotStack  # noqa: E402
+
+
+def _pile(stack, P=1000.0, dur=0.5):
+    r1, _ = steel_reed(440.0)
+    r2, _ = steel_reed(440.0)
+    m = CoupledReedsModel(reeds=[r1, r2], stacks=[stack, stack], muted=(False, True))
+    r = m.simulate(dur, supply_pa=P, fs=FS, oversample=OVER)
+    x, t = r.tips[0], r.t
+    return np.ptp(x[(t > 0.08) & (t < 0.11)]), np.ptp(x[t > dur - 0.04])
+
+
+def test_pile_geometrie():
+    s = SlotStack.sandwich(0.5e-3, 1.5e-3, tongue_m=0.3e-3)
+    assert s.columns(0.0) == pytest.approx((0.5e-3, 1.5e-3))
+    assert s.passage(0.0) == (0.0, pytest.approx(0.3e-3))      # dans la pile : le jeu seul
+    f = s.flipped()
+    assert f.columns(0.0) == pytest.approx((1.5e-3, 0.5e-3))
+    a = SlotStack.accordion(0.9e-3, 0.45e-3, tongue_m=0.3e-3)
+    assert a.passage(0.0)[0] == pytest.approx(0.45e-3)          # levée au-dessus de la plaque
+
+
+def test_pile_accordeon_joue_dans_le_bon_sens_seulement():
+    a1, a2 = _pile(SlotStack.accordion(0.9e-3, 0.45e-3))
+    b1, b2 = _pile(SlotStack.accordion(0.9e-3, 0.45e-3, reverse=True))
+    assert a2 > a1 and a2 > 0.3e-3
+    assert b2 < b1
+
+
+@pytest.mark.xfail(strict=True, reason=(
+    "Ewen, essai réel : l'anche en sandwich joue dans les deux sens. Le modèle "
+    "1D instantané ne sait pas la faire jouer — il lui manque le retard de "
+    "l'écoulement au bord de la languette. Désaccord enregistré, pas caché "
+    "(docs/audit_deux_anches.md §7)."))
+def test_sandwich_contredit_le_modele():
+    a1, a2 = _pile(SlotStack.sandwich(0.9e-3, 0.9e-3))
+    assert a2 > 0.3e-3

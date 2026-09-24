@@ -179,3 +179,80 @@ l'accordeur (enregistrement WAV + courbe CSV) sert précisément à les garder.
   du jet, viscosité dans le jeu) relève de la mécanique des fluides
   instationnaire couplée à la lame — un calcul lourd, dont les résultats
   seraient eux aussi à valider par E1–E3.
+
+---
+
+## 7. La fente et ses supports des deux côtés (`slot_stack.py`) — et l'anche en sandwich
+
+### Pourquoi
+
+Le premier modèle ne connaissait qu'un côté : une plaque, une hauteur. Les
+essais d'Ewen montrent que c'est insuffisant :
+
+- **sandwich** : languette découpée dans une tôle d'acier, prise entre deux
+  plaques → elle joue **dans les deux sens**, et sa note **dépend de la
+  hauteur des supports** : la même anche fait un **La en surpression et un
+  Si en dépression** (un ton : 12 % de fréquence) ;
+- **deux plaques d'harmonium tête-à-tête** (qui, montées normalement, ne
+  jouent qu'en surpression) → elles jouent aussi dans les deux sens.
+
+### Ce qui a été construit (dérivé, sans modèle emprunté)
+
+La fente traverse une **pile de supports** d'épaisseur `D` ; la languette y
+est placée n'importe où (`SlotStack` : accordéon dans les deux sens,
+sandwich à supports inégaux). L'air traverse trois tronçons en série :
+colonne d'air en amont de la languette, passage autour d'elle (le jeu
+tant qu'elle est dans la pile — écoulement visqueux de Poiseuille, puis le
+rideau quand elle sort d'une face), colonne en aval. Les longueurs des
+colonnes dépendent de la position de la languette, donc des hauteurs de
+support. La languette entraîne l'air qu'elle déplace (masse ajoutée
+`g²·L_colonnes`) et voit la pression de SES colonnes. Pas de soupape.
+
+Écoulement pris instantané dans la fente : sa masse d'air (∼100 kg/m⁴)
+face à la pente des pertes (∼10⁸ Pa·s/m³) répond en ∼1 µs, deux mille fois
+plus vite qu'une période d'anche. (Intégré tel quel, le système était trop
+raide pour le calcul ; ce n'est pas une approximation de confort.)
+
+### Ce qu'il donne (La4 acier 0,3 mm, réseau d'accordéon)
+
+| montage | 300 Pa | 1000 Pa | 3000 Pa |
+|---|---|---|---|
+| accordéon, bon sens | joue, −9 ¢ | joue, −14 ¢ | joue, −26 ¢ |
+| accordéon, sens inverse | non | non | non |
+| sandwich 0,9 \| 0,9 mm | non | non | non |
+| sandwich 0,5 \| 1,5 mm, deux sens | non | non | non |
+| sandwich 0,1 \| 0,1 et 0,05 \| 0,3 mm, deux sens, réseau d'accordéon ou boîte élastique | — | non | non |
+
+Le montage normal est reproduit (et la note baisse quand on pousse). Le
+sens inverse aussi. **Le sandwich, jamais** — même quand la pression pousse
+le bout hors de la face aval (0,25 mm), même avec une charge élastique.
+
+### Conclusion
+
+**Le modèle est réfuté par l'expérience du sandwich.** Dans une physique
+d'écoulement à une dimension et instantanée, une languette centrée dans sa
+fente n'a pas de source d'énergie : ni la section qui se ferme (elle ne se
+ferme pas, elle reste au jeu), ni la masse d'air du chemin n'agissent.
+Puisque le sandwich joue, le mécanisme réel fait intervenir ce que ce
+modèle ne contient pas : un **retard de l'écoulement au bord de la
+languette** (formation et décollement du jet, tourbillons) et une
+**répartition non uniforme de la pression** le long d'elle. C'est aussi le
+candidat le plus sérieux pour le ton d'écart selon la hauteur des supports.
+
+Le mécanisme « section qui se ferme + masse d'air » des §1–6 (et de la
+littérature) n'est donc, au mieux, qu'un **cas particulier** — il reproduit
+le montage d'accordéon, il n'explique pas le sandwich. Le test
+`test_sandwich_contredit_le_modele` enregistre ce désaccord au lieu de le
+cacher : il passera le jour où le modèle saura faire jouer un sandwich.
+
+### Pour trancher
+
+- **Mesures (Ewen)** : cotes du sandwich (languette, hauteur de chaque
+  support, jeu) ; note de la lame pincée ; note jouée dans chaque sens en
+  fonction de la pression (manomètre à eau) ; montage de l'essai (bouche,
+  boîte, soufflet) ; faut-il la lancer ? Une vidéo au ralenti du téléphone
+  (240 im/s) sur une anche grave montrerait si le bout sort des faces.
+- **Calcul d'écoulement 2D instationnaire** autour d'une languette mobile
+  (interaction fluide-structure, Elmer ou OpenFOAM, gratuits) : c'est
+  l'expérience numérique qui dirait si une languette plate et centrée
+  s'entretient, et d'où vient l'énergie. À confronter aux mesures.
