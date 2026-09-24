@@ -1,0 +1,10 @@
+# régénérables : maillages et résultats
+*.msh
+**/elmer/
+**/resultats/
+**/*.log
+**/*.vtu
+sandwich2d/foam/constant/polyMesh/
+sandwich2d/foam/[1-9]*/
+sandwich2d/foam/postProcessing/
+**/ELMERSOLVER_STARTINFO

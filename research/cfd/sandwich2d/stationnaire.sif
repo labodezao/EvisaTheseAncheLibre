@@ -1,0 +1,92 @@
+! Écoulement stationnaire à travers la fente d'une anche en sandwich (2D, demi-modèle).
+! Air incompressible, laminaire. 1000 Pa en amont, 0 en aval.
+Header
+  Mesh DB "." "elmer"
+  Results Directory "resultats"
+End
+
+Simulation
+  Coordinate System = Cartesian 2D
+  Simulation Type = Steady State
+  Steady State Max Iterations = 1
+  Output Intervals = 1
+  Post File = "stationnaire.vtu"
+End
+
+Constants
+End
+
+Body 1
+  Name = "air"
+  Equation = 1
+  Material = 1
+End
+
+Material 1
+  Name = "air"
+  Density = 1.2
+  Viscosity = 1.8e-5
+End
+
+Equation 1
+  Active Solvers(2) = 1 2
+End
+
+Solver 1
+  Equation = Navier-Stokes
+  Procedure = "FlowSolve" "FlowSolver"
+  Variable = Flow Solution[Velocity:2 Pressure:1]
+  Stabilization Method = Stabilized
+  Nonlinear System Max Iterations = 60
+  Nonlinear System Convergence Tolerance = 1.0e-6
+  Nonlinear System Newton After Iterations = 8
+  Nonlinear System Newton After Tolerance = 1.0e-3
+  Nonlinear System Relaxation Factor = 0.7
+  Linear System Solver = Direct
+  Linear System Direct Method = UMFPack
+End
+
+Solver 2
+  Exec Solver = After All
+  Equation = SaveScalars
+  Procedure = "SaveData" "SaveScalars"
+  Filename = "debit.dat"
+  Variable 1 = Velocity 2
+  Operator 1 = boundary int
+  Mask Name 1 = "aval_mask"
+  Variable 2 = Velocity 2
+  Operator 2 = max abs
+End
+
+Boundary Condition 1
+  Name = "amont"
+  Target Boundaries(1) = 1
+  External Pressure = -1000.0
+End
+
+Boundary Condition 2
+  Name = "aval"
+  Target Boundaries(1) = 2
+  External Pressure = 0.0
+  aval_mask = Logical True
+End
+
+Boundary Condition 3
+  Name = "symetrie"
+  Target Boundaries(1) = 3
+  Velocity 1 = 0.0
+End
+
+Boundary Condition 4
+  Name = "languette"
+  Target Boundaries(1) = 4
+  Velocity 1 = 0.0
+  Velocity 2 = 0.0
+End
+
+Boundary Condition 5
+  Name = "paroi"
+  Target Boundaries(1) = 5
+  Velocity 1 = 0.0
+  Velocity 2 = 0.0
+End
