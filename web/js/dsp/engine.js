@@ -14,10 +14,22 @@ import {
 
 // Version du moteur : doit être celle de la page et de app.js (cf. le
 // contrôle de cohérence dans app.js et le test dans dsp.test.mjs).
-export const ENGINE_VERSION = '17';
+export const ENGINE_VERSION = '18';
 
 const HOP = 4096;             // période d'analyse (~85 ms à 48 kHz)
 const MAXWIN = { fast: 128, normal: 256, precise: 512 };
+// Saut de hauteur (cf. detectStep). Une fenêtre courte (STEP_QW échantillons
+// décimés ≈ 0,17 s) doit s'écarter de la mesure fine de plus de STEP_CENTS en
+// restant sur un palier — stable à STEP_PLATEAU près en hauteur et à
+// STEP_LEVEL_DB près en niveau d'une image à l'autre. On garde alors STEP_KEEP
+// échantillons de bande de base (≈ 0,43 s : une fenêtre de 32 et son décalage
+// de phase). 2 ¢ : au-dessus de ce qu'un soufflet vivant fait onduler une
+// anche (±1 ¢ — à 1,5 ¢ le banc test/bench_courbe.mjs se met à redémarrer).
+const STEP_CENTS = 2;
+const STEP_PLATEAU = 1;
+const STEP_LEVEL_DB = 3;
+const STEP_KEEP = 40;
+const STEP_QW = 16;
 
 // Harmonique sur lequel mesurer un groupe d'anches à l'unisson.
 //
@@ -179,10 +191,7 @@ export class Engine {
     this.attackArmed = true;
     this.attackPending = null;
     this.lastAttack = null;
-    // Suivi continu : historique de f0 pour détecter une hauteur en
-    // mouvement (chant, glissando), et verrou de préférence au suivi rapide.
-    this.f0Hist = [];
-    this.motionLatch = false;
+    this.steps = new Map();     // détection de saut par groupe (cf. detectStep)
     this.lastFine = null;       // dernière mesure fine de la voix de base (maintien en creux de battement)
   }
 
@@ -237,6 +246,7 @@ export class Engine {
     // Nouvelle note (ou nouveaux réglages) : la continuité par anche repart
     // de zéro — les cibles reprennent la main pour l'appariement.
     this.prevF = new Map();
+    this.steps = new Map();      // détection de saut par groupe (cf. detectStep)
     const played = this.playedMidi;
     if (played == null && this.cfg.mode !== 'manual') {
       if (force) this.trackers.clear();
@@ -351,6 +361,10 @@ export class Engine {
     const nH = c.mode !== 'register' ? (c.trackHarmonics | 0) : 0;
     if (nH > 1) {
       for (const g of groups.slice()) {
+        // Pas pour les traqueurs de partiels du strobe (ils partagent le
+        // centre de leur anche) : chacun ajoutait sa propre série H2, H3…,
+        // mêmes mesures en double — la légende en affichait neuf.
+        if (g.isHarmonic) continue;
         for (let k = 2; k <= nH; k++) {
           if (k === g.kTrack) continue;             // déjà couvert par la voix de base
           if (g.center * k > 9500) break;
@@ -617,6 +631,7 @@ export class Engine {
     const groups = [];
     const played = this.playedMidi;
     const claimed = [];
+    const claimedBy = [];   // centre du groupe qui revendique chaque fréquence de `claimed`
     // Fondamentale mesurée par centre d'octave : un groupe harmonique cherche
     // son partiel autour de k·f0_mesurée plutôt que k·f0_nominale. Sans cet
     // ancrage, quand la fondamentale est décalée (ex. +9 ¢), le vrai partiel
@@ -665,6 +680,10 @@ export class Engine {
         cont = this.lastFine.f;
       }
       const voices = this.matchVoices(g, az, calib, claimed, anchor, cont);
+      if (!quiet) {
+        const others = claimed.filter((_, i) => claimedBy[i] !== g.center);
+        this.detectStep(g, t, voices, calib, others);
+      }
       // Auto-anches : une octave ajoutée à la main (16', 4', 2') n'est
       // déclarée présente que sur preuve. Pas de partiel à elle dans le
       // spectre large bande → rien ; et une raie confondue avec le partiel
@@ -692,6 +711,7 @@ export class Engine {
             const f = m * v.fMeas;
             if (f > 9600) break;
             claimed.push(f);
+            claimedBy.push(g.center);
           }
         }
         // Fondamentale de référence du groupe (voix sans battement, ou la
@@ -722,38 +742,18 @@ export class Engine {
     }
 
     // Mode automatique : repli « suivi continu » quand le traqueur fin n'a
-    // pas (encore) accroché — voix chantée, glissando, vibrato large, ou les
-    // premières centaines de ms après un changement de note. La fondamentale
-    // affinée de l'analyse harmonique (mise à jour toutes les ~85 ms,
-    // précision ~0,1–1 cent) alimente alors la mesure ; le zoom hétérodyne
-    // haute précision reprend la main dès que le ton est stable. Sans ce
-    // repli, la courbe est pleine de trous dès que la hauteur bouge.
+    // pas (encore) accroché — voix chantée, glissando large, ou les premières
+    // centaines de ms après un changement de note. La fondamentale de
+    // l'analyse rapide alimente alors la mesure. Elle ne remplace PLUS une
+    // mesure fine qui existe : avant, dès que la hauteur bougeait de 5 ¢ en
+    // 0,5 s, elle prenait la main jusqu'à retomber à 3 ¢ de la mesure fine —
+    // or sur un vrai son elle se trompe de 5 à 15 ¢ (mesuré), et la courbe
+    // alternait entre les deux. C'est désormais le traqueur fin qui suit le
+    // mouvement, en raccourcissant sa fenêtre (detectStep).
     if (c.mode === 'auto' && !quiet && f0 && played != null) {
       const g = groups.find((gr) => !gr.isHarmonic && !gr.isSub);
       const v = g?.voices[0];
-      // Détection de hauteur en mouvement : dérive de f0 sur ~0,5 s. Le
-      // désaccord zoom/f0 seul ne suffit pas comme critère — une anche
-      // inharmonique fait diverger les deux légitimement sur ton stable.
       const tNow = this.samplesTotal / this.sr;
-      this.f0Hist.push({ t: tNow, f: f0 });
-      while (this.f0Hist.length && this.f0Hist[0].t < tNow - 1.2) this.f0Hist.shift();
-      // Référence = l'échantillon le plus récent vieux d'au moins 0,5 s
-      // (recherche depuis la fin — le premier match depuis le début serait
-      // le plus ancien de la fenêtre, jusqu'à 1,2 s, et biaiserait la dérive).
-      let ref = null;
-      for (let i = this.f0Hist.length - 1; i >= 0; i--) {
-        if (this.f0Hist[i].t <= tNow - 0.5) { ref = this.f0Hist[i]; break; }
-      }
-      const drift = ref ? Math.abs(centsBetween(f0, ref.f)) : 0;
-      if (drift > 5) {
-        // La hauteur bouge : la longue fenêtre du zoom moyenne le mouvement
-        // et sa valeur traîne — le suivi rapide prend la main.
-        this.motionLatch = true;
-      } else if (this.motionLatch && v?.tracked
-          && Math.abs(centsBetween(v.fMeas, f0)) < 3) {
-        // Le zoom a re-convergé sur la hauteur stabilisée : il reprend la main.
-        this.motionLatch = false;
-      }
       // Source du suivi : la NSDF (fenêtre 85 ms, sans erreur d'octave) suit
       // une hauteur qui bouge de plus près que la FFT grossière (341 ms) ;
       // repli sur la fondamentale spectrale si la NSDF n'est pas franche.
@@ -779,7 +779,7 @@ export class Engine {
         v.tracked = true;
         v.held = true; // maintenu pendant un creux, ni fin ni rapide
         v.beatMeas = 0;
-      } else if (v && (!v.tracked || this.motionLatch) && Math.abs(centsBetween(followF0, v.nominal)) < 120) {
+      } else if (v && !v.tracked && Math.abs(centsBetween(followF0, v.nominal)) < 120) {
         v.fMeas = followF0;
         v.amp = level;
         v.dCents = centsBetween(followF0, v.nominal);
@@ -932,7 +932,7 @@ export class Engine {
         // En auto (1 voix attendue) on autorise un pôle de plus pour révéler
         // une seconde composante cachée (unisson non déclaré).
         const known = c.mode === 'register' || c.mode === 'manual';
-        const M = Math.max(1, Math.min(4, this.motionLatch ? 1 : (known ? nExp : nExp + 1)));
+        const M = Math.max(1, Math.min(4, known ? nExp : nExp + 1));
         const k = bg.kTrack || 1;
         let comps = [];
         try { comps = matrixPencil(bb.re, bb.im, M, bb.srd); } catch { comps = []; }
@@ -975,6 +975,74 @@ export class Engine {
       groups: withPartials(groups),
       coarseSpectrum: coarse ? logResample(coarse.mag, coarse.binHz, 1024) : null,
     };
+  }
+
+  // Saut de hauteur. La mesure fine est une moyenne sur une longue fenêtre
+  // (2,7 s en « normal ») : précieuse sur un ton tenu, elle étale une marche
+  // nette en une rampe de 2,7 s, en retard d'1,4 s. Une vraie marche existe
+  // (anche du tiré et anche du poussé d'un même bouton, accordées un peu
+  // différemment). Sur l'enregistrement d'Ewen (Do3 au téléphone,
+  // 24/09/2026), le son sautait de −9 à +6 ¢ en moins de 50 ms — c'était
+  // l'horloge du navigateur (cf. worker.js, readStream), mais le moteur, lui,
+  // en faisait une colline lisse et fausse sur les harmoniques, et la
+  // fondamentale alternait entre cette moyenne en retard et l'estimation
+  // rapide (fausse de 5 à 15 ¢ sur ce son) : des « signaux carrés ».
+  //
+  // Ici, une fenêtre courte (~0,17 s) regarde la même raie. Si elle s'écarte
+  // de la mesure fine de plus de STEP_CENTS en restant sur un palier, le
+  // traqueur oublie l'avant : sa fenêtre repart courte puis regrandit. Chaque
+  // traqueur (anche, H2, H3…) le fait pour son propre partiel. Une anche
+  // stable n'est jamais concernée (la fenêtre courte y tombe à quelques
+  // centièmes de cent de la longue) ; un soufflet qui ondule d'un cent non
+  // plus.
+  detectStep(g, t, voices, calib, others = []) {
+    if (voices.length !== 1 || !t || g.isSub) return;   // un unisson bat : pas une marche
+    const v = voices[0];
+    const key = g.key;
+    // Référence : la mesure fine de cette image, ou, pour l'anche de base,
+    // si elle vient de se perdre (la longue fenêtre voit l'ancienne ET la
+    // nouvelle hauteur, le verrou de continuité refuse les deux), la
+    // dernière connue.
+    const ref = v.tracked ? v.fMeas
+      : g.isHarmonic ? null
+        : this.prevF?.get(`${key}:${v.def.id}`)
+          ?? (this.cfg.mode === 'auto' && this.lastFine
+            && this.samplesTotal / this.sr - this.lastFine.t < 1.5 ? this.lastFine.f : null);
+    if (ref == null) return;
+    // Groupe de base : fréquences ramenées à la fondamentale ; groupe
+    // harmonique : dans le domaine du partiel (cf. matchVoices).
+    const div = g.isHarmonic ? 1 : (g.kTrack || 1);
+    // Un partiel d'une AUTRE anche trop près (l'harmonique 2 du 16' à 1 Hz
+    // du 8' d'un registre LM) : la fenêtre courte ne voit que leur somme,
+    // qui bat. Seule la longue fenêtre les sépare — on ne la coupe pas.
+    const fAbs = ref * div;
+    if (others.some((f) => Math.abs(f - fAbs) < (2 * t.srd) / STEP_QW)) return;
+    const q = t.quick(fAbs / calib - t.fc, STEP_QW);
+    const st = this.steps.get(key) ?? { fq: null, mag: 0 };
+    this.steps.set(key, st);
+    if (!q) { st.fq = null; return; }
+    const fq = ((t.fc + q.off) * calib) / div;
+    const d = centsBetween(fq, ref);
+    // Palier atteint : la fenêtre courte ne bouge plus d'une image à l'autre,
+    // ni en hauteur ni en niveau. Pendant la transition elle glisse de
+    // l'ancienne hauteur à la nouvelle ; au passage d'un creux (inversion du
+    // soufflet) elle peut donner n'importe quoi (mesuré : −22 ¢ au lieu de
+    // −6 ¢) ; sur un partiel qui bat, hauteur et niveau y tournent sans
+    // cesse (mesuré : H2 d'un Mi2 de bandonéon, −9 à +19 ¢ en 0,8 s). On
+    // attend donc un palier franc.
+    const plateau = st.fq != null
+      && Math.abs(centsBetween(fq, st.fq)) < Math.max(STEP_PLATEAU, 0.3 * Math.abs(d))
+      && Math.abs(20 * Math.log10((q.mag + 1e-30) / (st.mag + 1e-30))) < STEP_LEVEL_DB;
+    st.fq = fq; st.mag = q.mag;
+    if (Math.abs(d) <= STEP_CENTS || !plateau) return;
+    t.restart(STEP_KEEP);
+    // La mesure de cette image devient l'estimation courte : c'est elle qui
+    // dit où est l'anche maintenant. La continuité suit.
+    this.fillVoice(v, { freq: fq, mag: q.mag }, STEP_QW);
+    v.step = true;
+    if (g.isHarmonic) return;
+    if (this.prevF) this.prevF.set(`${key}:${v.def.id}`, fq);
+    if (this.cfg.mode === 'auto') this.lastFine = { t: this.samplesTotal / this.sr, f: fq };
   }
 
   // Associe les composantes mesurées aux voix attendues du groupe.

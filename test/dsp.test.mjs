@@ -700,5 +700,60 @@ console.log('\nTest 27 — une seule version : page, appli, moteur, cache du ser
   assert(lire('sw.js').includes("cache: 'no-cache'"), 'le service worker revalide ses fichiers (pas de cache HTTP périmé)');
 }
 
+console.log('\nTest 28 — marches de hauteur (tiré/poussé) : la courbe saute net, sans rampe ni créneaux');
+{
+  // Une marche nette (anche du tiré puis du poussé, accordées différemment).
+  // Vu sur un vrai enregistrement (Do au téléphone, 24/09/2026, marches
+  // dues à l'horloge du navigateur) : la longue fenêtre en faisait une
+  // colline de 2,7 s en retard d'1,4 s ; l'estimation rapide, fausse de
+  // 5 à 15 ¢ sur ce son, la remplaçait par moments : des « signaux carrés ».
+  const f0 = midiToFreq(60);
+  const plateaux = [[0, -7], [3, 6], [6, -7], [9, 6]];           // [début s, cents]
+  const centsAt = (t) => plateaux.filter(([t0]) => t >= t0).pop()[1];
+  const n = SR * 12, sig = new Float32Array(n);
+  const harm = [1, 0.8, 0.5, 0.4, 0.2, 0.15];
+  let ph = 0;
+  for (let i = 0; i < n; i++) {
+    ph += (2 * Math.PI * f0 * 2 ** (centsAt(i / SR) / 1200)) / SR;
+    for (let h = 0; h < harm.length; h++) sig[i] += 0.1 * harm[h] * Math.sin((h + 1) * ph + h);
+    sig[i] += 3e-4 * (Math.random() * 2 - 1);
+  }
+  const engine = new Engine(SR, { mode: 'auto', trackHarmonics: 3 });
+  let worstBase = 0, worstH3 = 0, outside = 0, nH = 0;
+  for (let i = 0; i + 512 <= n; i += 512) {
+    const r = engine.process(sig.subarray(i, i + 512));
+    if (!r) continue;
+    const t = (i + 512) / SR;
+    const base = r.groups.find((g) => !g.isHarmonic && !g.isSub)?.voices[0];
+    const h3 = r.groups.find((g) => g.isHarmonic && !g.isSub && g.kTrack === 3)?.voices[0];
+    nH = r.groups.filter((g) => g.isHarmonic && !g.isSub).length;
+    if (t < 1.5 || !base?.tracked) continue;
+    const c = cents(base.fMeas, f0);
+    if (c < -8 || c > 7) outside++;                              // ni au-delà, ni entre deux
+    const since = t - plateaux.filter(([t0]) => t >= t0).pop()[0];
+    if (since > 0.6 && since < 2.9) {
+      worstBase = Math.max(worstBase, Math.abs(c - centsAt(t)));
+      if (h3?.tracked) worstH3 = Math.max(worstH3, Math.abs(cents(h3.fMeas / 3, f0) - centsAt(t)));
+    }
+  }
+  assert(worstBase < 1, `anche : à ${worstBase.toFixed(2)} ¢ du palier dès 0,6 s après chaque marche (< 1 ¢ requis)`);
+  assert(worstH3 < 1, `H3 : à ${worstH3.toFixed(2)} ¢ du palier dès 0,6 s après chaque marche (< 1 ¢ requis)`);
+  assert(outside === 0, `aucune valeur hors des deux paliers (${outside} image(s) aberrante(s))`);
+  assert(nH === 2, `harmoniques affichées : ${nH} (H2 et H3 attendues, sans doublons)`);
+}
+
+console.log('\nTest 29 — export du mode dev : une seule archive ZIP lisible');
+{
+  const { zipBytes, crc32 } = await import('../web/js/zip.js');
+  assert(crc32(new TextEncoder().encode('123456789')) === 0xcbf43926, 'CRC-32 de référence (« 123456789 » → cbf43926)');
+  const z = zipBytes([{ name: 'a.wav', data: new Uint8Array([1, 2, 3]) }, { name: 'é.csv', data: 'x;y' }]);
+  const v = new DataView(z.buffer);
+  const eocd = z.length - 22;
+  const ok = v.getUint32(0, true) === 0x04034b50 && v.getUint32(eocd, true) === 0x06054b50
+    && v.getUint16(eocd + 10, true) === 2
+    && v.getUint32(v.getUint32(eocd + 16, true), true) === 0x02014b50;
+  assert(ok, `structure ZIP (en-têtes locaux, répertoire central, 2 fichiers) — ${z.length} octets`);
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);

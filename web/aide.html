@@ -115,12 +115,25 @@
   </div>
 
   <div class="callout">
+    <b>Micro lu directement.</b> Sur Chrome et Edge (ordinateur et Android),
+    l'accordeur lit le micro <b>à sa propre horloge</b>. Par le chemin audio
+    habituel du navigateur, le son est rééchantillonné avec un rapport qui change
+    par à-coups : tout le son — même le ronflement du secteur, qui ne bouge
+    jamais — sautait de ±6 cents toutes les deux secondes environ (mesuré sur
+    un vrai enregistrement de téléphone). Sur la courbe, cela faisait des
+    « signaux carrés » que l'anche ne faisait pas. Réglages → la ligne
+    « Échantillonnage » dit quel chemin est utilisé ; sur Firefox et Safari,
+    seul l'ancien chemin existe.
+  </div>
+
+  <div class="callout">
     <b>Mode dev</b> (Réglages → Mode dev) : pour la recherche. Coché, l'accordeur
     garde en mémoire <b>le son brut du micro</b> et <b>chaque mesure</b> (≈ 11 par
     seconde : chaque anche, sa cible, sa fréquence, son écart, son intensité et ses
     partiels ×1…×8), datés sur <b>la même horloge</b>. « ⬇ Exporter la session »
-    télécharge trois fichiers de même nom : le <b>WAV</b>, le <b>CSV</b> des
-    mesures et un <b>JSON</b> des réglages. Une mesure au temps t correspond à
+    télécharge <b>un seul fichier .zip</b> (un téléphone ne laisse passer qu'un
+    téléchargement à la fois) qui contient trois fichiers de même nom : le
+    <b>WAV</b>, le <b>CSV</b> des mesures et un <b>JSON</b> des réglages. Une mesure au temps t correspond à
     l'instant t du WAV (fin de sa fenêtre d'analyse) — vérifié : le WAV rejoué
     redonne les mêmes mesures au millième de cent près. Une pastille rouge
     « ● dev » s'affiche dans le bandeau pendant l'enregistrement. Jusqu'à 10 min

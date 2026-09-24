@@ -24,6 +24,10 @@ export class ZoomTracker {
     this.ringRe = new Float64Array(RING);
     this.ringIm = new Float64Array(RING);
     this.count = 0;   // échantillons décimés écrits (total)
+    // Début du régime en cours (index décimé) : l'analyse ne regarde pas
+    // avant. Un saut de hauteur (cf. restart) le déplace : la fenêtre ne
+    // mélange plus l'avant et l'après, elle repart courte et regrandit.
+    this.start = 0;
     this.fc = 0;
     // Oscillateur local par récurrence de rotation.
     this.oscRe = 1; this.oscIm = 0;
@@ -46,6 +50,45 @@ export class ZoomTracker {
     this.a1re = 0; this.a1im = 0; this.c1 = 0;
     this.a2re = 0; this.a2im = 0; this.c2 = 0;
     this.count = 0;
+    this.start = 0;
+  }
+
+  // La hauteur a sauté : on oublie ce qui précède les `keep` derniers
+  // échantillons décimés. Sans ça, la longue fenêtre (2,7 s en « normal »)
+  // étalait une marche nette en une rampe de 2,7 s, en retard d'1,4 s.
+  restart(keep = 40) {
+    this.start = Math.max(this.start, this.count - keep);
+  }
+
+  // Estimation RAPIDE (fenêtre courte de `W` échantillons, ~0,34 s) de la
+  // raie la plus proche du décalage `off` (Hz dans la bande) : sert à voir
+  // qu'une hauteur a bougé, pas à la mesurer finement. Ignore `start`.
+  quick(off, W = 32) {
+    const H = W >> 2;
+    if (Math.min(this.count, RING) < W + H) return null;
+    const cur = this.spectrumAt(W, 0, 2);
+    const prev = this.spectrumAt(W, H, 3);
+    const binHz = this.srd / W;
+    const mag = (b) => Math.hypot(cur.re[(b + W) % W], cur.im[(b + W) % W]);
+    const b0 = Math.round(off / binHz);
+    let k = null, best = 0;
+    for (let b = b0 - 2; b <= b0 + 2; b++) {
+      const m = mag(b);
+      if (m > best && m >= mag(b - 1) && m >= mag(b + 1)) { best = m; k = b; }
+    }
+    if (k == null) return null;
+    const la = Math.log(mag(k - 1) + 1e-30), lb = Math.log(best + 1e-30), lc = Math.log(mag(k + 1) + 1e-30);
+    let d = (0.5 * (la - lc)) / (la - 2 * lb + lc);
+    if (!isFinite(d) || Math.abs(d) > 0.5) d = 0;
+    let o = (k + d) * binHz;
+    const i = (k + W) % W;
+    const p1 = Math.atan2(cur.im[i], cur.re[i]);
+    const p0 = Math.atan2(prev.im[i], prev.re[i]);
+    let dphi = p1 - p0 - (2 * Math.PI * o * H) / this.srd;
+    dphi -= 2 * Math.PI * Math.round(dphi / (2 * Math.PI));
+    const corr = dphi / ((2 * Math.PI * H) / this.srd);
+    if (Math.abs(corr) < 2 * binHz) o += corr;
+    return { off: o, mag: best };
   }
 
   process(chunk) {
@@ -134,10 +177,10 @@ export class ZoomTracker {
   // Analyse : renvoie les composantes (anches) résolues dans la bande.
   // maxWin contrôle le compromis réactivité / résolution.
   analyze(maxWin = 256, maxPeaks = 5) {
-    const avail = Math.min(this.count, RING);
+    const avail = Math.min(this.count - this.start, RING);
     let W = 32;
     while (W * 2 <= Math.min(avail, maxWin)) W *= 2;
-    if (avail < 48) return null; // en cours d'amorçage
+    if (avail < 40) return null; // en cours d'amorçage (fenêtre + décalage de phase)
 
     const H = W >> 2; // décalage pour le raffinement de phase
     const canRefine = avail >= W + H;
