@@ -115,6 +115,20 @@
   </div>
 
   <div class="callout">
+    <b>Mode dev</b> (Réglages → Mode dev) : pour la recherche. Coché, l'accordeur
+    garde en mémoire <b>le son brut du micro</b> et <b>chaque mesure</b> (≈ 11 par
+    seconde : chaque anche, sa cible, sa fréquence, son écart, son intensité et ses
+    partiels ×1…×8), datés sur <b>la même horloge</b>. « ⬇ Exporter la session »
+    télécharge trois fichiers de même nom : le <b>WAV</b>, le <b>CSV</b> des
+    mesures et un <b>JSON</b> des réglages. Une mesure au temps t correspond à
+    l'instant t du WAV (fin de sa fenêtre d'analyse) — vérifié : le WAV rejoué
+    redonne les mêmes mesures au millième de cent près. Une pastille rouge
+    « ● dev » s'affiche dans le bandeau pendant l'enregistrement. Jusqu'à 10 min
+    par session ; la session reste exportable après l'arrêt du micro, mais un
+    nouveau démarrage l'efface : exportez d'abord.
+  </div>
+
+  <div class="callout">
     <b>Les autres onglets</b> (sous le bandeau note/témoin,
     qui reste toujours visible) : <b>Accordage</b> — courbe, lecture numérique,
     zoom, anches mesurées, stroboscope — tout ce qu'il faut pendant qu'une note

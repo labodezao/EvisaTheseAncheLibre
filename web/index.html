@@ -33,6 +33,7 @@
     <div class="note-sub" id="convState">micro arrêté</div>
   </div>
   <div id="verdict" class="verdict" title="Témoin d'accordage : vert = dans la tolérance, passez à l'anche suivante">—</div>
+  <span id="devBadge" class="dev-badge hidden" title="Mode dev : la session est enregistrée">● dev</span>
   <div class="level-wrap" title="Niveau d'entrée">
     <div id="levelBar"></div>
   </div>
@@ -297,6 +298,21 @@
       <p class="hint" id="latencyInfo"></p>
       <p class="hint" id="dspLoad"></p>
       <p class="hint" id="fileInfo">📂 Fichier : analyser un enregistrement au lieu du micro.</p>
+    </div>
+    <div class="panel">
+      <h2>Mode dev <span class="hint">pour la recherche</span></h2>
+      <label class="inline"><input type="checkbox" id="devMode">
+        enregistrer la session : le son du micro ET chaque mesure, sur la même horloge</label>
+      <div class="row gap">
+        <button id="btnDevExport" class="primary">⬇ Exporter la session (WAV + CSV + JSON)</button>
+        <button id="btnDevClear">Effacer</button>
+      </div>
+      <p class="hint" id="devStatus"></p>
+      <p class="hint">Le WAV est le son brut tel que le micro l'a capté ; le CSV donne, à chaque
+      mesure (≈ 11 par seconde), chaque anche : cible, fréquence, écart, intensité et ses partiels
+      ×1…×8 ; le JSON garde les réglages. Une mesure au temps t correspond à l'instant t du WAV
+      (fin de sa fenêtre d'analyse). Rechargez le WAV par 📂 Fichier pour rejouer l'analyse.
+      Jusqu'à 10 min par session, en mémoire du téléphone : exportez avant de redémarrer.</p>
     </div>
   </div>
 

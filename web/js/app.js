@@ -34,6 +34,7 @@ const cfg = Object.assign({
   autoFreeze: false, // désactivé par défaut : surprenant pour un premier essai
   readout: null,        // clés de voix affichées en lecture numérique (null = toutes)
   response: 'normal',
+  devMode: false,       // mode dev : garde le son et chaque mesure (export WAV + CSV + JSON)
   beatCurve: { midiLow: 48, bLow: 0.8, midiHigh: 96, bHigh: 3.0, overrides: {} },
 }, loadCfg());
 
@@ -165,8 +166,10 @@ async function startAudio() {
 
     worker = new Worker('js/dsp/worker.js', { type: 'module' });
     const channel = new MessageChannel();
-    worker.postMessage({ type: 'init', sampleRate: audioCtx.sampleRate, cfg: engineCfg(), port: channel.port1 }, [channel.port1]);
-    worker.onmessage = (e) => { if (e.data.type === 'tick') onTick(e.data); };
+    worker.postMessage({ type: 'init', sampleRate: audioCtx.sampleRate, cfg: engineCfg(),
+      port: channel.port1, dev: !!cfg.devMode }, [channel.port1]);
+    state.devData = null;
+    worker.onmessage = onWorkerMessage;
 
     const node = new AudioWorkletNode(audioCtx, 'capture');
     node.port.postMessage({ port: channel.port2 }, [channel.port2]);
@@ -238,10 +241,36 @@ async function startAudio() {
   $('btnStart').disabled = false;
 }
 
+function onWorkerMessage(e) {
+  const d = e.data;
+  if (d.type === 'tick') onTick(d);
+  else if (d.type === 'devStatus') showDevStatus(d.dev);
+  else if (d.type === 'devData') {
+    const w = e.target;
+    w._devWaiters?.forEach((fn) => fn(d));
+    w._devWaiters = [];
+  }
+}
+
+// Demande au Worker le son et les mesures enregistrés (mode dev).
+function fetchDevData(w) {
+  return new Promise((resolve) => {
+    (w._devWaiters ??= []).push(resolve);
+    w.postMessage({ type: 'devExport' });
+  });
+}
+
 function stopAudio() {
   stopTone();
   mediaStream?.getTracks().forEach((t) => t.stop());
-  worker?.terminate();
+  // Mode dev : on récupère la session AVANT d'arrêter le Worker, pour
+  // qu'elle reste exportable une fois le micro coupé.
+  if (worker && cfg.devMode) {
+    const w = worker;
+    fetchDevData(w).then((d) => { if (!d.empty) state.devData = d; w.terminate(); showDevStatus(null); });
+  } else {
+    worker?.terminate();
+  }
   audioCtx?.close();
   audioCtx = null; worker = null; mediaStream = null;
   state.running = false;
@@ -295,6 +324,7 @@ function onTick(t) {
     }
   }
   state.tick = t;
+  if (t.dev) showDevStatus(t.dev);
   state.curveCache = null;
   state.phaseCache = null;
   markAllDirty();
@@ -1728,11 +1758,93 @@ function recordNow() {
 }
 
 function download(name, text, mime) {
+  downloadBlob(name, new Blob([text], { type: mime }));
+}
+
+// L'URL n'est libérée qu'après coup : révoquée tout de suite, un gros
+// fichier (le WAV d'une session) peut ne pas finir de s'enregistrer.
+function downloadBlob(name, blob) {
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type: mime }));
+  a.href = URL.createObjectURL(blob);
   a.download = name;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(a.href);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+}
+
+// ---- Mode dev : session enregistrée (son + mesures) -----------------------------
+function showDevStatus(st) {
+  const badge = $('devBadge'), info = $('devStatus');
+  const on = !!cfg.devMode;
+  const fmt = (x) => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`;
+  if (on && state.running && st) {
+    badge.classList.remove('hidden');
+    badge.textContent = `● dev ${fmt(st.seconds)}${st.full ? ' (plein)' : ''}`;
+    info.textContent = `Enregistrement en cours : ${fmt(st.seconds)} de son, ${st.ticks} mesures`
+      + (st.full ? ` — limite de ${st.maxS / 60} min atteinte, exportez puis effacez.` : '.');
+  } else {
+    badge.classList.add('hidden');
+    const d = state.devData;
+    info.textContent = !on ? 'Mode dev désactivé.'
+      : d ? `Session gardée : ${fmt(d.pcm.length / d.sampleRate)} de son, ${d.ticks.length} mesures — prête à exporter.`
+        : 'Démarrez le micro (ou 📂 Fichier) : la session sera enregistrée.';
+  }
+}
+
+function wavBlob(pcm, sr) {
+  const n = pcm.length, buf = new ArrayBuffer(44 + 2 * n), v = new DataView(buf);
+  const str = (o, x) => { for (let i = 0; i < x.length; i++) v.setUint8(o + i, x.charCodeAt(i)); };
+  str(0, 'RIFF'); v.setUint32(4, 36 + 2 * n, true); str(8, 'WAVE');
+  str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, 2 * sr, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  str(36, 'data'); v.setUint32(40, 2 * n, true);
+  new Int16Array(buf, 44).set(pcm);
+  return new Blob([buf], { type: 'audio/wav' });
+}
+
+// Une ligne par anche et par mesure. `t_s` = fin de la fenêtre d'analyse,
+// sur la même horloge que le WAV ; `fenetre_s` = durée de cette fenêtre.
+function devCsv(ticks) {
+  const P = 8, sep = ';';
+  const num = (x, d) => (x == null || !Number.isFinite(x) ? '' : x.toFixed(d));
+  const head = ['t_s', 'note', 'midi', 'niveau_db', 'silence', 'groupe', 'anche', 'label', 'harmonique',
+    'k_suivi', 'cible_hz', 'f_hz', 'ecart_cents', 'amp_db', 'confondue_octave', 'estimation_rapide',
+    'maintenue', 'fenetre_s', 'remplissage'];
+  for (let k = 1; k <= P; k++) head.push(`p${k}_hz`);
+  const lines = [head.join(sep)];
+  for (const tk of ticks) {
+    const note = tk.midi != null ? noteLabel(tk.midi + (cfg.transpose || 0)).full : '';
+    const db = num(20 * Math.log10((tk.level ?? 0) + 1e-9), 1);
+    for (const r of tk.rows) {
+      const row = [num(tk.t, 4), note, tk.midi ?? '', db, tk.quiet, r.g, r.id,
+        String(r.label).replace(/[;\n]/g, ' '), r.harm, r.k, num(r.target, 5), num(r.f, 5), num(r.c, 4),
+        num(20 * Math.log10((r.amp ?? 0) + 1e-9), 1), r.merged, r.coarse, r.held,
+        num(r.srd ? r.W / r.srd : null, 3), num(r.fill, 3)];
+      for (let k = 1; k <= P; k++) row.push(num(r.p?.[k], 5));
+      lines.push(row.join(sep));
+    }
+  }
+  return lines.join('\n');
+}
+
+async function exportDevSession() {
+  const d = worker && state.running ? await fetchDevData(worker) : state.devData;
+  if (!d || d.empty || !d.pcm?.length) { alert('Aucune session enregistrée : activez le mode dev et démarrez.'); return; }
+  const base = `session-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}`;
+  const meta = {
+    app: 'Accordeur Anche Libre Pro', mode_dev: 1, date: new Date().toISOString(),
+    user_agent: navigator.userAgent, micro: $('deviceSel').selectedOptions?.[0]?.textContent || '',
+    source: $('fileInfo').textContent || '', echantillonnage_hz: d.sampleRate,
+    duree_s: d.pcm.length / d.sampleRate, mesures: d.ticks.length, tronque: !!d.full,
+    reglages_interface: cfg, reglages_moteur: d.cfg,
+    horloge: 't_s du CSV = fin de la fenêtre d\'analyse, même horloge que le WAV (échantillon t_s × fs)',
+  };
+  downloadBlob(`${base}.wav`, wavBlob(d.pcm, d.sampleRate));
+  // Plusieurs téléchargements d'affilée : un petit délai évite que le
+  // navigateur n'en bloque un.
+  setTimeout(() => download(`${base}.csv`, devCsv(d.ticks), 'text/csv'), 400);
+  setTimeout(() => download(`${base}.json`, JSON.stringify(meta, null, 2), 'application/json'), 800);
 }
 
 // ---- Liaison des contrôles -------------------------------------------------------
@@ -1861,6 +1973,20 @@ function bindControls() {
   $('maxUnison').value = String(cfg.maxUnison || 3);
   $('maxUnison').onchange = () => { cfg.maxUnison = Number($('maxUnison').value); pushConfig(); };
   $('btnCurveCsv').onclick = exportCurveCsv;
+  $('devMode').checked = !!cfg.devMode;
+  $('devMode').onchange = () => {
+    cfg.devMode = $('devMode').checked;
+    saveCfg();
+    worker?.postMessage({ type: 'dev', on: cfg.devMode });
+    showDevStatus(null);
+  };
+  $('btnDevExport').onclick = exportDevSession;
+  $('btnDevClear').onclick = () => {
+    state.devData = null;
+    worker?.postMessage({ type: 'devClear' });
+    showDevStatus(null);
+  };
+  showDevStatus(null);
   $('btnCurvePng').onclick = exportCurvePng;
   updateLockButton();
   $('a4').onchange = () => { cfg.a4 = clamp(Number($('a4').value) || 440, 340, 540); $('a4').value = cfg.a4; pushConfig(); };
