@@ -175,7 +175,25 @@ async function startAudio() {
     node.connect(sink).connect(audioCtx.destination);
 
     const gen = new URLSearchParams(location.search).get('gen');
-    if (gen) {
+    const wavUrl = new URLSearchParams(location.search).get('wav');
+    if (wavUrl && !state.pendingFile) {
+      // Mode test : un enregistrement servi à côté de l'appli (?wav=chemin).
+      state.pendingFile = { name: wavUrl, data: await (await fetch(wavUrl)).arrayBuffer() };
+    }
+    if (state.pendingFile) {
+      // Source « fichier » : un enregistrement (téléphone, enregistreur…)
+      // rejoué dans l'analyseur exactement comme s'il arrivait du micro.
+      // Silencieux (pas de sortie haut-parleur) : on mesure, on n'écoute pas.
+      const { name, data } = state.pendingFile;
+      state.pendingFile = null;
+      const buf = await audioCtx.decodeAudioData(data.slice(0));
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf;
+      src.connect(node);
+      src.onended = () => { $('fileInfo').textContent = `${name} — lu en entier (${buf.duration.toFixed(1)} s)`; };
+      src.start();
+      $('fileInfo').textContent = `▶ ${name} (${buf.duration.toFixed(1)} s)`;
+    } else if (gen) {
       // Mode test : oscillateurs internes au lieu du micro (?gen=440.2,442.5).
       // Exposés sur window.__gen pour pouvoir simuler des changements de
       // note dans les tests de bout en bout.
@@ -388,8 +406,11 @@ function updateHeader(t) {
     if (v) {
       fv.textContent = v.fMeas.toFixed(v.fMeas < 100 ? 4 : 3);
       const c = v.dTargetCents;
-      cv.textContent = (c >= 0 ? '+' : '') + c.toFixed(1);
-      cv.style.color = Math.abs(c) < 1 ? 'var(--ok)' : Math.abs(c) < 5 ? 'var(--warn)' : 'var(--bad)';
+      // Même chiffre et même couleur que le strobe et les cartes : deux
+      // décimales, couleur selon la tolérance choisie (pas un seuil fixe).
+      cv.textContent = signed(c, 2);
+      const k = centsClass(c, cfg.tolCents);
+      cv.style.color = k === 'ok' ? 'var(--ok)' : k === 'warn' ? 'var(--warn)' : 'var(--bad)';
     } else {
       fv.textContent = '—'; cv.textContent = '—';
     }
@@ -847,9 +868,40 @@ function strobeReeds(t) {
   }
   return out;
 }
-function drawStrobe(dt) {
+// La phase de chaque bande avance UNE fois par image : le strobe compact
+// (onglet Accordage) et le grand strobe (onglet Strobe) lisent la même.
+function advanceStrobe(dt) {
+  if (!(state.strobePhase instanceof Map)) state.strobePhase = new Map();
+  if (state.frozen) return;
+  for (const { g, v } of strobeReeds(state.tick)) {
+    for (let k = 1; k <= STROBE_BANDS; k++) {
+      const fk = g.partials?.[k]?.[v.def.id];
+      if (fk == null) continue;
+      const key = `${g.key}:${v.def.id}:${k}`;
+      state.strobePhase.set(key, (state.strobePhase.get(key) ?? 0) + (fk - k * v.target) * dt);
+    }
+  }
+}
+
+// Mode guidé (à la Peterson) : quatre témoins qui s'allument un à un à
+// mesure qu'on approche — 5 ¢, 1 ¢, 0,3 ¢, 0,1 ¢. On voit où l'on en est
+// sans lire le chiffre, le nez sur la lame.
+const GUIDE = [5, 1, 0.3, 0.1];
+
+// Quoi faire de la lame : une anche trop haute se baisse en grattant vers
+// le talon (on ôte de la raideur), une anche trop basse se monte en grattant
+// vers la pointe (on ôte de la masse).
+function reedAdvice(c, tol, merged) {
+  if (c == null) return null;
+  if (Math.abs(c) <= tol) return { txt: merged ? '✓ juste · confondue avec l\'octave' : '✓ juste', ok: true };
+  return c > 0
+    ? { txt: '↓ trop haute : baisser — gratter vers le talon', ok: false }
+    : { txt: '↑ trop basse : monter — gratter vers la pointe', ok: false };
+}
+
+function drawStrobe(id, big = false) {
   const MONO = monoFont();
-  const cv = $('strobe'), ctx = cv.getContext('2d');
+  const cv = $(id), ctx = cv.getContext('2d');
   const t = state.tick;
   const reeds = strobeReeds(t);
   const n = Math.max(1, reeds.length);
@@ -858,7 +910,18 @@ function drawStrobe(dt) {
   // d'être réduits avec tout le canevas.
   const dpr = window.devicePixelRatio || 1;
   const W = Math.max(280, cv.clientWidth || 560);
-  const H = 6 + n * STROBE_ROW;
+  // Téléphone : le texte au-dessus, les bandes en dessous sur toute la
+  // largeur (côte à côte, le chiffre mangeait les bandes).
+  const stacked = big && W < 560;
+  const TXT_H = 150;                    // hauteur du bloc texte empilé
+  let row = STROBE_ROW;
+  if (big) {
+    // Le grand strobe occupe la hauteur disponible, comme l'écran d'un
+    // stroboscope : une rangée par anche, de 110 à 240 px.
+    const avail = Math.max(300, window.innerHeight - cv.getBoundingClientRect().top - 24);
+    row = stacked ? TXT_H + 4 * 26 + 12 : clamp(Math.floor((avail - 6) / n), 110, 240);
+  }
+  const H = 6 + n * row;
   if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) {
     cv.width = Math.round(W * dpr);
     cv.height = Math.round(H * dpr);
@@ -869,14 +932,16 @@ function drawStrobe(dt) {
   if (!(state.strobePhase instanceof Map)) state.strobePhase = new Map();
   ctx.clearRect(0, 0, W, H);
   if (!reeds.length) {
-    ctx.fillStyle = th.dim2; ctx.font = '13px system-ui'; ctx.textAlign = 'center';
-    ctx.fillText('jouez une note…', W / 2, H / 2 + 4);
+    ctx.fillStyle = th.dim2; ctx.font = `${big ? 18 : 13}px system-ui`; ctx.textAlign = 'center';
+    ctx.fillText(state.running ? 'jouez une note…' : '▶ Démarrer, puis jouez une note', W / 2, H / 2 + 4);
     return;
   }
-  const leftW = Math.min(170, W * 0.36), rightW = 58, period = 34;
-  const bandH = (STROBE_ROW - 12) / STROBE_BANDS;
+  const leftW = stacked ? 28 : big ? Math.min(380, W * 0.36) : Math.min(170, W * 0.36);
+  const rightW = big ? (stacked ? 56 : 74) : 58;
+  const period = big ? (stacked ? 44 : 64) : 34;
+  const bandH = stacked ? 26 : (row - (big ? 16 : 12)) / STROBE_BANDS;
   reeds.forEach(({ g, v }, r) => {
-    const y = 4 + r * STROBE_ROW;
+    const y = 4 + r * row;
     const id = v.def.id;
     const label = v.def.label
       || (v.def.fixedMidi != null ? noteLabel(v.def.fixedMidi + (cfg.transpose || 0)).full : 'anche');
@@ -885,56 +950,98 @@ function drawStrobe(dt) {
     const cls = c == null ? null : centsClass(c, cfg.tolCents);
     const col = c == null ? th.dim2 : cls === 'ok' ? th.okStrong : cls === 'warn' ? th.warn : th.bad;
     ctx.textAlign = 'left';
-    ctx.fillStyle = th.dim; ctx.font = '600 13px system-ui';
-    ctx.fillText(label, 6, y + 16);
+    ctx.fillStyle = th.dim; ctx.font = `600 ${big ? 15 : 13}px system-ui`;
+    const note = big && v.midi != null ? `  ${noteLabel(v.midi + (cfg.transpose || 0)).full}` : '';
+    ctx.fillText(label + note, 6, y + (big ? 20 : 16));
     const txt = c == null ? '—' : signed(c, 2);
-    ctx.fillStyle = col; ctx.font = `700 ${W < 400 ? 26 : 30}px ${MONO}`;
-    ctx.fillText(txt, 6, y + 44);
+    const fs = stacked ? 46 : big ? clamp(Math.round(row * 0.36), 30, 76) : (W < 400 ? 26 : 30);
+    const yc = y + (big ? 22 + fs * 0.95 : 44);
+    ctx.fillStyle = col; ctx.font = `700 ${fs}px ${MONO}`;
+    ctx.fillText(txt, 6, yc);
     const wTxt = ctx.measureText(txt).width;
-    ctx.font = '600 13px system-ui';
-    if (c != null) ctx.fillText('¢', 6 + wTxt + 3, y + 44);
-    ctx.fillStyle = th.dim2; ctx.font = `11px ${MONO}`;
-    if (v.tracked) ctx.fillText(`${v.fMeas.toFixed(3)} Hz`, 6, y + 62);
+    ctx.font = `600 ${big ? Math.round(fs * 0.4) : 13}px system-ui`;
+    if (c != null) ctx.fillText('¢', 6 + wTxt + 3, yc);
+    if (big) {
+      let yl = yc + 20;
+      ctx.fillStyle = th.dim2; ctx.font = `13px ${MONO}`;
+      if (v.tracked) ctx.fillText(`${v.fMeas.toFixed(3)} Hz · cible ${v.target.toFixed(3)}`, 6, yl);
+      const adv = reedAdvice(c, cfg.tolCents, v.merged);
+      if (adv && row >= 130) {
+        yl += 18;
+        ctx.fillStyle = adv.ok ? th.okStrong : th.dim;
+        ctx.font = '600 13px system-ui';
+        ctx.fillText(adv.txt, 6, yl);
+      }
+      // témoins du mode guidé
+      if (row >= 150 || stacked) {
+        yl += 12;
+        const lw = Math.min(58, ((stacked ? W : leftW) - 20) / GUIDE.length - 6);
+        GUIDE.forEach((lim, i) => {
+          const x = 6 + i * (lw + 6);
+          const lit = c != null && Math.abs(c) <= lim;
+          ctx.fillStyle = lit ? (i === GUIDE.length - 1 ? th.okStrong : th.ok) : th.panel2;
+          ctx.fillRect(x, yl, lw, 14);
+          ctx.fillStyle = lit ? th.canvasBg : th.dim2;
+          ctx.font = `10px ${MONO}`; ctx.textAlign = 'center';
+          ctx.fillText(`${lim}¢`, x + lw / 2, yl + 11);
+          ctx.textAlign = 'left';
+        });
+      }
+    } else {
+      ctx.fillStyle = th.dim2; ctx.font = `11px ${MONO}`;
+      if (v.tracked) ctx.fillText(`${v.fMeas.toFixed(3)} Hz`, 6, y + 62);
+    }
     // --- bandes ×1..×4 ------------------------------------------------------
     const x0 = leftW, x1 = W - rightW;
     for (let bi = 0; bi < STROBE_BANDS; bi++) {
       const k = bi + 1;
-      const by = y + 2 + bi * bandH;
+      const by = y + (stacked ? TXT_H : big ? 6 : 2) + bi * bandH;
       const fk = g.partials?.[k]?.[id];
       const beat = fk != null ? fk - k * v.target : null;          // Hz, battement du partiel
-      const key = `${g.key}:${id}:${k}`;
-      let ph = state.strobePhase.get(key) ?? 0;
-      if (beat != null && !state.frozen) ph += beat * dt;           // en cycles
-      state.strobePhase.set(key, ph);
-      const still = beat != null && Math.abs(beat) < 0.12;
-      const on = beat == null ? th.panel2 : (still ? th.okStrong : th.accentMuted);
+      const ph = state.strobePhase.get(`${g.key}:${id}:${k}`) ?? 0;
+      // Vert quand CE partiel est dans la tolérance (en cents), pas quand la
+      // bande est « presque immobile » : sur ×4 la même erreur bat 4 fois
+      // plus vite, c'est justement ce qui rend les bandes hautes sensibles.
+      const ck = fk != null ? 1200 * Math.log2(fk / (k * v.target)) : null;
+      const inTol = ck != null && Math.abs(ck) <= cfg.tolCents;
+      const on = beat == null ? th.panel2 : (inTol ? th.okStrong : th.accentMuted);
       ctx.save();
       ctx.beginPath(); ctx.rect(x0, by, x1 - x0, bandH - 2); ctx.clip();
       if (beat == null) {
         ctx.fillStyle = th.panel2; ctx.fillRect(x0, by, x1 - x0, bandH - 2);
       } else {
         const off = (((ph % 1) + 1) % 1) * period;
-        for (let x = x0 - period; x < x1 + period; x += period) {
-          const gx = x + off;
-          const grd = ctx.createLinearGradient(gx, 0, gx + period, 0);
-          grd.addColorStop(0, th.canvasBg); grd.addColorStop(0.5, on); grd.addColorStop(1, th.canvasBg);
-          ctx.fillStyle = grd; ctx.fillRect(gx, by, period, bandH - 2);
+        if (big) {
+          // Barres franches, comme le disque d'un vrai stroboscope.
+          ctx.fillStyle = th.canvasBg; ctx.fillRect(x0, by, x1 - x0, bandH - 2);
+          ctx.fillStyle = on;
+          for (let x = x0 - period; x < x1 + period; x += period) ctx.fillRect(x + off, by, period / 2, bandH - 2);
+        } else {
+          for (let x = x0 - period; x < x1 + period; x += period) {
+            const gx = x + off;
+            const grd = ctx.createLinearGradient(gx, 0, gx + period, 0);
+            grd.addColorStop(0, th.canvasBg); grd.addColorStop(0.5, on); grd.addColorStop(1, th.canvasBg);
+            ctx.fillStyle = grd; ctx.fillRect(gx, by, period, bandH - 2);
+          }
         }
       }
       ctx.restore();
       // repère ×k et écart du partiel en cents
-      ctx.font = `10px ${MONO}`;
+      ctx.font = `${big ? 12 : 10}px ${MONO}`;
       ctx.textAlign = 'right';
       ctx.fillStyle = th.dim2;
-      ctx.fillText(`×${k}`, x0 - 4, by + bandH / 2 + 2);
+      ctx.fillText(`×${k}`, x0 - 4, by + bandH / 2 + 3);
       ctx.textAlign = 'left';
-      const ck = fk != null ? 1200 * Math.log2(fk / (k * v.target)) : null;
-      ctx.fillStyle = ck == null ? th.dim2 : (Math.abs(ck) <= cfg.tolCents ? th.okStrong : th.dim);
-      ctx.fillText(ck == null ? '…' : signed(ck, 2), x1 + 5, by + bandH / 2 + 2);
+      ctx.fillStyle = ck == null ? th.dim2 : (inTol ? th.okStrong : th.dim);
+      // Partiel pair d'une anche qui a une voisine à l'octave au-dessus : il
+      // est partagé avec elle, on ne le mesure pas (« oct. »), ce n'est pas
+      // une mesure en attente (« … »).
+      const empty = g.avoidEven && k % 2 === 0 ? 'oct.' : '…';
+      ctx.fillText(ck == null ? empty : signed(ck, 2), x1 + 5, by + bandH / 2 + 3);
     }
     if (r < reeds.length - 1) {
       ctx.strokeStyle = th.grid; ctx.beginPath();
-      ctx.moveTo(4, y + STROBE_ROW - 2); ctx.lineTo(W - 4, y + STROBE_ROW - 2); ctx.stroke();
+      ctx.moveTo(4, y + row - 2); ctx.lineTo(W - 4, y + row - 2); ctx.stroke();
     }
   });
 }
@@ -1443,7 +1550,9 @@ function renderLoop(now) {
   }
   // Le stroboscope est une animation continue : dessiné tant qu'il est
   // visible (sa dérive de phase, elle, n'avance que hors gel).
-  if (canvasVisible('strobe')) drawStrobe(dt);
+  advanceStrobe(dt);
+  if (canvasVisible('strobe')) drawStrobe('strobe');
+  if (canvasVisible('strobeBig')) drawStrobe('strobeBig', true);
   requestAnimationFrame(renderLoop);
 }
 
@@ -1718,7 +1827,7 @@ function bindControls() {
   $('btnCurveCsv').onclick = exportCurveCsv;
   $('btnCurvePng').onclick = exportCurvePng;
   updateLockButton();
-  $('a4').onchange = () => { cfg.a4 = clamp(Number($('a4').value) || 440, 430, 450); $('a4').value = cfg.a4; pushConfig(); };
+  $('a4').onchange = () => { cfg.a4 = clamp(Number($('a4').value) || 440, 340, 540); $('a4').value = cfg.a4; pushConfig(); };
   tSel.onchange = () => { cfg.temperament = tSel.value; pushConfig(); };
   trSel.onchange = () => { cfg.transpose = Number(trSel.value); pushConfig(); };
   $('calib').onchange = () => { cfg.calibrationPpm = Number($('calib').value) || 0; pushConfig(); };
@@ -1735,6 +1844,17 @@ function bindControls() {
   $('bHigh').onchange = () => { cfg.beatCurve.bHigh = Number($('bHigh').value) || 3.0; pushConfig(); };
   $('deviceSel').onchange = () => { if (state.running) { stopAudio(); startAudio(); } };
   $('btnTone').onclick = toggleTone;
+  // Analyser un enregistrement : utile pour mesurer à tête reposée une prise
+  // faite au téléphone, ou comparer avant/après une séance d'accordage.
+  $('btnFile').onclick = () => $('fileInput').click();
+  $('fileInput').onchange = async () => {
+    const f = $('fileInput').files?.[0];
+    if (!f) return;
+    if (state.running) stopAudio();
+    state.pendingFile = { name: f.name, data: await f.arrayBuffer() };
+    $('fileInput').value = '';
+    startAudio();
+  };
   $('toneVol').oninput = () => {
     const m = toneNodes[toneNodes.length - 1];
     if (state.toneOn && m?.gain) m.gain.value = Number($('toneVol').value) / 300;
@@ -1758,6 +1878,14 @@ function bindControls() {
       case 'l': $('btnLock').click(); break;
       case 'b': setBellows(cfg.bellows === 'T' ? 'P' : 'T'); break;
       case 't': toggleTone(); break;
+      case 's': {
+        // Strobe plein écran : on montre l'onglet Strobe puis on l'agrandit.
+        document.querySelector('#tabbar .tab[data-tab="strobe"]')?.click();
+        const panel = $('strobeBig').closest('.panel');
+        if (document.fullscreenElement === panel) document.exitFullscreen();
+        else panel.requestFullscreen?.();
+        break;
+      }
       default: break;
     }
   });
@@ -1910,4 +2038,4 @@ initBench(() => {
 refreshReport();
 updateReadout(null);
 requestAnimationFrame(renderLoop);
-if (new URLSearchParams(location.search).get('gen')) startAudio();
+{ const q = new URLSearchParams(location.search); if (q.get('gen') || q.get('wav')) startAudio(); }

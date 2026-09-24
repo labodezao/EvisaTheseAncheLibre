@@ -40,13 +40,16 @@
     <button id="orientToggle" title="Verrouiller l'orientation de l'écran">🔄 Auto</button>
     <button id="themeToggle" title="Thème sombre">🌙</button>
     <button id="btnStart" class="primary">▶ Démarrer</button>
+    <button id="btnFile" title="Analyser un enregistrement (WAV, MP3, OGG…) au lieu du micro">📂 Fichier</button>
+    <input type="file" id="fileInput" accept="audio/*,.wav" hidden>
     <button id="btnFreeze" disabled>❄ Geler</button>
     <button id="btnLock" disabled title="Verrouiller la note mesurée (désactive la détection automatique)">🔓 Auto</button>
   </div>
 </header>
 
 <nav id="tabbar" role="tablist">
-  <button class="tab active" data-tab="tune" role="tab" aria-selected="true">🎯 Accordage</button>
+  <button class="tab active" data-tab="strobe" role="tab" aria-selected="true">◎ Strobe</button>
+  <button class="tab" data-tab="tune" role="tab" aria-selected="false">🎯 Accordage</button>
   <button class="tab" data-tab="analyse" role="tab" aria-selected="false">📊 Analyse</button>
   <button class="tab" data-tab="settings" role="tab" aria-selected="false">⚙ Réglages</button>
   <button class="tab" data-tab="report" role="tab" aria-selected="false">📋 Rapport</button>
@@ -54,7 +57,19 @@
 </nav>
 
 <main>
-  <div class="tabpage active" id="tabpage-tune" role="tabpanel">
+  <div class="tabpage active" id="tabpage-strobe" role="tabpanel">
+    <div class="panel wide strobe-main">
+      <h2>Stroboscope
+        <span>
+          <span class="hint">une rangée par anche · barres immobiles = juste · ×1…×4 = partiels mesurés un à un · témoins 5 → 0,1 ¢</span>
+          <button class="fsbtn" data-fs title="Plein écran (raccourci : S)">⛶</button>
+        </span>
+      </h2>
+      <canvas id="strobeBig" width="900" height="360"></canvas>
+    </div>
+  </div>
+
+  <div class="tabpage" id="tabpage-tune" role="tabpanel">
     <div class="panel">
       <h2>Courbe d'accordage
         <span>
@@ -241,6 +256,8 @@
       </label>
       <label>Tolérance du témoin
         <select id="tolCents">
+          <option value="0.1">±0,1 ¢</option>
+          <option value="0.2">±0,2 ¢</option>
           <option value="0.5">±0,5 ¢</option>
           <option value="1" selected>±1 ¢</option>
           <option value="2">±2 ¢</option>
@@ -252,7 +269,7 @@
     </div>
     <div class="panel">
       <h2>Référence &amp; tempérament</h2>
-      <label>La4 (Hz) <input type="number" id="a4" min="430" max="450" step="0.1" value="440.0"></label>
+      <label>La4 (Hz) <input type="number" id="a4" min="340" max="540" step="0.01" value="440.00"></label>
       <label>Transposition
         <select id="transpose"></select>
       </label>
@@ -279,6 +296,7 @@
       <label>Périphérique <select id="deviceSel"></select></label>
       <p class="hint" id="latencyInfo"></p>
       <p class="hint" id="dspLoad"></p>
+      <p class="hint" id="fileInfo">📂 Fichier : analyser un enregistrement au lieu du micro.</p>
     </div>
   </div>
 
@@ -302,7 +320,7 @@
       <div class="row gap">
         <label>Instrument <input type="text" id="instrName" placeholder="ex. Maugein 1954 n°1234"></label>
         <span class="hint" id="reportCount"></span>
-        <span class="hint">Raccourcis : Entrée = enregistrer · F = geler · L = verrouiller la note ·
+        <span class="hint">Raccourcis : Entrée = enregistrer · S = strobe plein écran · F = geler · L = verrouiller la note ·
           B = soufflet · T = son de référence</span>
       </div>
       <div id="tuneGrid"></div>

@@ -70,6 +70,7 @@ function partialPresent(coarse, f0, k) {
 // Écart minimal (Hz) entre les cibles d'un groupe d'unisson ; à défaut de
 // cibles distinctes (auto-anches), l'écart attendu à la note.
 function targetSpacing(g) {
+  if (g.voices.length < 2) return Infinity;    // anche seule : rien à séparer
   const targets = g.voices.map((v) => v.target).sort((a, b) => a - b);
   let spacing = Infinity;
   for (let i = 1; i < targets.length; i++) {
@@ -293,7 +294,14 @@ export class Engine {
     if (!this.plan || this.plan.midi !== playedMidi) {
       this.plan = { midi: playedMidi, k: new Map(), partials: new Map() };
       for (const g of groups) {
-        if (g.voices.length < 2) continue;
+        // Anche seule dans son groupe (M, 16' d'un LM…) : pas d'unisson à
+        // séparer, on garde son partiel de mesure, mais le strobe a quand
+        // même ses bandes ×1..×4 — c'est là qu'on voit que ses partiels
+        // disent la même chose. (Notes manuelles : non, trop de traqueurs.)
+        if (g.voices.length < 2) {
+          if (c.mode !== 'manual') this.plan.partials.set(g.key, strobePartials(g, this.lastCoarse));
+          continue;
+        }
         const k = unisonHarmonic(g, c, this.lastCoarse);
         this.plan.k.set(g.key, k);
         this.plan.partials.set(g.key, strobePartials({ ...g, kTrack: k }, this.lastCoarse));
@@ -688,6 +696,7 @@ export class Engine {
         isSub: !!g.isSub,
         hidden: !!g.hidden,
         isPartial: !!g.isPartial,
+        avoidEven: !!g.avoidEven,
         baseKey: g.baseKey ?? null,
         srd: t.srd,
         W: az?.W ?? 0,
