@@ -18,7 +18,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '18';
+const APP_VERSION = '19';
 function versionMismatch(what, got) {
   const b = document.getElementById('versionBanner');
   if (!b) return;
@@ -351,6 +351,7 @@ function pushConfig() {
 
 // ---- Réception des analyses --------------------------------------------------
 function onTick(t) {
+  showTwoReeds(t);
   if (state.frozen) {
     // Reprise automatique du gel auto : nouvelle attaque (soufflet remis en
     // pression) OU changement de note détecté par le moteur — indispensable
@@ -408,6 +409,15 @@ function onTick(t) {
     });
     while (state.history.length && state.history[0].t < t.time - HISTORY_KEEP) {
       state.history.shift();
+    }
+  } else {
+    // Début d'un silence (inversion du soufflet, fin de note) : une entrée
+    // vide coupe le trait. Sans elle, la courbe reliait la dernière valeur
+    // avant le silence à la première après, un trait vertical qui n'a jamais
+    // été mesuré.
+    const last = state.history[state.history.length - 1];
+    if (last && Object.keys(last.vals).length) {
+      state.history.push({ t: t.time, midi: last.midi, vals: {}, fast: null });
     }
   }
 
@@ -702,13 +712,31 @@ function toggleReadout(key) {
 }
 
 // ---- Dessins -----------------------------------------------------------------
+// Dessin à la résolution RÉELLE de l'écran. Les canevas avaient une taille
+// fixe (420 × 280 pour la courbe) que le CSS étirait à la largeur du
+// panneau : sur un écran d'ordinateur, la courbe était agrandie deux à trois
+// fois, floue et « pixelisée » (remarque d'Ewen, 24/09/2026). On redimensionne
+// le canevas à sa taille affichée × densité de l'écran, on dessine en pixels
+// CSS, et le rapport hauteur/largeur d'origine est gardé.
+function fitCanvas(cv, ctx) {
+  const dpr = window.devicePixelRatio || 1;
+  if (!cv.dataset.aspect) cv.dataset.aspect = String(cv.height / cv.width);
+  const W = Math.max(200, cv.clientWidth || cv.width);
+  const full = document.fullscreenElement?.contains(cv) && cv.clientHeight;
+  const H = full ? cv.clientHeight : Math.round(W * Number(cv.dataset.aspect));
+  const pw = Math.round(W * dpr), ph = Math.round(H * dpr);
+  if (cv.width !== pw || cv.height !== ph) { cv.width = pw; cv.height = ph; }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { W, H };
+}
+
 // Courbe d'accordage : écart en cents de chaque anche au fil du temps
 // (fenêtre glissante de 15 s), marqueurs de changement de note, lecture au
 // survol. C'est l'outil de lecture des transitoires d'attaque, des dérives
 // et de la stabilité d'une anche.
 function drawPitchCurve() {
   const cv = $('pitchCurve'), ctx = cv.getContext('2d');
-  const W = cv.width, H = cv.height;
+  const { W, H } = fitCanvas(cv, ctx);
   ctx.clearRect(0, 0, W, H);
   const pad = { l: 36, r: 8, t: 18, b: 18 };
   const plotW = W - pad.l - pad.r, plotH = H - pad.t - pad.b;
@@ -1160,7 +1188,7 @@ function drawStrobe(id, big = false) {
 
 function drawSpectrum() {
   const cv = $('spectrum'), ctx = cv.getContext('2d');
-  const W = cv.width, H = cv.height;
+  const { W, H } = fitCanvas(cv, ctx);
   ctx.clearRect(0, 0, W, H);
   // Dernier spectre reçu : conservé pendant les silences (le moteur ne
   // recalcule plus la FFT large bande quand le niveau est sous le seuil).
@@ -1194,7 +1222,7 @@ function drawSpectrum() {
 
 function drawZoom() {
   const cv = $('zoom'), ctx = cv.getContext('2d');
-  const W = cv.width, H = cv.height;
+  const { W, H } = fitCanvas(cv, ctx);
   ctx.clearRect(0, 0, W, H);
   // Groupes de base d'abord, 5 bandes au maximum (au-delà, illisible :
   // les harmoniques restent visibles sur la courbe et dans le tableau).
@@ -1280,7 +1308,7 @@ function drawZoom() {
 
 function drawBeatCurve() {
   const cv = $('beatCurve'), ctx = cv.getContext('2d');
-  const W = cv.width, H = cv.height;
+  const { W, H } = fitCanvas(cv, ctx);
   ctx.clearRect(0, 0, W, H);
   const c = cfg.beatCurve;
   const m0 = 36, m1 = 108;
@@ -1347,7 +1375,7 @@ function phasePoints(span) {
 
 function drawPhase() {
   const cv = $('phase'), ctx = cv.getContext('2d');
-  const W = cv.width, H = cv.height;
+  const { W, H } = fitCanvas(cv, ctx);
   ctx.clearRect(0, 0, W, H);
   const ax = PHASE_AXES[$('phaseX').value] || PHASE_AXES.ampDb;
   const ay = PHASE_AXES[$('phaseY').value] || PHASE_AXES.cents;
@@ -1431,7 +1459,7 @@ function drawPhase() {
 // récente à note constante (une note tenue), tracée en log-log.
 function drawAllan() {
   const cv = $('allan'), ctx = cv.getContext('2d');
-  const W = cv.width, H = cv.height;
+  const { W, H } = fitCanvas(cv, ctx);
   ctx.clearRect(0, 0, W, H);
   const pad = { l: 46, r: 10, t: 12, b: 28 };
   ctx.font = '10px system-ui';
@@ -1909,9 +1937,11 @@ function bindControls() {
   }
   const rSel = $('register');
   for (const [k, v] of Object.entries(REGISTER_PRESETS)) {
-    const o = document.createElement('option');
-    o.value = k; o.textContent = v.name;
-    rSel.appendChild(o);
+    for (const sel of [rSel, $('qRegister')]) {
+      const o = document.createElement('option');
+      o.value = k; o.textContent = v.name;
+      sel.appendChild(o);
+    }
   }
   const trSel = $('transpose');
   const names = ['Do (ut, réel)', 'Réb', 'Ré', 'Mib', 'Mi', 'Fa', 'Solb', 'Sol', 'Lab', 'La', 'Sib', 'Si'];
@@ -1944,13 +1974,12 @@ function bindControls() {
   const curve = $('pitchCurve');
   curve.addEventListener('mousemove', (e) => {
     const r = curve.getBoundingClientRect();
-    state.mouse = {
-      x: ((e.clientX - r.left) * curve.width) / r.width,
-      y: ((e.clientY - r.top) * curve.height) / r.height,
-    };
+    state.mouse = { x: e.clientX - r.left, y: e.clientY - r.top };   // pixels CSS (cf. fitCanvas)
     state.curveDirty = true;
   });
   curve.addEventListener('mouseleave', () => { state.mouse = null; state.curveDirty = true; });
+  // Fenêtre redimensionnée, téléphone tourné : les canevas suivent (fitCanvas).
+  window.addEventListener('resize', () => markAllDirty());
   curve.addEventListener('click', toggleFreeze);
   $('phase').addEventListener('click', toggleFreeze);
 
@@ -2044,8 +2073,14 @@ function bindControls() {
   tSel.onchange = () => { cfg.temperament = tSel.value; pushConfig(); };
   trSel.onchange = () => { cfg.transpose = Number(trSel.value); pushConfig(); };
   $('calib').onchange = () => { cfg.calibrationPpm = Number($('calib').value) || 0; pushConfig(); };
-  $('mode').onchange = () => { cfg.mode = $('mode').value; updateModeVisibility(); pushConfig(); };
-  rSel.onchange = () => { cfg.register = rSel.value; pushConfig(); };
+  $('mode').onchange = () => setMode($('mode').value);
+  $('qMode').onchange = () => setMode($('qMode').value);
+  rSel.onchange = () => setRegister(rSel.value);
+  $('qRegister').onchange = () => setRegister($('qRegister').value);
+  $('btnPickNotes').onclick = openNotePicker;
+  $('btnPickNotes2').onclick = openNotePicker;
+  initNotePicker();
+  $('twoReeds').addEventListener('click', onTwoReedsClick);
   $('harmonics').onchange = () => { cfg.trackHarmonics = Number($('harmonics').value); pushConfig(); };
   $('response').onchange = () => { cfg.response = $('response').value; pushConfig(); };
   $('tolCents').onchange = () => { cfg.tolCents = Number($('tolCents').value); saveCfg(); };
@@ -2140,9 +2175,178 @@ function bindControls() {
 function applyManual() {
   const notes = parseNoteList($('manualNotes').value);
   if (!notes) { alert('Notes non reconnues. Exemple : Do4 Mi4 Sol4 ou C4 E4 G4'); return; }
-  // La saisie est en notes écrites : conversion vers les hauteurs réelles.
-  cfg.manualNotes = notes.map((m) => m - (cfg.transpose || 0));
+  setManualNotes(notes);
+}
+
+// ---- Mode de mesure, depuis la barre sous les onglets ou depuis Réglages ------
+function setMode(mode) {
+  cfg.mode = mode;
+  updateModeVisibility();
   pushConfig();
+}
+
+function setRegister(r) {
+  cfg.register = r;
+  $('register').value = r;
+  $('qRegister').value = r;
+  pushConfig();
+}
+
+// `written` : notes telles qu'écrites (transposition appliquée) ; la config
+// garde les hauteurs réelles.
+function setManualNotes(written) {
+  const uniq = [...new Set(written)].sort((a, b) => a - b);
+  cfg.manualNotes = uniq.length ? uniq.map((m) => m - (cfg.transpose || 0)) : null;
+  $('manualNotes').value = uniq.map((m) => noteLabel(m).full).join(' ');
+  renderQuickNotes();
+  pushConfig();
+}
+
+function renderQuickNotes() {
+  const el = $('qNotes');
+  el.innerHTML = '';
+  const notes = cfg.manualNotes || [];
+  if (!notes.length) { el.textContent = 'aucune note choisie'; return; }
+  for (const m of notes) {
+    const c = document.createElement('span');
+    c.className = 'note-chip';
+    c.textContent = noteLabel(m + (cfg.transpose || 0)).full;
+    el.appendChild(c);
+  }
+}
+
+// ---- Sélecteur de notes (mode Notes définies) ------------------------------
+// Un clavier de Do1 à Do7 : chaque touche cochée est une anche mesurée. Et
+// les accords de la main gauche (quinte, majeur, mineur, septième, diminué)
+// en deux clics, sans rien taper.
+const PICK_LO = 24, PICK_HI = 96;                 // Do1 … Do7 (notes écrites)
+const WHITE = [0, 2, 4, 5, 7, 9, 11];
+const picker = { sel: new Set(), keys: new Map() };
+
+function initNotePicker() {
+  const bed = document.createElement('div');
+  bed.className = 'keybed';
+  let wi = 0;
+  for (let m = PICK_LO; m <= PICK_HI; m++) {
+    const pc = m % 12, white = WHITE.includes(pc);
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `np-key ${white ? 'white' : 'black'}`;
+    const lbl = noteLabel(m).full;
+    b.title = lbl;
+    b.setAttribute('aria-label', lbl);
+    b.setAttribute('aria-pressed', 'false');
+    if (white) {
+      b.style.left = `${wi * 30}px`;
+      b.textContent = pc === 0 ? lbl : noteLabel(m).name;
+      wi++;
+    } else {
+      b.style.left = `${wi * 30 - 10}px`;
+    }
+    b.onclick = () => { picker.sel.has(m) ? picker.sel.delete(m) : picker.sel.add(m); renderPicker(); };
+    bed.appendChild(b);
+    picker.keys.set(m, b);
+  }
+  bed.style.width = `${wi * 30}px`;
+  $('npKeys').appendChild(bed);
+  for (let pc = 0; pc < 12; pc++) {
+    const o = document.createElement('option');
+    o.value = pc; o.textContent = noteLabel(60 + pc).name;
+    $('npRoot').appendChild(o);
+  }
+  for (let o = 1; o <= 6; o++) {
+    const e = document.createElement('option');
+    e.value = o; e.textContent = o;
+    $('npOct').appendChild(e);
+  }
+  $('npOct').value = 3;
+  const chord = () => {
+    const root = (Number($('npOct').value) + 1) * 12 + Number($('npRoot').value);
+    return $('npType').value.split(',').map((d) => root + Number(d)).filter((m) => m >= PICK_LO && m <= PICK_HI);
+  };
+  $('npReplace').onclick = () => { picker.sel = new Set(chord()); renderPicker(true); };
+  $('npAdd').onclick = () => { for (const m of chord()) picker.sel.add(m); renderPicker(true); };
+  $('npClear').onclick = () => { picker.sel.clear(); renderPicker(); };
+  $('npCancel').onclick = () => $('notePicker').close();
+  $('npOk').onclick = () => {
+    if (!picker.sel.size) { alert('Choisissez au moins une note.'); return; }
+    setManualNotes([...picker.sel]);
+    if (cfg.mode !== 'manual') setMode('manual');
+    $('notePicker').close();
+  };
+}
+
+function renderPicker(scroll = false) {
+  for (const [m, b] of picker.keys) {
+    const on = picker.sel.has(m);
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  }
+  const el = $('npChosen');
+  el.innerHTML = '';
+  const notes = [...picker.sel].sort((a, b) => a - b);
+  if (!notes.length) el.textContent = 'aucune';
+  for (const m of notes) {
+    const c = document.createElement('button');
+    c.type = 'button';
+    c.className = 'note-chip';
+    c.title = 'Retirer';
+    c.textContent = `${noteLabel(m).full} ✕`;
+    c.onclick = () => { picker.sel.delete(m); renderPicker(); };
+    el.appendChild(c);
+  }
+  if (scroll && notes.length) {
+    const k = picker.keys.get(notes[0]);
+    $('npKeys').scrollLeft = Math.max(0, k.offsetLeft - 60);
+  }
+}
+
+function openNotePicker() {
+  picker.sel = new Set((cfg.manualNotes || []).map((m) => m + (cfg.transpose || 0)));
+  renderPicker();
+  $('notePicker').showModal();
+  // Fait défiler le clavier jusqu'aux notes choisies (ou jusqu'à Do3).
+  const first = [...picker.sel].sort((a, b) => a - b)[0] ?? 48;
+  $('npKeys').scrollLeft = Math.max(0, picker.keys.get(first).offsetLeft - 60);
+}
+
+// ---- « Deux anches ? » (mode Automatique) -----------------------------------
+// Le moteur signale des partiels en désaccord durable (tick.partialsDisagree) :
+// une anche seule a des partiels exactement harmoniques ; s'ils ne le sont
+// pas, deux anches sonnent (octave, quinte…) et la valeur affichée n'est la
+// hauteur d'aucune des deux. On le dit, et on propose le bon mode.
+function showTwoReeds(t) {
+  const el = $('twoReeds');
+  const d = cfg.mode === 'auto' ? t.partialsDisagree : null;
+  const now = performance.now();
+  if (d && state.twoReedsDismissed !== t.playedMidi) {
+    state.twoReedsT = now;
+    const txt = `H${d.k} est à ${d.cents > 0 ? '+' : ''}${d.cents.toFixed(1)} ¢ de H${d.kBase}`;
+    if (el.dataset.txt !== txt) {
+      el.dataset.txt = txt;
+      el.innerHTML = `⚠ <b>Deux anches ?</b> Les partiels ne disent pas la même hauteur : ${txt}. `
+        + 'Une anche seule a des partiels d\'accord à 0,1 ¢ près ; ici, le mode Automatique fond deux anches '
+        + 'en une valeur qui n\'est la hauteur d\'aucune. '
+        + '<button type="button" data-tr="LM">Octave (16\'+8\')</button>'
+        + '<button type="button" data-tr="Q">Quinte</button>'
+        + '<button type="button" data-tr="pick">🎹 Choisir les notes…</button>'
+        + '<button type="button" data-tr="x" title="Masquer pour cette note">✕</button>';
+    }
+    el.classList.remove('hidden');
+  } else if (!state.twoReedsT || now - state.twoReedsT > 3000 || cfg.mode !== 'auto'
+      || state.twoReedsDismissed === t.playedMidi) {
+    el.classList.add('hidden');
+  }
+}
+
+function onTwoReedsClick(e) {
+  const a = e.target.closest('button')?.dataset.tr;
+  if (!a) return;
+  if (a === 'x') { state.twoReedsDismissed = state.tick?.playedMidi ?? null; $('twoReeds').classList.add('hidden'); return; }
+  if (a === 'pick') { openNotePicker(); return; }
+  setRegister(a);
+  setMode('register');
+  $('twoReeds').classList.add('hidden');
 }
 
 function updateLockButton() {
@@ -2158,6 +2362,12 @@ function updateLockButton() {
 }
 
 function updateModeVisibility() {
+  $('mode').value = cfg.mode;
+  $('qMode').value = cfg.mode;
+  $('qRegister').value = cfg.register;
+  $('qRegWrap').classList.toggle('hidden', cfg.mode !== 'register');
+  $('qNotesWrap').classList.toggle('hidden', cfg.mode !== 'manual');
+  renderQuickNotes();
   $('modeRegister').classList.toggle('hidden', cfg.mode !== 'register');
   $('modeManual').classList.toggle('hidden', cfg.mode !== 'manual');
   $('modeReeds').classList.toggle('hidden', cfg.mode !== 'reeds');
