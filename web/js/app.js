@@ -19,7 +19,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '20';
+const APP_VERSION = '21';
 function versionMismatch(what, got) {
   const b = document.getElementById('versionBanner');
   if (!b) return;
@@ -354,6 +354,7 @@ function pushConfig() {
 
 // ---- Réception des analyses --------------------------------------------------
 function onTick(t) {
+  state.tickAt = performance.now();
   showTwoReeds(t);
   drawVu(t);
   showChord(t);
@@ -974,9 +975,19 @@ function strobeReeds(t) {
 }
 // La phase de chaque bande avance UNE fois par image : le strobe compact
 // (onglet Accordage) et le grand strobe (onglet Strobe) lisent la même.
+// Pas de son : sous le seuil (tick.quiet), micro arrêté, ou plus aucune
+// mesure reçue depuis 0,4 s (fin d'un fichier rejoué).
+function strobeSilent() {
+  return !state.running || !state.tick || !!state.tick.quiet
+    || performance.now() - (state.tickAt ?? 0) > 400;
+}
+
 function advanceStrobe(dt) {
   if (!(state.strobePhase instanceof Map)) state.strobePhase = new Map();
   if (state.frozen) return;
+  // Plus de son (sous le seuil) ou micro arrêté : le disque s'arrête. Avant,
+  // il continuait de tourner sur la dernière mesure (remarque d'Ewen).
+  if (strobeSilent()) return;
   // Deux phases par anche : Φ, sa dérive propre (∫(f − cible)dt), et pour
   // chaque partiel h, ψₕ = ∫(fₕ − h·f)dt, son écart à l'harmonicité. Le motif
   // utilise h·Φ + ψₕ : une anche harmonique glisse d'un bloc, sans que son
@@ -1071,6 +1082,9 @@ function drawStrobe(id, big = false) {
   const rightW = big ? (stacked ? 56 : 74) : 58;
   const period = big ? (stacked ? 44 : 64) : 34;
   const bandH = stacked ? 26 : (row - (big ? 16 : 12)) / STROBE_BANDS;
+  // Silence : comme un stroboscope sans signal, les bandes s'éteignent et la
+  // dernière mesure reste lisible, en gris.
+  const silent = strobeSilent();
   reeds.forEach(({ g, v }, r) => {
     const y = 4 + r * row;
     const id = v.def.id;
@@ -1079,7 +1093,7 @@ function drawStrobe(id, big = false) {
     // --- colonne gauche : l'anche et son écart --------------------------------
     const c = v.tracked ? v.dTargetCents : null;
     const cls = c == null ? null : centsClass(c, cfg.tolCents);
-    const col = c == null ? th.dim2 : cls === 'ok' ? th.okStrong : cls === 'warn' ? th.warn : th.bad;
+    const col = c == null || silent ? th.dim2 : cls === 'ok' ? th.okStrong : cls === 'warn' ? th.warn : th.bad;
     ctx.textAlign = 'left';
     ctx.fillStyle = th.dim; ctx.font = `600 ${big ? 15 : 13}px system-ui`;
     const note = big && v.midi != null ? `  ${noteLabel(v.midi + (cfg.transpose || 0)).full}` : '';
@@ -1124,7 +1138,7 @@ function drawStrobe(id, big = false) {
     }
     // --- bandes ×1..×4 ------------------------------------------------------
     const x0 = leftW, x1 = W - rightW;
-    const parts = reedPartials(g, v);
+    const parts = silent ? [] : reedPartials(g, v);
     for (let bi = 0; bi < STROBE_BANDS; bi++) {
       const k = bi + 1;
       const by = y + (stacked ? TXT_H : big ? 6 : 2) + bi * bandH;
@@ -1178,6 +1192,14 @@ function drawStrobe(id, big = false) {
       // une mesure en attente (« … »).
       const empty = g.avoidEven && k % 2 === 0 ? 'oct.' : '…';
       ctx.fillText(ck == null ? empty : signed(ck, 2), x1 + 5, by + bandH / 2 + 3);
+    }
+    if (silent) {
+      const yb = y + (stacked ? TXT_H : big ? 6 : 2);
+      ctx.fillStyle = th.dim2; ctx.textAlign = 'center';
+      ctx.font = `600 ${big ? 16 : 12}px system-ui`;
+      ctx.fillText(state.running ? 'silence — dernière mesure en gris' : 'micro arrêté',
+        (x0 + x1) / 2, yb + (bandH * STROBE_BANDS) / 2 + 5);
+      ctx.textAlign = 'left';
     }
     if (r < reeds.length - 1) {
       ctx.strokeStyle = th.grid; ctx.beginPath();
