@@ -5,7 +5,7 @@
 // « cache d'abord », qui gelait le code jusqu'à un double rechargement — la
 // cause de « des valeurs s'affichent mais pas la courbe » après une mise à
 // jour (mélange d'anciens et de nouveaux fichiers).
-const CACHE = 'aal-shell-v16';
+const CACHE = 'aal-shell-v17';
 
 const SHELL = [
   '.',
@@ -50,8 +50,13 @@ self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   const url = new URL(e.request.url);
   if (url.origin !== self.location.origin) return; // laisse passer l'externe
+  // `cache: 'no-cache'` : on REVALIDE auprès du serveur à chaque fois (le
+  // serveur répond « pas changé » si rien n'a bougé : c'est léger). Sans ça,
+  // le cache HTTP du navigateur (10 min sur GitHub Pages) pouvait servir un
+  // ancien app.js avec une nouvelle page juste après une mise à jour —
+  // strobe vide, bouton d'export sans effet, ancien moteur de mesure.
   e.respondWith(
-    fetch(e.request)
+    fetch(e.request, { cache: 'no-cache' })
       .then((res) => {
         if (res && res.ok) {
           const copy = res.clone();

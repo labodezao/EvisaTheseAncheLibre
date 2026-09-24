@@ -428,3 +428,8 @@ dialog h2 { margin-top: 0; }
 /* Mode dev : pastille d'enregistrement dans le bandeau. */
 .dev-badge { font: 600 12px var(--mono); color: var(--bad); padding: 2px 8px;
   border: 1px solid var(--bad); border-radius: 12px; align-self: center; }
+
+/* Versions mélangées après une mise à jour : bandeau bien visible. */
+.version-banner { position: fixed; left: 8px; right: 8px; bottom: 8px; z-index: 50;
+  background: var(--bad); color: #fff; padding: 10px 14px; border-radius: 8px;
+  font: 600 14px system-ui; box-shadow: 0 4px 16px rgba(0,0,0,.3); }

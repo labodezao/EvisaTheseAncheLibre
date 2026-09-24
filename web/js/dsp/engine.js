@@ -12,6 +12,10 @@ import {
   MIDI_MIN, MIDI_MAX, REGISTER_PRESETS,
 } from '../music.js';
 
+// Version du moteur : doit être celle de la page et de app.js (cf. le
+// contrôle de cohérence dans app.js et le test dans dsp.test.mjs).
+export const ENGINE_VERSION = '17';
+
 const HOP = 4096;             // période d'analyse (~85 ms à 48 kHz)
 const MAXWIN = { fast: 128, normal: 256, precise: 512 };
 
@@ -955,6 +959,7 @@ export class Engine {
 
     return {
       type: 'tick',
+      version: ENGINE_VERSION,
       time: this.samplesTotal / this.sr,
       level,
       quiet,
