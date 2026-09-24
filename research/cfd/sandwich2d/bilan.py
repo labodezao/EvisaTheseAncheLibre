@@ -54,6 +54,7 @@ m_l = rho_s * larg * ep
 c_s = 2 * zeta * w * m_l
 k_l = m_l * w * w
 print(f"{d:10s} cycles {n_cyc}  F̄ {a:+.4f} N/m  F_sin {Fs:+.3e}  F_cos {Fc:+.3e}")
-print(f"           travail de l'air par cycle W = {W:+.3e} J/m  ({'l\'air DONNE' if W > 0 else 'l\'air prend'})")
+sens = "l'air DONNE" if W > 0 else "l'air prend"
+print(f"           travail de l'air par cycle W = {W:+.3e} J/m  ({sens})")
 print(f"           amortissement de l'air c_a = {c_a:+.3e} N·s/m²  |  acier c_s = {c_s:.3e}  → rapport c_a/c_s = {c_a / c_s:+.2f}")
 print(f"           raideur apparente k_a = {k_a:+.3e} N/m²  |  acier k' = {k_l:.3e}  → décalage ≈ {600 / math.log(2) * math.log(1 + k_a / k_l):+.1f} ¢")
