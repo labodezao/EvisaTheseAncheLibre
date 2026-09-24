@@ -1,0 +1,4 @@
+FoamFile { version 2.0; format ascii; class volScalarField; object p; }
+dimensions [0 2 -2 0 0 0 0]; internalField uniform 0;
+boundaryField { amont { type totalPressure; p0 uniform 833.3333; value uniform 833.3333; } aval { type totalPressure; p0 uniform 0; value uniform 0; }
+  symetrie { type symmetryPlane; } languette { type zeroGradient; } paroi { type zeroGradient; } frontAndBack { type empty; } }

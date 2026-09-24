@@ -4,6 +4,7 @@
 
 import { CoarseAnalyzer } from './coarse.js';
 import { ZoomTracker } from './zoom.js';
+import { FFT } from './fft.js';
 import { NsdfTracker } from './nsdf.js';
 import { matrixPencil } from './subspace.js';
 import {
@@ -70,6 +71,7 @@ function partialPresent(coarse, f0, k) {
 // Écart minimal (Hz) entre les cibles d'un groupe d'unisson ; à défaut de
 // cibles distinctes (auto-anches), l'écart attendu à la note.
 function targetSpacing(g) {
+  if (g.voices.length < 2) return Infinity;    // anche seule : rien à séparer
   const targets = g.voices.map((v) => v.target).sort((a, b) => a - b);
   let spacing = Infinity;
   for (let i = 1; i < targets.length; i++) {
@@ -83,15 +85,18 @@ function targetSpacing(g) {
   return spacing;
 }
 
-// Partiels mesurés pour le stroboscope par anche : ×1..×4, sauf celui déjà
+// Partiels mesurés pour le stroboscope par anche : ×1..×8, sauf celui déjà
 // mesuré par le groupe de base, présents dans le spectre, et où toutes les
-// anches tiennent dans la bande du zoom.
-const STROBE_PARTIALS = 4;
+// anches tiennent dans la bande du zoom. Jusqu'à ×8 : la bande ×2 du strobe
+// montre les partiels 2, 4, 6, 8, la bande ×4 les partiels 4 et 8 — comme
+// sur le disque d'un vrai stroboscope, chaque bande porte aussi ses aigus.
+const STROBE_PARTIALS = 8;
 export function strobePartials(g, coarse = null) {
   const out = [];
   const spread = Math.max(...g.voices.map((v) => Math.abs(v.target - g.center)));
   for (let k = 1; k <= STROBE_PARTIALS; k++) {
     if (k === g.kTrack) continue;
+    if (g.avoidEven && k % 2 === 0) continue;   // partagé avec l'anche à l'octave
     if (g.center * k > 6000) break;
     if (k * (spread + OUT_OF_TUNE_HZ) > BAND_HZ) break;
     if (!partialPresent(coarse, g.center, k)) continue;
@@ -118,7 +123,10 @@ export function unisonHarmonic(g, cfg, coarse = null) {
   const kBand = Math.floor(BAND_HZ / (spread + OUT_OF_TUNE_HZ));
   const kFreq = Math.floor(K_FREQ_MAX / g.center);
   let k = Math.max(kBase, Math.min(kSep, kBand, kFreq, K_MAX));
-  while (k > kBase && !partialPresent(coarse, g.center, k)) k--;
+  // Partiel pair interdit quand une anche sonne à l'octave au-dessus (cf.
+  // groupVoices) : kBase est alors impair, la boucle s'y arrête au pire.
+  const ok = (kk) => !(g.avoidEven && kk % 2 === 0) && partialPresent(coarse, g.center, kk);
+  while (k > kBase && !ok(k)) k--;
   return k;
 }
 
@@ -222,6 +230,9 @@ export class Engine {
   // (Re)centre les traqueurs sur la note jouée courante.
   retune(force = false) {
     if (force) this.plan = null;
+    // Nouvelle note (ou nouveaux réglages) : la continuité par anche repart
+    // de zéro — les cibles reprennent la main pour l'appariement.
+    this.prevF = new Map();
     const played = this.playedMidi;
     if (played == null && this.cfg.mode !== 'manual') {
       if (force) this.trackers.clear();
@@ -265,6 +276,21 @@ export class Engine {
       g.voices.push({ def: v, ...t });
     }
     const groups = [...map.values()];
+    // Registres à l'octave (LM, LMH, auto-anches 16'/4') : les partiels PAIRS
+    // d'une anche tombent pile sur la fondamentale et les partiels de l'anche
+    // à l'octave au-dessus. Suivre le 16' sur son H2 revenait à mesurer le 8'
+    // et à le diviser par deux — mesuré sur un vrai bandonéon (sample Ballone
+    // Burini La3+La4) : un « 16' » inventé à 110,49 Hz, là où il n'y a rien.
+    // Une anche qui a une voisine à l'octave au-dessus se mesure donc sur un
+    // partiel IMPAIR : lui n'appartient qu'à elle.
+    const octOf = (g) => (g.voices[0].def.fixedMidi == null ? g.voices[0].def.oct ?? 0 : null);
+    const octs = groups.map(octOf).filter((o) => o != null);
+    const maxOct = octs.length ? Math.max(...octs) : 0;
+    for (const g of groups) {
+      const o = octOf(g);
+      g.avoidEven = o != null && o < maxOct;
+      if (g.avoidEven && g.kTrack % 2 === 0) g.kTrack++;
+    }
     // Plan harmonique FIGÉ par note. `groupVoices` est rappelé à chaque image,
     // mais les traqueurs ne sont recentrés qu'au changement de note (`retune`).
     // Si le partiel de mesure était réévalué à chaque image, un creux de
@@ -274,7 +300,14 @@ export class Engine {
     if (!this.plan || this.plan.midi !== playedMidi) {
       this.plan = { midi: playedMidi, k: new Map(), partials: new Map() };
       for (const g of groups) {
-        if (g.voices.length < 2) continue;
+        // Anche seule dans son groupe (M, 16' d'un LM…) : pas d'unisson à
+        // séparer, on garde son partiel de mesure, mais le strobe a quand
+        // même ses bandes ×1..×4 — c'est là qu'on voit que ses partiels
+        // disent la même chose. (Notes manuelles : non, trop de traqueurs.)
+        if (g.voices.length < 2) {
+          if (c.mode !== 'manual') this.plan.partials.set(g.key, strobePartials(g, this.lastCoarse));
+          continue;
+        }
         const k = unisonHarmonic(g, c, this.lastCoarse);
         this.plan.k.set(g.key, k);
         this.plan.partials.set(g.key, strobePartials({ ...g, kTrack: k }, this.lastCoarse));
@@ -506,9 +539,14 @@ export class Engine {
     // Détection temporelle McLeod (NSDF) : hauteur monophonique robuste aux
     // erreurs d'octave, à faible latence. Sert d'ancre d'octave à la
     // détection spectrale et de source au suivi continu. En mode registre
-    // (plusieurs anches à l'unisson), la NSDF n'est pas fiable : on l'ignore.
+    // (plusieurs anches à l'unisson), la NSDF est moins fiable (les creux de
+    // battement brouillent la période) : on ne l'y écoute que très franche.
+    // Elle y est pourtant précieuse : sur un registre à l'octave dont la
+    // fondamentale grave est faible (bandonéon Mi2+Mi3, Ballone Burini), la
+    // FFT bascule sur Mi3 au bout de 3 s et tout le registre glisse d'une
+    // octave ; la NSDF, elle, tient Mi2 (clarté 0,99).
     const poly = c.mode === 'register';
-    const nsdfEst = (!quiet && !poly && this.coarse.ready())
+    const nsdfEst = (!quiet && this.coarse.ready())
       ? this.nsdf.estimateFromRing(this.coarse.ring, this.coarse.wpos, this.coarse.win)
       : null;
     const nf0 = nsdfEst ? nsdfEst.f0 * calib : null;
@@ -520,7 +558,7 @@ export class Engine {
     // erreur : quand elle est franche (clarté ≥ 0,85) et qu'elle contredit
     // nettement la valeur spectrale (> 40 cents), on adopte la NSDF. Sinon on
     // garde la mesure spectrale (plus fine sur ton établi).
-    if (f0 && nf0 && clarity >= 0.85 && Math.abs(centsBetween(f0, nf0)) > 40) {
+    if (f0 && nf0 && clarity >= (poly ? 0.95 : 0.85) && Math.abs(centsBetween(f0, nf0)) > 40) {
       f0 = nf0;
     }
 
@@ -594,7 +632,12 @@ export class Engine {
       if (played == null && c.mode !== 'manual') break;
       const t = this.trackers.get(g.key);
       if (!t) continue;
-      const az = t.analyze(maxWin, Math.max(3, g.voices.length + 1));
+      // Raies gardées : plusieurs par anche. Sous un soufflet qui module, un
+      // partiel est un amas (porteuse + raies latérales, parfois plus fortes
+      // qu'elle) : avec une seule raie de plus que d'anches, les amas des
+      // deux anches les plus fortes prenaient toutes les places et la
+      // troisième n'avait plus de raie (MMM, soufflet ±1 ¢ : 8'+ lu à −5,7 ¢).
+      const az = t.analyze(maxWin, 3 * g.voices.length + 3);
       let anchor = null;
       if (g.isPartial) {
         // Une ancre PAR anche : son partiel k est cherché autour de k fois sa
@@ -618,6 +661,15 @@ export class Engine {
         cont = this.lastFine.f;
       }
       const voices = this.matchVoices(g, az, calib, claimed, anchor, cont);
+      // Auto-anches : une octave ajoutée à la main (16', 4', 2') n'est
+      // déclarée présente que sur preuve. Pas de partiel à elle dans le
+      // spectre large bande → rien ; et une raie confondue avec le partiel
+      // d'une autre anche ne prouve rien (en mode registre, où l'anche est
+      // déclarée, on l'affiche au contraire, marquée confondue).
+      if (c.mode === 'reeds' && !g.isHarmonic && (g.voices[0].def.oct ?? 0) !== 0) {
+        const present = partialPresent(this.lastCoarse, g.center, g.kTrack);
+        for (const v of voices) if (!present || v.merged) this.fillVoice(v, null, az?.W);
+      }
       // On ne publie pas ce qui ne peut pas encore être séparé : sur ce
       // partiel, les anches doivent être écartées d'au moins 4 cases de la
       // FFT courante. Avant, la bande du strobe resterait vide plutôt que de
@@ -655,6 +707,7 @@ export class Engine {
         isSub: !!g.isSub,
         hidden: !!g.hidden,
         isPartial: !!g.isPartial,
+        avoidEven: !!g.avoidEven,
         baseKey: g.baseKey ?? null,
         srd: t.srd,
         W: az?.W ?? 0,
@@ -753,8 +806,14 @@ export class Engine {
           const v = g.voices[0];
           if (!v?.tracked) continue;
           const fEq = v.fMeas / g.kTrack; // fMeas en domaine du partiel
-          if (Math.abs(centsBetween(fEq, bv.fMeas)) > 1.5) continue;
-          const w = (v.amp * g.kTrack) ** 2;
+          // Porte PROGRESSIVE : poids plein jusqu'à 0,5 ¢ d'écart, nul à 1,5 ¢.
+          // Une porte franche faisait entrer et sortir un partiel d'une image à
+          // l'autre quand il frôlait le seuil : une marche sur la courbe à
+          // chaque passage.
+          const dev = Math.abs(centsBetween(fEq, bv.fMeas));
+          if (dev >= 1.5) continue;
+          const taper = dev <= 0.5 ? 1 : (1.5 - dev);
+          const w = taper * (v.amp * g.kTrack) ** 2;
           num += w * fEq;
           den += w;
           nFused++;
@@ -931,6 +990,18 @@ export class Engine {
     // mais interdit de sauter sur une raie parasite au voisinage du nominal.
     const useAnchor = anchor != null && group.isHarmonic && !group.isSub;
     for (const v of expected) v.mt = v.target;
+    // Continuité par anche : chaque voix cherche d'abord là où SON anche était
+    // à l'image précédente (mesure d'amas, donc sa hauteur moyenne), pas près
+    // de la cible. Sinon, une raie latérale de soufflet qui tombe plus près
+    // de la cible que l'anche elle-même lui était appariée. Garde-fou : la
+    // mémoire n'est reprise que si elle reste dans la tolérance de la cible.
+    if (!group.isHarmonic && this.prevF) {
+      const tolMem = Math.max(2.5, group.center * 0.05);
+      for (const v of expected) {
+        const p = this.prevF.get(`${group.key}:${v.def.id}`);
+        if (p != null && Math.abs(p - v.target) < tolMem) v.mt = p;
+      }
+    }
     if (useAnchor) {
       // Ancre par anche (Map id → fréquence du partiel) ou ancre unique.
       if (anchor instanceof Map) {
@@ -971,6 +1042,16 @@ export class Engine {
         ? false
         : claimed.some((f) => Math.abs(abs - f) < tolClaim);
     }
+    // Anche accordée à l'octave juste : sa fondamentale tombe DANS le partiel
+    // pair de l'anche grave, déjà revendiqué. Une raie libre bien plus faible
+    // à côté (bande latérale, bruit de soufflet, boucle d'un sample) n'est pas
+    // une anche : mesuré sur un bandonéon La3+La4, le 8' s'y accrochait et
+    // affichait −7,4 ¢ au lieu de l'octave juste. On écarte donc les raies
+    // libres à plus de 12 dB sous la raie revendiquée ; la voix prend alors
+    // la raie commune, marquée `merged` (« confondue avec l'octave »).
+    let mClaimed = 0;
+    for (const cp of comps) if (cp.claimed) mClaimed = Math.max(mClaimed, cp.mag);
+    if (mClaimed > 0) comps = comps.filter((cp) => cp.claimed || cp.mag >= mClaimed / 4);
 
     // Verrou de continuité (voix unique, mode auto sur un ton battu) : on
     // n'accepte QUE la composante proche (±3 ¢) de la dernière mesure fine —
@@ -985,13 +1066,23 @@ export class Engine {
         const dd = Math.abs(cp.freq - cont);
         if (dd < tolC && dd < bestD) { bestD = dd; best = cp; }
       }
+      if (best && az) clusterRefine([best], az, calib, div);
       this.fillVoice(expected[0], best, az?.W);
       expected[0].beatMeas = 0;
       return expected;
     }
 
     const chosen = assignOrdered(expected, comps, tolHz);
-    for (let i = 0; i < expected.length; i++) this.fillVoice(expected[i], chosen[i], az?.W);
+    if (az && !group.isSub) clusterRefine(chosen, az, calib, div, expected.map((v) => v.mt));
+    for (let i = 0; i < expected.length; i++) {
+      this.fillVoice(expected[i], chosen[i], az?.W);
+      expected[i].merged = !!chosen[i]?.claimed;
+      if (!group.isHarmonic && this.prevF) {
+        const key = `${group.key}:${expected[i].def.id}`;
+        if (chosen[i]?.cluster) this.prevF.set(key, expected[i].fMeas);
+        else if (!chosen[i]) this.prevF.delete(key);
+      }
+    }
 
     // Battements mesurés par rapport à la voix de référence du groupe.
     const base = expected.find((v) => v.def.beatSign === 0) ?? expected[0];
@@ -1024,22 +1115,38 @@ export class Engine {
 // l'anche `id` (Hz), ou absente si pas (encore) résolue. Le partiel sur lequel
 // le groupe est lui-même mesuré (kTrack) y figure aussi : c'est la même
 // mesure, ramenée au partiel.
+// `partialAmps[k][id]` : amplitude de ce partiel (même échelle pour tous) —
+// le stroboscope s'en sert pour doser chaque partiel dans le motif.
 function withPartials(groups) {
   const byBase = new Map();
+  const ampsByBase = new Map();
   for (const g of groups) {
     if (!g.isPartial) continue;
     const m = byBase.get(g.baseKey) ?? {};
+    const a = ampsByBase.get(g.baseKey) ?? {};
     m[g.kTrack] = {};
-    for (const v of g.voices) if (v.tracked) m[g.kTrack][v.def.id] = v.fMeas;
+    a[g.kTrack] = {};
+    for (const v of g.voices) {
+      if (!v.tracked) continue;
+      m[g.kTrack][v.def.id] = v.fMeas;
+      a[g.kTrack][v.def.id] = v.amp;
+    }
     byBase.set(g.baseKey, m);
+    ampsByBase.set(g.baseKey, a);
   }
   return groups.filter((g) => !g.hidden).map((g) => {
     if (g.isHarmonic || g.isSub) return g;
     const partials = { ...(byBase.get(g.key) ?? {}) };
+    const partialAmps = { ...(ampsByBase.get(g.key) ?? {}) };
     const k = g.kTrack || 1;
     partials[k] = {};
-    for (const v of g.voices) if (v.tracked) partials[k][v.def.id] = v.fMeas * k;
-    return { ...g, partials };
+    partialAmps[k] = {};
+    for (const v of g.voices) {
+      if (!v.tracked) continue;
+      partials[k][v.def.id] = v.fMeas * k;
+      partialAmps[k][v.def.id] = v.amp;
+    }
+    return { ...g, partials, partialAmps };
   });
 }
 
@@ -1059,6 +1166,95 @@ function logResample(mag, binHz, nOut, fLo = 20, fHi = 10000) {
     out[i] = m;
   }
   return out;
+}
+
+// Hauteur moyenne d'une anche = pente de la PHASE de son amas de raies.
+//
+// Le soufflet module la pression, donc la hauteur : chaque partiel d'une
+// anche devient un amas — la porteuse et des raies latérales à ±f_soufflet,
+// d'autant plus fortes que le partiel est haut (indice de modulation ∝ k).
+// Mesuré (test/bench_courbe.mjs, MMM, soufflet ±1 ¢ à 1,5 Hz, suivi sur H5) :
+// la raie latérale n'est qu'à −4 dB de la porteuse, et le traqueur sautait
+// de l'une à l'autre d'une image à l'autre — +1,2 ¢, 0, +1,2 ¢… : des dents
+// de scie sur la courbe, sur un son parfaitement régulier.
+//
+// On ne choisit donc plus UNE raie : on garde tout l'amas de l'anche (jusqu'à
+// mi-chemin de ses voisines, au plus CLUSTER_HZ dans le domaine du partiel),
+// on revient dans le temps par FFT inverse, et la pente de la phase déroulée
+// donne la fréquence MOYENNE DANS LE TEMPS de l'anche sur la fenêtre. Un
+// barycentre de puissance a été essayé et écarté : quand on pousse plus fort,
+// l'anche est à la fois plus forte et plus haute, et un barycentre de
+// puissance penche vers les instants forts (+0,1 ¢ biais, soufflet calme ;
+// +0,56 ¢, soufflet vivant). La phase, elle, ne pèse pas le son.
+const CLUSTER_HZ = 5;
+// Les bornes d'amas sont prises à mi-chemin des positions ATTENDUES des
+// anches voisines (`expectedMt` : leur mesure précédente, sinon leur cible),
+// pas des raies choisies : une raie choisie peut être une raie latérale, et
+// des bornes qui sautent avec elle refont des dents de scie.
+function clusterRefine(chosen, az, calib, div, expectedMt = null) {
+  const { W, srd, fc, re, im } = az;
+  if (!re || W < 64) return;                      // fenêtre trop courte : on garde la raie
+  const binHz = srd / W;
+  const offOf = (b) => (b <= W / 2 ? b : b - W) * binHz;
+  const toOff = (f) => (f * div) / calib - fc;    // fondamentale → décalage dans la bande
+  const centre = (i) => (expectedMt?.[i] != null ? toOff(expectedMt[i]) : chosen[i].off);
+  const idx = chosen.map((c, i) => (c ? i : -1)).filter((i) => i >= 0)
+    .sort((a, b) => centre(a) - centre(b));
+  const fft = FFT.get(W);
+  const zr = new Float64Array(W), zi = new Float64Array(W);
+  idx.forEach((i, r) => {
+    const c = chosen[i];
+    if (c.off == null || c.cluster) return;
+    const m = centre(i);
+    const lo = Math.max(m - CLUSTER_HZ, r > 0 ? (centre(idx[r - 1]) + m) / 2 : -Infinity);
+    const hi = Math.min(m + CLUSTER_HZ, r < idx.length - 1 ? (centre(idx[r + 1]) + m) / 2 : Infinity);
+    // La raie choisie doit être dans l'amas, avec son lobe principal.
+    if (c.off - lo < 2 * binHz || hi - c.off < 2 * binHz || hi - lo < 6 * binHz) return;
+    const half = Math.max(c.off - lo, hi - c.off);
+    // Masque : l'amas seul (spectre conjugué → FFT directe = FFT inverse conjuguée).
+    zr.fill(0); zi.fill(0);
+    const b0 = Math.floor(lo / binHz), b1 = Math.ceil(hi / binHz);
+    for (let bb = b0; bb <= b1; bb++) {
+      const b = ((bb % W) + W) % W;
+      const f = offOf(b);
+      if (f < lo || f > hi) continue;
+      zr[b] = re[b]; zi[b] = -im[b];
+    }
+    fft.transform(zr, zi);                        // z[n] = conj(résultat)/W — le signe se règle ci-dessous
+    // Démodulation par la raie choisie : la phase résiduelle tourne lentement,
+    // le déroulement est sans ambiguïté.
+    const w0 = (2 * Math.PI * c.off) / srd;
+    const n0 = Math.floor(W * 0.15), n1 = Math.ceil(W * 0.85);
+    let last = null, acc = 0;
+    let sw = 0, sn = 0, sp = 0, snn = 0, snp = 0;
+    for (let n = n0; n < n1; n++) {
+      const pr = zr[n], pi = -zi[n];              // z = conj(FFT(conj X)) (à 1/W près)
+      const cr = Math.cos(w0 * n), ci = -Math.sin(w0 * n);
+      const dr = pr * cr - pi * ci, di = pr * ci + pi * cr;
+      let ph = Math.atan2(di, dr);
+      if (last != null) {
+        let d = ph - last;
+        d -= 2 * Math.PI * Math.round(d / (2 * Math.PI));
+        acc += d;
+      }
+      last = ph;
+      // Pente par moindres carrés NON pondérés : ni par l'amplitude du son
+      // (biais vers les instants forts), ni par la fenêtre de Hann (mesuré :
+      // ±0,044 ¢ d'écart lisse sous un soufflet qui ondule, contre ±0,019 ¢
+      // sans pondération — la pente non pondérée est plus proche de la
+      // moyenne uniforme de la hauteur sur la fenêtre).
+      const w = 1;
+      sw += w; sn += w * n; sp += w * acc; snn += w * n * n; snp += w * n * acc;
+    }
+    const den = sw * snn - sn * sn;
+    if (!(den > 0)) return;
+    const slope = (sw * snp - sn * sp) / den;     // rad / échantillon décimé
+    const off = c.off + (slope * srd) / (2 * Math.PI);
+    if (!Number.isFinite(off) || Math.abs(off - c.off) > half) return;
+    c.off = off;
+    c.freq = ((fc + off) * calib) / div;
+    c.cluster = true;
+  });
 }
 
 // Appariement voix ↔ composantes préservant l'ordre fréquentiel (alignement

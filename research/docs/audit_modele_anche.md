@@ -645,3 +645,107 @@ C'est le prochain chantier, et il se teste avec le même outil :
 `growth_rate`, une minute par hypothèse. À noter : la force dépendante de la
 position avait déjà été essayée et écartée — mais **avec le terme fantôme
 encore en place**, qui dominait tout. L'essai est à refaire.
+
+---
+
+# Deux anches, une note : chambres, table d'harmonie, clapet
+
+`banc_recherche/coupled_reeds.py` — le réseau acoustique d'une note MM :
+soufflet → anche → chambre → trou de la table d'harmonie → canal commun sous
+le clapet → clapet → dehors (et l'inverse en tiré). Chaque élément est une
+grandeur mesurable : un volume, une masse d'air `ρ·ℓ/S`, une perte
+d'orifice. Le son sort par le clapet (monopôle, `ρ·dq/dt`), la puissance
+rayonnée et le rendement se calculent sur le débit du clapet. Un mode par
+anche, pour pouvoir simuler des secondes (un battement à 1 Hz en demande
+plusieurs). Tests : `tests/test_coupled_reeds.py`.
+
+## Ce que le réseau honnête a d'abord dit : rien ne démarre
+
+Avec les vraies pertes des trous et du clapet, aucune anche ne s'entretient.
+Balayé à 1000 Pa, poussé et tiré :
+
+| mécanisme ajouté | croissance |
+|---|---|
+| aucun | −2,64 /s (l'amortissement de la lame seule) |
+| inertie de l'air dans la fente | −2,64 /s |
+| balayage de la languette, grand trou | −2,98 /s |
+| balayage, petit trou (20 mm²) | −14,9 /s |
+
+La théorie linéaire dit pourquoi. Une chambre n'entretient la languette que
+si son impédance est dominée par la **compliance** à la fréquence de jeu
+(pression en retard de 90° sur le débit → force en phase avec la vitesse).
+Un vrai trou de table la **ventile** : Helmholtz chambre/trou ≈ 1,9 kHz, donc
+impédance inertielle sur presque tout le clavier, et la chambre amortit.
+
+C'est cohérent avec Ricot, Caussé et Misdariis (JASA 117, 2005) : une anche
+d'accordéon démarre **même sans couplage acoustique**, par l'aérodynamique
+de l'écoulement dans sa fente. Un modèle à pression uniforme sur la
+languette ne contient pas ce mécanisme. C'est la vraie question ouverte, et
+c'est là qu'une simulation d'écoulement (CFD) servirait — sur la fente,
+pas sur l'instrument.
+
+## Le démarrage calé, et où le mettre
+
+Faute de mieux, on reprend le mécanisme du modèle à une anche : la
+résistance effective de 5·10⁶ Pa·s/m³ (`Source`). Où la placer change tout :
+
+| placement | 20 ¢ de désaccord (1,21 Hz entre lames) |
+|---|---|
+| partagée, au clapet | **verrouillées** à l'unisson — jusqu'à 80 ¢ (4,9 Hz) |
+| propre à chaque chambre | battent à **1,209 Hz** |
+
+Aucune musette réelle ne se verrouille à 80 ¢ : l'excitation d'une anche
+lui est **propre**, et le canal commun ne les couple que faiblement. C'est
+le placement par défaut.
+
+## Ce que le modèle prédit, à vérifier au banc
+
+- **Les voix se tirent près de l'unisson** : battement joué / écart des
+  lames = −27 % à 1 ¢, −20 % à 2 ¢, −12 % à 3 ¢, rien à 5 ¢ (La grave de
+  référence, 300 Pa, 4 s). Mesurable à l'accordeur : accorder une anche en
+  bloquant l'autre, puis débloquer et relire le battement.
+- **L'air ne double pas** : deux anches identiques consomment 1,56 fois ce
+  que consomme une seule (10,8 contre 13,9 cm³/s chacune).
+- **Deux anches en phase rayonnent mieux** : rendement 2,9·10⁻⁵ contre
+  1,5·10⁻⁵ pour une seule.
+- **Ressort d'air** : seule, l'anche joue +61 ¢ au-dessus de sa lame (le
+  modèle à une anche donnait +49 ¢ au seuil).
+
+⚠️ Valeurs par défaut du sommier = ordres de grandeur, à relever sur
+l'instrument ; courses de 3–4 mm pour cette lame de grave très souple, et
+démarrage limité à quelques centaines de pascals (le chantier des seuils,
+plus haut, reste entier).
+
+## Et Elmer ?
+
+Pas pour remplacer ce réseau : pour en **calculer les paramètres** sur la
+vraie géométrie. Une simulation acoustique (Helmholtz) de la chambre, du
+trou et du canal donne leurs masses et compliances effectives, corrections
+d'extrémité comprises, et la résistance de rayonnement du clapet. Le
+mécanisme de démarrage, lui, relève de l'écoulement dans la fente :
+Navier-Stokes instationnaire avec interaction fluide-structure — un chantier
+de CFD, plus lourd, et le seul qui répondrait à la question ouverte
+ci-dessus.
+
+## Correction : la section qui se ferme — et l'audit qui va avec
+
+Ce qui précède (« rien ne démarre », puis la résistance calée et son
+placement) reposait sur une loi de passage **héritée du modèle à une
+anche** : `FreeReedModel.opening()` fait **ouvrir** le passage par le souffle.
+
+Si au contraire la languette, levée au repos du côté d'où vient l'air, est
+poussée **dans** sa fente (passage qui se referme, puis se rouvre de
+l'autre côté), la dérivation linéaire donne un mécanisme d'entretien propre
+à chaque anche : la masse d'air du chemin change le ralentissement du débit
+en surpression en phase avec la vitesse. Le modèle le confirme en retirant
+un ingrédient à la fois ; plus aucune résistance n'est calée.
+
+C'est une **hypothèse de géométrie à confirmer sur l'instrument**, et le
+reste du modèle contient des valeurs devinées et des simplifications. Tout
+est classé, élément par élément, avec les expériences qui peuvent le
+contredire, dans **`docs/audit_deux_anches.md`**. Les publications citées
+ont servi d'idée de départ, pas de preuve.
+
+`FreeReedModel` garde l'ancienne loi : il nourrit le moteur temps réel et la
+synthèse (`hybrid`, `live`, `embedded`). L'y corriger se fera avec des
+mesures en main.

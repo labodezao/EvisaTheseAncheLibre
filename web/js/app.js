@@ -34,6 +34,7 @@ const cfg = Object.assign({
   autoFreeze: false, // désactivé par défaut : surprenant pour un premier essai
   readout: null,        // clés de voix affichées en lecture numérique (null = toutes)
   response: 'normal',
+  devMode: false,       // mode dev : garde le son et chaque mesure (export WAV + CSV + JSON)
   beatCurve: { midiLow: 48, bLow: 0.8, midiHigh: 96, bHigh: 3.0, overrides: {} },
 }, loadCfg());
 
@@ -165,8 +166,10 @@ async function startAudio() {
 
     worker = new Worker('js/dsp/worker.js', { type: 'module' });
     const channel = new MessageChannel();
-    worker.postMessage({ type: 'init', sampleRate: audioCtx.sampleRate, cfg: engineCfg(), port: channel.port1 }, [channel.port1]);
-    worker.onmessage = (e) => { if (e.data.type === 'tick') onTick(e.data); };
+    worker.postMessage({ type: 'init', sampleRate: audioCtx.sampleRate, cfg: engineCfg(),
+      port: channel.port1, dev: !!cfg.devMode }, [channel.port1]);
+    state.devData = null;
+    worker.onmessage = onWorkerMessage;
 
     const node = new AudioWorkletNode(audioCtx, 'capture');
     node.port.postMessage({ port: channel.port2 }, [channel.port2]);
@@ -175,7 +178,25 @@ async function startAudio() {
     node.connect(sink).connect(audioCtx.destination);
 
     const gen = new URLSearchParams(location.search).get('gen');
-    if (gen) {
+    const wavUrl = new URLSearchParams(location.search).get('wav');
+    if (wavUrl && !state.pendingFile) {
+      // Mode test : un enregistrement servi à côté de l'appli (?wav=chemin).
+      state.pendingFile = { name: wavUrl, data: await (await fetch(wavUrl)).arrayBuffer() };
+    }
+    if (state.pendingFile) {
+      // Source « fichier » : un enregistrement (téléphone, enregistreur…)
+      // rejoué dans l'analyseur exactement comme s'il arrivait du micro.
+      // Silencieux (pas de sortie haut-parleur) : on mesure, on n'écoute pas.
+      const { name, data } = state.pendingFile;
+      state.pendingFile = null;
+      const buf = await audioCtx.decodeAudioData(data.slice(0));
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf;
+      src.connect(node);
+      src.onended = () => { $('fileInfo').textContent = `${name} — lu en entier (${buf.duration.toFixed(1)} s)`; };
+      src.start();
+      $('fileInfo').textContent = `▶ ${name} (${buf.duration.toFixed(1)} s)`;
+    } else if (gen) {
       // Mode test : oscillateurs internes au lieu du micro (?gen=440.2,442.5).
       // Exposés sur window.__gen pour pouvoir simuler des changements de
       // note dans les tests de bout en bout.
@@ -220,10 +241,36 @@ async function startAudio() {
   $('btnStart').disabled = false;
 }
 
+function onWorkerMessage(e) {
+  const d = e.data;
+  if (d.type === 'tick') onTick(d);
+  else if (d.type === 'devStatus') showDevStatus(d.dev);
+  else if (d.type === 'devData') {
+    const w = e.target;
+    w._devWaiters?.forEach((fn) => fn(d));
+    w._devWaiters = [];
+  }
+}
+
+// Demande au Worker le son et les mesures enregistrés (mode dev).
+function fetchDevData(w) {
+  return new Promise((resolve) => {
+    (w._devWaiters ??= []).push(resolve);
+    w.postMessage({ type: 'devExport' });
+  });
+}
+
 function stopAudio() {
   stopTone();
   mediaStream?.getTracks().forEach((t) => t.stop());
-  worker?.terminate();
+  // Mode dev : on récupère la session AVANT d'arrêter le Worker, pour
+  // qu'elle reste exportable une fois le micro coupé.
+  if (worker && cfg.devMode) {
+    const w = worker;
+    fetchDevData(w).then((d) => { if (!d.empty) state.devData = d; w.terminate(); showDevStatus(null); });
+  } else {
+    worker?.terminate();
+  }
   audioCtx?.close();
   audioCtx = null; worker = null; mediaStream = null;
   state.running = false;
@@ -277,6 +324,7 @@ function onTick(t) {
     }
   }
   state.tick = t;
+  if (t.dev) showDevStatus(t.dev);
   state.curveCache = null;
   state.phaseCache = null;
   markAllDirty();
@@ -388,8 +436,11 @@ function updateHeader(t) {
     if (v) {
       fv.textContent = v.fMeas.toFixed(v.fMeas < 100 ? 4 : 3);
       const c = v.dTargetCents;
-      cv.textContent = (c >= 0 ? '+' : '') + c.toFixed(1);
-      cv.style.color = Math.abs(c) < 1 ? 'var(--ok)' : Math.abs(c) < 5 ? 'var(--warn)' : 'var(--bad)';
+      // Même chiffre et même couleur que le strobe et les cartes : deux
+      // décimales, couleur selon la tolérance choisie (pas un seuil fixe).
+      cv.textContent = signed(c, 2);
+      const k = centsClass(c, cfg.tolCents);
+      cv.style.color = k === 'ok' ? 'var(--ok)' : k === 'warn' ? 'var(--warn)' : 'var(--bad)';
     } else {
       fv.textContent = '—'; cv.textContent = '—';
     }
@@ -847,9 +898,67 @@ function strobeReeds(t) {
   }
   return out;
 }
-function drawStrobe(dt) {
+// La phase de chaque bande avance UNE fois par image : le strobe compact
+// (onglet Accordage) et le grand strobe (onglet Strobe) lisent la même.
+function advanceStrobe(dt) {
+  if (!(state.strobePhase instanceof Map)) state.strobePhase = new Map();
+  if (state.frozen) return;
+  // Deux phases par anche : Φ, sa dérive propre (∫(f − cible)dt), et pour
+  // chaque partiel h, ψₕ = ∫(fₕ − h·f)dt, son écart à l'harmonicité. Le motif
+  // utilise h·Φ + ψₕ : une anche harmonique glisse d'un bloc, sans que son
+  // motif se brouille quand un partiel apparaît plus tard que les autres ;
+  // seul un partiel réellement faux (ψₕ qui croît) déforme le motif.
+  for (const { g, v } of strobeReeds(state.tick)) {
+    if (!v.tracked) continue;
+    const base = `${g.key}:${v.def.id}`;
+    state.strobePhase.set(`${base}:F`, (state.strobePhase.get(`${base}:F`) ?? 0) + (v.fMeas - v.target) * dt);
+    for (const ks of Object.keys(g.partials ?? {})) {
+      const h = Number(ks);
+      const fh = g.partials[h]?.[v.def.id];
+      if (fh == null) continue;
+      const key = `${base}:${h}`;
+      state.strobePhase.set(key, (state.strobePhase.get(key) ?? 0) + (fh - h * v.fMeas) * dt);
+    }
+  }
+}
+
+// Partiels mesurés d'une anche pour le motif stroboscopique : numéro h,
+// poids (amplitude comprimée, pour que les partiels faibles se voient aussi)
+// et phase de dérive courante (cycles).
+function reedPartials(g, v) {
+  const out = [];
+  let aMax = 0;
+  for (const ks of Object.keys(g.partials ?? {})) {
+    const h = Number(ks);
+    if (g.partials[h]?.[v.def.id] == null) continue;
+    const a = g.partialAmps?.[h]?.[v.def.id] ?? 1;
+    aMax = Math.max(aMax, a);
+    const phi = state.strobePhase.get(`${g.key}:${v.def.id}:F`) ?? 0;
+    out.push({ h, a, ph: h * phi + (state.strobePhase.get(`${g.key}:${v.def.id}:${h}`) ?? 0) });
+  }
+  for (const p of out) p.w = Math.sqrt(p.a / (aMax || 1));
+  return out;
+}
+
+// Mode guidé (à la Peterson) : quatre témoins qui s'allument un à un à
+// mesure qu'on approche — 5 ¢, 1 ¢, 0,3 ¢, 0,1 ¢. On voit où l'on en est
+// sans lire le chiffre, le nez sur la lame.
+const GUIDE = [5, 1, 0.3, 0.1];
+
+// Quoi faire de la lame : une anche trop haute se baisse en grattant vers
+// le talon (on ôte de la raideur), une anche trop basse se monte en grattant
+// vers la pointe (on ôte de la masse).
+function reedAdvice(c, tol, merged) {
+  if (c == null) return null;
+  if (Math.abs(c) <= tol) return { txt: merged ? '✓ juste · confondue avec l\'octave' : '✓ juste', ok: true };
+  return c > 0
+    ? { txt: '↓ trop haute : baisser — gratter vers le talon', ok: false }
+    : { txt: '↑ trop basse : monter — gratter vers la pointe', ok: false };
+}
+
+function drawStrobe(id, big = false) {
   const MONO = monoFont();
-  const cv = $('strobe'), ctx = cv.getContext('2d');
+  const cv = $(id), ctx = cv.getContext('2d');
   const t = state.tick;
   const reeds = strobeReeds(t);
   const n = Math.max(1, reeds.length);
@@ -858,7 +967,18 @@ function drawStrobe(dt) {
   // d'être réduits avec tout le canevas.
   const dpr = window.devicePixelRatio || 1;
   const W = Math.max(280, cv.clientWidth || 560);
-  const H = 6 + n * STROBE_ROW;
+  // Téléphone : le texte au-dessus, les bandes en dessous sur toute la
+  // largeur (côte à côte, le chiffre mangeait les bandes).
+  const stacked = big && W < 560;
+  const TXT_H = 150;                    // hauteur du bloc texte empilé
+  let row = STROBE_ROW;
+  if (big) {
+    // Le grand strobe occupe la hauteur disponible, comme l'écran d'un
+    // stroboscope : une rangée par anche, de 110 à 240 px.
+    const avail = Math.max(300, window.innerHeight - cv.getBoundingClientRect().top - 24);
+    row = stacked ? TXT_H + 4 * 26 + 12 : clamp(Math.floor((avail - 6) / n), 110, 240);
+  }
+  const H = 6 + n * row;
   if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) {
     cv.width = Math.round(W * dpr);
     cv.height = Math.round(H * dpr);
@@ -869,14 +989,16 @@ function drawStrobe(dt) {
   if (!(state.strobePhase instanceof Map)) state.strobePhase = new Map();
   ctx.clearRect(0, 0, W, H);
   if (!reeds.length) {
-    ctx.fillStyle = th.dim2; ctx.font = '13px system-ui'; ctx.textAlign = 'center';
-    ctx.fillText('jouez une note…', W / 2, H / 2 + 4);
+    ctx.fillStyle = th.dim2; ctx.font = `${big ? 18 : 13}px system-ui`; ctx.textAlign = 'center';
+    ctx.fillText(state.running ? 'jouez une note…' : '▶ Démarrer, puis jouez une note', W / 2, H / 2 + 4);
     return;
   }
-  const leftW = Math.min(170, W * 0.36), rightW = 58, period = 34;
-  const bandH = (STROBE_ROW - 12) / STROBE_BANDS;
+  const leftW = stacked ? 28 : big ? Math.min(380, W * 0.36) : Math.min(170, W * 0.36);
+  const rightW = big ? (stacked ? 56 : 74) : 58;
+  const period = big ? (stacked ? 44 : 64) : 34;
+  const bandH = stacked ? 26 : (row - (big ? 16 : 12)) / STROBE_BANDS;
   reeds.forEach(({ g, v }, r) => {
-    const y = 4 + r * STROBE_ROW;
+    const y = 4 + r * row;
     const id = v.def.id;
     const label = v.def.label
       || (v.def.fixedMidi != null ? noteLabel(v.def.fixedMidi + (cfg.transpose || 0)).full : 'anche');
@@ -885,56 +1007,107 @@ function drawStrobe(dt) {
     const cls = c == null ? null : centsClass(c, cfg.tolCents);
     const col = c == null ? th.dim2 : cls === 'ok' ? th.okStrong : cls === 'warn' ? th.warn : th.bad;
     ctx.textAlign = 'left';
-    ctx.fillStyle = th.dim; ctx.font = '600 13px system-ui';
-    ctx.fillText(label, 6, y + 16);
+    ctx.fillStyle = th.dim; ctx.font = `600 ${big ? 15 : 13}px system-ui`;
+    const note = big && v.midi != null ? `  ${noteLabel(v.midi + (cfg.transpose || 0)).full}` : '';
+    ctx.fillText(label + note, 6, y + (big ? 20 : 16));
     const txt = c == null ? '—' : signed(c, 2);
-    ctx.fillStyle = col; ctx.font = `700 ${W < 400 ? 26 : 30}px ${MONO}`;
-    ctx.fillText(txt, 6, y + 44);
+    const fs = stacked ? 46 : big ? clamp(Math.round(row * 0.36), 30, 76) : (W < 400 ? 26 : 30);
+    const yc = y + (big ? 22 + fs * 0.95 : 44);
+    ctx.fillStyle = col; ctx.font = `700 ${fs}px ${MONO}`;
+    ctx.fillText(txt, 6, yc);
     const wTxt = ctx.measureText(txt).width;
-    ctx.font = '600 13px system-ui';
-    if (c != null) ctx.fillText('¢', 6 + wTxt + 3, y + 44);
-    ctx.fillStyle = th.dim2; ctx.font = `11px ${MONO}`;
-    if (v.tracked) ctx.fillText(`${v.fMeas.toFixed(3)} Hz`, 6, y + 62);
+    ctx.font = `600 ${big ? Math.round(fs * 0.4) : 13}px system-ui`;
+    if (c != null) ctx.fillText('¢', 6 + wTxt + 3, yc);
+    if (big) {
+      let yl = yc + 20;
+      ctx.fillStyle = th.dim2; ctx.font = `13px ${MONO}`;
+      if (v.tracked) ctx.fillText(`${v.fMeas.toFixed(3)} Hz · cible ${v.target.toFixed(3)}`, 6, yl);
+      const adv = reedAdvice(c, cfg.tolCents, v.merged);
+      if (adv && row >= 130) {
+        yl += 18;
+        ctx.fillStyle = adv.ok ? th.okStrong : th.dim;
+        ctx.font = '600 13px system-ui';
+        ctx.fillText(adv.txt, 6, yl);
+      }
+      // témoins du mode guidé
+      if (row >= 150 || stacked) {
+        yl += 12;
+        const lw = Math.min(58, ((stacked ? W : leftW) - 20) / GUIDE.length - 6);
+        GUIDE.forEach((lim, i) => {
+          const x = 6 + i * (lw + 6);
+          const lit = c != null && Math.abs(c) <= lim;
+          ctx.fillStyle = lit ? (i === GUIDE.length - 1 ? th.okStrong : th.ok) : th.panel2;
+          ctx.fillRect(x, yl, lw, 14);
+          ctx.fillStyle = lit ? th.canvasBg : th.dim2;
+          ctx.font = `10px ${MONO}`; ctx.textAlign = 'center';
+          ctx.fillText(`${lim}¢`, x + lw / 2, yl + 11);
+          ctx.textAlign = 'left';
+        });
+      }
+    } else {
+      ctx.fillStyle = th.dim2; ctx.font = `11px ${MONO}`;
+      if (v.tracked) ctx.fillText(`${v.fMeas.toFixed(3)} Hz`, 6, y + 62);
+    }
     // --- bandes ×1..×4 ------------------------------------------------------
     const x0 = leftW, x1 = W - rightW;
+    const parts = reedPartials(g, v);
     for (let bi = 0; bi < STROBE_BANDS; bi++) {
       const k = bi + 1;
-      const by = y + 2 + bi * bandH;
+      const by = y + (stacked ? TXT_H : big ? 6 : 2) + bi * bandH;
       const fk = g.partials?.[k]?.[id];
-      const beat = fk != null ? fk - k * v.target : null;          // Hz, battement du partiel
-      const key = `${g.key}:${id}:${k}`;
-      let ph = state.strobePhase.get(key) ?? 0;
-      if (beat != null && !state.frozen) ph += beat * dt;           // en cycles
-      state.strobePhase.set(key, ph);
-      const still = beat != null && Math.abs(beat) < 0.12;
-      const on = beat == null ? th.panel2 : (still ? th.okStrong : th.accentMuted);
+      // Vert quand le partiel de base de la bande (×k) est dans la tolérance.
+      const ck = fk != null ? 1200 * Math.log2(fk / (k * v.target)) : null;
+      const inTol = ck != null && Math.abs(ck) <= cfg.tolCents;
       ctx.save();
       ctx.beginPath(); ctx.rect(x0, by, x1 - x0, bandH - 2); ctx.clip();
-      if (beat == null) {
+      ctx.fillStyle = th.canvasBg; ctx.fillRect(x0, by, x1 - x0, bandH - 2);
+      if (!parts.length) {
         ctx.fillStyle = th.panel2; ctx.fillRect(x0, by, x1 - x0, bandH - 2);
       } else {
-        const off = (((ph % 1) + 1) % 1) * period;
-        for (let x = x0 - period; x < x1 + period; x += period) {
-          const gx = x + off;
-          const grd = ctx.createLinearGradient(gx, 0, gx + period, 0);
-          grd.addColorStop(0, th.canvasBg); grd.addColorStop(0.5, on); grd.addColorStop(1, th.canvasBg);
-          ctx.fillStyle = grd; ctx.fillRect(gx, by, period, bandH - 2);
+        // VRAI effet stroboscopique, comme le disque d'un Peterson éclairé
+        // par le signal : la bande ×k replie le son de l'anche sur la période
+        // de référence de son partiel k. Seuls les partiels multiples de k
+        // (k, 2k, 3k…) y tiennent immobiles — les autres se brouillent, sur un
+        // vrai disque aussi : ×1 montre tout le son, ×2 les partiels 2, 4, 6,
+        // 8, ×4 les partiels 4 et 8. Chaque partiel glisse à la vitesse de SA
+        // dérive mesurée : anche harmonique → le motif glisse d'un bloc (plus
+        // vite dans les bandes hautes : plus sensibles) ; un partiel faux →
+        // ses raies fines glissent sous les autres et le motif se déforme.
+        // (La forme du motif est stylisée — phases de départ alignées ; son
+        // mouvement, lui, est mesuré.)
+        const vis = parts.filter((p) => p.h % k === 0);
+        ctx.fillStyle = inTol ? th.okStrong : th.accent;
+        const step = 2;
+        let wSum = 0;
+        for (const p of vis) wSum += p.w;
+        for (let x = x0; x < x1 && wSum > 0; x += step) {
+          const u = (x - x0) / period;                 // en périodes du partiel k
+          let b = 0;
+          for (const p of vis) b += p.w * Math.cos(2 * Math.PI * ((p.h / k) * u - p.ph));
+          const lum = Math.max(0, b / wSum);           // demi-onde : raies nettes
+          if (lum < 0.02) continue;
+          ctx.globalAlpha = Math.min(1, lum ** 1.4);
+          ctx.fillRect(x, by, step, bandH - 2);
         }
+        ctx.globalAlpha = 1;
       }
       ctx.restore();
       // repère ×k et écart du partiel en cents
-      ctx.font = `10px ${MONO}`;
+      ctx.font = `${big ? 12 : 10}px ${MONO}`;
       ctx.textAlign = 'right';
       ctx.fillStyle = th.dim2;
-      ctx.fillText(`×${k}`, x0 - 4, by + bandH / 2 + 2);
+      ctx.fillText(`×${k}`, x0 - 4, by + bandH / 2 + 3);
       ctx.textAlign = 'left';
-      const ck = fk != null ? 1200 * Math.log2(fk / (k * v.target)) : null;
-      ctx.fillStyle = ck == null ? th.dim2 : (Math.abs(ck) <= cfg.tolCents ? th.okStrong : th.dim);
-      ctx.fillText(ck == null ? '…' : signed(ck, 2), x1 + 5, by + bandH / 2 + 2);
+      ctx.fillStyle = ck == null ? th.dim2 : (inTol ? th.okStrong : th.dim);
+      // Partiel pair d'une anche qui a une voisine à l'octave au-dessus : il
+      // est partagé avec elle, on ne le mesure pas (« oct. »), ce n'est pas
+      // une mesure en attente (« … »).
+      const empty = g.avoidEven && k % 2 === 0 ? 'oct.' : '…';
+      ctx.fillText(ck == null ? empty : signed(ck, 2), x1 + 5, by + bandH / 2 + 3);
     }
     if (r < reeds.length - 1) {
       ctx.strokeStyle = th.grid; ctx.beginPath();
-      ctx.moveTo(4, y + STROBE_ROW - 2); ctx.lineTo(W - 4, y + STROBE_ROW - 2); ctx.stroke();
+      ctx.moveTo(4, y + row - 2); ctx.lineTo(W - 4, y + row - 2); ctx.stroke();
     }
   });
 }
@@ -1443,7 +1616,9 @@ function renderLoop(now) {
   }
   // Le stroboscope est une animation continue : dessiné tant qu'il est
   // visible (sa dérive de phase, elle, n'avance que hors gel).
-  if (canvasVisible('strobe')) drawStrobe(dt);
+  advanceStrobe(dt);
+  if (canvasVisible('strobe')) drawStrobe('strobe');
+  if (canvasVisible('strobeBig')) drawStrobe('strobeBig', true);
   requestAnimationFrame(renderLoop);
 }
 
@@ -1583,11 +1758,93 @@ function recordNow() {
 }
 
 function download(name, text, mime) {
+  downloadBlob(name, new Blob([text], { type: mime }));
+}
+
+// L'URL n'est libérée qu'après coup : révoquée tout de suite, un gros
+// fichier (le WAV d'une session) peut ne pas finir de s'enregistrer.
+function downloadBlob(name, blob) {
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([text], { type: mime }));
+  a.href = URL.createObjectURL(blob);
   a.download = name;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(a.href);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 60000);
+}
+
+// ---- Mode dev : session enregistrée (son + mesures) -----------------------------
+function showDevStatus(st) {
+  const badge = $('devBadge'), info = $('devStatus');
+  const on = !!cfg.devMode;
+  const fmt = (x) => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`;
+  if (on && state.running && st) {
+    badge.classList.remove('hidden');
+    badge.textContent = `● dev ${fmt(st.seconds)}${st.full ? ' (plein)' : ''}`;
+    info.textContent = `Enregistrement en cours : ${fmt(st.seconds)} de son, ${st.ticks} mesures`
+      + (st.full ? ` — limite de ${st.maxS / 60} min atteinte, exportez puis effacez.` : '.');
+  } else {
+    badge.classList.add('hidden');
+    const d = state.devData;
+    info.textContent = !on ? 'Mode dev désactivé.'
+      : d ? `Session gardée : ${fmt(d.pcm.length / d.sampleRate)} de son, ${d.ticks.length} mesures — prête à exporter.`
+        : 'Démarrez le micro (ou 📂 Fichier) : la session sera enregistrée.';
+  }
+}
+
+function wavBlob(pcm, sr) {
+  const n = pcm.length, buf = new ArrayBuffer(44 + 2 * n), v = new DataView(buf);
+  const str = (o, x) => { for (let i = 0; i < x.length; i++) v.setUint8(o + i, x.charCodeAt(i)); };
+  str(0, 'RIFF'); v.setUint32(4, 36 + 2 * n, true); str(8, 'WAVE');
+  str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+  v.setUint32(24, sr, true); v.setUint32(28, 2 * sr, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  str(36, 'data'); v.setUint32(40, 2 * n, true);
+  new Int16Array(buf, 44).set(pcm);
+  return new Blob([buf], { type: 'audio/wav' });
+}
+
+// Une ligne par anche et par mesure. `t_s` = fin de la fenêtre d'analyse,
+// sur la même horloge que le WAV ; `fenetre_s` = durée de cette fenêtre.
+function devCsv(ticks) {
+  const P = 8, sep = ';';
+  const num = (x, d) => (x == null || !Number.isFinite(x) ? '' : x.toFixed(d));
+  const head = ['t_s', 'note', 'midi', 'niveau_db', 'silence', 'groupe', 'anche', 'label', 'harmonique',
+    'k_suivi', 'cible_hz', 'f_hz', 'ecart_cents', 'amp_db', 'confondue_octave', 'estimation_rapide',
+    'maintenue', 'fenetre_s', 'remplissage'];
+  for (let k = 1; k <= P; k++) head.push(`p${k}_hz`);
+  const lines = [head.join(sep)];
+  for (const tk of ticks) {
+    const note = tk.midi != null ? noteLabel(tk.midi + (cfg.transpose || 0)).full : '';
+    const db = num(20 * Math.log10((tk.level ?? 0) + 1e-9), 1);
+    for (const r of tk.rows) {
+      const row = [num(tk.t, 4), note, tk.midi ?? '', db, tk.quiet, r.g, r.id,
+        String(r.label).replace(/[;\n]/g, ' '), r.harm, r.k, num(r.target, 5), num(r.f, 5), num(r.c, 4),
+        num(20 * Math.log10((r.amp ?? 0) + 1e-9), 1), r.merged, r.coarse, r.held,
+        num(r.srd ? r.W / r.srd : null, 3), num(r.fill, 3)];
+      for (let k = 1; k <= P; k++) row.push(num(r.p?.[k], 5));
+      lines.push(row.join(sep));
+    }
+  }
+  return lines.join('\n');
+}
+
+async function exportDevSession() {
+  const d = worker && state.running ? await fetchDevData(worker) : state.devData;
+  if (!d || d.empty || !d.pcm?.length) { alert('Aucune session enregistrée : activez le mode dev et démarrez.'); return; }
+  const base = `session-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}`;
+  const meta = {
+    app: 'Accordeur Anche Libre Pro', mode_dev: 1, date: new Date().toISOString(),
+    user_agent: navigator.userAgent, micro: $('deviceSel').selectedOptions?.[0]?.textContent || '',
+    source: $('fileInfo').textContent || '', echantillonnage_hz: d.sampleRate,
+    duree_s: d.pcm.length / d.sampleRate, mesures: d.ticks.length, tronque: !!d.full,
+    reglages_interface: cfg, reglages_moteur: d.cfg,
+    horloge: 't_s du CSV = fin de la fenêtre d\'analyse, même horloge que le WAV (échantillon t_s × fs)',
+  };
+  downloadBlob(`${base}.wav`, wavBlob(d.pcm, d.sampleRate));
+  // Plusieurs téléchargements d'affilée : un petit délai évite que le
+  // navigateur n'en bloque un.
+  setTimeout(() => download(`${base}.csv`, devCsv(d.ticks), 'text/csv'), 400);
+  setTimeout(() => download(`${base}.json`, JSON.stringify(meta, null, 2), 'application/json'), 800);
 }
 
 // ---- Liaison des contrôles -------------------------------------------------------
@@ -1716,9 +1973,23 @@ function bindControls() {
   $('maxUnison').value = String(cfg.maxUnison || 3);
   $('maxUnison').onchange = () => { cfg.maxUnison = Number($('maxUnison').value); pushConfig(); };
   $('btnCurveCsv').onclick = exportCurveCsv;
+  $('devMode').checked = !!cfg.devMode;
+  $('devMode').onchange = () => {
+    cfg.devMode = $('devMode').checked;
+    saveCfg();
+    worker?.postMessage({ type: 'dev', on: cfg.devMode });
+    showDevStatus(null);
+  };
+  $('btnDevExport').onclick = exportDevSession;
+  $('btnDevClear').onclick = () => {
+    state.devData = null;
+    worker?.postMessage({ type: 'devClear' });
+    showDevStatus(null);
+  };
+  showDevStatus(null);
   $('btnCurvePng').onclick = exportCurvePng;
   updateLockButton();
-  $('a4').onchange = () => { cfg.a4 = clamp(Number($('a4').value) || 440, 430, 450); $('a4').value = cfg.a4; pushConfig(); };
+  $('a4').onchange = () => { cfg.a4 = clamp(Number($('a4').value) || 440, 340, 540); $('a4').value = cfg.a4; pushConfig(); };
   tSel.onchange = () => { cfg.temperament = tSel.value; pushConfig(); };
   trSel.onchange = () => { cfg.transpose = Number(trSel.value); pushConfig(); };
   $('calib').onchange = () => { cfg.calibrationPpm = Number($('calib').value) || 0; pushConfig(); };
@@ -1735,6 +2006,17 @@ function bindControls() {
   $('bHigh').onchange = () => { cfg.beatCurve.bHigh = Number($('bHigh').value) || 3.0; pushConfig(); };
   $('deviceSel').onchange = () => { if (state.running) { stopAudio(); startAudio(); } };
   $('btnTone').onclick = toggleTone;
+  // Analyser un enregistrement : utile pour mesurer à tête reposée une prise
+  // faite au téléphone, ou comparer avant/après une séance d'accordage.
+  $('btnFile').onclick = () => $('fileInput').click();
+  $('fileInput').onchange = async () => {
+    const f = $('fileInput').files?.[0];
+    if (!f) return;
+    if (state.running) stopAudio();
+    state.pendingFile = { name: f.name, data: await f.arrayBuffer() };
+    $('fileInput').value = '';
+    startAudio();
+  };
   $('toneVol').oninput = () => {
     const m = toneNodes[toneNodes.length - 1];
     if (state.toneOn && m?.gain) m.gain.value = Number($('toneVol').value) / 300;
@@ -1758,6 +2040,14 @@ function bindControls() {
       case 'l': $('btnLock').click(); break;
       case 'b': setBellows(cfg.bellows === 'T' ? 'P' : 'T'); break;
       case 't': toggleTone(); break;
+      case 's': {
+        // Strobe plein écran : on montre l'onglet Strobe puis on l'agrandit.
+        document.querySelector('#tabbar .tab[data-tab="strobe"]')?.click();
+        const panel = $('strobeBig').closest('.panel');
+        if (document.fullscreenElement === panel) document.exitFullscreen();
+        else panel.requestFullscreen?.();
+        break;
+      }
       default: break;
     }
   });
@@ -1910,4 +2200,4 @@ initBench(() => {
 refreshReport();
 updateReadout(null);
 requestAnimationFrame(renderLoop);
-if (new URLSearchParams(location.search).get('gen')) startAudio();
+{ const q = new URLSearchParams(location.search); if (q.get('gen') || q.get('wav')) startAudio(); }

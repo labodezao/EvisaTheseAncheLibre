@@ -3,6 +3,7 @@
 //
 //   node test/bench_wav.mjs note.wav            (mode auto)
 //   node test/bench_wav.mjs note.wav MM         (registre MM, MMM, LMM…)
+//   node test/bench_wav.mjs note.wav '{"mode":"reeds","reedOctaves":[0,-1],"a4":442}'
 //
 // WAV PCM 16/24/32 bits ou float 32, mono ou stéréo (moyenné), lu à sa
 // fréquence d'échantillonnage d'origine (pas de rééchantillonnage). Une prise
@@ -50,7 +51,9 @@ if (!chemin) {
   process.exit(1);
 }
 const { x, sr } = lireWav(chemin);
-const cfg = registre ? { mode: 'register', register: registre } : { mode: 'auto' };
+const cfg = !registre ? { mode: 'auto' }
+  : registre.startsWith('{') ? JSON.parse(registre)
+  : { mode: 'register', register: registre };
 const e = new Engine(sr, cfg);
 const serie = [];                       // [t, [fMeas | null par voix]]
 let dernier = null;

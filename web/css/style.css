@@ -419,3 +419,12 @@ dialog h2 { margin-top: 0; }
 .bench-log { width: 100%; border-collapse: collapse; font: 12px var(--mono); white-space: nowrap; }
 .bench-log th, .bench-log td { padding: 3px 6px; border-bottom: 1px solid var(--line); text-align: right; }
 .bench-log th { color: var(--dim); position: sticky; top: 0; background: var(--panel); }
+
+/* Onglet Strobe : le canevas prend toute la largeur ; sur téléphone la
+   légende du titre cède la place au strobe. */
+.strobe-main canvas { width: 100%; display: block; }
+@media (max-width: 720px) { .strobe-main h2 .hint { display: none; } }
+
+/* Mode dev : pastille d'enregistrement dans le bandeau. */
+.dev-badge { font: 600 12px var(--mono); color: var(--bad); padding: 2px 8px;
+  border: 1px solid var(--bad); border-radius: 12px; align-self: center; }
