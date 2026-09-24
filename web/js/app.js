@@ -12,6 +12,23 @@ import { initBench } from './bench.js';
 const $ = (id) => document.getElementById(id);
 
 // ---- État ------------------------------------------------------------------
+// Version de l'appli. La page (data-version de <html>), ce script, le moteur
+// (ENGINE_VERSION) et le cache du service worker portent le même numéro :
+// s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
+// (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
+// au lieu d'échouer en silence (strobe vide, boutons sans effet).
+const APP_VERSION = '17';
+function versionMismatch(what, got) {
+  const b = document.getElementById('versionBanner');
+  if (!b) return;
+  b.textContent = `⚠ Mise à jour incomplète : ${what} en version ${got}, appli en version ${APP_VERSION}. `
+    + 'Rechargez la page (sur téléphone : fermez l\'onglet et rouvrez-le ; sur ordinateur : Ctrl+Maj+R).';
+  b.classList.remove('hidden');
+}
+if (document.documentElement.dataset.version !== APP_VERSION) {
+  versionMismatch('la page', document.documentElement.dataset.version ?? '?');
+}
+
 const CFG_KEY = 'aal.cfg';
 const cfg = Object.assign({
   _v: 2, // version du schéma de configuration mémorisée (migrations)
@@ -322,6 +339,10 @@ function onTick(t) {
     } else {
       return;
     }
+  }
+  if (t.version !== APP_VERSION && !state.versionWarned) {
+    state.versionWarned = true;
+    versionMismatch('le moteur de mesure', t.version ?? 'ancienne');
   }
   state.tick = t;
   if (t.dev) showDevStatus(t.dev);

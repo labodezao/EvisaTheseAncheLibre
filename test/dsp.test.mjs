@@ -683,5 +683,22 @@ console.log('\nTest 26 — courbe sans dents de scie sous un soufflet vivant (MM
   assert(worstMean < 0.05, `écart moyen de la pire anche = ${worstMean.toFixed(3)} ¢ (< 0,05)`);
 }
 
+// ---------------------------------------------------------------------------
+console.log('\nTest 27 — une seule version : page, appli, moteur, cache du service worker');
+{
+  // Après une mise à jour, un navigateur qui mélange deux versions (cache
+  // HTTP) donnait un strobe vide et des boutons sans effet. Chaque fichier
+  // porte son numéro ; ils doivent être identiques.
+  const { readFileSync } = await import('node:fs');
+  const lire = (f) => readFileSync(new URL(`../web/${f}`, import.meta.url), 'utf8');
+  const { ENGINE_VERSION } = await import('../web/js/dsp/engine.js');
+  const app = lire('js/app.js').match(/const APP_VERSION = '(\d+)'/)?.[1];
+  const page = lire('index.html').match(/data-version="(\d+)"/)?.[1];
+  const sw = lire('sw.js').match(/aal-shell-v(\d+)/)?.[1];
+  assert(app && app === ENGINE_VERSION && app === page && app === sw,
+    `versions : page ${page}, app.js ${app}, moteur ${ENGINE_VERSION}, service worker ${sw}`);
+  assert(lire('sw.js').includes("cache: 'no-cache'"), 'le service worker revalide ses fichiers (pas de cache HTTP périmé)');
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);
