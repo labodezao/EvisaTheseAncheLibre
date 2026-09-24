@@ -873,14 +873,41 @@ function strobeReeds(t) {
 function advanceStrobe(dt) {
   if (!(state.strobePhase instanceof Map)) state.strobePhase = new Map();
   if (state.frozen) return;
+  // Deux phases par anche : Φ, sa dérive propre (∫(f − cible)dt), et pour
+  // chaque partiel h, ψₕ = ∫(fₕ − h·f)dt, son écart à l'harmonicité. Le motif
+  // utilise h·Φ + ψₕ : une anche harmonique glisse d'un bloc, sans que son
+  // motif se brouille quand un partiel apparaît plus tard que les autres ;
+  // seul un partiel réellement faux (ψₕ qui croît) déforme le motif.
   for (const { g, v } of strobeReeds(state.tick)) {
-    for (let k = 1; k <= STROBE_BANDS; k++) {
-      const fk = g.partials?.[k]?.[v.def.id];
-      if (fk == null) continue;
-      const key = `${g.key}:${v.def.id}:${k}`;
-      state.strobePhase.set(key, (state.strobePhase.get(key) ?? 0) + (fk - k * v.target) * dt);
+    if (!v.tracked) continue;
+    const base = `${g.key}:${v.def.id}`;
+    state.strobePhase.set(`${base}:F`, (state.strobePhase.get(`${base}:F`) ?? 0) + (v.fMeas - v.target) * dt);
+    for (const ks of Object.keys(g.partials ?? {})) {
+      const h = Number(ks);
+      const fh = g.partials[h]?.[v.def.id];
+      if (fh == null) continue;
+      const key = `${base}:${h}`;
+      state.strobePhase.set(key, (state.strobePhase.get(key) ?? 0) + (fh - h * v.fMeas) * dt);
     }
   }
+}
+
+// Partiels mesurés d'une anche pour le motif stroboscopique : numéro h,
+// poids (amplitude comprimée, pour que les partiels faibles se voient aussi)
+// et phase de dérive courante (cycles).
+function reedPartials(g, v) {
+  const out = [];
+  let aMax = 0;
+  for (const ks of Object.keys(g.partials ?? {})) {
+    const h = Number(ks);
+    if (g.partials[h]?.[v.def.id] == null) continue;
+    const a = g.partialAmps?.[h]?.[v.def.id] ?? 1;
+    aMax = Math.max(aMax, a);
+    const phi = state.strobePhase.get(`${g.key}:${v.def.id}:F`) ?? 0;
+    out.push({ h, a, ph: h * phi + (state.strobePhase.get(`${g.key}:${v.def.id}:${h}`) ?? 0) });
+  }
+  for (const p of out) p.w = Math.sqrt(p.a / (aMax || 1));
+  return out;
 }
 
 // Mode guidé (à la Peterson) : quatre témoins qui s'allument un à un à
@@ -993,37 +1020,46 @@ function drawStrobe(id, big = false) {
     }
     // --- bandes ×1..×4 ------------------------------------------------------
     const x0 = leftW, x1 = W - rightW;
+    const parts = reedPartials(g, v);
     for (let bi = 0; bi < STROBE_BANDS; bi++) {
       const k = bi + 1;
       const by = y + (stacked ? TXT_H : big ? 6 : 2) + bi * bandH;
       const fk = g.partials?.[k]?.[id];
-      const beat = fk != null ? fk - k * v.target : null;          // Hz, battement du partiel
-      const ph = state.strobePhase.get(`${g.key}:${id}:${k}`) ?? 0;
-      // Vert quand CE partiel est dans la tolérance (en cents), pas quand la
-      // bande est « presque immobile » : sur ×4 la même erreur bat 4 fois
-      // plus vite, c'est justement ce qui rend les bandes hautes sensibles.
+      // Vert quand le partiel de base de la bande (×k) est dans la tolérance.
       const ck = fk != null ? 1200 * Math.log2(fk / (k * v.target)) : null;
       const inTol = ck != null && Math.abs(ck) <= cfg.tolCents;
-      const on = beat == null ? th.panel2 : (inTol ? th.okStrong : th.accentMuted);
       ctx.save();
       ctx.beginPath(); ctx.rect(x0, by, x1 - x0, bandH - 2); ctx.clip();
-      if (beat == null) {
+      ctx.fillStyle = th.canvasBg; ctx.fillRect(x0, by, x1 - x0, bandH - 2);
+      if (!parts.length) {
         ctx.fillStyle = th.panel2; ctx.fillRect(x0, by, x1 - x0, bandH - 2);
       } else {
-        const off = (((ph % 1) + 1) % 1) * period;
-        if (big) {
-          // Barres franches, comme le disque d'un vrai stroboscope.
-          ctx.fillStyle = th.canvasBg; ctx.fillRect(x0, by, x1 - x0, bandH - 2);
-          ctx.fillStyle = on;
-          for (let x = x0 - period; x < x1 + period; x += period) ctx.fillRect(x + off, by, period / 2, bandH - 2);
-        } else {
-          for (let x = x0 - period; x < x1 + period; x += period) {
-            const gx = x + off;
-            const grd = ctx.createLinearGradient(gx, 0, gx + period, 0);
-            grd.addColorStop(0, th.canvasBg); grd.addColorStop(0.5, on); grd.addColorStop(1, th.canvasBg);
-            ctx.fillStyle = grd; ctx.fillRect(gx, by, period, bandH - 2);
-          }
+        // VRAI effet stroboscopique, comme le disque d'un Peterson éclairé
+        // par le signal : la bande ×k replie le son de l'anche sur la période
+        // de référence de son partiel k. Seuls les partiels multiples de k
+        // (k, 2k, 3k…) y tiennent immobiles — les autres se brouillent, sur un
+        // vrai disque aussi : ×1 montre tout le son, ×2 les partiels 2, 4, 6,
+        // 8, ×4 les partiels 4 et 8. Chaque partiel glisse à la vitesse de SA
+        // dérive mesurée : anche harmonique → le motif glisse d'un bloc (plus
+        // vite dans les bandes hautes : plus sensibles) ; un partiel faux →
+        // ses raies fines glissent sous les autres et le motif se déforme.
+        // (La forme du motif est stylisée — phases de départ alignées ; son
+        // mouvement, lui, est mesuré.)
+        const vis = parts.filter((p) => p.h % k === 0);
+        ctx.fillStyle = inTol ? th.okStrong : th.accent;
+        const step = 2;
+        let wSum = 0;
+        for (const p of vis) wSum += p.w;
+        for (let x = x0; x < x1 && wSum > 0; x += step) {
+          const u = (x - x0) / period;                 // en périodes du partiel k
+          let b = 0;
+          for (const p of vis) b += p.w * Math.cos(2 * Math.PI * ((p.h / k) * u - p.ph));
+          const lum = Math.max(0, b / wSum);           // demi-onde : raies nettes
+          if (lum < 0.02) continue;
+          ctx.globalAlpha = Math.min(1, lum ** 1.4);
+          ctx.fillRect(x, by, step, bandH - 2);
         }
+        ctx.globalAlpha = 1;
       }
       ctx.restore();
       // repère ×k et écart du partiel en cents

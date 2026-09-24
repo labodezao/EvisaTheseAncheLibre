@@ -85,10 +85,12 @@ function targetSpacing(g) {
   return spacing;
 }
 
-// Partiels mesurés pour le stroboscope par anche : ×1..×4, sauf celui déjà
+// Partiels mesurés pour le stroboscope par anche : ×1..×8, sauf celui déjà
 // mesuré par le groupe de base, présents dans le spectre, et où toutes les
-// anches tiennent dans la bande du zoom.
-const STROBE_PARTIALS = 4;
+// anches tiennent dans la bande du zoom. Jusqu'à ×8 : la bande ×2 du strobe
+// montre les partiels 2, 4, 6, 8, la bande ×4 les partiels 4 et 8 — comme
+// sur le disque d'un vrai stroboscope, chaque bande porte aussi ses aigus.
+const STROBE_PARTIALS = 8;
 export function strobePartials(g, coarse = null) {
   const out = [];
   const spread = Math.max(...g.voices.map((v) => Math.abs(v.target - g.center)));
@@ -1113,22 +1115,38 @@ export class Engine {
 // l'anche `id` (Hz), ou absente si pas (encore) résolue. Le partiel sur lequel
 // le groupe est lui-même mesuré (kTrack) y figure aussi : c'est la même
 // mesure, ramenée au partiel.
+// `partialAmps[k][id]` : amplitude de ce partiel (même échelle pour tous) —
+// le stroboscope s'en sert pour doser chaque partiel dans le motif.
 function withPartials(groups) {
   const byBase = new Map();
+  const ampsByBase = new Map();
   for (const g of groups) {
     if (!g.isPartial) continue;
     const m = byBase.get(g.baseKey) ?? {};
+    const a = ampsByBase.get(g.baseKey) ?? {};
     m[g.kTrack] = {};
-    for (const v of g.voices) if (v.tracked) m[g.kTrack][v.def.id] = v.fMeas;
+    a[g.kTrack] = {};
+    for (const v of g.voices) {
+      if (!v.tracked) continue;
+      m[g.kTrack][v.def.id] = v.fMeas;
+      a[g.kTrack][v.def.id] = v.amp;
+    }
     byBase.set(g.baseKey, m);
+    ampsByBase.set(g.baseKey, a);
   }
   return groups.filter((g) => !g.hidden).map((g) => {
     if (g.isHarmonic || g.isSub) return g;
     const partials = { ...(byBase.get(g.key) ?? {}) };
+    const partialAmps = { ...(ampsByBase.get(g.key) ?? {}) };
     const k = g.kTrack || 1;
     partials[k] = {};
-    for (const v of g.voices) if (v.tracked) partials[k][v.def.id] = v.fMeas * k;
-    return { ...g, partials };
+    partialAmps[k] = {};
+    for (const v of g.voices) {
+      if (!v.tracked) continue;
+      partials[k][v.def.id] = v.fMeas * k;
+      partialAmps[k][v.def.id] = v.amp;
+    }
+    return { ...g, partials, partialAmps };
   });
 }
 
