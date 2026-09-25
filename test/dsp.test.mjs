@@ -953,5 +953,35 @@ console.log('\nTest 36 — battement du trémolo (bat/min), en mode Automatique'
   assert(!solo.beat, `anche seule : aucun battement (${solo.beat ? `${solo.beat.hz.toFixed(2)} Hz` : 'rien'})`);
 }
 
+console.log('\nTest 37 — registre 16\'+8\' : on lâche une anche, elle devient « — », l\'autre reste mesurée');
+{
+  // Session d'Ewen : Fa♯3 + Fa♯4 tenus, puis le 16' lâché. Avant, la note
+  // basculait d'une octave et l'anche restante était ré-attribuée à l'autre
+  // voix, ou le 16' affichait une valeur fausse (−28 ¢).
+  const n = SR * 9, x = new Float32Array(n);
+  const H = [1, 0.7, 0.5, 0.35, 0.2];
+  for (const [f, stop] of [[midiToFreq(54) * 2 ** (2 / 1200), 5], [midiToFreq(66) * 2 ** (-1 / 1200), 9]]) {
+    for (let h = 0; h < H.length; h++) {
+      const w = (2 * Math.PI * f * (h + 1)) / SR;
+      for (let i = 0; i < stop * SR; i++) x[i] += 0.06 * H[h] * Math.sin(w * i + h);
+    }
+  }
+  for (let i = 0; i < n; i++) x[i] += 3e-4 * (Math.random() * 2 - 1);
+  const e = new Engine(SR, { mode: 'register', register: 'LM' });
+  let before = null, after = null, notes = new Set();
+  for (let i = 0; i + 512 <= n; i += 512) {
+    const r = e.process(x.subarray(i, i + 512));
+    if (!r || r.time < 3) continue;
+    const vs = r.groups.filter((g) => !g.isHarmonic && !g.isSub).flatMap((g) => g.voices);
+    const v16 = vs.find((v) => v.def.id === '16'), v8 = vs.find((v) => v.def.id === '8');
+    notes.add(r.playedMidi);
+    if (r.time > 4.5 && r.time < 4.9) before = { t16: v16?.tracked, c8: v8?.dTargetCents };
+    if (r.time > 6 && r.time < 8.8 && (v16?.tracked || !v8?.tracked)) after = { t: r.time, t16: v16?.tracked, t8: v8?.tracked };
+  }
+  assert(before?.t16 && Math.abs(before.c8 + 1) < 0.3, `les deux anches mesurées avant (8' à ${before?.c8?.toFixed(2)} ¢)`);
+  assert(after == null, after ? `à ${after.t.toFixed(2)} s : 16' ${after.t16 ? 'encore affiché' : '—'}, 8' ${after.t8 ? 'mesuré' : 'perdu'}` : 'après l\'arrêt du 16\' : 16\' « — », 8\' toujours mesuré');
+  assert(notes.size === 1, `la note ne bascule pas d'octave (${[...notes].map((m) => noteLabel(m).full).join(', ')})`);
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);

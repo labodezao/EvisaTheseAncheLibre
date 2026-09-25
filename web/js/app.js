@@ -19,7 +19,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '23';
+const APP_VERSION = '24';
 function versionMismatch(what, got) {
   const b = document.getElementById('versionBanner');
   if (!b) return;
@@ -772,36 +772,62 @@ function drawPitchCurve() {
     let range;
     let center = 0;
     if (rangeSel === 'auto') {
+      // Échelle automatique STABLE. Avant, centre et étendue étaient recalculés
+      // à chaque image : au moindre mouvement, toute la courbe sautait d'un
+      // cran (±2 → ±5 ¢, centre −0,5 → 0) — de faux « pics » (repéré par
+      // Ewen, 24/09/2026 : les mesures, elles, étaient lisses). Désormais :
+      //  - l'étendue grandit tout de suite si la courbe sort du cadre, mais ne
+      //    rétrécit qu'après 5 s de calme ;
+      //  - le centre ne bouge que si la courbe approche du bord, et reste à 0
+      //    (la cible) tant que la courbe tient autour ;
+      //  - tout repart de zéro au changement de note.
       const vals = [];
       for (const e of hist) {
         if (curMidi != null && e.midi !== curMidi) continue;
+        if (e.t < T - 6) continue;                 // l'échelle suit les 6 dernières secondes
         for (const k of keys) {
           const v = e.vals[k];
           if (v && isFinite(v.c)) vals.push(v.c);
         }
       }
+      const steps = [2, 5, 10, 25, 50];
+      let sc = state.autoScale;
+      if (!sc || sc.midi !== curMidi) sc = state.autoScale = { midi: curMidi, center: 0, range: null, calmSince: null };
       if (vals.length) {
         vals.sort((a, b) => a - b);
+        const lo = vals[Math.floor(vals.length * 0.03)], hi = vals[Math.ceil(vals.length * 0.97) - 1];
         const median = vals[vals.length >> 1];
-        // EMA remis à la médiane dès que la note change (recalage immédiat).
-        if (state.centerEMA == null || state.centerMidi !== curMidi) {
-          state.centerEMA = median;
-          state.centerMidi = curMidi;
-        } else {
-          state.centerEMA += 0.3 * (median - state.centerEMA);
+        const need = (c) => Math.max(1.5, Math.abs(hi - c), Math.abs(lo - c)) * 1.15;
+        if (sc.range == null) {
+          sc.center = need(0) <= 50 && Math.abs(median) < 0.6 * (steps.find((x) => x >= need(0)) ?? 50) ? 0
+            : Math.round(median * 2) / 2;
+          sc.range = steps.find((x) => x >= need(sc.center)) ?? 50;
         }
-        center = Math.round(state.centerEMA * 2) / 2;
-        // Étendue robuste : 90e percentile des écarts au centre (pas le max),
-        // pour que les brefs pics transitoires d'attaque ne fassent pas sauter
-        // l'échelle à ±50 — ils débordent en haut, la partie stable reste lisible.
-        const devs = vals.map((v) => Math.abs(v - center)).sort((a, b) => a - b);
-        const p90 = devs[Math.min(devs.length - 1, Math.floor(devs.length * 0.9))] || 1.5;
-        const maxDev = Math.max(1.5, p90);
-        const steps = [2, 5, 10, 25, 50];
-        range = steps.find((s) => s >= maxDev * 1.15) || 50;
+        // La courbe sort du cadre : soit on agrandit autour du même centre,
+        // soit on recentre (sur 0 si possible) — on garde la plus petite
+        // étendue des deux, pour ne pas écraser la courbe.
+        if (need(sc.center) > sc.range) {
+          const rA = steps.find((x) => x >= need(sc.center)) ?? 50;
+          const rZero = steps.find((x) => x >= need(0)) ?? 50;
+          const cB = Math.abs(median) < 0.6 * rZero ? 0 : Math.round(median * 2) / 2;
+          const rB = steps.find((x) => x >= need(cB)) ?? 50;
+          if (rB < rA) { sc.center = cB; sc.range = rB; } else { sc.range = rA; }
+          sc.calmSince = null;
+        } else {
+          // Rétrécir seulement après 5 s où une étendue plus petite suffirait.
+          const smaller = steps.filter((x) => x < sc.range).reverse().find((x) => x >= need(sc.center) * 1.3);
+          if (smaller) {
+            if (sc.calmSince == null) sc.calmSince = T;
+            else if (T - sc.calmSince > 5) { sc.range = smaller; sc.calmSince = null; }
+          } else {
+            sc.calmSince = null;
+          }
+        }
+        center = sc.center;
+        range = sc.range;
       } else {
-        state.centerEMA = null;
-        range = 5;
+        range = sc.range ?? 5;
+        center = sc.center;
       }
       const cLbl = center === 0 ? '' : `${center > 0 ? '+' : ''}${center} `;
       $('curveRangeLbl').textContent = `auto ${cLbl}±${range} ¢ · ${HISTORY_SPAN} s`;
