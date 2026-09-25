@@ -338,6 +338,31 @@
   </div>
 
   <div class="callout">
+    <b>Musette : les deux anches en une demi-seconde.</b> Une FFT ne sépare deux
+    anches écartées de Δf qu'après environ 1/Δf seconde, et elle montre avant
+    une seule raie : le <b>mélange</b> des deux, dont la hauteur n'est celle
+    d'aucune. L'accordeur ajuste en plus un modèle de sinusoïdes (méthode
+    <i>Matrix Pencil</i>) sur la dernière demi-seconde de son, au partiel le
+    plus haut qui convient, où l'écart est multiplié d'autant.
+    Une anche n'est comptée que si un <b>autre partiel</b> la montre aussi
+    (une anche est périodique : tous ses partiels disent la même hauteur) ; les
+    restes de partiels voisins sont ainsi écartés. Conséquences :
+    <b>Auto-anches</b> affiche les deux anches vers 1,2 s au lieu de 2 à 3 s ;
+    le mode <b>Automatique</b> prévient « Trémolo : deux anches à −3,6 ¢ et
+    +20,7 ¢ (battement 3,69 Hz, 221/min) » et sa courbe suit une seule anche au
+    lieu d'afficher le mélange. Mesuré sur une banque de notes musette (Fa3 à
+    Mi6, 2 à 7,5 Hz de battement) et rejoué sur vos sessions sans fausse anche.
+  </div>
+
+  <div class="callout">
+    <b>Registre Trémolo 8'+8' : l'anche du dessus garde sa place.</b> Quand
+    l'anche du dessus est loin de sa cible (+17 ¢ pour une cible à +7 ¢), une
+    raie latérale du soufflet de l'autre anche, plus proche de la cible, finissait
+    par lui être attribuée au bout de 3 s (−2,8 ¢ affiché au lieu de +17,2 ¢).
+    Corrigé.
+  </div>
+
+  <div class="callout">
     <b>Échelle automatique stable.</b> La courbe ne se recentre que si elle
     sort du cadre, garde le 0 (la cible) visible quand c'est possible, et ne
     rétrécit qu'après 5 s de calme — elle ne « saute » plus à chaque image.

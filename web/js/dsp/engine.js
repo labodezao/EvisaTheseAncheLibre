@@ -15,7 +15,7 @@ import {
 
 // Version du moteur : doit être celle de la page et de app.js (cf. le
 // contrôle de cohérence dans app.js et le test dans dsp.test.mjs).
-export const ENGINE_VERSION = '24';
+export const ENGINE_VERSION = '25';
 
 const HOP = 4096;             // période d'analyse (~85 ms à 48 kHz)
 const MAXWIN = { fast: 128, normal: 256, precise: 512 };
@@ -44,6 +44,22 @@ const DISAGREE_HOLD_S = 1.5;
 // Sortie stabilisée (cf. stabilize) : une anche qui perd la mesure garde sa
 // dernière valeur jusqu'à STAB_HOLD_S.
 const STAB_HOLD_S = 1.0;
+// Anches d'un même ton séparées par Matrix Pencil (cf. mpReeds). Une FFT ne
+// sépare deux raies qu'après ~1/Δf secondes ; Matrix Pencil, qui ajuste un
+// modèle de sinusoïdes, les sépare bien plus tôt quand le son est propre.
+// Mesuré sur une banque de notes musette (deux anches, 2 à 7,5 Hz d'écart) :
+// les deux anches à 0,5 ¢ près en 0,5 s, là où la FFT en demande 1,7 à 2,7.
+const MP_N = 48;        // échantillons de bande de base (≈ 0,5 s)
+const MP_L = 12;        // paramètre du pinceau : ~1,5 ms par appel (24 : ~15 ms)
+const MP_POLES = 4;     // de quoi loger 3 anches et un reste de partiel voisin
+const MP_RATIO = 0.25;  // anche admise à −12 dB de la plus forte (cf. Auto-anches)
+const MP_MIN_HZ = 0.8;  // écart minimal (fondamentale) : en deçà, raies latérales du soufflet
+const MP_DAMP = 3;      // s⁻¹ : une anche en régime ne s'éteint ni ne croît
+const MP_MAX_CENTS = 35; // anche dans la note (comme le filtre d'Auto-anches)
+const MP_HIST = 5;      // sur les 5 dernières images,
+const MP_STABLE = 4;    // au moins 4 voient les mêmes anches…
+const MP_CENTS = 2;     // …chacune à 2 ¢ près (une image manquée : creux de battement)
+const MP_ALERT_S = 0.3; // alerte du mode Automatique : anches vues depuis 0,3 s
 
 // Harmonique sur lequel mesurer un groupe d'anches à l'unisson.
 //
@@ -304,6 +320,7 @@ export class Engine {
     this.lastFine = null;
     this.disagreeSince = null;
     this.unisonSince = null;
+    this.mpHist = [];
     this.retuneT = this.samplesTotal / this.sr;
     const played = this.playedMidi;
     if (played == null && this.cfg.mode !== 'manual') {
@@ -771,6 +788,7 @@ export class Engine {
         this.steps = new Map();
         this.lastFine = null;
         this.disagreeSince = null;
+        this.mpHist = [];
         this.resume = { t: tNow, midi: this.playedMidi };
       }
     }
@@ -847,7 +865,12 @@ export class Engine {
           this.unisonSince = null;
         }
       }
-      if (!quiet) {
+      // Plusieurs anches vues par Matrix Pencil (image précédente) : les
+      // variations de la fenêtre courte sont leur battement, pas un saut de
+      // hauteur. Mesuré : sur une musette Fa3 (2 Hz d'écart) en Automatique,
+      // la mesure redémarrait à chaque battement, toutes les 0,5 s.
+      const beating = this.mp && !g.isHarmonic && !g.isSub && (g.voices[0].def.oct ?? 0) === 0;
+      if (!quiet && !beating) {
         const others = claimed.filter((_, i) => claimedBy[i] !== g.center);
         this.detectStep(g, t, voices, calib, others, az);
       }
@@ -1138,6 +1161,40 @@ export class Engine {
       }
     }
 
+    // Anches d'un même ton par Matrix Pencil (Automatique et Auto-anches).
+    // Automatique : on prévient tout de suite qu'il y a deux anches, avec leur
+    // hauteur. Auto-anches : tant que la FFT n'a pas encore séparé les anches
+    // (elle montre une seule raie, souvent le MÉLANGE des deux : +13 ¢ pour
+    // une musette +2 / +22 ¢), ce sont les valeurs de Matrix Pencil qui
+    // s'affichent ; la FFT reprend la main dès qu'elle les voit toutes.
+    this.mp = null;
+    if ((c.mode === 'auto' || c.mode === 'reeds') && !quiet && played != null) {
+      const gb = groups.find((g) => !g.isHarmonic && !g.isSub && (g.voices[0].def.oct ?? 0) === 0);
+      this.mp = gb ? this.mpReeds(gb, calib) : null;
+      if (this.mp && c.mode === 'reeds') this.fillFromMp(gb, this.mp);
+      // Automatique : la courbe suit UNE anche. Si la FFT montre une valeur
+      // qui n'est la hauteur d'aucune (le mélange des deux, +5 ¢ pour une
+      // musette −3,8 / +17,2 ¢), on affiche l'anche de Matrix Pencil la plus
+      // proche de la mesure précédente (au départ, la plus forte).
+      if (this.mp && c.mode === 'auto') {
+        const v = gb.voices[0];
+        const dist = (cp, f) => Math.abs(centsBetween(cp.f, f));
+        if (!v.tracked || Math.min(...this.mp.map((cp) => dist(cp, v.fMeas))) > 1.5) {
+          const ref = this.lastFine?.f;
+          const cp = ref != null
+            ? this.mp.reduce((b, q) => (dist(q, ref) < dist(b, ref) ? q : b))
+            : this.mp.reduce((b, q) => (q.amp > b.amp ? q : b));
+          this.fillVoice(v, { freq: cp.f, mag: cp.amp }, 2);
+          v.mp = true;
+          this.lastFine = { t: this.samplesTotal / this.sr, f: cp.f };
+        }
+      }
+    } else {
+      this.mpHist = [];
+    }
+    if (!this.mp) this.mpSince = null;
+    else if (this.mpSince == null) this.mpSince = this.samplesTotal / this.sr;
+
     // Écart rapide de la fondamentale à la note nominale : c'est la donnée
     // à utiliser pour la caractéristique pression-hauteur f(I) — la mesure
     // fine (longue fenêtre) traîne derrière un balayage de pression et
@@ -1217,8 +1274,13 @@ export class Engine {
           type: this.chord.type ?? null } : null,
       // Mode Automatique : deux anches à l'unisson (trémolo) depuis plus de
       // 1,5 s → { cents : écart entre elles } ou null.
-      unison: c.mode === 'auto' && !quiet && this.unisonSince != null
-        && this.samplesTotal / this.sr - this.unisonSince >= DISAGREE_HOLD_S ? this.unison : null,
+      // Avec Matrix Pencil (cf. mpReeds), tout de suite et avec la hauteur
+      // de chaque anche : { cents, reeds: [¢…], beatHz }.
+      unison: c.mode === 'auto' && !quiet
+        ? (this.mp && this.samplesTotal / this.sr - this.mpSince >= MP_ALERT_S ? this.mpUnison(groups)
+          : this.unisonSince != null && this.samplesTotal / this.sr - this.unisonSince >= DISAGREE_HOLD_S
+            ? this.unison : null)
+        : null,
       partialsDisagree: c.mode === 'auto' && !quiet && this.disagreeSince != null
         && this.samplesTotal / this.sr - this.disagreeSince >= DISAGREE_HOLD_S ? this.disagree : null,
       clarity,
@@ -1555,6 +1617,118 @@ export class Engine {
     return expected;
   }
 
+  // Anches d'un même ton résolues par Matrix Pencil sur la bande de base du
+  // traqueur de la voix de base (≈ 0,5 s). Retourne les anches [{ f, amp }]
+  // (2 ou 3, par fréquence croissante) une fois vues MP_STABLE fois sur les
+  // MP_HIST dernières images, sinon null. Garde-fous, contre les fausses anches : chaque pôle
+  // doit être en régime (ni amorti ni croissant), dans la note (±50 ¢), à
+  // −12 dB au plus de la plus forte, et les anches écartées d'au moins
+  // MP_MIN_HZ. Rejoué sur les sessions d'Ewen (anches seules, soufflet
+  // vivant, inversions) : moins de 0,3 % d'images signalées à tort.
+  mpReeds(g, calib) {
+    const nom = g.voices[0].nominal;
+    // Pôles d'un traqueur ramenés à la fondamentale (÷ son partiel k), en
+    // régime et dans la note ; null si le traqueur n'a pas encore 0,5 s de
+    // son. (Les redémarrages de la fenêtre FFT n'y font rien : Matrix Pencil
+    // a sa propre fenêtre, et un vrai saut de hauteur rompt la stabilité.)
+    // Pas à cheval sur une reprise après silence (inversion du soufflet).
+    const tNow = this.samplesTotal / this.sr;
+    if (this.resume && tNow - this.resume.t < 0.6) { this.mpHist = []; return null; }
+    const poles = (t, k) => {
+      if (!t || Math.min(t.count, 2048) < MP_N) return null;
+      const bb = t.baseband(MP_N);
+      if (!bb || bb.re.length < MP_N) return null;
+      let comps = [];
+      try { comps = matrixPencil(bb.re, bb.im, MP_POLES, bb.srd, MP_L); } catch { comps = []; }
+      return comps
+        .map((cp) => ({ f: ((bb.fc + cp.freq) * calib) / k, amp: cp.amp, damping: cp.damping }))
+        .filter((cp) => Math.abs(cp.damping) < MP_DAMP && Math.abs(centsBetween(cp.f, nom)) < MP_MAX_CENTS);
+    };
+    // Traqueurs de la note : celui de la voix de base (partiel k) et les
+    // traqueurs cachés du stroboscope (partiels ×1..×6). On mesure sur le
+    // partiel le plus haut dont la bande contient encore toutes les anches
+    // (±35 ¢ ≤ ±40 Hz, soit m·f ≤ 2 kHz) : l'écart entre anches y est m fois
+    // plus grand, donc mieux résolu (Fa3 à 2 Hz d'écart : 0,7 ¢ d'erreur
+    // sur la fondamentale, 0,1 ¢ sur le partiel 6).
+    const cands = [[g.kTrack || 1, this.trackers.get(g.key)]];
+    for (const [key, t] of this.trackers) {
+      const m = key.startsWith(`${g.key}p`) ? Number(key.slice(g.key.length + 1)) : NaN;
+      if (m > 0 && m !== cands[0][0]) cands.push([m, t]);
+    }
+    const usable = cands.filter(([m, t]) => t && m * nom <= 2000).sort((a, b) => b[0] - a[0]);
+    if (!usable.length) return null;
+    const comps = poles(usable[0][1], usable[0][0]);
+    if (!comps) return null;
+    let aMax = 0;
+    for (const cp of comps) aMax = Math.max(aMax, cp.amp);
+    let strong = comps.filter((cp) => cp.amp >= MP_RATIO * aMax)
+      .sort((a, b) => b.amp - a.amp).slice(0, 3);
+    // Une anche est périodique : ses partiels disent tous la même hauteur.
+    // Une anche de plus n'est retenue que si un AUTRE partiel de la note la
+    // montre aussi, à 3 ¢ près. Rejoué sur les sessions d'Ewen : sans ce
+    // contrôle, des restes de partiels voisins passaient pour des anches à
+    // +30, +60 ou −43 ¢.
+    if (strong.length >= 2) {
+      const seen = [];
+      for (const [m, t] of usable.slice(1, 3)) {
+        const cs = poles(t, m);
+        if (!cs?.length) continue;
+        let a2 = 0;
+        for (const cp of cs) a2 = Math.max(a2, cp.amp);
+        seen.push(...cs.filter((cp) => cp.amp >= 0.1 * a2));
+      }
+      strong = strong.filter((cp, i) => i === 0
+        || seen.some((q) => Math.abs(centsBetween(q.f, cp.f)) < 3));
+    }
+    strong.sort((a, b) => a.f - b.f);
+    const ok = strong.length >= 2 && strong.every((cp, i) => i === 0 || cp.f - strong[i - 1].f >= MP_MIN_HZ);
+    const h = this.mpHist ?? (this.mpHist = []);
+    h.push(ok ? strong : null);
+    if (h.length > MP_HIST) h.shift();
+    const seen = h.filter(Boolean);
+    const last = seen[seen.length - 1];
+    const stable = seen.length >= MP_STABLE && seen.every((x) => x.length === last.length
+      && x.every((cp, i) => Math.abs(centsBetween(cp.f, last[i].f)) < MP_CENTS));
+    return stable ? last : null;
+  }
+
+  // Auto-anches : les anches de Matrix Pencil dans les emplacements 8', 8'+,
+  // 8'−, si la FFT en voit moins — attribuées par la MÊME règle que les
+  // raies de la FFT (assignOrdered : ordre des fréquences, cible ou mémoire
+  // la plus proche), pour qu'une anche ne change pas de case quand la FFT
+  // reprend la main. La mémoire par anche (prevF) est posée sur ces valeurs.
+  fillFromMp(g, mp) {
+    const fine = g.voices.filter((v) => v.tracked);
+    if (fine.length >= mp.length) return;
+    const voices = [...g.voices].sort((a, b) => a.target - b.target);
+    const tolHz = Math.max(2.5, g.center * 0.05);
+    const chosen = assignOrdered(voices, mp.map((cp) => ({ freq: cp.f, mag: cp.amp })), tolHz);
+    if (chosen.filter(Boolean).length < mp.length) return;
+    for (let i = 0; i < voices.length; i++) {
+      const v = voices[i];
+      this.fillVoice(v, chosen[i], 2);
+      if (chosen[i]) {
+        v.mp = true;
+        this.prevF?.set(`${g.key}:${v.def.id}`, chosen[i].freq);
+      }
+    }
+    const base = g.voices.find((v) => v.def.beatSign === 0);
+    for (const v of g.voices) v.beatMeas = v.tracked && base?.tracked ? v.fMeas - base.fMeas : null;
+  }
+
+  // Alerte « plusieurs anches » du mode Automatique, d'après Matrix Pencil.
+  mpUnison(groups) {
+    const g = groups.find((gr) => !gr.isHarmonic && !gr.isSub);
+    const nom = g?.voices[0]?.nominal;
+    if (!nom) return null;
+    const reeds = this.mp.map((cp) => centsBetween(cp.f, nom));
+    return {
+      cents: reeds[reeds.length - 1] - reeds[0],
+      reeds,
+      beatHz: this.mp[this.mp.length - 1].f - this.mp[0].f,
+    };
+  }
+
   fillVoice(v, comp, w) {
     if (comp) {
       v.fMeas = comp.freq;
@@ -1658,7 +1832,24 @@ function clusterRefine(chosen, az, calib, div, expectedMt = null) {
   const binHz = srd / W;
   const offOf = (b) => (b <= W / 2 ? b : b - W) * binHz;
   const toOff = (f) => (f * div) / calib - fc;    // fondamentale → décalage dans la bande
-  const centre = (i) => (expectedMt?.[i] != null ? toOff(expectedMt[i]) : chosen[i].off);
+  // Centre de l'amas : la mémoire de l'anche (sa hauteur à l'image
+  // précédente) si la raie choisie en est proche — c'est peut-être une raie
+  // latérale, l'amas se centre alors sur la porteuse. Sinon, la raie
+  // elle-même : quand la « mémoire » n'est que la CIBLE du registre et que
+  // l'anche en est loin (musette à +17 ¢ pour une cible à +7 ¢), l'amas
+  // centré sur la cible excluait l'anche, la mesure d'amas échouait, l'anche
+  // n'avait jamais de mémoire — et une raie latérale de sa voisine, plus
+  // proche de la cible, finissait par lui être attribuée (−2,8 ¢ au lieu de
+  // +17,2 ¢ après 3 s de note). Mais seulement si la raie est bien à l'écart
+  // des raies des autres voix : une voix sans anche (registre 8'+8' quand une
+  // seule anche sonne) prend une raie latérale de sa voisine, et l'amas centré
+  // sur elle couperait en deux celui de la vraie anche.
+  const centre = (i) => {
+    const m = expectedMt?.[i] != null ? toOff(expectedMt[i]) : null;
+    if (m == null || Math.abs(m - chosen[i].off) < CLUSTER_HZ / 2) return m ?? chosen[i].off;
+    const alone = chosen.every((c, j) => j === i || !c || Math.abs(c.off - chosen[i].off) >= CLUSTER_HZ);
+    return alone ? chosen[i].off : m;
+  };
   const idx = chosen.map((c, i) => (c ? i : -1)).filter((i) => i >= 0)
     .sort((a, b) => centre(a) - centre(b));
   const fft = FFT.get(W);
