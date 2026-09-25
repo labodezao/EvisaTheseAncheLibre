@@ -1074,5 +1074,67 @@ console.log('\nTest 40 — une anche seule, soufflet vivant : pas d\'anche fant�
   }
 }
 
+console.log('\nTest 41 — registre 16\'+8\' : la fondamentale du 16\' ne se replie pas dans la bande du 8\'');
+{
+  // Session d'Ewen (Fa4 + Fa5) : le 16' à 13 dB au-dessus du 8' ; replié par
+  // la décimation du zoom, il faisait une raie fantôme à +25,7 Hz du 8', qui
+  // s'y accrochait (+62,7 ¢ affichés pendant toute la note).
+  // Partiel 2 du 16' faible (comme sur l'anche d'Ewen) : la raie commune
+  // 16'×2 / 8' ne l'emporte pas sur le fantôme. v25 : +62,7 ¢ à chaque image.
+  const n = SR * 5, x = new Float32Array(n);
+  for (const [f, a, H] of [[at(53, 0), 1, [1, 0.05, 0.4, 0.25, 0.15, 0.08]], [at(65, 2.3), 0.22, [1, 0.6, 0.4, 0.25]]]) {
+    let ph = 0.3;
+    for (let i = 0; i < n; i++) {
+      ph += (2 * Math.PI * f) / SR;
+      for (let h = 0; h < H.length; h++) x[i] += 0.25 * a * H[h] * Math.sin((h + 1) * ph + h);
+    }
+  }
+  for (let i = 0; i < n; i++) x[i] += 3e-4 * (Math.random() * 2 - 1);
+  const e = new Engine(SR, { mode: 'register', register: 'LM' });
+  let bad = null, n8 = 0;
+  for (let i = 0; i + 512 <= n; i += 512) {
+    const r = e.process(x.subarray(i, i + 512));
+    if (!r || r.time < 2) continue;
+    const v8 = r.groups.filter((g) => !g.isHarmonic && !g.isSub).flatMap((g) => g.voices).find((v) => v.def.id === '8');
+    if (!v8?.tracked) continue;
+    n8++;
+    if (Math.abs(v8.dCents - 2.3) > 1 && !bad) bad = `${r.time.toFixed(2)} s : 8' à ${v8.dCents.toFixed(1)} ¢`;
+  }
+  assert(n8 > 20 && !bad, bad ?? `8' à +2,3 ¢ de 2 à 5 s (${n8} images), pas de raie fantôme`);
+}
+
+console.log('\nTest 42 — Auto-anches : inversion du soufflet sans silence, une anche au poussé, une autre au tiré');
+{
+  // Session d'Ewen, Ré6 joué sur une anche : poussé à +3,5 ¢, tiré à +24 ¢.
+  // Le son plonge de ~20 dB pendant 0,15 s sans passer sous le seuil. v25 :
+  // mesuré sur le partiel 3, l'anche du tiré tombait hors de la bande (jamais
+  // vue), l'ancienne restait affichée, et une anche seule changeait de case.
+  const n = SR * 6.5, x = new Float32Array(n);
+  const H = [1, 0.5, 0.3, 0.2];
+  let ph = 0;
+  for (let i = 0; i < n; i++) {
+    const t = i / SR;
+    const f = t < 3.2 ? at(86, 3.5) : at(86, 24);
+    const dip = Math.abs(t - 3.2) < 0.08 ? 0.1 : Math.abs(t - 3.2) < 0.13 ? 0.1 + 0.9 * (Math.abs(t - 3.2) - 0.08) / 0.05 : 1;
+    ph += (2 * Math.PI * f) / SR;
+    for (let h = 0; h < H.length; h++) x[i] += Math.min(1, t / 0.05) * dip * 0.2 * H[h] * Math.sin((h + 1) * ph + h);
+  }
+  for (let i = 0; i < n; i++) x[i] += 3e-4 * (Math.random() * 2 - 1);
+  const e = new Engine(SR, { mode: 'reeds', reedOctaves: [0] });
+  let before = null, after = null, late = null;
+  for (let i = 0; i + 512 <= n; i += 512) {
+    const r = e.process(x.subarray(i, i + 512));
+    if (!r) continue;
+    const on = r.groups.filter((g) => !g.isHarmonic && !g.isSub).flatMap((g) => g.voices).filter((v) => v.tracked);
+    const sig = on.map((v) => `${v.def.label}=${v.dCents.toFixed(1)}`).join(' ');
+    if (r.time > 2.5 && r.time < 3.1 && !(on.length === 1 && on[0].def.beatSign === 0 && Math.abs(on[0].dCents - 3.5) < 0.5)) before ??= `${r.time.toFixed(2)} s : ${sig}`;
+    if (r.time > 4.4 && !(on.length === 1 && on[0].def.beatSign === 0 && Math.abs(on[0].dCents - 24) < 0.5)) after ??= `${r.time.toFixed(2)} s : ${sig}`;
+    if (r.time > 3.3 && r.time < 4.4 && on.some((v) => Math.abs(v.dCents - 3.5) < 1)) late ??= `${r.time.toFixed(2)} s : ${sig}`;
+  }
+  assert(!before, before ? `poussé : ${before}` : 'poussé : une anche, en 8\', à +3,5 ¢');
+  assert(!late, late ? `l'anche du poussé encore affichée après l'inversion (${late})` : 'l\'anche du poussé disparaît à l\'inversion');
+  assert(!after, after ? `tiré : ${after}` : 'tiré : une anche, en 8\', à +24 ¢');
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);
