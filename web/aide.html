@@ -338,6 +338,47 @@
   </div>
 
   <div class="callout">
+    <b>Échelle « Relatif (chaque anche sur 0) ».</b> Sous la courbe d'accordage,
+    le menu Échelle propose, en plus de l'échelle automatique, une échelle
+    relative : chaque courbe est centrée sur SA médiane (sur la note en cours,
+    les 6 dernières secondes). Deux anches très désaccordées (+3 ¢ et +24 ¢)
+    n'écrasent plus l'échelle : toutes se superposent autour de 0, et on voit
+    ce qui compte pour accorder — la stabilité de chaque anche. L'écart absolu
+    de chaque anche est écrit dans la légende (« 8' +10,5 ¢ »), et la lecture
+    numérique reste en absolu. Le choix est retenu d'une séance à l'autre.
+  </div>
+
+  <div class="callout">
+    <b>Inversion du soufflet sans silence.</b> Au poussé et au tiré, ce ne sont
+    pas les mêmes anches qui parlent, et elles n'ont pas forcément la même
+    hauteur (mesuré sur votre Ré6 : +3,5 ¢ au poussé, +24 ¢ au tiré). Le son
+    ne passe pas sous le seuil, mais il plonge net (13 à 22 dB en moins de
+    0,1 s) : l'accordeur reconnaît ce creux et repart de zéro, comme après un
+    silence. L'anche d'avant disparaît au lieu de rester affichée à côté de la
+    nouvelle. En registre, quand une anche voit sa marche, toutes les anches
+    de la note repartent avec elle.
+  </div>
+
+  <div class="callout">
+    <b>Auto-anches : les cases disent l'ordre des anches.</b> Une anche seule
+    est toujours « 8' » ; deux anches : la plus proche de la note en 8', l'autre
+    en 8'+ ou 8'− ; trois : 8'−, 8', 8'+. Et toutes les anches admises (±35 ¢)
+    tiennent désormais dans la bande analysée : une anche aiguë très haute
+    (+24 ¢ sur un Ré6) n'est plus invisible.
+  </div>
+
+  <div class="callout">
+    <b>Registre 16'+8' : plus de valeurs fantômes.</b> Le filtre du zoom
+    (décimation) est passé à l'ordre 2 : une raie forte hors de la bande (la
+    fondamentale du 16') ne s'y replie plus en fausse raie (mesuré sur votre
+    Fa4 + Fa5 : le 8' affichait +62,7 ¢). Sur votre session d'octaves, les
+    valeurs au-delà de 40 ¢ passent de 142 à 0. Un 8' pile à l'octave du 16'
+    (sa raie EST le partiel 2 du 16') s'affiche « confondu avec l'octave » au
+    lieu de « — » ; une voix à plus de 30 dB sous la plus forte ne sonne pas :
+    « — ».
+  </div>
+
+  <div class="callout">
     <b>Musette : les deux anches en une demi-seconde.</b> Une FFT ne sépare deux
     anches écartées de Δf qu'après environ 1/Δf seconde, et elle montre avant
     une seule raie : le <b>mélange</b> des deux, dont la hauteur n'est celle

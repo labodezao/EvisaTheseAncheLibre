@@ -15,7 +15,7 @@ import {
 
 // Version du moteur : doit être celle de la page et de app.js (cf. le
 // contrôle de cohérence dans app.js et le test dans dsp.test.mjs).
-export const ENGINE_VERSION = '25';
+export const ENGINE_VERSION = '26';
 
 const HOP = 4096;             // période d'analyse (~85 ms à 48 kHz)
 const MAXWIN = { fast: 128, normal: 256, precise: 512 };
@@ -160,7 +160,13 @@ export function unisonHarmonic(g, cfg, coarse = null) {
     const d = targets[i] - targets[i - 1];
     if (d > 1e-6) spacing = Math.min(spacing, d);
   }
-  const spread = Math.max(...targets.map((t) => Math.abs(t - g.center)));
+  let spread = Math.max(...targets.map((t) => Math.abs(t - g.center)));
+  // Auto-anches : les anches ne sont pas déclarées, elles peuvent être
+  // n'importe où dans les ±35 ¢ admis — toutes doivent tenir dans la bande.
+  // Mesuré (session d'Ewen, Ré6) : suivi sur le partiel 3 pour séparer des
+  // anches supposées à ±2,5 Hz, l'anche du tiré à +24 ¢ (+49 Hz sur ce
+  // partiel) tombait hors de la bande : jamais vue, l'ancienne restait.
+  if (cfg.mode === 'reeds') spread = Math.max(spread, g.center * (2 ** (MP_MAX_CENTS / 1200) - 1));
   // Emplacements d'unisson sans cible distincte (auto-anches) : l'écart
   // attendu est celui de la courbe de battement à cette note.
   if (!Number.isFinite(spacing)) spacing = spread;
@@ -583,6 +589,8 @@ export class Engine {
       this.attackPending = null;
     }
 
+    this.watchReversal(rms, tNow, chunk.length);
+
     // En silence, on gèle les traqueurs : la dernière mesure reste valable
     // et le bruit ne dégrade pas la fenêtre d'analyse.
     if (rms >= gate) {
@@ -780,8 +788,10 @@ export class Engine {
       const tNow = this.samplesTotal / this.sr;
       if (quiet) {
         if (this.silentSince == null) this.silentSince = tNow;
-      } else if (this.silentSince != null) {
+        this.reversal = false;
+      } else if (this.silentSince != null || this.reversal) {
         this.silentSince = null;
+        this.reversal = false;
         for (const tr of this.trackers.values()) tr.restart(RESUME_KEEP);
         this.stab = new Map();   // pas de maintien À TRAVERS le silence : l'autre sens n'est pas celui-ci
         this.prevF = new Map();
@@ -789,6 +799,7 @@ export class Engine {
         this.lastFine = null;
         this.disagreeSince = null;
         this.mpHist = [];
+        this.reedSeen = new Map();
         this.resume = { t: tNow, midi: this.playedMidi };
       }
     }
@@ -1085,6 +1096,21 @@ export class Engine {
       }
     }
 
+    // Registre à plusieurs octaves : une voix à plus de 30 dB sous la plus
+    // forte de la note ne sonne pas — sa « raie » est le reste d'une autre
+    // (mesuré, session d'Ewen : Fa4 seul joué, le 8' affichait +64 ¢ sur une
+    // raie 43 dB sous le 16'). Elle est « — », sans maintien.
+    if (c.mode === 'register' && this.octSpan() > 0) {
+      let aMax = 0;
+      for (const g of groups) if (!g.isHarmonic && !g.isSub) for (const v of g.voices) if (v.tracked) aMax = Math.max(aMax, v.amp);
+      for (const g of groups) {
+        if (g.isHarmonic || g.isSub) continue;
+        for (const v of g.voices) {
+          if (v.tracked && v.amp < aMax * Math.pow(10, -30 / 20)) { this.fillVoice(v, null); v.absent = true; }
+        }
+      }
+    }
+
     // Plancher harmonique −42 dB : un partiel très en deçà de la fondamentale
     // est noyé dans le bruit, la zone où le traqueur zoom se verrouille sur une
     // raie parasite. Mieux vaut une lacune franche dans la courbe qu'un pic
@@ -1192,6 +1218,7 @@ export class Engine {
     } else {
       this.mpHist = [];
     }
+    if (c.mode === 'reeds') for (const g of groups) if (!g.isHarmonic && !g.isSub) this.rankReeds(g);
     if (!this.mp) this.mpSince = null;
     else if (this.mpSince == null) this.mpSince = this.samplesTotal / this.sr;
 
@@ -1477,6 +1504,19 @@ export class Engine {
     this.fillVoice(v, { freq: fq, mag: q.mag }, STEP_QW);
     v.step = true;
     if (g.isHarmonic) return;
+    // Inversion du soufflet sans silence : TOUTES les anches de la note
+    // changent (poussé → tiré), pas seulement celle qui l'a vu. Les autres
+    // traqueurs repartent aussi, et oublient leur mémoire. Mesuré (session
+    // d'Ewen, 16'+8' sur Fa4 + Fa5) : le 8', trop près du partiel 2 du 16'
+    // pour voir sa propre marche, affichait encore 1,3 s l'anche du poussé
+    // (+2 ¢) quand celle du tiré (+22 ¢) sonnait.
+    for (const [k2, t2] of this.trackers) if (t2 !== t) t2.restart(STEP_KEEP);
+    if (this.prevF) {
+      for (const k2 of [...this.prevF.keys()]) if (!k2.startsWith(`${key}:`)) this.prevF.delete(k2);
+    }
+    if (this.stab) {
+      for (const k2 of [...this.stab.keys()]) if (!k2.startsWith(`${key}:`)) this.stab.delete(k2);
+    }
     if (this.prevF) this.prevF.set(`${key}:${v.def.id}`, fq);
     if (this.cfg.mode === 'auto') this.lastFine = { t: this.samplesTotal / this.sr, f: fq };
   }
@@ -1596,6 +1636,24 @@ export class Engine {
     }
 
     const chosen = assignOrdered(expected, comps, tolHz);
+    // Anche à l'octave juste d'une autre (registre 16'+8') : sa raie EST le
+    // partiel pair de l'anche grave. Le coût de la raie « revendiquée » la
+    // réservait aux anches à moins de ~9 ¢ de leur cible ; plus loin, la voix
+    // restait vide (« — ») — ou, avant la décimation d'ordre 2, prenait une
+    // raie fantôme. Une voix sans raie prend donc la raie commune la plus
+    // proche, dans la tolérance, marquée « confondue avec l'octave ».
+    if (!group.isHarmonic && !group.isSub) {
+      for (let i = 0; i < expected.length; i++) {
+        if (chosen[i]) continue;
+        const ref = expected[i].mt ?? expected[i].target;
+        let best = null;
+        for (const cp of comps) {
+          if (!cp.claimed || chosen.includes(cp) || Math.abs(cp.freq - ref) >= tolHz) continue;
+          if (!best || Math.abs(cp.freq - ref) < Math.abs(best.freq - ref)) best = cp;
+        }
+        if (best) chosen[i] = best;
+      }
+    }
     if (az && !group.isSub) clusterRefine(chosen, az, calib, div, expected.map((v) => v.mt));
     for (let i = 0; i < expected.length; i++) {
       this.fillVoice(expected[i], chosen[i], az?.W);
@@ -1615,6 +1673,48 @@ export class Engine {
         : (v === base ? 0 : null);
     }
     return expected;
+  }
+
+  // Inversion du soufflet SANS silence : le son ne passe pas sous le seuil,
+  // mais il plonge net — 13 à 22 dB en 50 à 100 ms, pendant 0,1 à 0,2 s
+  // (mesuré, session d'Ewen, Ré6 et Si5 joués sur une anche : le poussé à
+  // +3,5 ¢, le tiré à +24 ¢). L'anche qui parle ensuite n'est plus la même ;
+  // sans rien voir, Auto-anches gardait l'ancienne à l'écran à côté de la
+  // nouvelle — « deux anches » pour une seule. On traite ce creux comme un
+  // silence (cf. tick : reprise). Pas pour un trémolo : ses creux reviennent
+  // à chaque battement (on ignore un creux si un autre a eu lieu dans les
+  // 1,5 s), et ceux d'un battement lent (< 0,7 Hz) descendent trop lentement.
+  // Suivi par bloc reçu (512 échantillons, ~11 ms, en général).
+  watchReversal(rms, tNow, n = 512) {
+    const db = 20 * Math.log10(rms + 1e-12);
+    const w = this.rev ?? (this.rev = { ref: null, fallT: null, dipT: null, lastDip: -1e9 });
+    // (Le creux peut passer un instant sous le seuil — mesuré, Ré6 : un bloc
+    // de 11 ms à −80 dB. On le suit quand même ; un vrai silence, lui, dure
+    // et remet la référence à zéro — cf. plus bas, 0,6 s.)
+    if (w.ref == null) { w.ref = db; return; }
+    if (w.dipT == null) {
+      if (db > w.ref - 3) w.fallT = tNow;                 // encore au niveau : départ de la chute
+      if (db < w.ref - 10) {
+        w.dipT = tNow;
+        w.steep = w.fallT != null && tNow - w.fallT <= 0.12;
+      } else {
+        const a = Math.min(1, (n / this.sr) / 0.5);       // référence lente (~0,5 s)
+        w.ref += a * (db - w.ref);
+      }
+      return;
+    }
+    // Dans le creux : on attend la remontée.
+    if (db >= w.ref - 4) {
+      const dur = tNow - w.dipT;
+      const isolated = tNow - w.lastDip >= 1.5;
+      // (Pas de test « plusieurs anches » ici : juste avant l'inversion, la
+      // fenêtre de Matrix Pencil voit l'anche du poussé ET celle du tiré.)
+      if (w.steep && dur >= 0.02 && dur <= 0.4 && isolated) this.reversal = true;
+      w.lastDip = tNow;
+      w.dipT = null; w.fallT = tNow;
+    } else if (tNow - w.dipT > 0.6) {
+      w.ref = db; w.dipT = null; w.fallT = null;          // pas un creux : le son a baissé pour de bon
+    }
   }
 
   // Anches d'un même ton résolues par Matrix Pencil sur la bande de base du
@@ -1659,9 +1759,18 @@ export class Engine {
     if (!usable.length) return null;
     const comps = poles(usable[0][1], usable[0][0]);
     if (!comps) return null;
+    // Le soufflet module la hauteur : sur une demi-seconde, une anche peut
+    // sortir en DEUX pôles voisins (0,1 à 0,2 Hz d'écart). Ce n'est qu'une
+    // anche : les pôles à moins de MP_MIN_HZ de plus fort qu'eux sont fondus
+    // dans celui-ci.
+    const merged = [];
+    for (const cp of [...comps].sort((a, b) => b.amp - a.amp)) {
+      const host = merged.find((q) => Math.abs(q.f - cp.f) < MP_MIN_HZ);
+      if (host) host.amp += cp.amp; else merged.push({ ...cp });
+    }
     let aMax = 0;
-    for (const cp of comps) aMax = Math.max(aMax, cp.amp);
-    let strong = comps.filter((cp) => cp.amp >= MP_RATIO * aMax)
+    for (const cp of merged) aMax = Math.max(aMax, cp.amp);
+    let strong = merged.filter((cp) => cp.amp >= MP_RATIO * aMax)
       .sort((a, b) => b.amp - a.amp).slice(0, 3);
     // Une anche est périodique : ses partiels disent tous la même hauteur.
     // Une anche de plus n'est retenue que si un AUTRE partiel de la note la
@@ -1713,6 +1822,47 @@ export class Engine {
       }
     }
     const base = g.voices.find((v) => v.def.beatSign === 0);
+    for (const v of g.voices) v.beatMeas = v.tracked && base?.tracked ? v.fMeas - base.fMeas : null;
+  }
+
+  // Auto-anches : les cases disent l'ordre des anches, pas leur distance à
+  // une cible. Une anche seule est « 8' », quelle que soit sa hauteur ; deux
+  // anches : la plus proche de la note en 8', l'autre en 8'+ ou 8'− selon
+  // qu'elle est au-dessus ou au-dessous ; trois : 8'−, 8', 8'+. Avant, une
+  // anche seule à +3 ¢ tombait en « 8'+ » (plus près de la cible du 8'+ que
+  // de la note) et, d'un sens du soufflet à l'autre, changeait de case.
+  rankReeds(g) {
+    if (g.voices.length < 2) return;
+    const on = g.voices.filter((v) => v.tracked).sort((a, b) => a.fMeas - b.fMeas);
+    if (!on.length) return;
+    const bySign = (s) => g.voices.find((v) => v.def.beatSign === s);
+    const nom = g.voices[0].nominal;
+    // Rangement déjà valable (ordre respecté, une anche en 8') : on n'y touche
+    // pas — sinon deux anches à égale distance de la note (−2 / +2 ¢) se
+    // disputeraient la case 8' d'une image à l'autre.
+    const cur = on.map((v) => v.def.beatSign).join(',');
+    if ((on.length === 1 && cur === '0') || (on.length === 2 && (cur === '0,1' || cur === '-1,0'))
+      || (on.length >= 3 && cur === '-1,0,1')) return;
+    let signs;
+    if (on.length >= 3) signs = [-1, 0, 1];
+    else if (on.length === 2) {
+      signs = Math.abs(centsBetween(on[0].fMeas, nom)) <= Math.abs(centsBetween(on[1].fMeas, nom)) ? [0, 1] : [-1, 0];
+    } else signs = [0];
+    const plan = on.slice(0, 3).map((v, i) => [v, bySign(signs[i])]);
+    if (plan.some(([, dst]) => !dst) || plan.every(([src, dst]) => src === dst)) return;
+    const data = plan.map(([v]) => ({ f: v.fMeas, amp: v.amp, mp: v.mp, step: v.step }));
+    for (const v of g.voices) { this.fillVoice(v, null); v.mp = false; v.step = false; }
+    // Une case qui change d'anche repart de zéro : ni médiane ni maintien de
+    // l'anche d'avant (elle s'afficherait deux fois).
+    for (const v of g.voices) this.stab?.delete(`${g.key}:${v.def.id}`);
+    plan.forEach(([, dst], i) => {
+      const d = data[i];
+      this.fillVoice(dst, { freq: d.f, mag: d.amp }, 2);
+      dst.mp = d.mp; dst.step = d.step;
+      this.prevF?.set(`${g.key}:${dst.def.id}`, d.f);
+    });
+    for (const [, src] of plan) if (!plan.some(([, dst]) => dst === src)) this.prevF?.delete(`${g.key}:${src.def.id}`);
+    const base = bySign(0);
     for (const v of g.voices) v.beatMeas = v.tracked && base?.tracked ? v.fMeas - base.fMeas : null;
   }
 

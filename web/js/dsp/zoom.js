@@ -7,9 +7,13 @@
 // raffinement par différence de phase entre deux fenêtres décalées porte la
 // précision bien en dessous de 0,1 cent, tout en se mettant à jour en continu.
 //
-// La décimation en deux moyennes glissantes (32 puis 16) place les zéros du
-// second étage exactement sur les fréquences de repliement, ce qui rejette
-// les partiels voisins.
+// La décimation : une moyenne glissante de 32, puis DEUX moyennes glissantes
+// de 16 en cascade (filtre CIC d'ordre 2). Les zéros du second étage tombent
+// exactement sur les fréquences de repliement ; entre ces zéros, l'ordre 2
+// double la réjection (≈ −40 dB au lieu de −20 dB). Mesuré (session d'Ewen,
+// registre 16'+8', Fa4 + Fa5) : avec un seul étage, la fondamentale du 16'
+// (349,2 Hz, 13 dB au-dessus du 8') se repliait dans la bande du 8' — une
+// raie fantôme à 724,2 Hz, à −11 dB — et le 8' s'y accrochait : +62,7 ¢.
 
 import { FFT, hannWindow } from './fft.js';
 
@@ -33,9 +37,12 @@ export class ZoomTracker {
     this.oscRe = 1; this.oscIm = 0;
     this.stepRe = 1; this.stepIm = 0;
     this.norm = 0;
-    // Accumulateurs des deux étages de décimation.
+    // Accumulateurs des étages de décimation ; `h` : les D2 dernières sorties
+    // du premier étage (moyenne glissante du CIC), `sre`/`sim` leur somme.
     this.a1re = 0; this.a1im = 0; this.c1 = 0;
     this.a2re = 0; this.a2im = 0; this.c2 = 0;
+    this.hre = new Float64Array(D2); this.him = new Float64Array(D2); this.hi = 0;
+    this.sre = 0; this.sim = 0;
     this.windows = new Map();
     this.scratch = new Map(); // tampons FFT réutilisés par taille de fenêtre
   }
@@ -49,6 +56,8 @@ export class ZoomTracker {
     this.oscRe = 1; this.oscIm = 0;
     this.a1re = 0; this.a1im = 0; this.c1 = 0;
     this.a2re = 0; this.a2im = 0; this.c2 = 0;
+    this.hre.fill(0); this.him.fill(0); this.hi = 0;
+    this.sre = 0; this.sim = 0;
     this.count = 0;
     this.start = 0;
   }
@@ -165,8 +174,8 @@ export class ZoomTracker {
   }
 
   process(chunk) {
-    let { oscRe, oscIm, a1re, a1im, c1, a2re, a2im, c2, count, norm } = this;
-    const { stepRe, stepIm, ringRe, ringIm } = this;
+    let { oscRe, oscIm, a1re, a1im, c1, a2re, a2im, c2, count, norm, sre, sim, hi } = this;
+    const { stepRe, stepIm, ringRe, ringIm, hre, him } = this;
     for (let i = 0; i < chunk.length; i++) {
       const s = chunk[i];
       a1re += s * oscRe;
@@ -181,8 +190,14 @@ export class ZoomTracker {
         norm = 0;
       }
       if (++c1 >= D1) {
-        a2re += a1re / D1;
-        a2im += a1im / D1;
+        // Moyenne glissante des D2 dernières sorties du premier étage…
+        const xr = a1re / D1, xi = a1im / D1;
+        sre += xr - hre[hi]; sim += xi - him[hi];
+        hre[hi] = xr; him[hi] = xi;
+        hi = (hi + 1) % D2;
+        // …puis moyenne par blocs de D2 (décimation).
+        a2re += sre / D2;
+        a2im += sim / D2;
         a1re = 0; a1im = 0; c1 = 0;
         if (++c2 >= D2) {
           const w = count % RING;
@@ -196,6 +211,7 @@ export class ZoomTracker {
     this.oscRe = oscRe; this.oscIm = oscIm; this.norm = norm;
     this.a1re = a1re; this.a1im = a1im; this.c1 = c1;
     this.a2re = a2re; this.a2im = a2im; this.c2 = c2;
+    this.sre = sre; this.sim = sim; this.hi = hi;
     this.count = count;
   }
 

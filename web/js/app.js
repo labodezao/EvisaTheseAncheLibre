@@ -19,7 +19,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '25';
+const APP_VERSION = '26';
 function versionMismatch(what, got) {
   const b = document.getElementById('versionBanner');
   if (!b) return;
@@ -771,7 +771,55 @@ function drawPitchCurve() {
     // recale immédiatement (pas de lissage qui traînerait entre deux notes).
     let range;
     let center = 0;
-    if (rangeSel === 'auto') {
+    // Mode relatif (demande d'Ewen, 25/09/2026) : en Auto-anches, une anche
+    // à +22 ¢ et une autre à +3 ¢ obligent l'échelle absolue à ±25 ¢, et
+    // chaque courbe n'est plus qu'un trait plat. Ici, chaque courbe est
+    // centrée sur SA médiane (sur la note, les 6 dernières secondes pour la
+    // note en cours) : toutes se superposent autour de 0 et l'échelle,
+    // resserrée, montre ce qui compte pour un accordeur — la stabilité de
+    // chaque anche. L'écart absolu de chaque anche est écrit dans la légende.
+    let refs = null;
+    const runs = [];
+    for (let i = 0; i < hist.length; i++) runs.push(i && hist[i].midi === hist[i - 1].midi ? runs[i - 1] : i);
+    if (rangeSel === 'rel') {
+      refs = new Map();
+      const acc = new Map();
+      const lastRun = runs.length ? runs[runs.length - 1] : -1;
+      for (let i = 0; i < hist.length; i++) {
+        const e = hist[i];
+        if (runs[i] === lastRun && e.t < T - 6) continue;
+        for (const k of keys) {
+          const v = e.vals[k];
+          if (!v || !isFinite(v.c)) continue;
+          const id = `${k}|${runs[i]}`;
+          if (!acc.has(id)) acc.set(id, []);
+          acc.get(id).push(v.c);
+        }
+      }
+      for (const [id, a] of acc) { a.sort((x, y) => x - y); refs.set(id, a[a.length >> 1]); }
+      const dev = [];
+      for (let i = 0; i < hist.length; i++) {
+        if (runs[i] !== lastRun || hist[i].t < T - 6) continue;
+        for (const k of keys) {
+          const v = hist[i].vals[k];
+          const r = refs.get(`${k}|${runs[i]}`);
+          if (v && r != null) dev.push(Math.abs(v.c - r));
+        }
+      }
+      dev.sort((a, b) => a - b);
+      const need = Math.max(0.3, dev.length ? dev[Math.ceil(dev.length * 0.97) - 1] : 0) * 1.15;
+      const steps = [0.5, 1, 2, 5, 10, 25, 50];
+      let sc = state.relScale;
+      if (!sc || sc.midi !== curMidi) sc = state.relScale = { midi: curMidi, range: null, calmSince: null };
+      const fit = steps.find((x) => x >= need) ?? 50;
+      if (sc.range == null || fit > sc.range) { sc.range = fit; sc.calmSince = null; }
+      else if (fit < sc.range && need * 1.3 <= fit) {
+        if (sc.calmSince == null) sc.calmSince = T;
+        else if (T - sc.calmSince > 5) { sc.range = fit; sc.calmSince = null; }
+      } else sc.calmSince = null;
+      range = sc.range;
+      $('curveRangeLbl').textContent = `relatif ±${String(range).replace('.', ',')} ¢ · ${HISTORY_SPAN} s`;
+    } else if (rangeSel === 'auto') {
       // Échelle automatique STABLE. Avant, centre et étendue étaient recalculés
       // à chaque image : au moindre mouvement, toute la courbe sautait d'un
       // cran (±2 → ±5 ¢, centre −0,5 → 0) — de faux « pics » (repéré par
@@ -835,9 +883,16 @@ function drawPitchCurve() {
       range = Number(rangeSel);
       $('curveRangeLbl').textContent = `±${range} ¢ · ${HISTORY_SPAN} s`;
     }
-    state.curveCache = { hist, keys, T, rangeSel, center, range, curMidi };
+    state.curveCache = { hist, keys, T, rangeSel, center, range, curMidi, refs, runs };
   }
-  const { hist, keys, center, range, curMidi } = state.curveCache;
+  const { hist, keys, center, range, curMidi, refs, runs } = state.curveCache;
+  // En relatif, une valeur est lue par rapport à la médiane de sa courbe sur
+  // sa note ; sans référence (valeur isolée), elle n'est pas tracée.
+  const shown = (k, i, c) => {
+    if (!refs) return c;
+    const r = refs.get(`${k}|${runs[i]}`);
+    return r == null ? null : c - r;
+  };
   const xFor = (t) => pad.l + plotW * (1 - (T - t) / HISTORY_SPAN);
   const yFor = (c) => pad.t + (1 - (clamp(c - center, -range, range) + range) / (2 * range)) * plotH;
 
@@ -845,17 +900,18 @@ function drawPitchCurve() {
   // ligne de zéro (la cible d'accordage) marquée quand elle est dans le champ.
   ctx.font = '10px system-ui';
   ctx.textAlign = 'right';
-  const step = range <= 2 ? 0.5 : range <= 5 ? 1 : range <= 10 ? 2 : range <= 25 ? 5
+  const step = range <= 0.5 ? 0.1 : range <= 1 ? 0.25 : range <= 2 ? 0.5 : range <= 5 ? 1 : range <= 10 ? 2 : range <= 25 ? 5
     : range <= 50 ? 10 : range <= 100 ? 25 : range <= 200 ? 50 : 100;
   const gridStart = Math.ceil((center - range) / step) * step;
   for (let c = gridStart; c <= center + range + 1e-9; c += step) {
-    const cRound = Math.round(c * 2) / 2;
+    const cRound = Math.round(c / step) * step;
     const y = yFor(cRound);
-    ctx.strokeStyle = cRound === 0 ? theme().gridStrong : theme().grid;
-    ctx.lineWidth = cRound === 0 ? 1.5 : 1;
+    ctx.strokeStyle = Math.abs(cRound) < 1e-9 ? theme().gridStrong : theme().grid;
+    ctx.lineWidth = Math.abs(cRound) < 1e-9 ? 1.5 : 1;
     ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
     ctx.fillStyle = theme().dim2;
-    ctx.fillText(String(cRound), pad.l - 5, y + 3);
+    const txt = String(Number(cRound.toFixed(2))).replace('.', ',');
+    ctx.fillText(refs && Math.abs(cRound) > 1e-9 && cRound > 0 ? `+${txt}` : txt, pad.l - 5, y + 3);
   }
 
   // Grille horizontale (secondes).
@@ -924,23 +980,32 @@ function drawPitchCurve() {
       else ctx.stroke();
       seg = [];
     };
-    for (const e of hist) {
+    for (let i = 0; i < hist.length; i++) {
+      const e = hist[i];
       const v = e.vals[k];
       // Pas de trou dans le trait (demande d'Ewen) : une mesure absente un
       // instant (reprise après une inversion du soufflet, silence bref) est
       // enjambée par le trait. Le trait n'est coupé qu'au changement de note
       // ou après un vrai arrêt (> 1,5 s).
       if (!v) continue;
+      const c = shown(k, i, v.c);
+      if (c == null) continue;
       if (seg.length && (e.midi !== segMidi || (prevT != null && e.t - prevT > 1.5))) flush();
       const x = xFor(e.t);
       prevT = e.t;
       if (x < pad.l) continue;
       if (!seg.length) segMidi = e.midi;
-      seg.push({ x, y: yFor(v.c) });
+      seg.push({ x, y: yFor(c) });
     }
     flush();
-    // Légende (passe sur une deuxième ligne si nécessaire).
-    const lbl = state.voiceLabels.get(k) || k;
+    // Légende (passe sur une deuxième ligne si nécessaire). En relatif, elle
+    // porte l'écart absolu de chaque anche sur la note en cours (la médiane
+    // qui sert de zéro à sa courbe).
+    let lbl = state.voiceLabels.get(k) || k;
+    if (refs && runs.length) {
+      const r = refs.get(`${k}|${runs[runs.length - 1]}`);
+      if (r != null) lbl += ` ${r >= 0 ? '+' : '−'}${Math.abs(r).toFixed(1).replace('.', ',')} ¢`;
+    }
     const wLbl = 20 + ctx.measureText(lbl).width;
     if (legendX + wLbl > W - 8) { legendX = pad.l + 4; legendY += 11; }
     ctx.fillStyle = col;
@@ -2060,7 +2125,17 @@ function bindControls() {
   });
 
   // Les vues se redessinent quand leurs réglages changent.
-  $('gaugeRange').onchange = () => { state.curveDirty = true; };
+  // Échelle de la courbe retenue d'une séance à l'autre (réglage d'affichage :
+  // pas dans `cfg`, que le moteur reçoit).
+  try {
+    const sv = localStorage.getItem('aal.curveScale');
+    if (sv && [...$('gaugeRange').options].some((o) => o.value === sv)) $('gaugeRange').value = sv;
+  } catch { /* ignore */ }
+  $('gaugeRange').onchange = () => {
+    state.curveDirty = true;
+    state.curveCache = null;
+    try { localStorage.setItem('aal.curveScale', $('gaugeRange').value); } catch { /* ignore */ }
+  };
   $('gaugeVoice').onchange = () => { state.curveDirty = true; state.phaseDirty = true; };
   for (const id of ['phaseX', 'phaseY', 'phaseSpan']) {
     $(id).onchange = () => { state.phaseDirty = true; };
