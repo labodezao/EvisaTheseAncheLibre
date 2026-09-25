@@ -983,5 +983,96 @@ console.log('\nTest 37 — registre 16\'+8\' : on lâche une anche, elle devient
   assert(notes.size === 1, `la note ne bascule pas d'octave (${[...notes].map((m) => noteLabel(m).full).join(', ')})`);
 }
 
+// Musette (deux anches d'un même ton) sous un soufflet qui ondule : écarts
+// relevés sur une banque de notes d'accordéon (Fa3 +2,1 / +21,7 ¢, Ré4
+// −3,8 / +17,2 ¢…), soufflet ±0,4 ¢ à 0,9 Hz.
+function musette(reeds, seconds, mod = 0.4) {
+  const n = SR * seconds, x = new Float32Array(n);
+  for (const { f, a = 1 } of reeds) {
+    const H = [1, 0.8, 0.5, 0.4, 0.25, 0.15];
+    let ph = 1;
+    for (let i = 0; i < n; i++) {
+      const t = i / SR;
+      ph += (2 * Math.PI * f * 2 ** ((mod * Math.sin(2 * Math.PI * 0.9 * t)) / 1200)) / SR;
+      for (let h = 0; h < H.length; h++) x[i] += Math.min(1, t / 0.05) * 0.08 * a * H[h] * Math.sin((h + 1) * ph + h);
+    }
+  }
+  for (let i = 0; i < n; i++) x[i] += 3e-4 * (Math.random() * 2 - 1);
+  return x;
+}
+const reedCents = (r) => r.groups.filter((g) => !g.isHarmonic && !g.isSub).flatMap((g) => g.voices)
+  .filter((v) => v.tracked).map((v) => v.dCents).sort((a, b) => a - b);
+
+console.log('\nTest 38 — registre 8\'+8\' : la seconde anche ne saute pas sur une raie latérale de la première');
+{
+  // Mesuré (v24) : après 3 s, la fenêtre longue voit la raie latérale du
+  // soufflet de l'anche à −3,8 ¢ ; plus proche de la CIBLE du 8'+ (+6,9 ¢) que
+  // l'anche à +17,2 ¢, elle lui était attribuée : −2,8 ¢ affiché au lieu de
+  // +17,2. L'anche n'avait pas de mémoire : sa mesure d'amas, centrée sur la
+  // cible, l'excluait.
+  const x = musette([{ f: at(62, -3.8) }, { f: at(62, 17.2), a: 0.85 }], 4.5);
+  const e = new Engine(SR, { mode: 'register', register: 'MM' });
+  let bad = null, n = 0;
+  for (let i = 0; i + 512 <= x.length; i += 512) {
+    const r = e.process(x.subarray(i, i + 512));
+    if (!r || r.time < 1.2) continue;
+    n++;
+    const cs = reedCents(r);
+    if (!(cs.length === 2 && Math.abs(cs[0] + 3.8) < 0.5 && Math.abs(cs[1] - 17.2) < 0.5) && !bad) {
+      bad = `${r.time.toFixed(2)} s : ${cs.map((c) => c.toFixed(1)).join(' / ')} ¢`;
+    }
+  }
+  assert(n > 30 && !bad, bad ? `écart à ${bad}` : 'Ré4 −3,8 / +17,2 ¢ : les deux anches justes de 1,2 à 4,5 s');
+}
+
+console.log('\nTest 39 — musette en 0,5 s de mesure : Auto-anches et alerte du mode Automatique (Matrix Pencil)');
+{
+  // La FFT ne sépare deux anches à 2 Hz (Fa3 +2,1 / +21,7 ¢) qu'après ~2 s et
+  // montre avant une seule raie, le mélange (+13 ¢). Matrix Pencil les voit
+  // dès qu'il a 0,5 s de son, confirmées sur un second partiel.
+  const x = musette([{ f: at(53, 2.1) }, { f: at(53, 21.7), a: 0.85 }], 2.5);
+  const e = new Engine(SR, { mode: 'reeds', reedOctaves: [0] });
+  let first = null, badAfter = 0;
+  for (let i = 0; i + 512 <= x.length; i += 512) {
+    const r = e.process(x.subarray(i, i + 512));
+    if (!r) continue;
+    const cs = reedCents(r);
+    const ok = cs.length === 2 && Math.abs(cs[0] - 2.1) < 1 && Math.abs(cs[1] - 21.7) < 1;
+    if (ok && first == null) first = r.time;
+    if (first != null && !ok) badAfter++;
+  }
+  assert(first != null && first < 1.4 && badAfter <= 2,
+    `Auto-anches : +2,1 et +21,7 ¢ dès ${first?.toFixed(2) ?? '—'} s (v24 : 1,96 s), ${badAfter} image(s) fausse(s) ensuite`);
+  const a = new Engine(SR, { mode: 'auto' });
+  let u = null;
+  for (let i = 0; i + 512 <= x.length && !u; i += 512) {
+    const r = a.process(x.subarray(i, i + 512));
+    if (r?.unison?.reeds) u = { t: r.time, ...r.unison };
+  }
+  assert(u && u.t < 2 && u.reeds.length === 2 && Math.abs(u.reeds[0] - 2.1) < 1 && Math.abs(u.reeds[1] - 21.7) < 1
+    && Math.abs(u.beatHz - (at(53, 21.7) - at(53, 2.1))) < 0.1,
+    u ? `Automatique : alerte à ${u.t.toFixed(2)} s — ${u.reeds.map((c) => c.toFixed(1)).join(' et ')} ¢, battement ${u.beatHz.toFixed(2)} Hz`
+      : 'Automatique : pas d\'alerte avec la hauteur des anches');
+}
+
+console.log('\nTest 40 — une anche seule, soufflet vivant : pas d\'anche fantôme (Matrix Pencil)');
+{
+  // Le soufflet (±1 ¢ à 1,5 Hz) fait des raies latérales ; elles ne doivent
+  // passer ni pour une seconde anche (Auto-anches) ni pour un trémolo (alerte).
+  for (const m of [53, 69]) {
+    const x = musette([{ f: at(m, 3) }], 4, 1);
+    const e = new Engine(SR, { mode: 'reeds', reedOctaves: [0] });
+    const a = new Engine(SR, { mode: 'auto' });
+    let extra = 0, alert = 0;
+    for (let i = 0; i + 512 <= x.length; i += 512) {
+      const r = e.process(x.subarray(i, i + 512));
+      if (r && reedCents(r).length > 1) extra++;
+      const q = a.process(x.subarray(i, i + 512));
+      if (q?.unison) alert++;
+    }
+    assert(extra === 0 && alert === 0, `${noteLabel(m).full} : ${extra} image(s) à deux anches, ${alert} alerte(s)`);
+  }
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);

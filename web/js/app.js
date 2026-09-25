@@ -19,7 +19,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '24';
+const APP_VERSION = '25';
 function versionMismatch(what, got) {
   const b = document.getElementById('versionBanner');
   if (!b) return;
@@ -2513,22 +2513,40 @@ function showChord(t) {
 
 function showTwoReeds(t) {
   const el = $('twoReeds');
-  const d = cfg.mode === 'auto' ? (t.partialsDisagree
-    ?? (t.unison ? { unison: true, cents: t.unison.cents } : null)) : null;
+  // Anches vues par Matrix Pencil (t.unison.reeds) : l'alerte la plus
+  // parlante — la hauteur de chaque anche et leur battement — passe devant
+  // le désaccord des partiels, qui n'en est que la conséquence.
+  const d = cfg.mode === 'auto'
+    ? (t.unison?.reeds ? { unison: true, ...t.unison }
+      : t.partialsDisagree ?? (t.unison ? { unison: true, cents: t.unison.cents } : null))
+    : null;
   const now = performance.now();
   if (d && state.twoReedsDismissed !== t.playedMidi) {
     state.twoReedsT = now;
-    const txt = d.unison
-      ? `deux anches à ${d.cents.toFixed(0)} ¢ l'une de l'autre sonnent ensemble`
-      : `H${d.k} est à ${d.cents > 0 ? '+' : ''}${d.cents.toFixed(1)} ¢ de H${d.kBase}`;
-    if (el.dataset.txt !== txt) {
+    const sc = (c) => `${c >= 0 ? '+' : '−'}${Math.abs(c).toFixed(1).replace('.', ',')} ¢`;
+    const txt = d.reeds
+      ? `${d.reeds.length === 3 ? 'trois' : 'deux'} anches à ${d.reeds.slice(0, -1).map(sc).join(', ')} et ${sc(d.reeds[d.reeds.length - 1])}`
+        + ` (battement ${d.beatHz.toFixed(2).replace('.', ',')} Hz, ${Math.round(d.beatHz * 60)}/min)`
+      : d.unison
+        ? `deux anches à ${d.cents.toFixed(0)} ¢ l'une de l'autre sonnent ensemble`
+        : `H${d.k} est à ${d.cents > 0 ? '+' : ''}${d.cents.toFixed(1)} ¢ de H${d.kBase}`;
+    // Le texte (hauteurs des anches) change à chaque image : on ne met à jour
+    // que lui, pas les boutons — reconstruits, ils perdaient le clic en cours.
+    const kind = d.reeds ? 'reeds' : d.unison ? 'unison' : 'partials';
+    if (el.dataset.kind === kind && el.dataset.txt !== txt) {
+      el.dataset.txt = txt;
+      const span = el.querySelector('.tr-txt');
+      if (span) span.textContent = txt;
+    }
+    if (el.dataset.kind !== kind) {
+      el.dataset.kind = kind;
       el.dataset.txt = txt;
       el.innerHTML = d.unison
-        ? `⚠ <b>Trémolo ?</b> ${txt} : le mode Automatique n'en suit qu'une. `
+        ? `⚠ <b>${d.reeds ? 'Trémolo' : 'Trémolo ?'}</b> <span class="tr-txt">${txt}</span> : le mode Automatique n'en suit qu'une. `
         + '<button type="button" data-tr="MM">Trémolo 8\'+8\'</button>'
         + '<button type="button" data-tr="reeds">Auto-anches</button>'
         + '<button type="button" data-tr="x" title="Masquer pour cette note">✕</button>'
-        : `⚠ <b>Deux anches ?</b> Les partiels ne disent pas la même hauteur : ${txt}. `
+        : `⚠ <b>Deux anches ?</b> Les partiels ne disent pas la même hauteur : <span class="tr-txt">${txt}</span>. `
         + 'Une anche seule a des partiels d\'accord à 0,1 ¢ près ; ici, le mode Automatique fond deux anches '
         + 'en une valeur qui n\'est la hauteur d\'aucune. '
         + '<button type="button" data-tr="LM">Octave (16\'+8\')</button>'

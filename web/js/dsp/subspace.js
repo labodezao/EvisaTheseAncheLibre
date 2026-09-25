@@ -165,12 +165,14 @@ function roots(a, M) {
 
 // Estimateur Matrix Pencil. yr/yi : bande de base complexe. M : nombre de
 // composantes. fs : fréquence d'échantillonnage de la bande de base.
+// Lmax : borne du paramètre de pinceau (défaut N/2, optimal pour le bruit ;
+// plus petit = bien moins coûteux, O(L³), pour un usage à chaque image).
 // Renvoie [{ freq, damping, amp, phase }] trié par fréquence (freq en Hz
 // relatifs à la porteuse ; damping en s⁻¹, >0 = décroissance, <0 = croissance).
-export function matrixPencil(yr, yi, M, fs) {
+export function matrixPencil(yr, yi, M, fs, Lmax = Infinity) {
   const N = yr.length;
   if (N < 2 * M + 2 || M < 1) return [];
-  const L = Math.min(N - M - 1, Math.max(M + 1, Math.floor(N / 2)));
+  const L = Math.min(N - M - 1, Math.max(M + 1, Math.min(Lmax, Math.floor(N / 2))));
   const P = N - L;                       // lignes de Hankel
   const cols = L + 1;
   // Hankel Y (P×cols), Y[k][l] = y[k+l].
