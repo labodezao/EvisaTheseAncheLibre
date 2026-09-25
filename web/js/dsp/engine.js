@@ -15,7 +15,7 @@ import {
 
 // Version du moteur : doit être celle de la page et de app.js (cf. le
 // contrôle de cohérence dans app.js et le test dans dsp.test.mjs).
-export const ENGINE_VERSION = '23';
+export const ENGINE_VERSION = '24';
 
 const HOP = 4096;             // période d'analyse (~85 ms à 48 kHz)
 const MAXWIN = { fast: 128, normal: 256, precise: 512 };
@@ -208,6 +208,7 @@ export class Engine {
     this.lastAttack = null;
     this.steps = new Map();     // détection de saut par groupe (cf. detectStep)
     this.stab = new Map();      // sortie stabilisée par anche (cf. stabilize)
+    this.reedSeen = new Map();  // auto-anches : persistance des anches d'unisson
     this.lastFine = null;       // dernière mesure fine de la voix de base (maintien en creux de battement)
   }
 
@@ -271,10 +272,16 @@ export class Engine {
       const out = [];
       for (const oct of octs) {
         for (let u = 0; u < nU; u++) {
+          // Trois emplacements aux cibles DISTINCTES — la note, au-dessus,
+          // au-dessous (comme 8', 8'+, 8'− d'une musette). Avec deux cibles
+          // identiques, la même anche sautait d'un emplacement à l'autre
+          // d'une image à l'autre (deux courbes en alternance).
+          const sign = [0, 1, -1][u];
+          const f = foot[oct] ?? `${oct >= 0 ? '+' : ''}${oct}oct`;
           out.push({
             id: `o${oct}u${u}`,
-            label: (foot[oct] ?? `${oct >= 0 ? '+' : ''}${oct}oct`) + (u > 0 ? ` ${u + 1}` : ''),
-            oct, beatSign: u === 0 ? 0 : 1,
+            label: f + ['', '+', '−'][u],
+            oct, beatSign: sign,
           });
         }
       }
@@ -291,6 +298,10 @@ export class Engine {
     this.prevF = new Map();
     this.steps = new Map();      // détection de saut par groupe (cf. detectStep)
     this.stab = new Map();       // sortie stabilisée par anche (cf. stabilize)
+    this.reedSeen = new Map();   // auto-anches : persistance des anches d'unisson
+    // La dernière mesure fine de l'ancienne note ne doit pas être « tenue »
+    // sur la nouvelle (mesuré : Do3 → Do4, une image à −1201 ¢).
+    this.lastFine = null;
     this.disagreeSince = null;
     this.unisonSince = null;
     this.retuneT = this.samplesTotal / this.sr;
@@ -712,7 +723,19 @@ export class Engine {
         // part sur des harmoniques isolées (fausses notes très aiguës). La note
         // tenue persiste tant que le niveau est faible.
         const loud = level > this.gate * 4;
-        if (midi === this.playedMidi) {
+        // Registre à l'octave (16'+8'…) : quand l'une des anches se tait, la
+        // détection voit l'autre seule et croit à une note une octave plus
+        // haut ou plus bas — elle ré-attribuait l'anche restante à l'autre
+        // voix (mesuré, session d'Ewen : Fa♯4 ↔ Fa♯5 en lâchant une anche).
+        // Tant qu'une anche du registre sonne encore à sa place, on garde la
+        // note : l'anche partie apparaît absente (« — »), c'est ce qu'on veut
+        // voir.
+        const regOct = (c.mode === 'register' || c.mode === 'reeds')
+          && this.playedMidi != null && midi !== this.playedMidi
+          && (midi - this.playedMidi) % 12 === 0
+          && Math.abs(midi - this.playedMidi) <= 12 * this.octSpan()
+          && tNow - (this.lastVoiceT ?? -1e9) < 0.3;
+        if (midi === this.playedMidi || regOct) {
           this.candCount = 0;
         } else if (midi === this.candMidi) {
           if (++this.candCount >= need && !held && loud) {
@@ -837,6 +860,14 @@ export class Engine {
         const present = partialPresent(this.lastCoarse, g.center, g.kTrack);
         for (const v of voices) if (!present || v.merged) this.fillVoice(v, null, az?.W);
       }
+      // Registre à plusieurs octaves (16'+8'…) : une anche qu'on a lâchée n'a
+      // plus de raie à elle ; son traqueur s'accrochait au bruit et affichait
+      // une valeur fausse (mesuré : 16' à −28 ¢ alors que seul le 8' sonnait).
+      // Sans preuve de présence dans le spectre, la voix est « — ».
+      if (c.mode === 'register' && !g.isHarmonic && !g.isSub && this.octSpan() > 0
+          && !partialPresent(this.lastCoarse, g.center, g.kTrack)) {
+        for (const v of voices) { this.fillVoice(v, null, az?.W); v.absent = true; }
+      }
       // On ne publie pas ce qui ne peut pas encore être séparé : sur ce
       // partiel, les anches doivent être écartées d'au moins 4 cases de la
       // FFT courante. Avant, la bande du strobe resterait vide plutôt que de
@@ -909,7 +940,7 @@ export class Engine {
       // un glissando l'en éloigne (→ suivi rapide).
       const holdOk = this.lastFine && tNow - this.lastFine.t < 0.5
         && Math.abs(centsBetween(followF0, this.lastFine.f)) < 15;
-      if (v && !v.tracked && holdOk) {
+      if (v && !v.tracked && holdOk && Math.abs(centsBetween(this.lastFine.f, v.nominal)) < 120) {
         // Creux de battement : le zoom perd brièvement l'accroche quand deux
         // anches battent (amplitude qui module). La hauteur, elle, ne bouge
         // pas — on TIENT la dernière mesure fine plutôt que de sauter sur
@@ -1053,6 +1084,37 @@ export class Engine {
     //      grave ET plus forte est cette harmonique, pas une anche distincte.
     //      Une vraie anche d'octave désaccordée (battement) y échappe.
     if (c.mode === 'reeds') {
+      // Une anche de plus à l'unisson doit être franche : à 14 dB au plus de
+      // la plus forte de son octave, et à ±35 ¢ au plus de la note. Mesuré
+      // sur un trémolo La♯3 d'Ewen (232,4 + 234,4 Hz) : les emplacements
+      // libres se remplissaient de raies 10 fois plus faibles (bandes
+      // latérales du soufflet, restes de partiels voisins, 239,9 Hz à +50 ¢),
+      // affichées comme des anches à +42 ¢.
+      for (const g of groups) {
+        if (g.isHarmonic || g.isSub || g.voices.length < 2) continue;
+        let aMax = 0;
+        for (const v of g.voices) if (v.tracked && !v.held) aMax = Math.max(aMax, v.amp);
+        const tNow = this.samplesTotal / this.sr;
+        for (const v of g.voices) {
+          const key = `${g.key}:${v.def.id}`;
+          if (!v.tracked || v.amp >= aMax) { if (!v.tracked) this.reedSeen.delete(key); continue; }
+          if (v.amp < aMax * Math.pow(10, -12 / 20) || Math.abs(centsBetween(v.fMeas, v.nominal)) > 35) {
+            this.fillVoice(v, null);
+            this.reedSeen.delete(key);
+            continue;
+          }
+          // Persistance : une vraie anche reste là, à la même hauteur (±2 ¢)
+          // pendant 0,8 s ; une raie parasite va et vient.
+          const seen = this.reedSeen.get(key);
+          if (!seen || Math.abs(centsBetween(v.fMeas, seen.f)) > 2) {
+            this.reedSeen.set(key, { f: v.fMeas, since: tNow });
+            this.fillVoice(v, null);
+          } else {
+            seen.f = v.fMeas;
+            if (tNow - seen.since < 0.8) this.fillVoice(v, null);
+          }
+        }
+      }
       const reedFloor = baseAmp * Math.pow(10, -25 / 20);
       for (const g of groups) {
         for (const v of g.voices) {
@@ -1131,6 +1193,11 @@ export class Engine {
     }
 
     if (!quiet) this.stabilize(groups);
+    // Dernier instant où une anche du registre était mesurée à sa place
+    // (sert à ne pas ré-attribuer les anches quand l'une d'elles se tait).
+    if (!quiet && groups.some((g) => !g.isHarmonic && !g.isSub && g.voices.some((v) => v.tracked && !v.held))) {
+      this.lastVoiceT = this.samplesTotal / this.sr;
+    }
     const beat = quiet ? null : this.measureBeat(groups);
 
     return {
@@ -1218,6 +1285,12 @@ export class Engine {
     return out;
   }
 
+  // Étendue du registre en octaves (16'+8' : 1 ; 16'+8'+4' : 2 ; unisson : 0).
+  octSpan() {
+    const octs = this.voices().map((v) => v.oct ?? 0);
+    return octs.length ? Math.max(...octs) - Math.min(...octs) : 0;
+  }
+
   // Sortie stabilisée de chaque anche affichée (demande d'Ewen : « des
   // courbes avec des trous ou des pics ne sont pas exploitables »).
   //  - Pas de trou : une anche qui perd la mesure une image (fenêtre qui se
@@ -1244,7 +1317,12 @@ export class Engine {
           if (sorted.length) v.fMeas = sorted[sorted.length >> 1];
           st.f = v.fMeas; st.t = tNow; st.amp = v.amp;
           this.stab.set(key, st);
-        } else if (!v.tracked && st?.f != null && tNow - st.t < STAB_HOLD_S) {
+        } else if (!v.tracked && !v.absent && st?.f != null && tNow - st.t < STAB_HOLD_S
+            // …sauf si une autre voix du groupe mesure déjà cette hauteur :
+            // l'anche a changé d'emplacement (auto-anches), la « tenir » ici
+            // l'afficherait deux fois (mesuré : un trémolo La♯3 lu à 3 anches).
+            && !g.voices.some((o) => o !== v && o.tracked && !o.held
+              && Math.abs(centsBetween(o.fMeas, st.f)) < 3)) {
           v.fMeas = st.f;
           v.amp = st.amp;
           v.tracked = true;
@@ -1400,7 +1478,21 @@ export class Engine {
     if (!group.isSub && comps.length > 1) {
       let mMax = 0;
       for (const cp of comps) mMax = Math.max(mMax, cp.mag);
-      comps = comps.filter((cp) => cp.mag >= mMax / 31.6);
+      // Auto-anches : le nombre d'anches n'est pas connu, chaque raie peut
+      // devenir une « anche » — on n'y admet que des raies franches (−12 dB),
+      // sinon les bandes latérales du soufflet prennent les emplacements.
+      comps = comps.filter((cp) => cp.mag >= mMax / (this.cfg.mode === 'reeds' && !group.isHarmonic ? 4 : 31.6));
+      // Auto-anches : les raies à moins de 0,4 Hz (ramenées à la fondamentale)
+      // sont UNE anche et ses bandes latérales de soufflet (mesuré : ±0,15 Hz
+      // autour de chaque anche d'un trémolo La♯3) ; deux anches d'un trémolo
+      // sont toujours plus écartées. On ne garde que la plus forte.
+      if (this.cfg.mode === 'reeds' && !group.isHarmonic) {
+        const kept = [];
+        for (const cp of [...comps].sort((a, b) => b.mag - a.mag)) {
+          if (!kept.some((q) => Math.abs(q.freq - cp.freq) < 0.4)) kept.push(cp);
+        }
+        comps = kept.sort((a, b) => a.freq - b.freq);
+      }
     }
     const tolClaim = az ? Math.max(0.08, (0.6 * az.srd) / az.W) : 0.08;
     for (const cp of comps) {
