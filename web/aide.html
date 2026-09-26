@@ -338,6 +338,20 @@
   </div>
 
   <div class="callout">
+    <b>Main gauche : basses et octaves sans bascules.</b> Une note de basse fait
+    sonner plusieurs anches à l'octave ; les partiels pairs de l'anche grave
+    tombent sur ceux de l'anche du dessus, et là, la mesure voit le mélange des
+    deux, qui bat. En mode Accord (Quinte…), chaque note est donc mesurée sur un
+    partiel <b>impair</b>, qui n'appartient qu'à elle. En registre 16'+8', quand le
+    8' vient d'avoir sa propre raie et que la FFT ne voit plus, un instant, que
+    la raie commune avec le 16', sa dernière valeur est tenue au lieu d'afficher
+    ce mélange : le 8' ne bascule plus d'une image à l'autre entre sa hauteur et
+    celle du 16'. Ces règles viennent de la physique de l'anche (partiels
+    harmoniques), pas d'un réglage sur un instrument : elles valent pour tout
+    accordéon.
+  </div>
+
+  <div class="callout">
     <b>Échelle « Relatif (chaque anche sur 0) ».</b> Sous la courbe d'accordage,
     le menu Échelle propose, en plus de l'échelle automatique, une échelle
     relative : chaque courbe est centrée sur SA médiane (sur la note en cours,
