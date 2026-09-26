@@ -19,7 +19,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '26';
+const APP_VERSION = '27';
 function versionMismatch(what, got) {
   const b = document.getElementById('versionBanner');
   if (!b) return;

@@ -15,7 +15,7 @@ import {
 
 // Version du moteur : doit être celle de la page et de app.js (cf. le
 // contrôle de cohérence dans app.js et le test dans dsp.test.mjs).
-export const ENGINE_VERSION = '26';
+export const ENGINE_VERSION = '27';
 
 const HOP = 4096;             // période d'analyse (~85 ms à 48 kHz)
 const MAXWIN = { fast: 128, normal: 256, precise: 512 };
@@ -989,7 +989,10 @@ export class Engine {
         v.tracked = true;
         v.held = true; // maintenu pendant un creux, ni fin ni rapide
         v.beatMeas = 0;
-      } else if (v && !v.tracked && Math.abs(centsBetween(followF0, v.nominal)) < 120
+      // À plus d'un demi-ton de la note, l'estimation rapide lit déjà la note
+      // SUIVANTE (mesuré, session d'Ewen : Sol4 → Fa♯4, −68 puis −101 ¢
+      // pendant 3 images avant que la note affichée ne change) : pas de repli.
+      } else if (v && !v.tracked && Math.abs(centsBetween(followF0, v.nominal)) < 50
           // Juste après une reprise sur la même note, les traqueurs se
           // remplissent (~0,4 s) : un trou vaut mieux qu'une estimation rapide
           // fausse de plusieurs cents.
