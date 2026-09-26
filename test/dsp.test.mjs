@@ -1136,5 +1136,31 @@ console.log('\nTest 42 — Auto-anches : inversion du soufflet sans silence, une
   assert(!after, after ? `tiré : ${after}` : 'tiré : une anche, en 8\', à +24 ¢');
 }
 
+console.log('\nTest 43 — quinte de basse : chaque note a son anche à l\'octave, désaccordée');
+{
+  // Une basse d'accordéon fait sonner plusieurs anches à l'octave. Le partiel
+  // pair de l'anche grave tombe sur la fondamentale de celle du dessus : v27
+  // mesurait le « 1 » sur son partiel 2 et affichait leur mélange (+13 ¢
+  // pour une anche à +10 ¢ et son octave à +16 ¢). Mesuré sur un partiel
+  // impair, il n'appartient qu'à l'anche grave.
+  for (const [root, c1, c1o, c5, c5o] of [[46, 10, 16, 7, 12], [38, -4, 3, 2, -5], [50, 5, 12, -3, 4]]) {
+    const x = musette([{ f: at(root, c1) }, { f: at(root + 12, c1o), a: 0.8 },
+      { f: at(root + 7, c5), a: 0.9 }, { f: at(root + 19, c5o), a: 0.7 }], 5);
+    const e = new Engine(SR, { mode: 'chord', chordType: 'quinte', chordDegrees: [0, 7] });
+    let n = 0, bad = null;
+    for (let i = 0; i + 512 <= x.length; i += 512) {
+      const r = e.process(x.subarray(i, i + 512));
+      if (!r || r.time < 2) continue;
+      for (const v of r.groups.filter((g) => !g.isHarmonic && !g.isSub).flatMap((g) => g.voices)) {
+        if (!v.tracked) continue;
+        n++;
+        const want = v.def.label === '1' ? (v.midi === root ? c1 : c1o) : (v.midi === root + 7 ? c5 : c5o);
+        if (Math.abs(v.dCents - want) > 1 && !bad) bad = `${r.time.toFixed(1)} s : ${v.def.label} ${noteLabel(v.midi).full} à ${v.dCents.toFixed(1)} ¢ (${want})`;
+      }
+    }
+    assert(n > 40 && !bad, bad ?? `${noteLabel(root).full} (${c1}/${c1o} ¢) + ${noteLabel(root + 7).full} (${c5}/${c5o} ¢) : 1 et 5 justes (${n} mesures)`);
+  }
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);

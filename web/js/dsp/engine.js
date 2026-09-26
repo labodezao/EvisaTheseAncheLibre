@@ -321,6 +321,7 @@ export class Engine {
     this.steps = new Map();      // détection de saut par groupe (cf. detectStep)
     this.stab = new Map();       // sortie stabilisée par anche (cf. stabilize)
     this.reedSeen = new Map();   // auto-anches : persistance des anches d'unisson
+    this.ownT = new Map();       // dernière mesure « à soi » (non confondue) par anche
     // La dernière mesure fine de l'ancienne note ne doit pas être « tenue »
     // sur la nouvelle (mesuré : Do3 → Do4, une image à −1201 ¢).
     this.lastFine = null;
@@ -395,14 +396,27 @@ export class Engine {
     // partiel 3 de Do2 (196,2 Hz) est le partiel 2 de Sol2 (196,0 Hz) : on
     // mesure Do2 sur son partiel 4. (Les unissons ont leur propre choix, plus
     // bas : unisonHarmonic.)
+    // Accords (main gauche) : une note de basse fait sonner plusieurs anches
+    // à l'octave (La♯2 ET La♯3…). Son partiel pair tombe sur la fondamentale
+    // de l'anche à l'octave : la fenêtre voit leur somme, qui bat. Mesuré
+    // (session d'Ewen, quintes de la main gauche) : le « 1 » de La♯2, suivi
+    // sur son partiel 2, basculait de +10 à +17 ¢ au rythme de ce battement.
+    // Comme pour un registre 16'+8', on le mesure sur un partiel IMPAIR.
+    const chordOdd = c.mode === 'chord';
     if (groups.length > 1) {
       for (const g of groups) {
         if (g.voices.length > 1 || g.avoidEven) continue;
-        const clash = (k) => groups.some((h) => h !== g && Array.from({ length: 16 }, (_, j) => j + 1)
-          .some((j) => Math.abs(k * g.center - j * h.center) < SEP_HZ));
+        // Partiels de l'autre anche jusqu'à la fréquence étudiée (pas
+        // seulement 16) : à la douzième (Fa4 sur La♯2), le partiel 6 de Fa4
+        // tombe sur le 18 de La♯2.
+        const clash = (k) => groups.some((h) => h !== g
+          && Array.from({ length: Math.ceil((k * g.center) / h.center) + 1 }, (_, j) => j + 1)
+            .some((j) => Math.abs(k * g.center - j * h.center) < SEP_HZ));
+        const bad = (k) => clash(k) || (chordOdd && k > 1 && k % 2 === 0);
         let k = g.kTrack;
-        while (k < K_MAX && clash(k)) k++;
-        if (!clash(k)) g.kTrack = k;
+        while (k < K_MAX && bad(k)) k++;
+        if (!bad(k)) g.kTrack = k;
+        else if (chordOdd && g.kTrack % 2 === 0) g.kTrack = Math.max(1, g.kTrack - 1);
       }
     }
     // Plan harmonique FIGÉ par note. `groupVoices` est rappelé à chaque image,
@@ -1606,7 +1620,13 @@ export class Engine {
       const abs = cp.freq * (div === 1 ? 1 : k);
       cp.claimed = group.isHarmonic
         ? false
-        : claimed.some((f) => Math.abs(abs - f) < tolClaim);
+        // Au-delà de 1,5 kHz, les partiels élevés (×9, ×18…) d'une anche
+        // grave s'écartent de m×f de quelques hertz (soufflet, raideur) : on
+        // les reconnaît à 2,6 ¢ près. Mesuré (session d'Ewen, quinte
+        // La♯2 + Fa4, Fa4 suivi sur son partiel 6) : le partiel 18 de La♯2,
+        // 2,6 Hz à côté de m×f, n'était pas reconnu comme tel et le « 5 »
+        // basculait toutes les demi-secondes de +7 ¢ à +14 ¢.
+        : claimed.some((f) => Math.abs(abs - f) < Math.max(tolClaim, f >= 1500 ? f * 0.0015 : 0));
     }
     // Anche accordée à l'octave juste : sa fondamentale tombe DANS le partiel
     // pair de l'anche grave, déjà revendiqué. Une raie libre bien plus faible
@@ -1639,6 +1659,7 @@ export class Engine {
     }
 
     const chosen = assignOrdered(expected, comps, tolHz);
+    const tNow = this.samplesTotal / this.sr;
     // Anche à l'octave juste d'une autre (registre 16'+8') : sa raie EST le
     // partiel pair de l'anche grave. Le coût de la raie « revendiquée » la
     // réservait aux anches à moins de ~9 ¢ de leur cible ; plus loin, la voix
@@ -1655,6 +1676,19 @@ export class Engine {
           if (!best || Math.abs(cp.freq - ref) < Math.abs(best.freq - ref)) best = cp;
         }
         if (best) chosen[i] = best;
+      }
+    }
+    // Une anche qui avait SA raie il y a moins d'une seconde et qui ne trouve
+    // plus que la raie commune avec l'octave : cette raie est le mélange des
+    // deux anches (la FFT ne les sépare plus à cette image), pas sa hauteur.
+    // On ne l'affiche pas — la dernière mesure est tenue (cf. stabilize).
+    // Mesuré (session d'Ewen, 16'+8' main gauche, Ré♯4) : le 8' basculait
+    // d'une image à l'autre entre +1 ¢ (sa raie) et +9 à +18 ¢ (celle du 16').
+    if (!group.isHarmonic && !group.isSub && this.ownT) {
+      for (let i = 0; i < expected.length; i++) {
+        const key = `${group.key}:${expected[i].def.id}`;
+        if (chosen[i]?.claimed && tNow - (this.ownT.get(key) ?? -1e9) < 1) chosen[i] = null;
+        else if (chosen[i] && !chosen[i].claimed) this.ownT.set(key, tNow);
       }
     }
     if (az && !group.isSub) clusterRefine(chosen, az, calib, div, expected.map((v) => v.mt));
