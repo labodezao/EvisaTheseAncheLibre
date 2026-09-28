@@ -61,3 +61,69 @@ n'a de sens que reliée à ce qui se passe dans le cadre du corps.
   (bombarde, clarinette folk) dans `research/scripts/legacy/perces/`. Le reste
   de sa bibliothèque Drive (saxophones, hautbois, cuivres, cromornes…) n'est
   pas encore rapatrié — à faire à la demande, même convention.
+
+## Accordeur web (`web/`) — état et leçons (v27, 2026-09-26)
+Déployé sur GitHub Pages depuis `main` (https://labodezao.github.io/EvisaTheseAncheLibre/).
+Références d'Ewen : **Peterson** (strobe) et **Dirk's Accordion Tuner** (qu'il utilise).
+Ewen parle français, souvent en dictée vocale ; il teste en jouant sur SON
+accordéon et envoie des ZIP de session (WAV + CSV + JSON, bouton Exporter ;
+trop lourds → il les pousse dans `test/`). Toujours lui répondre en français.
+
+**Règle d'or d'Ewen : « ça doit marcher pour tous les accordéons »** — jamais
+de réglage sur ses fichiers ; chaque correction part d'un mécanisme physique
+et se vérifie sur un test synthétique (`test/dsp.test.mjs`) qui échoue avant.
+Ce qui est réel ne se lisse pas (attaque, pression du soufflet, poussé ≠ tiré :
+ses anches diffèrent de 15–25 ¢ entre poussé et tiré) ; ce qui est artefact se
+corrige à la source.
+
+### Chaîne de mesure (fichiers clés)
+- `web/js/dsp/worker.js` : capture micro **directe** (MediaStreamTrackProcessor,
+  à l'horloge du micro) — le rééchantillonneur de Chrome faisait des marches de
+  ±6 ¢. Web Audio en repli (Firefox/Safari rééchantillonnent encore).
+- `web/js/dsp/coarse.js` : spectre large bande → note (et accords, `chord.js`).
+- `web/js/dsp/zoom.js` : traqueur par partiel (hétérodyne, décimation 512 en
+  CIC : 32 puis **2×16**, l'ordre 2 évite qu'une raie forte hors bande — le 16'
+  — se replie en fantôme dans la bande du 8').
+- `web/js/dsp/engine.js` : groupes d'anches, choix du partiel de mesure,
+  appariement voix↔raies (`assignOrdered`, mesure d'amas `clusterRefine`),
+  stabilisation (médiane 3, maintien 1 s), détection de marche, **Matrix
+  Pencil** (`subspace.js`, `mpReeds`) pour séparer les anches d'un même ton en
+  0,5 s, détection d'inversion du soufflet sans silence (`watchReversal` : creux
+  net et isolé), battement (bat/min).
+- `web/js/app.js` : UI (strobe par anche, courbe avec échelle Auto stable ou
+  **Relatif**, barre Mode, vumètre + seuil auto, alertes, sélecteur de notes).
+- Versions : `ENGINE_VERSION`, `APP_VERSION`, `data-version` de `index.html` et
+  cache `aal-shell-vNN` de `sw.js` doivent être identiques (test 27) — les
+  monter ensemble à chaque changement, sinon le service worker garde l'ancien.
+
+### Mécanismes appris (à ne pas réintroduire)
+- Partiels qui se superposent : une anche à l'octave d'une autre (16'+8', et
+  les basses de la main gauche qui ont des anches à l'octave) a tous ses
+  partiels sur des partiels PAIRS de l'anche grave → mesurer l'anche grave sur
+  un partiel **impair** ; ne jamais afficher la raie commune comme la hauteur
+  d'une anche qui vient d'avoir la sienne (c'est un mélange).
+- Contrôle des collisions sur TOUS les partiels jusqu'à la fréquence étudiée
+  (quinte à la douzième : Fa4 ×6 = La♯2 ×18).
+- Auto-anches : toutes les anches admises (±35 ¢) doivent tenir dans la bande
+  du partiel choisi ; cases rangées par ordre (une anche seule = 8').
+- Une valeur d'estimation rapide à plus d'un demi-ton lit la note suivante.
+- Le ronflement 50 Hz du micro USB d'Ewen (−88 dBFS) est là depuis toujours ;
+  ne pas l'accuser à tort.
+
+### Outils (`test/outils/`, voir `LISEZMOI.md`)
+`csv_resume.py` (ce qui a été affiché), `rejoue.mjs` (rejouer un WAV dans le
+moteur, `ENG=` pour comparer deux versions), `bande.py` (vérité terrain par
+raie), `esprit.py` (séparer 2–3 anches), `banc_musette.mjs`. Tests :
+`node test/dsp.test.mjs` (43 tests, doivent tous passer).
+
+### Ouvert / idées
+- 16'+8' : un 8' à quelques cents de l'octave n'est séparable qu'après ~2 s.
+- Option d'affichage proposée à Ewen (pas faite) : estomper les attaques et
+  fins de souffle (vrais mouvements de hauteur) pour lire les paliers.
+- Détection d'inversion : deux inversions à < 1,5 s → la 2e n'est pas vue.
+- Accords mineurs / septièmes / diminués : vérifiés seulement en synthèse
+  (Ewen devait envoyer des ZIP) ; vibrato (bat/min) idem.
+- Idée de Dirk non faite : erreur par rapport au diapason droit vs liste de
+  battements. Calibration longue façon Dirk (horloge carte son) : non faite.
+- `test/session-2026-09-25-23-58-20.zip` (59 Mo) est dans `main` (fusion
+  classique) : session quintes + octaves main gauche, utile en référence.
