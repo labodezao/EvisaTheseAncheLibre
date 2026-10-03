@@ -1,0 +1,33 @@
+languette;grandeur;reed_model_origine;euler_bernoulli;elmer_recale;ecart_origine_elmer_pct;ecart_EB_elmer_pct
+reed_model SECTIONS_DEFAULT;f1 (Hz);102.1111;15.5948;15.8955;542.39;-1.89
+reed_model SECTIONS_DEFAULT;f2 (Hz);651.9741;195.0986;200.6147;224.99;-2.75
+reed_model SECTIONS_DEFAULT;masse modale au bout (mg);219.4642;154.1142;153.7764;42.72;0.22
+reed_model SECTIONS_DEFAULT;raideur modale au bout (N/m);90.3377;1.4797;1.5339;5789.37;-3.54
+reed_model SECTIONS_DEFAULT;gamma (mm2);96.9521;49.4393;49.2162;96.99;0.45
+reed_model SECTIONS_DEFAULT;MAC forme mode 1 (reed_model / Elmer);0.81586;;1.0;-18.414;
+R12-grave;f1 (Hz);102.0974;67.3603;67.7158;50.77;-0.52
+R12-grave;f2 (Hz);2263.5249;847.9197;846.821;167.3;0.13
+R12-grave;masse modale au bout (mg);284.5705;272.137;271.9004;4.66;0.09
+R12-grave;raideur modale au bout (N/m);117.1059;48.7479;49.2209;137.92;-0.96
+R12-grave;gamma (mm2);54.2908;49.0659;48.9675;10.87;0.2
+R12-grave;MAC forme mode 1 (reed_model / Elmer);0.99469;;1.0;-0.531;
+R12-medium;f1 (Hz);439.8501;439.8501;444.0116;-0.94;-0.94
+R12-medium;f2 (Hz);2756.494;2756.4936;2779.4637;-0.83;-0.83
+R12-medium;masse modale au bout (mg);48.9558;48.9557;48.7414;0.44;0.44
+R12-medium;raideur modale au bout (N/m);373.9154;373.9148;379.3552;-1.43;-1.43
+R12-medium;gamma (mm2);32.7623;32.7623;32.6262;0.42;0.42
+R12-medium;MAC forme mode 1 (reed_model / Elmer);0.99999;;1.0;-0.001;
+R12-aigu;f1 (Hz);880.4211;880.4211;891.7271;-1.27;-1.27
+R12-aigu;f2 (Hz);5517.5057;5517.505;5575.7294;-1.04;-1.04
+R12-aigu;masse modale au bout (mg);34.6028;34.6028;34.4057;0.57;0.57
+R12-aigu;raideur modale au bout (N/m);1058.8928;1058.891;1080.0762;-1.96;-1.96
+R12-aigu;gamma (mm2);23.1569;23.157;23.0343;0.53;0.53
+R12-aigu;MAC forme mode 1 (reed_model / Elmer);0.99999;;1.0;-0.001;
+CAO 2019 (Code_Aster);f1 (Hz);61.5346;25.094;25.2329;143.87;-0.55
+CAO 2019 (Code_Aster);f2 (Hz);2399.0675;408.6421;407.4451;488.81;0.29
+CAO 2019 (Code_Aster);masse modale au bout (mg);260.7399;247.8021;247.6003;5.31;0.08
+CAO 2019 (Code_Aster);raideur modale au bout (N/m);38.9767;6.1603;6.2236;526.27;-1.02
+CAO 2019 (Code_Aster);gamma (mm2);55.049;48.5033;48.4057;13.72;0.2
+CAO 2019 (Code_Aster);MAC forme mode 1 (reed_model / Elmer);0.992;;1.0;-0.8;
+CAO 2019 (Code_Aster);f1 Code_Aster 2019, tétraèdres linéaires (Hz);;;144.44;;472.4
+CAO 2019 (Code_Aster);f2 Code_Aster 2019, tétraèdres linéaires (Hz);;;910.55;;123.5

@@ -62,6 +62,17 @@ n'a de sens que reliée à ce qui se passe dans le cadre du corps.
   de sa bibliothèque Drive (saxophones, hautbois, cuivres, cromornes…) n'est
   pas encore rapatrié — à faire à la demande, même convention.
 
+## Éléments finis, banque d'anches, reedgui (2026-10-03)
+- `research/fem/README.md` : la marche en 5 étapes, de la mesure de l'anche au recalage.
+  Elmer 26.2 (la 9.0 est désinstallée), trouvé par `research/fem/elmer_outils.py`
+  (variable `ELMER_DOSSIER` ; ne pas se fier à `ELMER_HOME` système ni au PATH).
+- Une seule source de vérité pour une anche : la banque CSV d'Ewen
+  (`research/fem/anche/banque_anches.csv`) -> yaml produit -> `banc_recherche/languette.py`
+  (Euler-Bernoulli exact, Rayleigh-Ritz, pont vers `coupled_reeds`) -> Elmer, recalage, reedgui.
+- `research/reedgui/` : l'outil d'Ewen (2020) réécrit, seule version vivante.
+- Leçon : Rayleigh-Ritz sur 2 modes de poutre uniforme (km.py) surestime de 51 % une anche
+  grattée à masse au bout ; référence = Euler-Bernoulli exact (matrices de transfert), Elmer à 0,4 %.
+
 ## Accordeur web (`web/`) — état et leçons (v27, 2026-09-26)
 Déployé sur GitHub Pages depuis `main` (https://labodezao.github.io/EvisaTheseAncheLibre/).
 Références d'Ewen : **Peterson** (strobe) et **Dirk's Accordion Tuner** (qu'il utilise).

@@ -190,30 +190,41 @@ class FreeReedModel:
 
     def __init__(self, sections=None, chamber: Chamber | None = None,
                  slot: Slot | None = None, source: Source | None = None,
-                 n_modes: int = 2, zeta: float = 0.004):
+                 n_modes: int = 2, zeta: float = 0.004, modal_params=None):
+        """`modal_params` (option « paramètres issus d'Elmer ») : un objet avec
+        `m_eff`, `k_eff`, `gamma` (mode 1 normalisé au déplacement du bout,
+        cf. `languette.parametres_modaux`). L'anche est alors réduite à ce
+        mode ; `sections` ne sert plus qu'à la longueur."""
         self.sec = np.asarray(SECTIONS_DEFAULT if sections is None else sections, float)
         self.ch = chamber or Chamber()
         self.slot = slot or Slot()
         self.src = source or Source()
-        self.N = int(n_modes)
         self.zeta = float(zeta)
-
-        self.M, self.K = modal.assemble(self.sec, self.N)
-        self.Minv = np.linalg.inv(self.M)
         self.L = float(self.sec[:, 0].sum())
+        if modal_params is not None:
+            self.N = 1
+            self.M = np.array([[float(modal_params.m_eff)]])
+            self.K = np.array([[float(modal_params.k_eff)]])
+            self.Minv = np.linalg.inv(self.M)
+            self.gamma = np.array([float(modal_params.gamma)])
+            self.phi_tip = np.array([1.0])
+        else:
+            self.N = int(n_modes)
+            self.M, self.K = modal.assemble(self.sec, self.N)
+            self.Minv = np.linalg.inv(self.M)
 
-        # Projection pression -> force modale, et déformée au bout.
-        edges = np.concatenate([[0.0], np.cumsum(self.sec[:, 0])])
-        gamma = np.zeros(self.N)
-        for s in range(self.sec.shape[0]):
-            x = np.linspace(edges[s], edges[s + 1], 400)
-            for i in range(self.N):
-                k, sg = modal.bl_sigma(i + 1)[0] / self.L, modal.bl_sigma(i + 1)[1]
-                gamma[i] += self.sec[s, 2] * modal._trapz(modal._phi(k, sg, x), x)
-        self.gamma = gamma
-        self.phi_tip = np.array([
-            modal._phi(modal.bl_sigma(i + 1)[0] / self.L,
-                       modal.bl_sigma(i + 1)[1], self.L) for i in range(self.N)])
+            # Projection pression -> force modale, et déformée au bout.
+            edges = np.concatenate([[0.0], np.cumsum(self.sec[:, 0])])
+            gamma = np.zeros(self.N)
+            for s in range(self.sec.shape[0]):
+                x = np.linspace(edges[s], edges[s + 1], 400)
+                for i in range(self.N):
+                    k, sg = modal.bl_sigma(i + 1)[0] / self.L, modal.bl_sigma(i + 1)[1]
+                    gamma[i] += self.sec[s, 2] * modal._trapz(modal._phi(k, sg, x), x)
+            self.gamma = gamma
+            self.phi_tip = np.array([
+                modal._phi(modal.bl_sigma(i + 1)[0] / self.L,
+                           modal.bl_sigma(i + 1)[1], self.L) for i in range(self.N)])
 
         w2, Phi = self._eig()
         self.omega = np.sqrt(np.clip(w2, 0.0, None))

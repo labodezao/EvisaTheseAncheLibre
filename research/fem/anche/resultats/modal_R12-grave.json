@@ -1,0 +1,29 @@
+{
+ "id": "R12-grave",
+ "elmer": "26.2",
+ "encastrement": "rivet",
+ "frequences_Hz": [
+  67.541,
+  842.256,
+  995.794,
+  1676.532,
+  2699.436,
+  5417.771
+ ],
+ "types": [
+  "flexion",
+  "flexion",
+  "flexion dans le plan",
+  "torsion",
+  "flexion",
+  "flexion"
+ ],
+ "mode1": {
+  "f_Hz": 67.54131510165917,
+  "m_eff_kg": 0.00027214687712802155,
+  "k_eff_N_m": 49.01196526011849,
+  "gamma_m2": 4.906255002825758e-05,
+  "phi_moyen": 0.363105834618451
+ },
+ "noeuds": 6713
+}

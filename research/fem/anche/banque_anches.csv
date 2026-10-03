@@ -1,0 +1,10 @@
+type;id;longueur_mm;largeur_debut_mm;largeur_fin_mm;epaisseur_debut_mm;epaisseur_fin_mm;materiau;instrument;rang;note;sens;position;chambre;levee_mm;fente_longueur_mm;fente_largeur_mm;plaque_mm;masse_bout;rivet_mm;son_pince;seuils_csv;date;source
+# Anche n° 1 : la vraie anche de matrix.txt (reedgui, Ewen 2020). Levée, fente et note : à mesurer.
+anche;R12-grave;;;;;;;accordéon R12;R12;;;;1?;;;;;oui;;;;2020-09-12;matrix.txt de reedgui, Ewen 2020
+troncon;R12-grave;4,55;4,259;4,259;0,35;0,35;acier
+troncon;R12-grave;14,85;4,008;4,008;0,2;0,2;acier
+troncon;R12-grave;9;3,699;3,699;0,275;0,275;acier
+troncon;R12-grave;9;3,466;3,466;1,5;1,5;acier
+# Anches n° 2 et 3 : rien de mesuré encore. Notes estimées (le « ? ») : lames nominales.
+anche;R12-medium;;;;;;;accordéon R12;R12;la3?;;;6?;;;;;;;;;;nominale, en attendant la mesure
+anche;R12-aigu;;;;;;;accordéon R12;R12;la4?;;;12?;;;;;;;;;;nominale, en attendant la mesure

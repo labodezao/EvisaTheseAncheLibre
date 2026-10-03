@@ -22,7 +22,10 @@ les sommiers. Une anche d'abord ; deux anches ensuite.
     J:\claude\venv\Scripts\python.exe seuils_cavite.py --plan luthier
     J:\claude\venv\Scripts\python.exe seuils_cavite.py --plan rapport
 
-- Elmer 9.0 : `C:\Program Files\Elmer 9.0-Release` (variable `ELMER_HOME` pour un autre chemin).
+- Elmer 26.2, trouvé par `../elmer_outils.py` (`ELMER_HOME`, puis `ELMER_DOSSIER`, puis le chemin
+  par défaut). Vérifié le 03/10/2026 : la 26.2 redonne les chiffres de la 9.0 (désinstallée depuis).
+- Impédance vue par la fente, étude de maillage et de solveur, optimisation du R12 :
+  `impedance_fente.py`, `etude_impedance.py`, `optimisation_r12.py` (voir `../README.md`).
 - Gmsh 4.15 : paquet Python `gmsh`, installé dans `J:\claude\venv` (uv, 03/10/2026).
 - Maillages et journaux Elmer : `J:\claude\calculs\chambre_sommier\` (hors du Drive).
 

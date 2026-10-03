@@ -1,0 +1,85 @@
+{
+ "statut": "PROPOSITION, à confirmer (notes hypothétiques, bornes à valider)",
+ "notes": "notes_r12.csv",
+ "ProfCase": {
+  "1": 6.0,
+  "2": 6.0,
+  "3": 6.0,
+  "4": 8.0,
+  "5": 7.0,
+  "6": 6.5,
+  "7": 6.0,
+  "8": 4.5,
+  "9": 3.0,
+  "10": 2.0,
+  "11": 1.0,
+  "12": 0.5
+ },
+ "trou_table": {
+  "1": {
+   "hx_mm": 8.0,
+   "hy_mm": 25.0,
+   "longueur_mm": 8.0
+  },
+  "2": {
+   "hx_mm": 8.0,
+   "hy_mm": 25.0,
+   "longueur_mm": 9.5
+  },
+  "3": {
+   "hx_mm": 8.0,
+   "hy_mm": 25.0,
+   "longueur_mm": 10.5
+  },
+  "4": {
+   "hx_mm": 8.0,
+   "hy_mm": 25.0,
+   "longueur_mm": 8.0
+  },
+  "5": {
+   "hx_mm": 8.0,
+   "hy_mm": 25.0,
+   "longueur_mm": 8.0
+  },
+  "6": {
+   "hx_mm": 8.0,
+   "hy_mm": 25.0,
+   "longueur_mm": 8.5
+  },
+  "7": {
+   "hx_mm": 8.0,
+   "hy_mm": 25.0,
+   "longueur_mm": 8.0
+  },
+  "8": {
+   "hx_mm": 4.0,
+   "hy_mm": 25.0,
+   "longueur_mm": 12.0
+  },
+  "9": {
+   "hx_mm": 6.0,
+   "hy_mm": 25.0,
+   "longueur_mm": 11.0
+  },
+  "10": {
+   "hx_mm": 8.0,
+   "hy_mm": 25.0,
+   "longueur_mm": 9.0
+  },
+  "11": {
+   "hx_mm": 13.0,
+   "hy_mm": 25.0,
+   "longueur_mm": 4.0
+  },
+  "12": {
+   "hx_mm": 13.0,
+   "hy_mm": 25.0,
+   "longueur_mm": 4.0
+  }
+ },
+ "cale_fond_mm": {
+  "11": 1.0,
+  "12": 6.0
+ },
+ "commande_sommier": "J:\\claude\\venv\\Scripts\\python.exe outils/zw3d/sommier.py --set ProfCase_11=1"
+}

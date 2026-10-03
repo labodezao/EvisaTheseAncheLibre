@@ -1,0 +1,19 @@
+# Notes des anches de chaque chambre du R12. HYPOTHÈSE À CONFIRMER (03/10/2026) :
+# un rang diatonique en sol (système viennois), un bouton par chambre, du grave à l'aigu ;
+# poussé = arpège de sol majeur, tiré = gamme. Notation française (la3 = 440 Hz).
+# Les cases A et B portent les deux voix du même bouton (même note, à quelques cents près).
+# Remplacer par les vraies notes (colonne « notes » : toutes les notes de la chambre,
+# séparées par des espaces), puis relancer optimisation_r12.py.
+chambre;notes;source
+1;ré2 fa#2;hypothèse rang de sol, à confirmer
+2;sol2 la2;hypothèse rang de sol, à confirmer
+3;si2 do3;hypothèse rang de sol, à confirmer
+4;ré3 mi3;hypothèse rang de sol, à confirmer
+5;sol3 fa#3;hypothèse rang de sol, à confirmer
+6;si3 la3;hypothèse rang de sol, à confirmer
+7;ré4 do4;hypothèse rang de sol, à confirmer
+8;sol4 mi4;hypothèse rang de sol, à confirmer
+9;si4 fa#4;hypothèse rang de sol, à confirmer
+10;ré5 la4;hypothèse rang de sol, à confirmer
+11;sol5 do5;hypothèse rang de sol, à confirmer
+12;si5 mi5;hypothèse rang de sol, à confirmer

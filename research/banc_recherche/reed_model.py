@@ -52,26 +52,43 @@ class Result:
 
 class ReedModel:
     def __init__(self, sections=None, cavity: Cavity | None = None,
-                 n_modes: int = 2, zeta: float = 0.01, n_quad: int = 400):
+                 n_modes: int = 2, zeta: float = 0.01, n_quad: int = 400,
+                 modal_params=None):
+        """`modal_params` (option « paramètres issus d'Elmer ») : un objet avec
+        `m_eff`, `k_eff`, `gamma` du mode 1, normalisés au déplacement du bout
+        (`languette.parametres_modaux`) ; l'anche est alors réduite à ce mode.
+
+        Note (03/10/2026) : le MATLAB d'origine calculait des moyennes
+        (`bmoy`, `hmoy`, `Emoy`, `romoy`) divisées par le nombre de COLONNES
+        (5) au lieu du nombre de tronçons, d'où un modèle à 1 ddl faussé. Ce
+        port ne reprend pas ce calcul : `self.b` est la moyenne sur les
+        tronçons (test `test_largeur_moyenne_sur_les_troncons`)."""
         self.sec = np.asarray(SECTIONS_DEFAULT if sections is None else sections, float)
         self.cav = cavity or Cavity()
-        self.N = n_modes
-        self.M, self.K = modal.assemble(self.sec, n_modes, n_quad)
-        self.Minv = np.linalg.inv(self.M)
         self.L = float(self.sec[:, 0].sum())
         self.b = float(np.mean(self.sec[:, 2]))
-        # Projection pression→mode et tip : γ_i = ∫ φ_i·b dx ; φ_tip_i = φ_i(L).
-        edges = np.concatenate([[0.0], np.cumsum(self.sec[:, 0])])
-        gamma = np.zeros(n_modes)
-        for s in range(self.sec.shape[0]):
-            x = np.linspace(edges[s], edges[s + 1], n_quad)
-            for i in range(n_modes):
-                k, sg = modal.bl_sigma(i + 1)[0] / self.L, modal.bl_sigma(i + 1)[1]
-                gamma[i] += self.sec[s, 2] * modal._trapz(modal._phi(k, sg, x), x)
-        self.gamma = gamma
-        self.phi_tip = np.array([modal._phi(modal.bl_sigma(i + 1)[0] / self.L,
-                                            modal.bl_sigma(i + 1)[1], self.L)
-                                 for i in range(n_modes)])
+        if modal_params is not None:
+            n_modes = 1
+            self.M = np.array([[float(modal_params.m_eff)]])
+            self.K = np.array([[float(modal_params.k_eff)]])
+            self.gamma = np.array([float(modal_params.gamma)])
+            self.phi_tip = np.array([1.0])
+        else:
+            self.M, self.K = modal.assemble(self.sec, n_modes, n_quad)
+            # Projection pression→mode et tip : γ_i = ∫ φ_i·b dx ; φ_tip_i = φ_i(L).
+            edges = np.concatenate([[0.0], np.cumsum(self.sec[:, 0])])
+            gamma = np.zeros(n_modes)
+            for s in range(self.sec.shape[0]):
+                x = np.linspace(edges[s], edges[s + 1], n_quad)
+                for i in range(n_modes):
+                    k, sg = modal.bl_sigma(i + 1)[0] / self.L, modal.bl_sigma(i + 1)[1]
+                    gamma[i] += self.sec[s, 2] * modal._trapz(modal._phi(k, sg, x), x)
+            self.gamma = gamma
+            self.phi_tip = np.array([modal._phi(modal.bl_sigma(i + 1)[0] / self.L,
+                                                modal.bl_sigma(i + 1)[1], self.L)
+                                     for i in range(n_modes)])
+        self.N = n_modes
+        self.Minv = np.linalg.inv(self.M)
         # Amortissement modal proportionnel.
         #
         # ATTENTION : la base de projection (modes du cantilever UNIFORME)
