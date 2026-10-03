@@ -1,0 +1,50 @@
+DEBUT(LANG='FR')
+
+
+mesh = LIRE_MAILLAGE(identifier=u'0:1',
+                     FORMAT='MED',
+                     UNITE=20)
+
+model = AFFE_MODELE(identifier=u'1:1',
+                    AFFE=_F(MODELISATION=('3D', ),
+                            PHENOMENE='MECANIQUE',
+                            TOUT='OUI'),
+                    MAILLAGE=mesh)
+
+mater0 = DEFI_MATERIAU(identifier=u'2:1',
+                       ELAS=_F(E=2.1e+11,
+                               NU=0.3,
+                               RHO=7800.0))
+
+fieldmat = AFFE_MATERIAU(identifier=u'3:1',
+                         AFFE=_F(MATER=(mater0, ),
+                                 TOUT='OUI'),
+                         MAILLAGE=mesh)
+
+load = AFFE_CHAR_MECA(identifier=u'4:1',
+                      DDL_IMPO=_F(GROUP_MA=('Clamp', ),
+                                  LIAISON='ENCASTRE'),
+                      MODELE=model)
+
+ASSEMBLAGE(identifier=u'5:1',
+           CHAM_MATER=fieldmat,
+           CHARGE=(load, ),
+           MATR_ASSE=(_F(MATRICE=CO('MASS'),
+                         OPTION='MASS_MECA'),
+                      _F(MATRICE=CO('RIGI'),
+                         OPTION='RIGI_MECA')),
+           MODELE=model,
+           NUME_DDL=CO('nddl'))
+
+unnamed0 = CALC_MODES(identifier=u'9:1',
+                      CALC_FREQ=_F(NMAX_FREQ=10),
+                      MATR_MASS=MASS,
+                      MATR_RIGI=RIGI,
+                      OPTION='PLUS_PETITE')
+
+IMPR_RESU(identifier=u'10:1',
+          FORMAT='MED',
+          RESU=_F(RESULTAT=unnamed0),
+          UNITE=80)
+
+FIN()

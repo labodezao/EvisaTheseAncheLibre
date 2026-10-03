@@ -1,0 +1,85 @@
+DEBUT(LANG='FR')
+
+
+mesh = LIRE_MAILLAGE(identifier='0:1',
+                     FORMAT='MED',
+                     UNITE=2)
+
+model = AFFE_MODELE(identifier='1:1',
+                    AFFE=_F(MODELISATION=('3D', ),
+                            PHENOMENE='MECANIQUE',
+                            TOUT='OUI'),
+                    MAILLAGE=mesh)
+
+mater0 = DEFI_MATERIAU(identifier='2:1',
+                       ELAS=_F(E=210000000000.0,
+                               NU=0.3,
+                               RHO=7800.0))
+
+fieldmat = AFFE_MATERIAU(identifier='3:1',
+                         AFFE=_F(MATER=(mater0, ),
+                                 TOUT='OUI'),
+                         MAILLAGE=mesh)
+
+load = AFFE_CHAR_MECA(identifier='4:1',
+                      DDL_IMPO=_F(GROUP_MA=('clamp', ),
+                                  LIAISON='ENCASTRE'),
+                      MODELE=model)
+
+ASSEMBLAGE(identifier='5:1',
+           CHAM_MATER=fieldmat,
+           CHARGE=(load, ),
+           MATR_ASSE=(_F(MATRICE=CO('MASS'),
+                         OPTION='MASS_MECA'),
+                      _F(MATRICE=CO('RIGI'),
+                         OPTION='RIGI_MECA'),
+                      _F(MATRICE=CO('MASDIAG'),
+                         OPTION='MASS_MECA_DIAG'),
+                      _F(MATRICE=CO('AMOR'),
+                         OPTION='AMOR_MECA')),
+           MODELE=model,
+           NUME_DDL=CO('nddl'))
+
+unnamed0 = CALC_MODES(identifier='8:1',
+                      CALC_FREQ=_F(NMAX_FREQ=10),
+                      MATR_MASS=MASS,
+                      MATR_RIGI=RIGI,
+                      OPTION='PLUS_PETITE')
+
+IMPR_RESU(identifier='9:1',
+          FORMAT='MED',
+          RESU=_F(RESULTAT=unnamed0),
+          UNITE=80)
+
+PROJ_BASE(identifier='13:1',
+          BASE=unnamed0,
+          MATR_ASSE_GENE=(_F(MATRICE=CO('MAGE'),
+                             MATR_ASSE=MASS),
+                          _F(MATRICE=CO('RIGE'),
+                             MATR_ASSE=RIGI),
+                          _F(MATRICE=CO('AMGE'),
+                             MATR_ASSE=AMOR)),
+          STOCKAGE='PLEIN')
+
+resharm = DYNA_VIBRA(identifier='17:1',
+                     ARCHIVAGE=_F(PAS_ARCH=10),
+                     BASE_CALCUL='GENE',
+                     INCREMENT=_F(INST_FIN=5.0,
+                                  PAS=0.001),
+                     MATR_AMOR=AMGE,
+                     MATR_MASS=MAGE,
+                     MATR_RIGI=RIGE,
+                     SCHEMA_TEMPS=_F(SCHEMA='NEWMARK'),
+                     TYPE_CALCUL='TRAN')
+
+restran = REST_GENE_PHYS(identifier='18:1',
+                         NOM_CHAM=('DEPL', ),
+                         RESU_GENE=resharm)
+
+IMPR_RESU(identifier='19:1',
+          FORMAT='MED',
+          RESU=_F(NOM_CHAM=('DEPL', ),
+                  RESULTAT=restran),
+          UNITE=3)
+
+FIN()
