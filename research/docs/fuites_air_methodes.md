@@ -1,5 +1,10 @@
 # Trouver les fuites d'air d'un accordéon — méthodes (du prouvé au révolutionnaire)
 
+> **Le protocole d'atelier** (quoi mesurer à chaque étape de fabrication, en
+> L/min à 500 Pa, avec quel montage et quel critère) est dans
+> `protocole_fuites_fabrication.md`. Ce fichier-ci garde les méthodes de
+> recherche (lock-in, BOS, Q).
+
 > Contrainte : **presque rien** (soufflet, carte son, un micro, un smartphone).
 > Aucun détecteur ultrason du commerce (des centaines d'€), aucune caméra
 > thermique. Idée centrale : **une fuite est un endroit où l'air s'échappe sans

@@ -47,7 +47,10 @@ research/
     excitation.py           sweep EM, diagramme de phase, résonances
     analysis.py             Praat/parselmouth : praat_calcs (Tresp, formants, pitch, HNR)
     impedance.py            impédance P/Q, puissance P·Q
-    seuil.py                seuil d'auto-entretien (rampe + hystérésis)
+    seuil.py                seuils d'auto-entretien : démarrage, extinction, plaquage,
+                             reprise (rampe montée-descente, clarté + niveau),
+                             niveau et débit vs pression, deux anches
+                             (docs/seuils_auto_entretien.md ; CLI `seuils`)
     bifurcation.py          diagrammes de bifurcation, forme normale de Hopf, hystérésis
     stochastic.py           Kramers-Moyal, potentiel, précurseurs, Stuart-Landau, cohérence, Kramers
     ramp.py                 rampes de bifurcation au banc (seuils répétés → diagramme stochastique)
@@ -55,7 +58,9 @@ research/
     transfer.py             2 micros (impédance/absorption) + 4 micros (matrice de transfert, TL)
     ringdown.py             amortissement / facteur Q par décroissance (Matrix Pencil-like)
     material.py             module d'Young par résonance cantilever
-    leak.py                 détection de fuite par décroissance de pression
+    leak.py                 fuites : décroissance de pression, débit en L/min et
+                             type de fuite (n), trou équivalent, cloche
+                             d'accumulation, lock-in (docs/protocole_fuites_fabrication.md)
     reed_oscillator.py       anche libre AUTO-OSCILLANTE alimentée en débit :
                              seuil de Hopf prédit par stabilité linéaire,
                              bande d'instabilité (démarrage + étouffement),

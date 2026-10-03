@@ -54,7 +54,13 @@ qu'acheminer des **commandes texte** et diffuser la **télémétrie JSON**.
 
 ## Câblage (défauts `config.py`, à vérifier)
 
-- **I2C** (OLED + BMP280 + SFM3000) : SDA=GPIO8, SCL=GPIO9.
+- **I2C** (OLED + BMP280 + SFM3000 + SDP8xx optionnel) : SDA=GPIO8, SCL=GPIO9.
+- **Pression différentielle (optionnel)** : Sensirion SDP8xx/SDP3x à 0x25
+  (`ADDR_SDP` dans `config.py`, `None` par défaut). S'il répond, il remplace le
+  BMP280 pour la pression (plus rapide, sans dérive météo) ; le BMP280 garde la
+  température. Pour les rampes de seuils sans SDP, régler `BMP280_IIR` à 0, 2 ou
+  4 (le filtre 16 retarde la pression d'environ une demi-seconde, ce qui fausse
+  l'hystérésis mesurée). Pilote `drivers/sdp8xx.py` **non testé sur matériel**.
 - **Axes** : soufflet 4/5 (SW13), section 6/7 (SW14), clapet 15/16 (SW21) ; `/EN`=GPIO3.
 - **74HC595** (boutons) : DATA=35, CLOCK=36, LATCH=37, /OE=38 (PWM maintien).
 - **Vanne** GPIO12 · **Bridage** GPIO40.

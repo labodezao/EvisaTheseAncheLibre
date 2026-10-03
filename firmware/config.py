@@ -16,6 +16,14 @@ I2C_FREQ = 400_000
 ADDR_OLED = 0x3C
 ADDR_BMP280 = 0x76
 ADDR_SFM3000 = 0x40
+# Capteur de pression différentielle Sensirion SDP8xx/SDP3x (optionnel) :
+# 0x25 s'il est câblé, None sinon. Recommandé pour les seuils d'auto-entretien
+# (rampes) : rapide, sans dérive météo. Voir research/docs/seuils_auto_entretien.md.
+ADDR_SDP = None
+# Filtre IIR interne du BMP280 : 16 (défaut, très lisse mais en retard d'environ
+# une demi-seconde) ; 0, 2 ou 4 pour les rampes de seuils (moins de retard, plus
+# de bruit). Un capteur en retard fausse l'hystérésis mesurée.
+BMP280_IIR = 16
 OLED_W = 128
 OLED_H = 64
 

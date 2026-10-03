@@ -233,3 +233,34 @@ ce qui sort de la condition « le couplage anche↔chambre garde la même force
 d'une note à l'autre ». Une mesure qui contredirait ce `−3` contredirait le
 couplage lui-même.
 **Coût** : zéro, si la plaque d'anches vient d'un accordéon hors service.
+
+---
+
+## Priorité 7 — seuils, levée, fuites (03/10/2026)
+
+Outils : carte « Seuils d'auto-entretien » de l'onglet Banc, `seuil.py`,
+`banc-recherche-cli seuils` ; `seuils_auto_entretien.md` et
+`protocole_fuites_fabrication.md`.
+
+### ☐ E19. Les quatre seuils en fonction de la levée
+**Mesure** : `p_on`, `p_off`, `p_choke` (plaquage), `p_unchoke` (reprise) sur
+trois anches (grave, médium, aigu) à trois levées, deux vitesses de rampe,
+trois cycles.
+**Hypothèse à tester** (St Hilaire et coll. 1971, prolongé) : à géométrie
+égale, `p_on` croît comme `(f · levée)²` ; le plaquage croît comme
+`raideur × levée / surface` ; leur rapport croît avec la masse de l'anche par
+unité de surface. Voir le rapport `fuites-et-seuils-anches.md` du journal
+de recherche.
+**Ce qui la contredirait** : `p_on` insensible à la levée, ou un rapport
+`p_choke/p_on` plus grand pour l'aigu léger que pour le grave lesté.
+
+### ☐ E20. Débit consommé et niveau, une anche puis deux
+**Mesure** : gazomètre ou débitmètre, niveau au micro à distance fixe, à 100,
+300, 500, 1 000 Pa ; anche A seule (B bloquée au papier), B seule, A + B.
+**Débloque** : la loi `q = C·p^n` de chaque anche (`flow_law`), l'aire
+efficace, le rendement relatif (`efficiency_db`), et `compare_pair`.
+
+### ☐ E21. Budget de fuite d'un instrument « pianissimo »
+**Mesure** : test de chute chiffré (masse, pression, vitesse) sur deux ou trois
+instruments jugés par Ewen, et le pianissimo le plus doux sur une note aiguë.
+**Débloque** : le critère de fuite de l'étape 6 du protocole de fabrication.
