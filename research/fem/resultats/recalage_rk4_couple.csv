@@ -1,0 +1,11 @@
+anche;modele;f_lame_Hz;p_on_Pa;f_jeu_Hz;f_jeu_cents_sur_lame;amplitude_bout_1p5_seuil_mm;mesure_banc
+SECTIONS_DEFAULT;reed_model d'origine (RK4, volume en variable d'état);;surpression moyenne -71542 Pa;112.5;;;
+R12-grave;RK4 FreeReedModel, origine (modal N=2, cavité 7,9 cm3 fermée);102.1;52.3;104.68;43.3;0.139 (croît);en attente
+R12-grave;RK4 FreeReedModel, recalé (languette et volume d'Elmer);67.72;9.1;69.03;33.4;0.163 (établi);en attente
+R12-grave;coupled_reeds, réseau d'Elmer (chambre + trou de table);67.72;43.5;67.57;-3.8;0.132 (établi);en attente
+R12-medium;RK4 FreeReedModel, origine (modal N=2, cavité 7,9 cm3 fermée);439.85;187.7;442.25;9.4;0.218 (établi);en attente
+R12-medium;RK4 FreeReedModel, recalé (languette et volume d'Elmer);444.01;181.2;445.53;5.9;0.222 (établi);en attente
+R12-medium;coupled_reeds, réseau d'Elmer (chambre + trou de table);444.01;129.7;442.53;-5.8;0.625 (établi);en attente
+R12-aigu;RK4 FreeReedModel, origine (modal N=2, cavité 7,9 cm3 fermée);880.42;2932.3;882.8;4.7;0.343 (établi);en attente
+R12-aigu;RK4 FreeReedModel, recalé (languette et volume d'Elmer);891.73;3126.0;894.09;4.6;0.345 (établi);en attente
+R12-aigu;coupled_reeds, réseau d'Elmer (chambre + trou de table);891.73;366.9;887.82;-7.6;0.761 (établi);en attente

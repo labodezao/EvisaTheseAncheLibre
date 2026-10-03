@@ -604,3 +604,9 @@ sélectionne les voies dans `config.py` (`AUDIO_DEVICE`, `IN_CHANNELS`, `OUT_CHA
 Squelette posé (modules + signatures + GUI minimale). Le portage du corps de
 chaque ancien script se fait module par module ; les tests figent le
 comportement numérique attendu (impédance, Tresp) au fil du portage.
+
+
+## Éléments finis, banque d'anches, recalage (03/10/2026)
+
+`fem/README.md` : de la mesure d'une anche (geste d'Ewen, son pincé) au recalage du modèle,
+en 5 étapes. Elmer 26.2 + Gmsh ; banque d'anches CSV (`fem/anche/`) ; interface `reedgui/`.

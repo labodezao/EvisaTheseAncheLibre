@@ -1,0 +1,29 @@
+{
+ "id": "R12-aigu",
+ "elmer": "26.2",
+ "encastrement": "rivet",
+ "frequences_Hz": [
+  873.92,
+  5466.318,
+  7865.789,
+  8342.832,
+  15308.488,
+  25521.447
+ ],
+ "types": [
+  "flexion",
+  "flexion",
+  "flexion dans le plan",
+  "torsion",
+  "flexion",
+  "torsion"
+ ],
+ "mode1": {
+  "f_Hz": 873.9200678721269,
+  "m_eff_kg": 3.475218860419355e-05,
+  "k_eff_N_m": 1047.8167138239003,
+  "gamma_m2": 2.3265471293939803e-05,
+  "phi_moyen": 0.3933300303286527
+ },
+ "noeuds": 3309
+}

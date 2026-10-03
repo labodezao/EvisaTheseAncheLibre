@@ -1,0 +1,29 @@
+{
+ "id": "R12-medium",
+ "elmer": "26.2",
+ "encastrement": "rivet",
+ "frequences_Hz": [
+  437.715,
+  2740.478,
+  4254.366,
+  5817.273,
+  7675.781,
+  15054.357
+ ],
+ "types": [
+  "flexion",
+  "flexion",
+  "flexion dans le plan",
+  "torsion",
+  "flexion",
+  "flexion"
+ ],
+ "mode1": {
+  "f_Hz": 437.7145205002504,
+  "m_eff_kg": 4.908923857603801e-05,
+  "k_eff_N_m": 371.3025572401164,
+  "gamma_m2": 3.285851476386668e-05,
+  "phi_moyen": 0.3926452143617934
+ },
+ "noeuds": 4345
+}

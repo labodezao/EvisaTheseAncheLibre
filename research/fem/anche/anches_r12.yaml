@@ -1,0 +1,115 @@
+# PRODUIT par banc_recherche/banque_anches.py depuis la banque CSV : ne pas modifier
+# à la main. Modifier le CSV, puis relancer :
+#   J:\claude\venv\Scripts\python.exe -m banc_recherche.banque_anches <banque.csv> --yaml <ce fichier>
+# a_mesurer: true = valeur NOMINALE (devinée), à remplacer par une mesure.
+version: 1
+genere_le: 2026-10-03 20:27
+source_csv: banque_anches.csv
+unites: longueurs en mm, masses en g, fréquences en Hz ; la3 = 440 Hz
+materiaux:
+  acier: {E_GPa: 210.0, rho_kg_m3: 7800.0, nu: 0.29}
+  inox: {E_GPa: 193.0, rho_kg_m3: 7900.0, nu: 0.29}
+  laiton: {E_GPa: 100.0, rho_kg_m3: 8500.0, nu: 0.34}
+  bronze: {E_GPa: 110.0, rho_kg_m3: 8800.0, nu: 0.34}
+  plomb: {E_GPa: 16.0, rho_kg_m3: 11340.0, nu: 0.44}
+  cire: {E_GPa: 0.1, rho_kg_m3: 950.0, nu: 0.45}
+anches:
+- id: R12-grave
+  a_mesurer: [note, note_Hz, sens, position, levee_mm, fente_longueur_mm, fente_largeur_mm, plaque_mm, rivet_mm,
+    chambre, son_pince, seuils_csv]
+  instrument: {valeur: accordéon R12, a_mesurer: false}
+  rang: {valeur: R12, a_mesurer: false}
+  date: {valeur: '2020-09-12', a_mesurer: false}
+  source: {valeur: 'matrix.txt de reedgui, Ewen 2020', a_mesurer: false}
+  note: {valeur: do#1, a_mesurer: true}
+  note_Hz: {valeur: 67.36, a_mesurer: true}
+  sens: {valeur: null, a_mesurer: true}
+  position: {valeur: null, a_mesurer: true}
+  levee_mm: {valeur: 0.413, a_mesurer: true}
+  fente_longueur_mm: {valeur: 37.43, a_mesurer: true}
+  fente_largeur_mm: {valeur: 4.319, a_mesurer: true}
+  plaque_mm: {valeur: 0.825, a_mesurer: true}
+  rivet_mm: {valeur: 3.0, a_mesurer: true}
+  chambre: {valeur: 1, a_mesurer: true, estime: true}
+  masse_bout: {valeur: oui, a_mesurer: false}
+  son_pince: {valeur: null, a_mesurer: true}
+  seuils_csv: {valeur: null, a_mesurer: true}
+  troncons:
+    a_mesurer: false
+    source: matrix.txt de reedgui, Ewen 2020
+    liste:
+    - longueur_mm: 4.55
+      largeur_mm: [4.259, 4.259]
+      epaisseur_mm: [0.35, 0.35]
+      materiau: acier
+    - longueur_mm: 14.85
+      largeur_mm: [4.008, 4.008]
+      epaisseur_mm: [0.2, 0.2]
+      materiau: acier
+    - longueur_mm: 9.0
+      largeur_mm: [3.699, 3.699]
+      epaisseur_mm: [0.275, 0.275]
+      materiau: acier
+    - longueur_mm: 9.0
+      largeur_mm: [3.466, 3.466]
+      epaisseur_mm: [1.5, 1.5]
+      materiau: acier
+  calcule: {L_libre_mm: 37.4, masse_libre_g: 0.5821, f1_euler_bernoulli_Hz: 67.36, note_f1: do#1 -49 c}
+- id: R12-medium
+  a_mesurer: [troncons, note, note_Hz, sens, position, levee_mm, fente_longueur_mm, fente_largeur_mm, plaque_mm,
+    rivet_mm, chambre, masse_bout, son_pince, seuils_csv]
+  instrument: {valeur: accordéon R12, a_mesurer: false}
+  rang: {valeur: R12, a_mesurer: false}
+  date: {valeur: null, a_mesurer: false}
+  source: {valeur: 'nominale, en attendant la mesure', a_mesurer: false}
+  note: {valeur: la3, a_mesurer: true, estime: true}
+  note_Hz: {valeur: 440.0, a_mesurer: true}
+  sens: {valeur: null, a_mesurer: true}
+  position: {valeur: null, a_mesurer: true}
+  levee_mm: {valeur: 0.45, a_mesurer: true}
+  fente_longueur_mm: {valeur: 23.94, a_mesurer: true}
+  fente_largeur_mm: {valeur: 3.56, a_mesurer: true}
+  plaque_mm: {valeur: 0.9, a_mesurer: true}
+  rivet_mm: {valeur: 3.0, a_mesurer: true}
+  chambre: {valeur: 6, a_mesurer: true, estime: true}
+  masse_bout: {valeur: null, a_mesurer: true}
+  son_pince: {valeur: null, a_mesurer: true}
+  seuils_csv: {valeur: null, a_mesurer: true}
+  troncons:
+    a_mesurer: true
+    source: 'nominal : lame d''acier uniforme 0,30 x 3,5 mm accordée sur la note (à mesurer)'
+    liste:
+    - longueur_mm: 23.91
+      largeur_mm: [3.5, 3.5]
+      epaisseur_mm: [0.3, 0.3]
+      materiau: acier
+  calcule: {L_libre_mm: 23.91, masse_libre_g: 0.1958, f1_euler_bernoulli_Hz: 439.85, note_f1: la3 -1 c}
+- id: R12-aigu
+  a_mesurer: [troncons, note, note_Hz, sens, position, levee_mm, fente_longueur_mm, fente_largeur_mm, plaque_mm,
+    rivet_mm, chambre, masse_bout, son_pince, seuils_csv]
+  instrument: {valeur: accordéon R12, a_mesurer: false}
+  rang: {valeur: R12, a_mesurer: false}
+  date: {valeur: null, a_mesurer: false}
+  source: {valeur: 'nominale, en attendant la mesure', a_mesurer: false}
+  note: {valeur: la4, a_mesurer: true, estime: true}
+  note_Hz: {valeur: 880.0, a_mesurer: true}
+  sens: {valeur: null, a_mesurer: true}
+  position: {valeur: null, a_mesurer: true}
+  levee_mm: {valeur: 0.45, a_mesurer: true}
+  fente_longueur_mm: {valeur: 16.93, a_mesurer: true}
+  fente_largeur_mm: {valeur: 3.56, a_mesurer: true}
+  plaque_mm: {valeur: 0.9, a_mesurer: true}
+  rivet_mm: {valeur: 3.0, a_mesurer: true}
+  chambre: {valeur: 12, a_mesurer: true, estime: true}
+  masse_bout: {valeur: null, a_mesurer: true}
+  son_pince: {valeur: null, a_mesurer: true}
+  seuils_csv: {valeur: null, a_mesurer: true}
+  troncons:
+    a_mesurer: true
+    source: 'nominal : lame d''acier uniforme 0,30 x 3,5 mm accordée sur la note (à mesurer)'
+    liste:
+    - longueur_mm: 16.9
+      largeur_mm: [3.5, 3.5]
+      epaisseur_mm: [0.3, 0.3]
+      materiau: acier
+  calcule: {L_libre_mm: 16.9, masse_libre_g: 0.1384, f1_euler_bernoulli_Hz: 880.42, note_f1: la4 +1 c}

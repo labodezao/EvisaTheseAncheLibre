@@ -1,0 +1,3 @@
+cas;elmer;attendu;ecart_max_rel;obtenu
+conduit 100x10x10, Z vue du bout;26.2;i.rho.c.tan(kL)/S;1.31e-05;
+boîte rigide 50x15x10, mode 1;26.2;3430.0 Hz;;3430.0 Hz

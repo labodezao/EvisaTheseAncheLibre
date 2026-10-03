@@ -53,7 +53,8 @@ import time
 
 ICI = os.path.dirname(os.path.abspath(__file__))
 SOMMIER_PY = r"J:\claude\business-os\outils\zw3d\sommier.py"
-ELMER = os.environ.get("ELMER_HOME", r"C:\Program Files\Elmer 9.0-Release")
+sys.path.insert(0, os.path.dirname(ICI))                     # research/fem : elmer_outils
+import elmer_outils  # noqa: E402  (Elmer 26.2 par défaut, 9.0 en secours, ELMER_DOSSIER)
 TRAVAIL = os.environ.get("CHAMBRE_TRAVAIL", r"J:\claude\calculs\chambre_sommier")
 C_SON = 343.0      # m/s, air à 20 °C
 
@@ -123,12 +124,10 @@ class Chambre:
 
 
 # --- Géométrie et maillage (Gmsh, OpenCASCADE) ------------------------------------------------
-def mailler(ch: Chambre, fichier_msh, h=1.2):
-    import gmsh
-    gmsh.initialize()
-    gmsh.option.setNumber("General.Terminal", 0)
-    gmsh.model.add(f"chambre{ch.k}")
-    occ = gmsh.model.occ
+def air_occ(ch: Chambre, occ, gmsh, extra=None):
+    """L'air de la chambre (cases + col du trou) dans OpenCASCADE, fusionné avec les
+    volumes `extra` (ex. : la fente d'une anche, `impedance_fente.py`).
+    Renvoie (tags des volumes, volumes des demi-cases en mm3, longueur du col en mm)."""
     vols, volumes_cases = [], {}
     for nom, xa, xb, zf, yi, ye in ch.demi_cases():
         pts = [(yi(zf), zf), (ye(zf), zf), (ye(ch.H), ch.H), (yi(ch.H), ch.H)]
@@ -144,11 +143,20 @@ def mailler(ch: Chambre, fichier_msh, h=1.2):
     L_col = ch.table + ch.corr_ext
     col = occ.addBox(ch.PasCav / 2 - hx / 2, -hy / 2, ch.H, hx, hy, L_col)
     occ.synchronize()
-    fus, _ = occ.fuse(vols, [(3, col)])
+    fus, _ = occ.fuse(vols, [(3, col)] + [(3, t) for t in (extra(occ) if extra else [])])
     occ.synchronize()
     occ.removeAllDuplicates()
     occ.synchronize()
-    vtags = [t for d, t in gmsh.model.getEntities(3)]
+    return [t for d, t in gmsh.model.getEntities(3)], volumes_cases, L_col
+
+
+def mailler(ch: Chambre, fichier_msh, h=1.2):
+    import gmsh
+    gmsh.initialize()
+    gmsh.option.setNumber("General.Terminal", 0)
+    gmsh.model.add(f"chambre{ch.k}")
+    occ = gmsh.model.occ
+    vtags, volumes_cases, L_col = air_occ(ch, occ, gmsh)
     volume_total = sum(occ.getMass(3, t) for t in vtags)
     gmsh.model.addPhysicalGroup(3, vtags, 1)
     bord = gmsh.model.getBoundary([(3, t) for t in vtags], oriented=False, combined=True)
@@ -213,18 +221,12 @@ End
 
 def elmer(dossier, n_modes=4, c=C_SON):
     """ElmerGrid puis ElmerSolver dans `dossier` ; renvoie les fréquences propres (Hz)."""
-    exe = lambda nom: os.path.join(ELMER, "bin", nom)
-    env = dict(os.environ, ELMER_HOME=ELMER)
-    subprocess.run([exe("ElmerGrid.exe"), "14", "2", "chambre.msh", "-autoclean", "-out", "maillage"],
-                   cwd=dossier, env=env, capture_output=True, check=True)
+    elmer_outils.elmergrid(dossier, "chambre.msh")
     open(os.path.join(dossier, "modes.sif"), "w", encoding="utf-8").write(SIF.format(c=c, n=n_modes))
-    r = subprocess.run([exe("ElmerSolver.exe"), "modes.sif"], cwd=dossier, env=env,
-                       capture_output=True, text=True, errors="replace")
-    open(os.path.join(dossier, "elmer.log"), "w", encoding="utf-8").write(r.stdout + r.stderr)
-    lam = [float(m.group(1)) for m in re.finditer(r"EigenSolve:\s+\d+:\s+([-\d.E+]+)", r.stdout)]
-    if not lam:
-        raise RuntimeError(f"Elmer n'a rendu aucune valeur propre (voir {dossier}\\elmer.log)")
-    return sorted(math.sqrt(abs(x)) / (2 * math.pi) for x in lam)
+    f = elmer_outils.frequences(elmer_outils.elmersolver(dossier, "modes.sif"))
+    if not f:
+        raise RuntimeError(f"Elmer n'a rendu aucune valeur propre (voir {os.path.join(dossier, 'elmer.log')})")
+    return f
 
 
 def helmholtz(ch: Chambre, V_mm3, corr_int=0.85):
@@ -307,7 +309,10 @@ def main():
             print(f"chambre {k:2d}  V = {r['V_cases_cm3']:6.2f} cm3  f1 = {r['f1_Hz']:7.1f} Hz ({r['note_f1']})"
                   f"  f2 = {r['f2_Hz']:7.1f}  Helmholtz {r['f_helmholtz_Hz']:7.1f} ({r['ecart_helmholtz_pct']:+.1f} %)"
                   f"  {r['noeuds']} noeuds, {r['duree_s']} s", flush=True)
-        print("->", ecrire(lignes, "modes_chambres_R12.csv"))
+        # Une partie seulement des chambres : un autre fichier, pour ne pas écraser le tableau
+        # des 12 chambres (arrivé le 03/10/2026 en refaisant la chambre 12 seule).
+        nom = "modes_chambres_R12.csv" if a.chambres is None else "modes_chambres_selection.csv"
+        print("->", ecrire(lignes, nom))
     else:
         for k in ks:
             for hx, hy in ((4.0, 12.5), (8.0, 25.0), (8.0, 12.5)):

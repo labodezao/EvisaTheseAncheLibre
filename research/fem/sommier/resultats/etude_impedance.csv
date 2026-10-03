@@ -1,0 +1,8 @@
+variante;noeuds;duree_s;f1_Hz;f2_Hz;V_eff_cm3;l_eff_trou_mm;L_fente;ecart_Z_median_pct;ecart_Z_max_pct
+RÉFÉRENCE : balayage 70 fréquences, maille uniforme 2 mm, direct;25086;486.6;1139.71;1402.07;17.788;25.79;27.24;0;0
+rapide, maille uniforme 3 mm, direct;9455;25.2;1140.64;1404.47;17.688;25.9;23.66;0.346;91.028
+rapide, maille uniforme 3 mm, itératif BiCGStab(l)+ILU1;9455;19.8;1140.64;1404.47;17.688;25.9;23.66;0.346;91.028
+rapide, maille uniforme 2 mm, direct;25086;106.4;1139.73;1401.88;17.699;25.92;24.0;0.017;3.195
+rapide, maille uniforme 2 mm, itératif BiCGStab(l)+ILU1;25086;52.8;1139.73;1401.88;17.699;25.92;24.0;0.017;3.195
+rapide, maille adaptée 3 -> 0,8 mm, itératif;55175;163.5;1138.8;1398.5;17.693;25.98;24.21;0.38;101.622
+rapide, maille uniforme 1,2 mm, itératif;96091;304.2;1139.01;1399.25;17.692;25.97;24.16;0.3;77.217

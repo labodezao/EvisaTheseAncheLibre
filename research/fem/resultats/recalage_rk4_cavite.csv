@@ -1,0 +1,4 @@
+anche;chambre;bande_Hz;f_anche_Hz;f_helmholtz_elmer_Hz;f_resonateur_cale_Hz;V_origine_cm3;V_eff_cale_cm3;V_cases_geometrie_cm3;trou_origine;l_eff_trou_mm;L_fente_kg_m4;ecart_Z_origine_median_pct;ecart_Z_origine_max_pct;ecart_Z_1resonateur_median_pct;ecart_Z_1resonateur_max_pct;V_1resonateur_cm3;ecart_Z_2resonateurs_median_pct;ecart_Z_2resonateurs_max_pct;phase_origine_deg;phase_elmer_deg
+R12-grave;1;50-271;67.7;1139.7;1139.7;7.875;17.788;18.262;aucun (cavité fermée);25.79;27.24;12396.1;64618.3;0.0;0.0;12.511;0.51;0.52;-90.0;90.0
+R12-medium;6;222-1673;444.0;1450.9;1450.9;7.875;12.454;12.38;aucun (cavité fermée);22.73;41.51;494.2;3290.3;8.93;50.01;22.046;0.07;0.46;-90.0;90.0
+R12-aigu;12;446-1816;891.7;1571.2;1571.2;7.875;7.932;10.222;aucun (cavité fermée);30.44;61.06;231.7;726.0;4.36;16.44;9.081;0.11;0.46;-90.0;90.0

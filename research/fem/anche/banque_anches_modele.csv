@@ -1,0 +1,6 @@
+type;id;longueur_mm;largeur_debut_mm;largeur_fin_mm;epaisseur_debut_mm;epaisseur_fin_mm;materiau;instrument;rang;note;sens;position;chambre;levee_mm;fente_longueur_mm;fente_largeur_mm;plaque_mm;masse_bout;rivet_mm;son_pince;seuils_csv;date;source
+anche;;;;;;;;;;;;;;;;;;;;;;;
+troncon;;;;;;;acier
+troncon;;;;;;;acier
+troncon;;;;;;;acier
+troncon;;;;;;;acier
