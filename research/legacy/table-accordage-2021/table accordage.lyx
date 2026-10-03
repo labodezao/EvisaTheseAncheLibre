@@ -1,0 +1,2584 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass beamer
+\begin_preamble
+\usetheme[
+%%% option passed to the outer theme
+%    progressstyle=fixedCircCnt,   % fixedCircCnt, movingCircCnt (moving is deault)
+%rotationcw
+]{Feather}
+  
+% If you want to change the colors of the various elements in the theme, edit and uncomment the following lines
+
+% Change the bar colors:
+\setbeamercolor{Feather}{fg=NavyBlue!20,bg=NavyBlue}
+
+% Change the color of the structural elements:
+\setbeamercolor{structure}{fg=NavyBlue}
+
+% Change the frame title text color:
+\setbeamercolor{frametitle}{fg=black!5}
+
+% Change the normal text colors:
+\setbeamercolor{normal text}{fg=black!75,bg=gray!5}
+
+%% Change the block title colors
+\setbeamercolor{block title}{use=Feather,bg=Feather.fg, fg=black!90} 
+
+
+% Change the logo in the upper right circle:
+\renewcommand{\logofile}{Feathergraphics/logo} 
+%% This is an image that comes with the LaTeX installation
+% Adjust scale of the logo w.r.t. the circle; default is 0.875
+ \renewcommand{\logoscale}{0.875}
+
+% Change the background image on the title and final page.
+% It stretches to fill the entire frame!
+% \renewcommand{\backgroundfile}{example-grid-100x100pt}
+
+%-------------------------------------------------------
+% INCLUDE PACKAGES
+%-------------------------------------------------------
+
+%\usepackage[,french,]{babel}
+% \usepackage{helvet}
+
+%% Load different font packages to use different fonts
+%% e.g. using Linux Libertine, Linux Biolinum and Inconsolata
+% \usepackage{libertine}
+% \usepackage{zi4}
+
+%% e.g. using Carlito and Caladea
+\usepackage{carlito}
+\usepackage{caladea}
+\usepackage{zi4}
+\usepackage[document]{ragged2e}
+\renewcommand{\raggedright}{\leftskip=0pt \rightskip=0pt plus 0cm}
+
+\renewcommand{\itemize}[1][]{%
+    \beamer@ifempty{#1}{}{\def\beamer@defaultospec{#1}}%
+    \ifnum \@itemdepth >2\relax\@toodeep\else
+    \advance\@itemdepth\@ne
+    \beamer@computepref\@itemdepth% sets \beameritemnestingprefix
+    \usebeamerfont{itemize/enumerate \beameritemnestingprefix body}%
+    \usebeamercolor[fg]{itemize/enumerate \beameritemnestingprefix body}%
+    \usebeamertemplate{itemize/enumerate \beameritemnestingprefix body begin}%
+    \list
+    {\usebeamertemplate{itemize \beameritemnestingprefix item}}
+    {\def\makelabel##1{%
+            {%
+                \hss\llap{{%
+                        \usebeamerfont*{itemize \beameritemnestingprefix item}%
+                        \usebeamercolor[fg]{itemize \beameritemnestingprefix item}##1}}%
+            }%
+        }%
+    }
+    \fi%
+    \beamer@cramped%
+    \justifying% NEW
+    %\raggedright% ORIGINAL
+    \beamer@firstlineitemizeunskip%
+}
+
+\renewcommand<>\beamer@columncom[2][\beamer@colmode]{%
+    \beamer@colclose%
+    \def\beamer@colclose{\end{minipage}\hfill\end{actionenv}\ignorespaces}%
+\begin{actionenv}#3%
+    \setkeys{beamer@col}{#1}%
+    \begin{minipage}[\beamer@colalign]{#2}%
+        \leavevmode%
+        %\raggedright
+            \justifying% NEW
+        \beamer@colheadskip\ignorespaces}
+
+
+%% e.g. using Venturis ADF Serif and Sans
+% \usepackage{venturis}
+
+%-------------------------------------------------------
+% DEFFINING AND REDEFINING COMMANDS
+%-------------------------------------------------------
+
+% colored hyperlinks
+\newcommand{\chref}[2]{
+  \href{#1}{{\usebeamercolor[bg]{Feather}#2}}
+}
+
+\AtBeginSection[]
+{
+    \begin{frame}
+        \frametitle{Vous êtes ici :}
+        \tableofcontents[currentsection]
+    \end{frame}
+}
+\AtBeginSubsection[]
+{
+    \begin{frame}
+        \frametitle{Vous êtes ici :}
+        \tableofcontents[currentsubsection]
+    \end{frame}
+}
+%-------------------------------------------------------
+% INFORMATION IN THE TITLE PAGE
+%-------------------------------------------------------
+
+\author[Ewen d'Aviau] { {\ttfamily (adresse retiree)} }
+\institute[] { Projet vidéo APOM }
+\date{\today}
+\end_preamble
+\options xcolor=dvipsnames
+\use_default_options false
+\maintain_unincluded_children false
+\language french
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize 10
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry true
+\use_package amsmath 1
+\use_package amssymb 0
+\use_package cancel 0
+\use_package esint 1
+\use_package mathdots 0
+\use_package mathtools 0
+\use_package mhchem 0
+\use_package stackrel 0
+\use_package stmaryrd 0
+\use_package undertilde 0
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 0
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation skip
+\defskip medskip
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style french
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\bullet 0 0 8 5
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+title[Rappels Maths et Physiques] {
+\backslash
+textbf{Rappels mathématiques et physiques pour le son}}
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+subtitle[] {}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+1
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 3
+status open
+
+\begin_layout Plain Layout
+plain,noframenumbering
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+titlepage
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Sommaire
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{}
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset CommandInset toc
+LatexCommand tableofcontents
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status open
+
+\begin_layout Plain Layout
+Contexte
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+d
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+\noindent
+Table accordage Manuelle
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+k
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+AI
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+k
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+l
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+d
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+l
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+d
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+\noindent
+Table accordage Numérique
+\end_layout
+
+\begin_layout Subsection
+Conception de la caisse
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Conception de la caisse
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+J'ai choisit de faire une structure de caisse qui puisse intégrer tous les
+ composants et un écran tft ou Oled 2.4 pouces.
+ La première version de la caise est une structure en bois inclinée à environ
+ 30 degrés sur laquelle je visse une plaque structure sur laquelle est montée
+ tous les composants électroniques et pneumatique.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Plaque arrière pour l'accordeur
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+La caisse est pourvue d'une plaque arrière inclinable qui a pour rôle de
+ pouvoir poser l'accordeur autostrobe à l'arrière de celle ci.Cette tablette
+ est rabatable de manière à économiser le plus de place quand la table d'accorda
+ge est rangée.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Ecran rabattable
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+Un écran TFT 2.4 pouce est ajoutée dans le version numérique.
+ L'écran est fixée sur une tablette inclinable.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Conception de turbine
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Turbine
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+Le flux d'air est générée par une turbine centrifuge triphasée avec 3 capteur
+ Hall pour l'asservissement de la vitesse.
+ Cette turbine est alimentée en 24 V et est pilotée par une tension variant
+ de 0 à 5V continue.Attention à ne pas piloter la tension en PWM, car ça
+ flingue la carte de commande du à des variations trop brusques de courant.La
+ turbine générant un flux d'air constant, il a fallu développer un distributeur
+ original pour assurer une fonction dépression surpression.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Distributeur 2 voies
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+La turbine générant un flux d'air constant, il a fallu développer un distributeu
+r original pour assurer une fonction dépression surpression.Ce distributeur
+ avait pour contrainte technique d'avoir le moins de pertes de charges aérodynam
+iques possibles.
+ Il a donc fallu développer un système spécifique avec peu d'encombrement.Le
+ dispositif est constituée de 3 parties, une partie qui supporte la turbine,
+ une partie qui oriente le flux vers le canal souhaité et une partie qui
+ connecte le tout à l'orifice de la table d'accordage.
+\end_layout
+
+\begin_layout Standard
+La partie centrale est libre en rotation autour d'un axe central qui permet
+ l'indexation.
+ un moteur pas à pas permet de distribuer une pression d'air positive ou
+ négative à l'intérieur de la table d'accordage.
+ Deux joints sont collés de part et d'autres de cette roue sur les pièces
+ 1 et 3 pour assurer l'étanchéité.
+ Pour pouvoir se mouvoir librement tout en gardant une étanchéité statique,
+ le système est monté sur ressort entre la partie 1 / 2 et 3.
+ 
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Conception électronique
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Choix du microcontrolleur
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+Choix de Micropython pour ses performances
+\end_layout
+
+\begin_layout Standard
+\noindent
+Utilisation des modules mathématiques perfomantes
+\end_layout
+
+\begin_layout Standard
+\noindent
+Implémentées sous stm32
+\end_layout
+
+\begin_layout Standard
+\noindent
+Possibilité de gérer les fichiers txt
+\end_layout
+
+\begin_layout Standard
+\noindent
+Gère une carte sd en natif
+\end_layout
+
+\begin_layout Standard
+\noindent
+Programmé en Python
+\end_layout
+
+\begin_layout Standard
+\noindent
+Connectable en wifi et bluetooth.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Choix de la tension d'alimentation 
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+La tension d'alimentation est 24 V pour avoir des meilleures performances
+ en termes au niveau de la turbine et des steppers.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Capteurs de pression température
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+On utilise un capteur de pression numérique interfacé via une connection
+ I2C délivrant le température et la pression statique.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Capteurs de débit
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+Capteur de débit numérique qui mesure dans les deux direction jusqu'a 200
+ slitres / min.
+ Fonctionne en I2C sous 5 V.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Protocole I2C
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+C.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Relais
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+C.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Câblage
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+C.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Programme Micropython
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Routines
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+C.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Upgrade
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Ajout d'une électrovanne pour mesurer les fuites
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+Ajout d'une électrovanne pour mesurer la chute de pression
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Ajout d'un écran Oled
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+d
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Ajout d'un Moteur pap pour choisir la direction du flux d'air
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+d
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Ajout d'électroaimants pour brider la caisse facilement
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+d
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Threading
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+d
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Synthèse des composants
+\end_layout
+
+\begin_layout Subsection
+Pneumatique
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Turbine
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+Le flux d'air est générée par une turbine centrifuge triphasée avec 3 capteur
+ Hall pour l'asservissement de la vitesse.
+ Cette turbine est alimentée en 24 V et est pilotée par une tension variant
+ de 0 à 5V continue.
+\end_layout
+
+\end_deeper
+\begin_layout Frame
+Attention à ne pas piloter la tension en PWM, car ça flingue la carte de
+ commande du à des variations trop brusques de courant.
+\end_layout
+
+\begin_layout Frame
+La turbine générant un flux d'air constant, il a fallu développer un distributeu
+r original pour assurer une fonction dépression surpression.
+\end_layout
+
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Distributeur 2 voies
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+La turbine générant un flux d'air constant, il a fallu développer un distributeu
+r original pour assurer une fonction dépression surpression.Ce distributeur
+ avait pour contrainte technique d'avoir le moins de pertes de charges aérodynam
+iques possibles.
+ Il a donc fallu développer un système spécifique avec peu d'encombrement.Le
+ dispositif est constituée de 3 parties, une partie qui supporte la turbine,
+ une partie qui oriente le flux vers le canal souhaité et une partie qui
+ connecte le tout à l’orifice de la table d'accordage.La partie centrale
+ est libre en rotation autour d'un axe central qui permet l'indexation.
+ un moteur pas à pas permet de distribuer une pression d'air positive ou
+ négative à l'intérieur de la table d'accordage.
+ Deux joints sont collés de part et d'autres de cette roue sur les pièces
+ 1 et 3 pour assurer l'étanchéité.
+ Pour pouvoir se mouvoir librement tout en gardant une étanchéité statique,
+ le système est monté sur ressort entre la partie 1 / 2 et 3.
+ 
+\end_layout
+
+\begin_layout Standard
+\noindent
+\begin_inset Tabular
+<lyxtabular version="3" rows="4" columns="2">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+a
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+a
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+a
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+a
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+a
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+a
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+a
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+a
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Subsection
+Electroniques
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Contrôleur de stepper
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+Pour contrôler le moteur Pas à pas, j'utilise un TB6600 qui permet de régler
+ facilement les microsteps et la limite de courant circulant dans les bobines.Pou
+r contrôler le moteur, j'utilisais un hub switch USB de mauvaise qualité
+ et j'avais des tas d'erreurs.
+ Le mieux c'est les switch avec alimentation externe.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Frame
+\noindent
+\begin_inset Argument 4
+status collapsed
+
+\begin_layout Plain Layout
+Entrées Sorties sur Micropython
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Frame
+
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+\noindent
+\begin_inset Tabular
+<lyxtabular version="3" rows="15" columns="3">
+<features tabularvalignment="middle">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<column alignment="center" valignment="top">
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Entrée :
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Type
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Pins
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Switch invPress
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+3 x D I
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+P- :X21
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Vitesse Blower
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1 x ADC I
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+BL : -
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Limit switch stepper
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2 x D I
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Left : X11
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Fluxmetre
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+I2C (2)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+SCL :Y9 SDA : Y10
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Bmp280
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+I2C (2)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+SCL :Y9 SDA : Y10
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Switch eleclamp
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1 x D I
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Sorties
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Type
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Pins
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Moteur Stepper
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+2 x PWM O + 1 x DO
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+X1, X2, X3
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Oled
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+I2C (2)
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+SCL :Y9 SDA : Y10 
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Relais eleclamp
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1 x DO
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-X20
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Relais Vanne
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1 x DO
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-X19
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+Ena Blower
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+1 x DAC O
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+-X4
+\end_layout
+
+\end_inset
+</cell>
+</row>
+<row>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+<cell alignment="center" valignment="top" topline="true" bottomline="true" leftline="true" rightline="true" usebox="none">
+\begin_inset Text
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+</cell>
+</row>
+</lyxtabular>
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Reste X19-X22 / 
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+\noindent
+\align block
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+%-
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document

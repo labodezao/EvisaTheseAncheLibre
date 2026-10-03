@@ -1,0 +1,990 @@
+# ------------------------------------------------------------------------------------------
+# Impression du contenu du fichier de commandes � ex�cuter :
+# ------------------------------------------------------------------------------------------
+DEBUT(LANG='FR')
+
+
+
+mesh = LIRE_MAILLAGE(identifier='0:1',
+
+                     FORMAT='MED',
+
+                     UNITE=2)
+
+
+
+model = AFFE_MODELE(identifier='1:1',
+
+                    AFFE=_F(MODELISATION=('3D', ),
+
+                            PHENOMENE='MECANIQUE',
+
+                            TOUT='OUI'),
+
+                    MAILLAGE=mesh)
+
+
+
+mater0 = DEFI_MATERIAU(identifier='2:1',
+
+                       ELAS=_F(E=210000000000.0,
+
+                               NU=0.3,
+
+                               RHO=7800.0))
+
+
+
+fieldmat = AFFE_MATERIAU(identifier='3:1',
+
+                         AFFE=_F(MATER=(mater0, ),
+
+                                 TOUT='OUI'),
+
+                         MAILLAGE=mesh)
+
+
+
+load = AFFE_CHAR_MECA(identifier='4:1',
+
+                      DDL_IMPO=_F(GROUP_MA=('clamp', ),
+
+                                  LIAISON='ENCASTRE'),
+
+                      MODELE=model)
+
+
+
+ASSEMBLAGE(identifier='5:1',
+
+           CHAM_MATER=fieldmat,
+
+           CHARGE=(load, ),
+
+           MATR_ASSE=(_F(MATRICE=CO('MASS'),
+
+                         OPTION='MASS_MECA'),
+
+                      _F(MATRICE=CO('RIGI'),
+
+                         OPTION='RIGI_MECA'),
+
+                      _F(MATRICE=CO('MASDIAG'),
+
+                         OPTION='MASS_MECA_DIAG'),
+
+                      _F(MATRICE=CO('AMOR'),
+
+                         OPTION='AMOR_MECA')),
+
+           MODELE=model,
+
+           NUME_DDL=CO('nddl'))
+
+
+
+unnamed0 = CALC_MODES(identifier='8:1',
+
+                      CALC_FREQ=_F(NMAX_FREQ=10),
+
+                      MATR_MASS=MASS,
+
+                      MATR_RIGI=RIGI,
+
+                      OPTION='PLUS_PETITE')
+
+
+
+IMPR_RESU(identifier='9:1',
+
+          FORMAT='MED',
+
+          RESU=_F(RESULTAT=unnamed0),
+
+          UNITE=80)
+
+
+
+PROJ_BASE(identifier='13:1',
+
+          BASE=unnamed0,
+
+          MATR_ASSE_GENE=(_F(MATRICE=CO('MAGE'),
+
+                             MATR_ASSE=MASS),
+
+                          _F(MATRICE=CO('RIGE'),
+
+                             MATR_ASSE=RIGI),
+
+                          _F(MATRICE=CO('AMGE'),
+
+                             MATR_ASSE=AMOR)),
+
+          STOCKAGE='PLEIN')
+
+
+
+resharm = DYNA_VIBRA(identifier='17:1',
+
+                     ARCHIVAGE=_F(PAS_ARCH=10),
+
+                     BASE_CALCUL='GENE',
+
+                     INCREMENT=_F(INST_FIN=5.0,
+
+                                  PAS=0.001),
+
+                     MATR_AMOR=AMGE,
+
+                     MATR_MASS=MAGE,
+
+                     MATR_RIGI=RIGE,
+
+                     SCHEMA_TEMPS=_F(SCHEMA='NEWMARK'),
+
+                     TYPE_CALCUL='TRAN')
+
+
+
+restran = REST_GENE_PHYS(identifier='18:1',
+
+                         NOM_CHAM=('DEPL', ),
+
+                         RESU_GENE=resharm)
+
+
+
+IMPR_RESU(identifier='19:1',
+
+          FORMAT='MED',
+
+          RESU=_F(NOM_CHAM=('DEPL', ),
+
+                  RESULTAT=restran),
+
+          UNITE=3)
+
+FIN()
+# ------------------------------------------------------------------------------------------
+
+  Ouverture en écriture du fichier ./vola.1
+
+ <INFO> Démarrage de l'exécution.
+                                                                                   
+   ___         _         _       _            __      ___         _                
+  / __|___  __| |___    /_\   __| |_ ___ _ _  \ \    / (_)_ _  __| |_____ __ _____ 
+ | (__/ _ \/ _` / -_)  / _ \ (_-<  _/ -_) '_|  \ \/\/ /| | ' \/ _` / _ \ V  V (_-< 
+  \___\___/\__,_\___| /_/ \_\/__/\__\___|_|     \_/\_/ |_|_||_\__,_\___/\_/\_//__/ 
+                                                 https://code-aster-windows.com    
+                                                                                
+                                                                                
+              -- CODE_ASTER -- VERSION : EXPLOITATION (stable) --               
+                                                                                
+                     Version 14.4.0 modifiée le 28/06/2019                      
+                     révision 952c0751ea6d - branche 'v14'                      
+                         Copyright EDF R&D 1991 - 2019                          
+                                                                                
+                    Exécution du : Tue Nov 12 01:20:37 2019                     
+                              Nom de la machine :                               
+                                DESKTOP-CUTATU6                                 
+                              Architecture : 64bit                              
+                           Type de processeur : AMD64                           
+                                    Système                                     
+                   d'exploitation : Windows-10-10.0.18362-SP0                   
+                       Langue des messages : fr (cp1252)                        
+                                                                                
+                           Version de Python : 3.7.2                            
+                           Version de NumPy : 1.16.1                            
+                           Parallélisme MPI : inactif                           
+                          Parallélisme OpenMP : actif                           
+                        Nombre de processus utilisés : 1                        
+                     Version de la librairie HDF5 : 1.10.3                      
+                      Version de la librairie MED : 4.0.0                       
+                       Librairie MFront : non disponible                        
+                     Version de la librairie MUMPS : 5.1.2                      
+                        Librairie PETSc : non disponible                        
+                     Version de la librairie SCOTCH : 6.0.4                     
+
+                  Mémoire limite pour l'exécution : 2048.00 Mo                  
+                   consommée par l'initialisation : 43.97 Mo                    
+                                                                                
+                  par les objets du jeu de commandes : 2.90 Mo                  
+                 reste pour l'allocation dynamique : 2000.61 Mo                 
+                Taille limite des fichiers d'échange : 48.00 Go                 
+                                                                                
+
+.. __stg1_txt1
+  # ------------------------------------------------------------------------------------------
+  # Commande No :  0001            Concept de type : -
+  # ------------------------------------------------------------------------------------------
+  DEBUT(LANG='FR',
+        PAR_LOT='OUI',
+        IMPR_MACRO='NON',
+        DEBUG=_F(JXVERI='NON',
+                 SDVERI='NON',
+                 JEVEUX='NON',
+                 HIST_ETAPE='NON',),
+        MESURE_TEMPS=_F(NIVE_DETAIL=1,
+                        MOYENNE='NON',),
+        MEMOIRE=_F(TAILLE_BLOC=800.0,
+                   TAILLE_GROUP_ELEM=1000,),
+        RESERVE_CPU=_F(BORNE=900,),
+        INFO=1,)
+
+                                                                                   
+   ___         _         _       _            __      ___         _                
+  / __|___  __| |___    /_\   __| |_ ___ _ _  \ \    / (_)_ _  __| |_____ __ _____ 
+ | (__/ _ \/ _` / -_)  / _ \ (_-<  _/ -_) '_|  \ \/\/ /| | ' \/ _` / _ \ V  V (_-< 
+  \___\___/\__,_\___| /_/ \_\/__/\__\___|_|     \_/\_/ |_|_||_\__,_\___/\_/\_//__/ 
+                                                 https://code-aster-windows.com    
+
+  Valeur initiale du temps CPU maximum =   900 secondes
+  Valeur du temps CPU maximum passé aux commandes =   810 secondes
+ 
+Réserve CPU prévue = 90 secondes
+
+  Ouverture en écriture du fichier ./glob.1
+
+  Ouverture en écriture du fichier ./vola.1
+
+  Ouverture en lecture du fichier C:\ssdwork\sm-2019-w64-0.3\PRODUCTS\code_aster\14.4\lib\aster/elem.1
+
+     Nom de la base                          :  ELEMBASE
+     Créée avec la version                   :  14.04.00
+     Nombre
+d'enregistrements utilisés       :  43
+     Nombre d'enregistrements maximum        :  512
+     Longueur d'enregistrement (octets)  
+   :  819200
+     Nombre d'identificateurs utilisés       :  123
+     Taille maximum du répertoire            :  300
+    
+Pourcentage d'utilisation du répertoire :  41 %
+
+  Ouverture en lecture du fichier C:\ssdwork\sm-2019-w64-0.3\PRODUCTS\code_aster\14.4\lib\aster/elem.1
+
+
+     Nom de la base                          :  ELEMBASE
+     Nombre d'enregistrements utilisés       :  43
+     Nombre
+d'enregistrements maximum        :  512
+     Longueur d'enregistrement (octets)      :  819200
+     Nombre total d'accès en lecture 
+       :  60
+     Volume des accès en lecture             :         46.88 Mo.
+     Nombre total d'accès en écriture        :  0
+    
+Volume des accès en écriture            :          0.00 Mo.
+     Nombre d'identificateurs utilisés       :  123
+     Taille maximum
+du répertoire            :  300
+     Pourcentage d'utilisation du répertoire :  41 %
+
+  Relecture des catalogues des éléments faite.
+
+  Fin de lecture (durée  0.000000  s.) 
+  # Mémoire (Mo) :    93.73 /    85.96 /    44.30 /    22.92 (VmPeak / VmSize / Optimum / Minimum)
+  # Fin commande No : 0001   user+syst:        0.03s (syst:        0.00s, elaps:        0.00s)
+  # ------------------------------------------------------------------------------------------
+
+.. __stg1_cmd0:1
+  # ------------------------------------------------------------------------------------------
+  # Commande No :  0002            Concept de type : maillage_sdaster
+  # ------------------------------------------------------------------------------------------
+  mesh = LIRE_MAILLAGE(FORMAT='MED',
+                       UNITE=2,
+                       INFO_MED=1,
+                       VERI_MAIL=_F(VERIF='OUI',
+                                    APLAT=1.E-3,),
+                       INFO=1,)
+
+Vérification du maillage.
+
+------------ MAILLAGE mesh     - IMPRESSIONS NIVEAU  1 ------------
+
+MA-12-NOVE-2019 01:20:38                                                        
+
+NOMBRE DE NOEUDS                       19408
+
+NOMBRE DE MAILLES                     104208
+                              SEG2                 1304
+                              TRIA3               21132
+                              TETRA4              81772
+
+NOMBRE DE GROUPES DE NOEUDS                1
+                              Group_Of_All_Nodes               19408
+
+NOMBRE DE GROUPES DE MAILLES               4
+                              Group_Of_All_Edges                1304
+                              Group_Of_All_Faces               21132
+                              Group_Of_All_Volumes             81772
+                              clamp                             3092
+
+--------------------------------------------------------------------------------
+
+  # Mémoire (Mo) :   105.40 /    99.14 /    53.30 /    25.21 (VmPeak / VmSize / Optimum / Minimum)
+  # Fin commande No : 0002   user+syst:        0.17s (syst:        0.00s, elaps:        0.00s)
+  # ------------------------------------------------------------------------------------------
+
+.. __stg1_cmd1:1
+  # ------------------------------------------------------------------------------------------
+  # Commande No :  0004            Concept de type : modele_sdaster
+  # ------------------------------------------------------------------------------------------
+  model = AFFE_MODELE(MAILLAGE=mesh,
+                      AFFE=_F(TOUT='OUI',
+                              PHENOMENE='MECANIQUE',
+                              MODELISATION=('3D', ),),
+                      INFO=1,
+                      DISTRIBUTION=_F(PARTITIONNEUR='METIS',
+                                      METHODE='SOUS_DOMAINE',),
+                      VERI_JACOBIEN='OUI',)
+
+
+Sur les 104208 mailles du maillage mesh, on a demandé l'affectation de 104208, on a pu en affecter 104208
+ Modélisation     Type maille  Élément fini     Nombre
+                  SEG2         MECA_ARETE2      1304
+                  TRIA3        MECA_FACE3       21132
+ 3D               TETRA4       MECA_TETRA4      81772
+#2      Calculs elementaires et assemblages               CPU (USER+SYST/SYST/ELAPS):      0.03      0.00      0.00
+  # Mémoire (Mo) :   109.80 /   104.10 /    54.54 /    46.20 (VmPeak / VmSize / Optimum / Minimum)
+  # Fin commande No : 0004   user+syst:        0.08s (syst:        0.00s, elaps:        0.00s)
+  # ------------------------------------------------------------------------------------------
+
+.. __stg1_cmd2:1
+  # ------------------------------------------------------------------------------------------
+  # Commande No :  0005            Concept de type : mater_sdaster
+  # ------------------------------------------------------------------------------------------
+  mater0 = DEFI_MATERIAU(ELAS=_F(E=2.10000000000E11,
+                                 NU=0.3,
+                                 RHO=7800.0,
+                                 COEF_AMOR=1.0,),
+                         INFO=1,)
+
+Propriétés définies dans le matériau: ELAS.
+  # Mémoire (Mo) :   109.80 /   104.20 /    54.54 /    46.20 (VmPeak / VmSize / Optimum / Minimum)
+  # Fin commande No : 0005   user+syst:        0.00s (syst:        0.00s, elaps:        0.00s)
+  # ------------------------------------------------------------------------------------------
+
+.. __stg1_cmd3:1
+  # ------------------------------------------------------------------------------------------
+  # Commande No :  0006            Concept de type : cham_mater
+  # ------------------------------------------------------------------------------------------
+  fieldmat = AFFE_MATERIAU(MAILLAGE=mesh,
+                           AFFE=_F(TOUT='OUI',
+                                   MATER=(mater0, ),),
+                           INFO=1,)
+
+  # Mémoire (Mo) :   109.80 /   104.27 /    54.54 /    46.20 (VmPeak / VmSize / Optimum / Minimum)
+  # Fin commande No : 0006   user+syst:        0.00s (syst:        0.00s, elaps:        0.00s)
+  # ------------------------------------------------------------------------------------------
+
+.. __stg1_cmd4:1
+  # ------------------------------------------------------------------------------------------
+  # Commande No :  0007            Concept de type : char_meca
+  # ------------------------------------------------------------------------------------------
+  load = AFFE_CHAR_MECA(MODELE=model,
+                        DDL_IMPO=_F(GROUP_MA=('clamp', ),
+                                    LIAISON='ENCASTRE',),
+                        VERI_NORM='OUI',
+                        DOUBLE_LAGRANGE='OUI',
+                        INFO=1,)
+
+  # Mémoire (Mo) :   109.80 /   108.30 /    54.54 /    46.20 (VmPeak / VmSize / Optimum / Minimum)
+  # Fin commande No : 0007   user+syst:        0.39s (syst:        0.00s, elaps:        0.00s)
+  # ------------------------------------------------------------------------------------------
+
+.. __stg1_cmd5:1
+  # ------------------------------------------------------------------------------------------
+  # Commande No :  0008            Concept de type : -
+  # ------------------------------------------------------------------------------------------
+  ASSEMBLAGE(MODELE=model,
+             CHAM_MATER=fieldmat,
+             CHARGE=(load, ),
+             NUME_DDL=CO(nddl),
+             MATR_ASSE=(_F(MATRICE=CO(MASS),
+                           OPTION='MASS_MECA',),
+                        _F(MATRICE=CO(RIGI),
+                           OPTION='RIGI_MECA',
+                           MODE_FOURIER=0,),
+                        _F(MATRICE=CO(MASDIAG),
+                           OPTION='MASS_MECA_DIAG',),
+                        _F(MATRICE=CO(AMOR),
+                           OPTION='AMOR_MECA',),
+                        ),
+             INST=0.0,
+             INFO=1,)
+
+#2      Calculs elementaires et assemblages               CPU (USER+SYST/SYST/ELAPS):      0.25      0.00      0.00
+  Le système linéaire à résoudre a 68586 degrés de liberté:
+   - 58224 sont des degrés de liberté physiques
+     (ils sont portés
+par 19408 noeuds du maillage)
+   - 10362 sont les couples de paramètres de Lagrange associés
+     aux 5181 relations linéaires
+dualisées.
+  La matrice est de taille 68586 équations.
+  Elle contient 1168791 termes non nuls si elle est symétrique et 2268996 termes non
+nuls si elle n'est pas symétrique.
+  Soit un taux de remplissage de   0.048 %.
+#1      Resolution des systemes lineaires                 CPU (USER+SYST/SYST/ELAPS):      0.25      0.00      1.00
+#2      Calculs elementaires et assemblages               CPU (USER+SYST/SYST/ELAPS):      1.71      0.00      1.00
+#2      Calculs elementaires et assemblages               CPU (USER+SYST/SYST/ELAPS):      0.32      0.00      1.00
+#2      Calculs elementaires et assemblages               CPU (USER+SYST/SYST/ELAPS):      1.60      0.00      1.00
+#2      Calculs elementaires et assemblages               CPU (USER+SYST/SYST/ELAPS):      0.30      0.00      1.00
+#2      Calculs elementaires et assemblages               CPU (USER+SYST/SYST/ELAPS):      1.61      0.00      1.00
+#2      Calculs elementaires et assemblages               CPU (USER+SYST/SYST/ELAPS):      0.17      0.00      0.00
+#2      Calculs elementaires et assemblages               CPU (USER+SYST/SYST/ELAPS):      0.01      0.00      0.00
+  # Mémoire (Mo) :   355.62 /   355.62 /   293.00 /    84.65 (VmPeak / VmSize / Optimum / Minimum)
+  # Fin commande No : 0008   user+syst:        6.23s (syst:        0.09s, elaps:        0.00s)
+  # ------------------------------------------------------------------------------------------
+
+.. __stg1_cmd8:1
+  # ------------------------------------------------------------------------------------------
+  # Commande No :  0018            Concept de type : mode_meca
+  # ------------------------------------------------------------------------------------------
+  unnamed0 = CALC_MODES(OPTION='PLUS_PETITE',
+                        SOLVEUR_MODAL=_F(PREC_SOREN=0.0,
+                                         NMAX_ITER_SOREN=20,
+                                         PARA_ORTHO_SOREN=0.717,
+                                         METHODE='SORENSEN',
+                                         APPROCHE='REEL',),
+                        MATR_RIGI=RIGI,
+                        MATR_MASS=MASS,
+                        CALC_FREQ=_F(NMAX_FREQ=10,
+                                     NMAX_ITER_SHIFT=3,
+                                     PREC_SHIFT=0.05,
+                                     SEUIL_FREQ=1.E-2,),
+                        SOLVEUR=_F(RENUM='AUTO',
+                                   NPREC=8,
+                                   ELIM_LAGR='LAGR2',
+                                   TYPE_RESOL='AUTO',
+                                   ACCELERATION='AUTO',
+                                   LOW_RANK_SEUIL=0.0,
+                                   PRETRAITEMENTS='AUTO',
+                                   POSTTRAITEMENTS='AUTO',
+                                   PCENT_PIVOT=20,
+                                   RESI_RELA=-1.0,
+                                   GESTION_MEMOIRE='AUTO',
+                                   METHODE='MUMPS',),
+                        VERI_MODE=_F(STOP_ERREUR='OUI',
+                                     SEUIL=1.E-06,
+                                     PREC_SHIFT=5.E-3,
+                                     STURM='OUI',),
+                        TYPE_RESU='DYNAMIQUE',
+                        STOP_BANDE_VIDE='OUI',
+                        AMELIORATION='NON',
+                        INFO=1,)
+
+  Le nombre total de DDL est       :      68586
+  Le nombre de DDL de Lagrange est :      10362
+  Le nombre de DDL actifs est      :
+     53043
+  L'option choisie est : PLUS_PETITE
+  La valeur de décalage en fréquence est :  0.00000E+00
+------------------------------------------------------------------------
+
+      Informations sur le calcul demandé:
+
+  Nombre de modes recherchés  : 10
+
+  La dimension de l'espace réduit est : 0
+  Elle est inférieure au nombre de modes, on la prend égale à : 20
+
+
+     =============================================
+     =       Méthode de Sorensen (code ARPACK)   =
+     =       Version :  2.4 
+                    =
+     =          Date :  07/31/96                 =
+     =============================================
+
+    
+Nombre de redémarrages                     =     2
+     Nombre de produits OP*X                    =    26
+     Nombre de produits
+B*X                     =    77
+     Nombre de réorthogonalisations  (étape 1)  =    25
+     Nombre de réorthogonalisations  (étape
+2)  =     0
+     Nombre de redémarrages du a un V0 nul      =     0
+
+------------------------------------------------------------------------
+  Les fréquences calculées sont comprises entre :
+      Fréquence inférieure :  1.44437E+02
+      Fréquence supérieure : 
+2.64278E+04
+
+------------------------------------------------------------------------
+     Calcul modal : Méthode d'itération simultanée
+                    Méthode de Sorensen
+
+numéro    fréquence (HZ)     norme
+d'erreur
+    1       1.44437E+02        8.68732E-07
+    2       9.10548E+02        3.13017E-08
+    3       1.54603E+03        2.09280E-07
+    4       2.14915E+03        2.10578E-08
+    5       7.04277E+03        1.49793E-07
+    6       1.12697E+04        2.30624E-08
+    7       1.45557E+04        5.01892E-08
+    8       1.57620E+04        1.05942E-08
+    9       1.69870E+04        2.82874E-08
+   10       2.64278E+04        4.75623E-08
+
+  Norme d'erreur moyenne   :  1.43986E-07
+------------------------------------------------------------------------
+
+         Vérification à posteriori des modes
+
+  Dans l'intervalle ( 1.44075E+02 , 2.64938E+04 ) il y a bien 10 fréquence(s).
+------------------------------------------------------------------------
+
+#1      Resolution des systemes lineaires                 CPU (USER+SYST/SYST/ELAPS):      9.21      0.00     10.00
+  # Mémoire (Mo) :   524.30 /   367.84 /   323.10 /    84.65 (VmPeak / VmSize / Optimum / Minimum)
+  # Fin commande No : 0018   user+syst:        9.61s (syst:        3.19s, elaps:        0.00s)
+  # ------------------------------------------------------------------------------------------
+
+.. __stg1_cmd9:1
+  # ------------------------------------------------------------------------------------------
+  # Commande No :  0020            Concept de type : -
+  # ------------------------------------------------------------------------------------------
+  IMPR_RESU(FORMAT='MED',
+            UNITE=80,
+            VERSION_MED='3.3.1',
+            RESU=_F(RESULTAT=unnamed0,
+                    INFO_MAILLAGE='NON',
+                    IMPR_NOM_VARI='OUI',),
+            PROC0='OUI',
+            INFO=1,)
+
+
+Création du fichier au format MED 3.3.1.
+  # Mémoire (Mo) :   524.30 /   368.84 /   323.10 /    84.65 (VmPeak / VmSize / Optimum / Minimum)
+  # Fin commande No : 0020   user+syst:        0.09s (syst:        0.00s, elaps:        0.00s)
+  # ------------------------------------------------------------------------------------------
+
+.. __stg1_cmd13:1
+  # ------------------------------------------------------------------------------------------
+  # Commande No :  0021            Concept de type : -
+  # ------------------------------------------------------------------------------------------
+  PROJ_BASE(BASE=unnamed0,
+            STOCKAGE='PLEIN',
+            MATR_ASSE_GENE=(_F(MATRICE=CO(MAGE),
+                               MATR_ASSE=MASS,),
+                            _F(MATRICE=CO(RIGE),
+                               MATR_ASSE=RIGI,),
+                            _F(MATRICE=CO(AMGE),
+                               MATR_ASSE=AMOR,),
+                            ),
+            INFO=1,)
+
+  # Mémoire (Mo) :   524.30 /   374.50 /   323.10 /    84.65 (VmPeak / VmSize / Optimum / Minimum)
+  # Fin commande No : 0021   user+syst:        0.12s (syst:        0.02s, elaps:        0.00s)
+  # ------------------------------------------------------------------------------------------
+
+.. __stg1_cmd17:1
+  # ------------------------------------------------------------------------------------------
+  # Commande No :  0026            Concept de type : tran_gene
+  # ------------------------------------------------------------------------------------------
+  resharm = DYNA_VIBRA(BASE_CALCUL='GENE',
+                       TYPE_CALCUL='TRAN',
+                       MATR_MASS=MAGE,
+                       MATR_RIGI=RIGE,
+                       MATR_AMOR=AMGE,
+                       VITE_ROTA=0.0,
+                       VITESSE_VARIABLE='NON',
+                       SCHEMA_TEMPS=_F(SCHEMA='NEWMARK',
+                                       BETA=0.25,
+                                       GAMMA=0.5,),
+                       INCREMENT=_F(PAS=1.E-3,
+                                    INST_FIN=5.0,
+                                    VERI_PAS='OUI',),
+                       ARCHIVAGE=_F(PAS_ARCH=10,),
+                       TRAITEMENT_NONL='EXPLICITE',
+                       SOLVEUR=_F(RENUM='RCMK',
+                                  NPREC=8,
+                                  ELIM_LAGR='NON',
+                                  STOP_SINGULIER='OUI',
+                                  METHODE='LDLT',),
+                       )
+
+   
+   !----------------------------------------------------------------!
+   ! <A> <ALGORITH16_14>                                            !
+   !                                                                !
+   !  pas de temps utilisateur trop grand :   1.000000e-03          !
+   !  pas de temps nécessaire pour le calcul: 3.783897e-06          !
+   !  risques de problèmes                                          !
+   ! de précision                                                   !
+   !                                                                !
+   !                                                                !
+   ! Ceci est une alarme. Si vous ne comprenez pas le sens de cette !
+   ! alarme, vous pouvez obtenir des résultats inattendus !         !
+   !----------------------------------------------------------------!
+   
+
+--------------------------------------------------------------------------------------
+
+D Y N A _ V I B R
+A
+=====================================================================================
+                     Calcul TRANsitoire sur
+base GENEralisee
+=====================================================================================
+
+Superposition modale classique
+--------------------------------------------------------------------------------------
+    >> base
+modale de projection : unnamed0
+    >> nombre de DDL avant projection (physiques) : 68586
+    >> nombre de modes    : 10
+    >> fréquence minimale : 0.00000e+00
+    >> fréquence maximale : 2.64278e+04
+
+Matrices dynamiques pour la résolution
+--------------------------------------------------------------------------------------
+    >> matrice de masse        : MAGE
+    >> matrice de rigidité     : RIGE
+    >> matrice d'amortissement : AMGE
+
+Schéma d'intégration NEWMARK à pas constant
+--------------------------------------------------------------------------------------
+
+   >> type de schéma         : implicite
+    >> pas d'intégration      : 1.00000e-03
+    >> nombre de pas calculés : 5000
+
+État initial
+--------------------------------------------------------------------------------------
+    >> déplacement  : nul
+   
+>> vitesse      : nul
+    >> accélération : calculee
+
+Durée de la simulation
+--------------------------------------------------------------------------------------
+    >> instant
+initial : 0.00000e+00
+    >> instant final   : 5.00000e+00
+
+Archivage
+--------------------------------------------------------------------------------------
+    >> fréquence d'archivage      
+  : tous les 10 pas calculés
+    >> instants d'archivage forcés   : instants initial et final, et 0 autres instants
+    >> champs
+archivés (généralisés) : DEPL, VITE,
+ACCE
+
+======================================================================================
+
+Avancement du
+calcul
+--------------------------------------------------------------------------------------
+[  0%] Instant calculé : 0.00000e+00, dernier instant archivé : 0.00000e+00, au numéro d'ordre :     0
+[  5%] Instant calculé : 2.50000e-01, dernier instant archivé : 2.50000e-01, au numéro d'ordre :    25
+[ 10%] Instant calculé : 5.00000e-01, dernier instant archivé : 5.00000e-01, au numéro d'ordre :    50
+[ 15%] Instant calculé : 7.50000e-01, dernier instant archivé : 7.50000e-01, au numéro d'ordre :    75
+[ 20%] Instant calculé : 1.00000e+00, dernier instant archivé : 1.00000e+00, au numéro d'ordre :   100
+[ 25%] Instant calculé : 1.25100e+00, dernier instant archivé : 1.25000e+00, au numéro d'ordre :   125
+[ 30%] Instant calculé : 1.50100e+00, dernier instant archivé : 1.50000e+00, au numéro d'ordre :   150
+[ 35%] Instant calculé : 1.75100e+00, dernier instant archivé : 1.75000e+00, au numéro d'ordre :   175
+[ 40%] Instant calculé : 2.00100e+00, dernier instant archivé : 2.00000e+00, au numéro d'ordre :   200
+[ 45%] Instant calculé : 2.25100e+00, dernier instant archivé : 2.25000e+00, au numéro d'ordre :   225
+[ 50%] Instant calculé : 2.50100e+00, dernier instant archivé : 2.50000e+00, au numéro d'ordre :   250
+[ 55%] Instant calculé : 2.75100e+00, dernier instant archivé : 2.75000e+00, au numéro d'ordre :   275
+[ 60%] Instant calculé : 3.00100e+00, dernier instant archivé : 3.00000e+00, au numéro d'ordre :   300
+[ 65%] Instant calculé : 3.25100e+00, dernier instant archivé : 3.25000e+00, au numéro d'ordre :   325
+[ 70%] Instant calculé : 3.50100e+00, dernier instant archivé : 3.50000e+00, au numéro d'ordre :   350
+[ 75%] Instant calculé : 3.75100e+00, dernier instant archivé : 3.75000e+00, au numéro d'ordre :   375
+[ 80%] Instant calculé : 4.00100e+00, dernier instant archivé : 4.00000e+00, au numéro d'ordre :   400
+[ 85%] Instant calculé : 4.25100e+00, dernier instant archivé : 4.25000e+00, au numéro d'ordre :   425
+[ 90%] Instant calculé : 4.50100e+00, dernier instant archivé : 4.50000e+00, au numéro d'ordre :   450
+[ 95%] Instant calculé : 4.75100e+00, dernier instant archivé : 4.75000e+00, au numéro d'ordre :   475
+[100%] Instant calculé : 5.00000e+00, dernier instant archivé : 5.00000e+00, au numéro d'ordre :   500
+
+======================================================================================
+                                            
+                           Fin du calcul
+
+  # Mémoire (Mo) :   524.30 /   375.02 /   323.10 /    84.65 (VmPeak / VmSize / Optimum / Minimum)
+  # Fin commande No : 0026   user+syst:        0.02s (syst:        0.00s, elaps:        0.00s)
+  # ------------------------------------------------------------------------------------------
+
+.. __stg1_cmd18:1
+  # ------------------------------------------------------------------------------------------
+  # Commande No :  0027            Concept de type : dyna_trans
+  # ------------------------------------------------------------------------------------------
+  restran = REST_GENE_PHYS(RESU_GENE=resharm,
+                           PRECISION=1.E-06,
+                           NOM_CHAM=('DEPL', ),
+                           CRITERE='RELATIF',
+                           INTERPOL='NON',)
+
+#3      Dechargement de la memoire sur disque             CPU (USER+SYST/SYST/ELAPS):      0.17      0.00      0.00
+  # Mémoire (Mo) :   635.89 /   339.46 /   563.13 /   273.82 (VmPeak / VmSize / Optimum / Minimum)
+  # Fin commande No : 0027   user+syst:        0.44s (syst:        0.16s, elaps:        0.00s)
+  # ------------------------------------------------------------------------------------------
+
+.. __stg1_cmd19:1
+  # ------------------------------------------------------------------------------------------
+  # Commande No :  0028            Concept de type : -
+  # ------------------------------------------------------------------------------------------
+  IMPR_RESU(FORMAT='MED',
+            UNITE=3,
+            VERSION_MED='3.3.1',
+            RESU=_F(RESULTAT=restran,
+                    NOM_CHAM=('DEPL', ),
+                    INFO_MAILLAGE='NON',
+                    IMPR_NOM_VARI='OUI',),
+            PROC0='OUI',
+            INFO=1,)
+
+
+Création du fichier au format MED 3.3.1.
+  # Mémoire (Mo) :   635.89 /   358.79 /   563.13 /   273.82 (VmPeak / VmSize / Optimum / Minimum)
+  # Fin commande No : 0028   user+syst:        3.14s (syst:        0.95s, elaps:        0.00s)
+  # ------------------------------------------------------------------------------------------
+
+.. __stg1_txt165
+  # ------------------------------------------------------------------------------------------
+  # Commande No :  0029            Concept de type : -
+  # ------------------------------------------------------------------------------------------
+  FIN(FORMAT_HDF='NON',
+      RETASSAGE='NON',
+      INFO_RESU='OUI',
+      PROC0='OUI',
+      )
+
+   
+   !--------------------------------------------------------------------!
+   ! <I> <CATAMESS_89>                                                  !
+   !                                                                    !
+   !     Liste des alarmes émises lors de l'exécution du calcul.        !
+   !                                                                    !
+   !     Les alarmes que vous avez choisies d'ignorer sont précédées de !
+   ! (*).                                                               !
+   !     Nombre d'occurrences pour chacune des alarmes :                !
+   !            ALGORITH16_14        émise    1 fois                    !
+   !--------------------------------------------------------------------!
+   
+
+ ======>
+
+ STRUCTURE DU CONCEPT restran  CALCULE POUR        501 NUMEROS D'ORDRE
+
+ LISTE DES NOMS SYMBOLIQUES:
+ ! ---------- !----------------!
+ ! NUME_ORDRE !      DEPL      !
+ ! ---------- !----------------!
+ !          0 !     DEPL_R     !
+ !        ... !      ...       !
+ !        500 !     DEPL_R     !
+ ! ---------- !----------------!
+
+ LISTE DES NOMS DE VARIABLES D'ACCES:
+                                      INST             DE TYPE  R
+
+ LISTE DES NOMS DE PARAMETRES:
+ ! ---------- !----------------!----------------!----------------!----------------!
+ ! NUME_ORDRE !    CARAELEM    !    CHAMPMAT    !     EXCIT      !     MODELE     !
+ ! ---------- !----------------!----------------!----------------!----------------!
+ !          0 !       K8       !       K8       !      K24       !       K8       !
+ !        ... !      ...       !      ...       !      ...       !      ...       !
+ !        500 !       K8       !       K8       !      K24       !       K8       !
+ ! ---------- !----------------!----------------!----------------!----------------!
+
+ ======>
+
+ STRUCTURE DU CONCEPT unnamed0 CALCULE POUR         10 NUMEROS D'ORDRE
+
+ LISTE DES NOMS SYMBOLIQUES:
+ ! ---------- !----------------!
+ ! NUME_ORDRE !      DEPL      !
+ ! ---------- !----------------!
+ !          1 !     DEPL_R     !
+ !        ... !      ...       !
+ !         10 !     DEPL_R     !
+ ! ---------- !----------------!
+
+ LISTE DES NOMS DE VARIABLES D'ACCES:
+                                      FREQ             DE TYPE  R
+                                      NUME_MODE        DE TYPE  I
+                                      NOEUD_CMP        DE TYPE  K16
+
+ LISTE DES NOMS DE PARAMETRES:
+ ! ---------- !----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!
+ ! NUME_ORDRE !   AMOR_GENE    !  AMOR_REDUIT   !    CARAELEM    !    CHAMPMAT    !     EXCIT      !FACT_PARTICI_DX !FACT_PARTICI_DY !FACT_PARTICI_DZ !  MASS_EFFE_DX  !  MASS_EFFE_DY  !  MASS_EFFE_DZ  !   MASS_GENE    !     MODELE     !     NORME      !    NUME_DDL    !     OMEGA2     !   RIGI_GENE    !   TYPE_DEFO    !   TYPE_MODE    !
+ ! ---------- !----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!
+ !          1 !       R        !       R        !       K8       !       K8       !      K24       !       R        !       R        !       R        !       R        !       R        !       R        !       R        !       K8       !      K24       !       I        !       R        !       R        !      K16       !      K16       !
+ !        ... !      ...       !      ...       !      ...       !      ...       !      ...       !      ...       !      ...       !      ...       !      ...       !      ...       !      ...       !      ...       !      ...       !      ...       !      ...       !      ...       !      ...       !      ...       !      ...       !
+ !         10 !       R        !       R        !       K8       !       K8       !      K24       !       R        !       R        !       R        !       R        !       R        !       R        !       R        !       K8       !      K24       !       I        !       R        !       R        !      K16       !      K16       !
+ ! ---------- !----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!----------------!
+ ---------------------------------------------------------------------------
+ Concepts de la base: G
+    Nom       Type                 Taille (Mo)         Nombre      Nombre de
+                                                     d'objets       segments
+    TOTAL                               588.90           1778           2446
+  
+    mesh       MAILLAGE_SDASTER          10.00             36             62
+    model      MODELE_SDASTER             3.92              8             13
+    mater0     MATER_SDASTER              0.00              5              5
+    fieldmat   CHAM_MATER                 0.00              6             11
+    load       CHAR_MECA                  2.68             23             43
+    _9000000   MATR_ELEM_DEPL_R          48.91              9            137
+    nddl       NUME_DDL_SDASTER           8.67             11             16
+    RIGI       MATR_ASSE_DEPL_R          18.36              5             11
+    _9000001   MATR_ELEM_DEPL_R          48.67              6            120
+    MASS       MATR_ASSE_DEPL_R          17.83              4             10
+    _9000002   MATR_ELEM_DEPL_R          48.67              6            120
+    MASDIAG    MATR_ASSE_DEPL_R          17.83              4             10
+    _9000003   MATR_ELEM_DEPL_R          48.67              6            120
+    AMOR       MATR_ASSE_DEPL_R          17.83              4             10
+    unnamed0   MODE_MECA                  5.28             44             50
+    _9000004   NUME_DDL_GENE              0.00             13             33
+    MAGE       MATR_ASSE_GENE_R           0.00              6             12
+    restran    DYNA_TRANS               264.14           1515           1521
+    RIGE       MATR_ASSE_GENE_R           0.00              6             12
+    AMGE       MATR_ASSE_GENE_R           0.00              6             12
+    resharm    TRAN_GENE                  0.13             10             12
+    &FOZERO                               0.00              2              2
+    &&_NUM_C                              0.00              1              1
+    &CATA.AC                              0.00              2              4
+    &CATA.CL                              0.60              1              3
+    &CATA.GD                              0.14              4             11
+    &CATA.ME                              0.20              2              4
+    &CATA.OP                              0.30              4             19
+    &CATA.PH                              0.00              1              1
+    &CATA.PR                              0.00              2              4
+    &CATA.TE                             26.03             17             42
+    &CATA.TH                              0.01              2              4
+    &CATA.TM                              0.01              7             11
+ ---------------------------------------------------------------------------
+
+
+     Nom de la base                          :  GLOBALE
+     Nombre d'enregistrements utilisés       :  982
+     Nombre
+d'enregistrements maximum        :  62914
+     Longueur d'enregistrement (octets)      :  819200
+     Nombre total d'accès en
+lecture         :  124
+     Volume des accès en lecture             :         96.88 Mo.
+     Nombre total d'accès en écriture       
+:  1006
+     Volume des accès en écriture            :        785.94 Mo.
+     Nombre d'identificateurs utilisés       :  2027
+    
+Taille maximum du répertoire            :  4000
+     Pourcentage d'utilisation du répertoire :  50 %
+
+
+     Nom de la base                          :  VOLATILE
+     Nombre d'enregistrements utilisés       :  15
+     Nombre
+d'enregistrements maximum        :  62914
+     Longueur d'enregistrement (octets)      :  819200
+     Nombre total d'accès en
+lecture         :  24
+     Volume des accès en lecture             :         18.75 Mo.
+     Nombre total d'accès en écriture       
+:  42
+     Volume des accès en écriture            :         32.81 Mo.
+     Nombre d'identificateurs utilisés       :  437
+    
+Taille maximum du répertoire            :  2000
+     Pourcentage d'utilisation du répertoire :  21 %
+
+ <FIN> Arrêt normal dans "FIN".
+ <I> <FIN> ARRET NORMAL DANS "FIN" PAR APPEL A "JEFINI".
+
+ La mémoire demandée au lancement est surestimée, elle est de 2048.00 Mo.
+ Le pic mémoire utilisée est de 635.89 Mo.
+
+
+
+     Nom de la base                          :  ELEMBASE
+     Nombre d'enregistrements utilisés       :  43
+     Nombre
+d'enregistrements maximum        :  512
+     Longueur d'enregistrement (octets)      :  819200
+     Nombre total d'accès en lecture 
+       :  60
+     Volume des accès en lecture             :         46.88 Mo.
+     Nombre total d'accès en écriture        :  0
+    
+Volume des accès en écriture            :          0.00 Mo.
+     Nombre d'identificateurs utilisés       :  123
+     Taille maximum
+du répertoire            :  300
+     Pourcentage d'utilisation du répertoire :  41 %
+  
+ <I> <FIN> MEMOIRE JEVEUX MINIMALE REQUISE POUR L'EXECUTION :                     273.82 Mo
+ <I> <FIN> MEMOIRE JEVEUX OPTIMALE REQUISE POUR L'EXECUTION :                     563.13 Mo
+ <I> <FIN> MAXIMUM DE MEMOIRE UTILISEE PAR LE PROCESSUS LORS DE L'EXECUTION :     635.89 Mo
+  
+ <I>       FERMETURE DES BASES EFFECTUEE
+  
+   STATISTIQUES CONCERNANT L'ALLOCATION DYNAMIQUE :
+     TAILLE CUMULEE MAXIMUM            :                  563  Mo.
+     TAILLE CUMULEE LIBEREE            :                  235  Mo.
+     NOMBRE TOTAL D'ALLOCATIONS        :               446912
+     NOMBRE TOTAL DE LIBERATIONS       :               446892
+     APPELS AU MECANISME DE LIBERATION :                    1
+     TAILLE MEMOIRE CUMULEE RECUPEREE  :                  327  Mo.
+     VOLUME DES LECTURES               :                    0  Mo.
+     VOLUME DES ECRITURES              :                  401  Mo.
+  
+   MEMOIRE JEVEUX MINIMALE REQUISE POUR L'EXECUTION :     273.82 Mo
+     - IMPOSE DE NOMBREUX ACCES DISQUE
+     - RALENTIT LA VITESSE D'EXECUTION
+   MEMOIRE JEVEUX OPTIMALE REQUISE POUR L'EXECUTION :     563.13 Mo
+     - LIMITE LES ACCES DISQUE
+     - AMELIORE LA VITESSE D'EXECUTION
+   MAXIMUM DE MEMOIRE UTILISEE PAR LE PROCESSUS     :     635.89 Mo
+     - COMPREND LA MEMOIRE CONSOMMEE PAR  JEVEUX, 
+       LE SUPERVISEUR PYTHON, LES LIBRAIRIES EXTERNES
+  
+ <I>       FIN D'EXECUTION LE : MA-12-NOVE-2019 01:21:01
+
+
+  <I> Informations sur les temps d'exécution
+      Temps cpu user total                   16.17 s
+      Temps cpu systeme total                 4.69 s
+      Temps elapsed total                     0.00 s
+      Temps restant                         810.00 s
+
+
+  La signature de la base sauvegardée est (à l'adresse 393216000) :
+    ace3af5f64a6983eff9e3dfa992d7b22da771e71
+
+ ********************************************************************************
+ * COMMAND                  :       USER :     SYSTEM :   USER+SYS :    ELAPSED *
+ ********************************************************************************
+ * init (jdc)               :       0.19 :       0.12 :       0.31 :       0.00 *
+ *  . compile               :       0.00 :       0.00 :       0.00 :       0.00 *
+ *  . exec_compile          :       0.06 :       0.03 :       0.09 :       0.00 *
+ *  . report                :       0.00 :       0.00 :       0.00 :       0.00 *
+ *  . build                 :       0.00 :       0.00 :       0.00 :       0.00 *
+ * DEBUT                    :       0.03 :       0.00 :       0.03 :       0.00 *
+ * LIRE_MAILLAGE            :       0.17 :       0.00 :       0.17 :       0.00 *
+ * AFFE_MODELE              :       0.08 :       0.00 :       0.08 :       0.00 *
+ * DEFI_MATERIAU            :       0.00 :       0.00 :       0.00 :       0.00 *
+ * AFFE_MATERIAU            :       0.00 :       0.00 :       0.00 :       0.00 *
+ * AFFE_CHAR_MECA           :       0.39 :       0.00 :       0.39 :       0.00 *
+ * ASSEMBLAGE               :       6.14 :       0.09 :       6.23 :       0.00 *
+ * CALC_MODES               :       6.42 :       3.19 :       9.61 :       0.00 *
+ * IMPR_RESU                :       0.09 :       0.00 :       0.09 :       0.00 *
+ * PROJ_BASE                :       0.11 :       0.02 :       0.12 :       0.00 *
+ * DYNA_VIBRA               :       0.02 :       0.00 :       0.02 :       0.00 *
+ * REST_GENE_PHYS           :       0.28 :       0.16 :       0.44 :       0.00 *
+ * IMPR_RESU                :       2.19 :       0.95 :       3.14 :       0.00 *
+ * FIN                      :       0.08 :       0.14 :       0.22 :       0.00 *
+ *  . part Superviseur      :       0.27 :       0.14 :       0.41 :       0.00 *
+ *  . part Fortran          :      15.92 :       4.55 :      20.47 :       0.00 *
+ ********************************************************************************
+ * TOTAL_JOB                :      16.17 :       4.69 :      20.86 :       0.00 *
+ ********************************************************************************
+
+EXECUTION_CODE_ASTER_EXIT_432=0
