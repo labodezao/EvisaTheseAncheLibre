@@ -4,7 +4,10 @@ import struct
 
 
 class BMP280:
-    def __init__(self, i2c, addr=0x76):
+    # Code du registre config (bits 4..2) pour chaque coefficient IIR.
+    _IIR = {0: 0b000, 2: 0b001, 4: 0b010, 8: 0b011, 16: 0b100}
+
+    def __init__(self, i2c, addr=0x76, iir=16):
         self.i2c = i2c
         self.addr = addr
         chip = self.i2c.readfrom_mem(addr, 0xD0, 1)[0]
@@ -16,7 +19,7 @@ class BMP280:
          self.P1, self.P2, self.P3, self.P4, self.P5,
          self.P6, self.P7, self.P8, self.P9) = struct.unpack('<Hhh Hhhhhhhhh', cal)
         # Normal mode, oversampling ×2 temp / ×16 press, filtre IIR ×16.
-        self.i2c.writeto_mem(addr, 0xF5, bytes([(0b100 << 2)]))       # config: filter
+        self.i2c.writeto_mem(addr, 0xF5, bytes([(self._IIR.get(iir, 0b100) << 2)]))  # config: filtre IIR
         self.i2c.writeto_mem(addr, 0xF4, bytes([(0b010 << 5) | (0b101 << 2) | 0b11]))  # ctrl_meas
         self._t_fine = 0
 
