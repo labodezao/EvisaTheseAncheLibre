@@ -31,6 +31,8 @@ Usage
   ... --mesure R12-grave 69.2 0.0012                                 f (Hz) et zeta à la main
   ... --pince R12-grave son.m4a                                      ou le son pincé
   ... --seuils R12-grave seuils_R12-grave.csv                        CSV du module Seuils
+  ... --souffle R12-grave feuille_R12-grave.csv                     ou la feuille de paliers de la soufflerie
+                                                                     (souffle.py, protocole de recalage)
   ... --sans-seuil                                                   sauter le modèle semi-analytique (rapide)
 """
 from __future__ import annotations
@@ -235,6 +237,7 @@ def main(argv=None):
     ap.add_argument("--mesure", nargs="+", action="append", metavar="ID F [ZETA]", default=[])
     ap.add_argument("--pince", nargs=2, action="append", metavar=("ID", "FICHIER"), default=[])
     ap.add_argument("--seuils", nargs=2, action="append", metavar=("ID", "CSV"), default=[])
+    ap.add_argument("--souffle", nargs=2, action="append", metavar=("ID", "FEUILLE"), default=[])
     ap.add_argument("--sans-seuil", action="store_true")
     ap.add_argument("--recaler-levee", action="store_true")
     ap.add_argument("--sortie", default=os.path.join(ICI, "resultats", "recalage.csv"))
@@ -260,6 +263,12 @@ def main(argv=None):
         s_m = None
         if s_csv:
             s_m = lire_seuils(s_csv if os.path.isabs(s_csv) else os.path.join(base, s_csv))
+        feuille = dict(a.souffle).get(an.id)
+        if feuille:
+            from souffle import pour_recalage
+            s_m = pour_recalage(feuille)
+            print(f"soufflerie : p_on = {s_m['p_on_Pa']:.1f} Pa, p_off = {s_m['p_off_Pa']:.1f} Pa, "
+                  f"{s_m['n_cycles']} cycle(s), f_jeu = {s_m['f_jeu_Hz']:.3f} Hz")
         d = recaler(an, f_m, z_m, s_m, avec_seuil=not a.sans_seuil, avec_levee=a.recaler_levee)
         lignes.append(d)
         print(f"\n{an.id} ({d['note']}) : modèle f1 = {d['f_modele_Hz']} Hz [{d['source_f']}]")

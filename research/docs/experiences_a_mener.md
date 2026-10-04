@@ -90,6 +90,9 @@ assez surprenant pour mériter une vérification. Si c'était 0,45, on aurait
 **Débloque** : la confiance dans toute la base modale.
 
 ### ☐ E8. Fréquences propres de la languette libre
+> Protocole (04/10/2026) : `protocole_recalage_experimental.md`, geste (a) ; analyse
+> `fem/comparer_pince.py`. Les prédictions ci-dessous sont celles de l'ancien profil par
+> défaut ; pour l'anche de `matrix.txt`, Elmer donne 67,5 / 842 / 2 699 Hz (flexion) et 1 677 Hz (torsion).
 **Mesure** : FRF de la languette seule (excitation EM ou pichenette), relever
 les 2–3 premiers modes.
 **Avec** : `frf.py`, `modal.natural_frequencies`.
@@ -98,6 +101,7 @@ les 2–3 premiers modes.
 analytique sur poutre uniforme — reste à confronter au réel multi-tronçon.
 
 ### ☐ E9. Amortissement ζ de la languette
+> Protocole : geste (a) ; `pince_modes.py` donne un ζ par mode, que `ReedModel(zeta=[z1, z2])` accepte.
 **Mesure** : décroissance libre après excitation (ring-down), en extraire le
 facteur Q.
 **Avec** : `ringdown.py`.
@@ -138,6 +142,8 @@ pression de chambre. `OscillationResult.radiated` donne `dq/dt`.
 ## Priorité 5 — la question ouverte
 
 ### ☐ E13. Anche seule contre anche + chambre
+> Premier pas sans souffle (04/10/2026) : geste (b) du protocole, l'anche pincée seule puis sur sa
+> chambre ; prédiction -1,2 à -3,5 cents et le résonateur de la chambre (`fem/comparer_pince.py`).
 **Mesure** : seuil de démarrage d'une anche montée sur des chambres de
 volumes différents (caler des volumes connus derrière la plaque).
 **Ce que ça teste** : la prédiction la plus forte et la plus falsifiable du

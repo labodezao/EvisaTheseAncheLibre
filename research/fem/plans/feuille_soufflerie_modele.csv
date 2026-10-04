@@ -1,0 +1,13 @@
+# Feuille de soufflerie (protocole de recalage, geste c). Une ligne par lecture. Séparateur « ; ».
+# type : zero (soufflerie arrêtée), palier (escalier), jeu (son enregistré à pression fixe).
+# p_lue_Pa : la pression LUE sur le capteur (absolue, vers 101 300 Pa) ; le script retranche le zéro.
+# sonne : oui ou non. fichier : le nom du WAV (dans le même dossier que cette feuille).
+# Effacer les lignes d'exemple ci-dessous et mettre les vôtres. Les lignes en # sont ignorées.
+type;cycle;sens;p_lue_Pa;sonne;fichier;t0_s;t1_s;remarque
+zero;;;101312;;;;;avant ; anche R12-grave ; 19 degrés
+palier;1;monte;101330;non;;;;
+palier;1;monte;101336;oui;;;;
+palier;1;descend;101333;oui;;;;
+palier;1;descend;101328;non;;;;
+jeu;1;;101340;oui;2026-10-05_R12-grave_jeu-1p2_1.wav;;;1,2 fois le seuil
+zero;;;101318;;;;;après ; 19 degrés
