@@ -2067,156 +2067,1445 @@ Hysteresis
 Reed blocks coupling
 \end_layout
 
+\begin_layout Standard
+Take a reed plate off its block and hold it in the hand. It plays, but it plays alone. Put it back on the block, over its chamber, under the soundboard, behind its pallet, and it plays with everything around it. This part is about that everything: the chamber of wood below the tongue, the hole in the soundboard above it, the channel under the pallet, and the other tongue of the same note that breathes the same air. The maker chooses all of it with a saw, a chisel and a pot of wax. The physics says what each choice does to the start of the note, to its pitch and to its sound.
+\end_layout
+
+\begin_layout Standard
+The method of this part is the one of chapter 2. A finite element model (Elmer) gives the passive answer of the air in the chamber, seen from the slot of the tongue. A small network of masses of air, springs of air and orifices (the semi-analytical model coupled_reeds) receives these numbers and makes the tongue oscillate. Every number quoted below is either a finite element result on the chambers of the R12 block, a prediction of that small network, or a figure from the workshop. The status of each one is said in the text, because the small network is known to be wrong on several points (chapter 2 and the audit of the two-reed model, docs/audit_deux_anches.md): its tongues travel too far and its flows are too large, and the experiment of the sandwich reed refutes its mechanism of start-up. Its tendencies are kept; its pascals are not.
+\end_layout
+
 \begin_layout Chapter
 Reed block design
+\end_layout
+
+\begin_layout Standard
+A reed block is a wooden comb. Each tooth of the comb is a wall, and between two walls lies a chamber. The plate with its two tongues closes the chamber on one side; the soundboard, with a hole, closes it on the other. In the R12 block studied here, each chamber is made of two cells, called A and B, separated by a central partition that changes side in the middle of the block. The air of such a chamber was meshed with second-order tetrahedra and its modes computed with Elmer 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "elmer_models"
+literal "true"
+
+\end_inset
+, the mesh being made with Gmsh 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "geuzaine2009gmsh"
+literal "true"
+
+\end_inset
+. The walls and the plates are rigid in the model, the slots are closed (tongues at rest), the air is at 20 degrees Celsius. The far end of the hole opens on a large volume at zero pressure, the pallet being far away.
+\end_layout
+
+\begin_layout Standard
+What came out first is a number for each chamber. With a hole of 8 by 25 mm through a soundboard 8 mm thick (dimensions taken from the small network, not measured on the instrument), the first air resonance of the twelve chambers of the R12 goes from 1142 Hz (chamber 1, the largest, 18.3 cm
+\begin_inset Formula $^{3}$
+\end_inset
+
+ of cells) to 1575 Hz (chamber 12, 10.2 cm
+\begin_inset Formula $^{3}$
+\end_inset
+
+). A second mode, where the air of cell A swings against the air of cell B, lies between 1402 and 2017 Hz. A mesh of 2 mm is enough for a plan of experiments: the first mode of chamber 12 moves from 1575.5 Hz to 1574.1 Hz when the mesh is refined from 2 mm to 0.8 mm, which is 0.1 per cent or 1.5 cent. The solver was checked on a rigid box of 50 by 15 by 10 mm, where it gives 3430.0 Hz for the exact 
+\begin_inset Formula $c/2L=3430$
+\end_inset
+
+ Hz, and on the same box open at one end (1715.0, 5145.0 and 8575.0 Hz for the quarter-wave series).
 \end_layout
 
 \begin_layout Section
 Glues or solid RB
 \end_layout
 
+\begin_layout Standard
+A block can be built up from pieces, partitions glued on a base, or cut from one solid piece of wood. The maker feels the difference in the hand and hears it, or believes he hears it. What does the physics of this work say about it? Honestly, little so far, and it is better to say what it does not say.
+\end_layout
+
+\begin_layout Standard
+All the acoustic computations of this work take the walls as rigid. A rigid wall does two things: it keeps the air in, and it gives the air nothing back. A real wall of a glued block does the same two things imperfectly. A glue joint that is not tight is a leak, and a thin wall that flexes adds a little compliance to the chamber and takes a little energy from it at each cycle. The finite element model is also without losses: its resonance peaks are infinitely sharp, and the real ones, as the repository says, will be rounder. The resistance of a real chamber is calibrated from a measurement, not computed (section on the chamber seen from the slot, gesture (b) of the experimental protocol).
+\end_layout
+
+\begin_layout Standard
+The workshop criterion for the tightness of a block is a figure from the training booklet of Ewen, a proposed criterion, not yet measured on his instruments: a glued block, bare or furnished with its plates, should leak less than 0.05 litre per minute under 500 Pa. The way to measure it is the flow meter of the tuning table, or the pressure decay test of the bench (command LEAKTEST of the firmware, analysed by the function fit_decay of banc_recherche/leak.py, which fits 
+\begin_inset Formula $p(t)=p_{0}e^{-t/\tau}$
+\end_inset
+
+ on the logarithm of the pressure and returns the time constant and a conductance).
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): is there a measurable difference between a glued chamber and a solid one? Two measurements, both cheap: the leak at 500 Pa of each block on the tuning table (flow meter SFM3000, or the gasometer and the U-tube of the workshop), and the quality factor of one chamber excited by a short sweep from a small loudspeaker and recorded by the microphone (ring-down, banc_recherche/ringdown.py). A chamber whose walls flex should show a lower Q. Which block, which chamber, and on what day?
+\end_layout
+
 \begin_layout Section
 Fluid organization in cavity
+\end_layout
+
+\begin_layout Standard
+Follow the air. On the push, it leaves the bellows, passes through the slot of the tongue, fills the chamber, climbs through the hole of the soundboard into the channel under the pallet, lifts the pallet and goes out. On the draw, the same road is run in the other direction: the outside air enters by the pallet, goes down the hole, fills the chamber, passes the other tongue of the plate and ends in the bellows, which is in depression. In both cases the tongue stands between two pressures, and it is their difference that pushes it out of its slot and drives the air through.
+\end_layout
+
+\begin_layout Standard
+Each element of that road can be measured with a calliper, and each one becomes a simple thing in the model. The chamber is a spring of air: a volume 
+\begin_inset Formula $V$
+\end_inset
+
+ gives a compliance 
+\begin_inset Formula $V/(\gamma P_{\mathrm{atm}})$
+\end_inset
+
+, where 
+\begin_inset Formula $\gamma$
+\end_inset
+
+ is the adiabatic constant of air (about 1.4) and 
+\begin_inset Formula $P_{\mathrm{atm}}$
+\end_inset
+
+ the atmospheric pressure. The hole of the soundboard and the opening of the pallet are masses of air, 
+\begin_inset Formula $\rho\ell/S$
+\end_inset
+
+, where 
+\begin_inset Formula $\rho$
+\end_inset
+
+ is the density of air, 
+\begin_inset Formula $\ell$
+\end_inset
+
+ the effective length of the passage (its real length plus the end corrections, about 0.8 times the equivalent radius on each side) and 
+\begin_inset Formula $S$
+\end_inset
+
+ its area; they also carry an orifice loss, 
+\begin_inset Formula $\rho q|q|/(2(C_{d}S)^{2})$
+\end_inset
+
+, where 
+\begin_inset Formula $q$
+\end_inset
+
+ is the flow and 
+\begin_inset Formula $C_{d}$
+\end_inset
+
+ a discharge coefficient. The channel under the pallet is a volume common to the two tongues of the note. This is the whole network of coupled_reeds, and everything in it is derived from the conservation of mass and the law of Bernoulli for a short passage of incompressible air. What is not derived is the dimensions: chamber 35 by 15 by 15 mm, hole 8 by 25 by 20 mm, channel 4 cm
+\begin_inset Formula $^{3}$
+\end_inset
+
+, pallet 3 cm
+\begin_inset Formula $^{2}$
+\end_inset
+
+ by 10 mm are guessed orders of magnitude of a medium reed block, and each is to be taken on the instrument.
+\end_layout
+
+\begin_layout Standard
+Such a network of lumped elements is valid as long as every dimension is small compared with the wavelength: at 440 Hz the wavelength is about 78 cm and a chamber is 3 cm long. The resonances of the network lie far above the fundamentals of the tongues: chamber and hole near 2 kHz with the guessed dimensions (1142 to 1575 Hz with the R12 chambers computed by Elmer), channel and pallet near 5 kHz. They colour the high partials; they do not make the note.
 \end_layout
 
 \begin_layout Subsection
 Section aperture
 \end_layout
 
+\begin_layout Standard
+On the bench of this work, the air does not come from a hand but from a motor, and the passage between the air supply and the tongue is a slot opened by a screw. Its width is 15 mm; the screw sets its length; the area is the product. In the plan of experiments inherited from the 2020 bench (Mesures.py), this area is the factor called Section, with 8 steps, crossed with 8 steps of pallet angle and with the steps of pressure, each point measured in both directions of pressure. This is the aperture of this section: how much the supply is throttled before the tongue.
+\end_layout
+
+\begin_layout Standard
+Why does it matter? Because the bellows is not an ideal source. An ideal pressure source holds its pressure whatever the flow; an ideal flow source holds its flow whatever the pressure. A real bellows, like the turbine of the bench, gives less flow when the pressure rises. In the model this is written 
+\begin_inset Formula $q=q_{0}-p/R$
+\end_inset
+
+: the flow 
+\begin_inset Formula $q$
+\end_inset
+
+ that really arrives is the set flow 
+\begin_inset Formula $q_{0}$
+\end_inset
+
+ minus the pressure 
+\begin_inset Formula $p$
+\end_inset
+
+ divided by an internal resistance 
+\begin_inset Formula $R$
+\end_inset
+
+. The slope 
+\begin_inset Formula $R$
+\end_inset
+
+ is read directly on the bench: at a fixed motor command, sweep the Section factor, note the pairs of pressure and flow, and plot pressure against flow. A vertical line is a flow source, a horizontal line a pressure source, an oblique line a real one, and its slope is 
+\begin_inset Formula $R$
+\end_inset
+
+. The repository calls this experiment E1 and puts it first, because every amplitude the model predicts depends on it.
+\end_layout
+
+\begin_layout Standard
+The value of 
+\begin_inset Formula $R$
+\end_inset
+
+ in the model has its own history, and it is worth telling. It was first set to 
+\begin_inset Formula $2\times10^{8}$
+\end_inset
+
+ Pa s m
+\begin_inset Formula $^{-3}$
+\end_inset
+
+ without any measurement. At that stiffness the tongue of a 55 mm blade was allowed to travel 110 mm at full loudness, which is absurd. Sweeping 
+\begin_inset Formula $R$
+\end_inset
+
+ showed that 
+\begin_inset Formula $5\times10^{6}$
+\end_inset
+
+ Pa s m
+\begin_inset Formula $^{-3}$
+\end_inset
+
+ gives travels of about 2 mm all over the keyboard, and the smallest pitch deviations; it corresponds to a supply restriction of about 8 mm
+\begin_inset Formula $^{2}$
+\end_inset
+
+, the order of magnitude of a reed block channel. At 
+\begin_inset Formula $2\times10^{6}$
+\end_inset
+
+ nothing starts any more. The number 
+\begin_inset Formula $5\times10^{6}$
+\end_inset
+
+ is therefore a choice made so that the model stays in the range of a real accordion, not a measurement; the measurement is E1. Note also that the choking pressure, above which the tongue is blown out of its slot and stops, does not depend on 
+\begin_inset Formula $R$
+\end_inset
+
+ at all in the one-reed model (379.8 Pa for the reference tongue, whatever the source): it is set by the geometry of the slot, not by the supply.
+\end_layout
+
+\begin_layout Standard
+There is a second aperture, the hole of the soundboard. The numerical plan of experiments on the chambers (research/fem/sommier/seuils_cavite.py) sweeps its area from 25 to 400 mm
+\begin_inset Formula $^{2}$
+\end_inset
+
+, and a floor of 100 mm
+\begin_inset Formula $^{2}$
+\end_inset
+
+ is kept in the proposal for the R12, so as not to throttle the air that the tongue consumes. That floor is a hypothesis, half of the assumed present hole, to be confirmed by the flow measured on the bench.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the characteristic of your source, pressure against flow, at a fixed motor command and for the eight Section steps (experiment E1), with the flow meter SFM3000 and the pressure sensor of the bench, or a water U-tube. One slope, one number. Which day?
+\end_layout
+
 \begin_layout Subsection
 Pressure and Flow : impedance 
+\end_layout
+
+\begin_layout Standard
+Impedance is a word for a simple question: when I push a flow, what pressure do I get back? The ratio of the two is the impedance. The bench of this work measures it in the crudest and most useful way, from the pressure sensor and the flow meter during a held note: banc_recherche/impedance.py takes the mean of pressure over flow, and also the product of the two, which is the pneumatic power that the player spends. This is the impedance of the whole instrument seen from the bellows, at zero frequency, and it is what the hand feels.
+\end_layout
+
+\begin_layout Standard
+The acoustic impedance seen by the tongue is another thing, and chapter 2 computed it. When the tongue pushes a small oscillating flow 
+\begin_inset Formula $q$
+\end_inset
+
+ through its slot, the chamber, the hole and the outside give back a pressure 
+\begin_inset Formula $p$
+\end_inset
+
+; the ratio 
+\begin_inset Formula $Z(f)=p/q$
+\end_inset
+
+, frequency by frequency, is all that the surroundings do to the tongue. Elmer solves the Helmholtz equation for it and the result is condensed in the Foster form, a mass of air in series with a sum of lossless resonators. The main result is a sign. Far below the chamber resonance, which is where every tongue plays, the open chamber behaves as a mass of air: the air pushed by the tongue escapes through the hole and the tongue feels its inertia. A closed cavity behaves as a spring. In the band of the tongue the closed cavity of the old time-domain model was wrong by 12 400 per cent for the bass reed, 494 per cent for the medium and 232 per cent for the high one; one Foster resonator brings the error under 9 per cent and two under 0.5 per cent. The chamber of a reed block is not a box: it is a mass of air hanging on a hole.
+\end_layout
+
+\begin_layout Standard
+Measuring an acoustic impedance with almost nothing is possible, and the software for it is already in the repository. The two-microphone method of the standard ISO 10534-2 puts two small microphones in a tube in front of the sample (a chamber, a pallet, a mute) and a loudspeaker at the other end; from the ratio of the two pressures and the spacing of the microphones one obtains the reflection coefficient, the normalised impedance and the absorption of the sample (banc_recherche/transfer.py, functions estimate_H12 and reflection_impedance). The sound card of the bench offers three channels, one stereo input and one mono, which is enough. The rig itself, a tube and two cheap measurement microphones, has not been built.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the first two-microphone measurement on a chamber of the R12, with the block closed by its plate and the hole open, to compare with the Elmer curve of the same chamber (first pole predicted at 1140 Hz for chamber 1). A plastic tube, two microphones, the sweep of frf.py. Who lends the second microphone, and when?
 \end_layout
 
 \begin_layout Subsection
 Acoustic radiation
 \end_layout
 
+\begin_layout Standard
+Where does the sound come out? In the model of this work, through the pallet. A small opening breathing in and out, small compared with the wavelength, radiates like a monopole: at a distance 
+\begin_inset Formula $r$
+\end_inset
+
+ the pressure is 
+\begin_inset Formula $p(r,t)=\rho/(4\pi r)\cdot\mathrm{d}q_{p}/\mathrm{d}t$
+\end_inset
+
+, where 
+\begin_inset Formula $q_{p}$
+\end_inset
+
+ is the flow through the pallet. This is derived, and valid as long as 
+\begin_inset Formula $ka$
+\end_inset
+
+, the product of the wavenumber by the radius of the opening, stays small: about 0.08 at 440 Hz for the guessed pallet, and up to 0.9 near 5 kHz, where the formula ceases to hold. The radiated power is computed on the spectrum of the pallet flow with the radiation resistance of a baffled opening, 
+\begin_inset Formula $\rho\omega^{2}/(2\pi c)$
+\end_inset
+
+, and checked numerically: for a known sinusoidal flow the function returns 
+\begin_inset Formula $2.1277\times10^{-5}$
+\end_inset
+
+ W where the formula 
+\begin_inset Formula $\rho\omega^{2}Q^{2}/(4\pi c)$
+\end_inset
+
+ gives 
+\begin_inset Formula $2.1279\times10^{-5}$
+\end_inset
+
+ W.
+\end_layout
+
+\begin_layout Standard
+One lesson of chapter 2 is repeated here because it is easy to forget. A free reed radiates by its modulated flow, not by the pressure of its chamber. The spectrum to compare with a microphone is that of 
+\begin_inset Formula $\mathrm{d}q/\mathrm{d}t$
+\end_inset
+
+. Counted that way, the one-reed model has twelve harmonics above minus 30 dB; counted on the chamber pressure, and with the fundamental taken at the loudest partial, it seemed to have two. The model was not poor; it was read wrongly.
+\end_layout
+
+\begin_layout Standard
+What the model says about efficiency, the share of the breath that becomes sound, is not to be trusted yet. One version gave 
+\begin_inset Formula $1.5\times10^{-5}$
+\end_inset
+
+ for one tongue and 
+\begin_inset Formula $2.9\times10^{-5}$
+\end_inset
+
+ for two tongues in phase; a later version, with the mechanism of the closing section, gave 1 to 3 per cent, which the audit calls suspect. Both numbers follow from tongue travels and flows that the audit already knows to be too large. And the hypothesis that the pallet is the only source is incomplete: the bellows, the box and the plate radiate too, and nothing in this work has measured how much.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the acoustic power of one note against the pneumatic power spent, with a calibrated microphone (the calibration of the microphone has not been done) and the pressure and flow of the bench. One ratio, for one reed, at 1.5 times the threshold. This single number would judge the efficiency of every model.
+\end_layout
+
 \begin_layout Section
 Impedance and inverse problem solving
+\end_layout
+
+\begin_layout Standard
+The direct problem is to compute what a known geometry does. The inverse problem is the maker's problem: from what is heard or measured, to find the geometry, or the few numbers that stand for it. This work meets it three times, and each time the same rule is applied: calibrate the least certain parameters on the most robust measurements, and keep the remaining observables as predictions. A model fitted on everything can no longer be contradicted, and then it teaches nothing.
+\end_layout
+
+\begin_layout Standard
+First, from the finite elements. Sweeping 70 frequencies through Elmer for one chamber took 487 s. Instead, the poles of the impedance are taken from one eigenvalue computation, the residues from 14 harmonic solutions far from the poles, and the Foster form is rebuilt; on the same mesh it reproduces the sweep to 0.017 per cent (median) in 53 s. The first resonator then hands the network its effective volume, 
+\begin_inset Formula $V=\rho c^{2}/a_{1}$
+\end_inset
+
+, and the effective length of the hole, 
+\begin_inset Formula $\ell=(a_{1}/\omega_{1}^{2})S/\rho$
+\end_inset
+
+, where 
+\begin_inset Formula $a_{1}$
+\end_inset
+
+ and 
+\begin_inset Formula $\omega_{1}$
+\end_inset
+
+ are the residue and the angular frequency of that resonator and 
+\begin_inset Formula $S$
+\end_inset
+
+ the area of the hole. For chamber 1 under the bass tongue: 17.79 cm
+\begin_inset Formula $^{3}$
+\end_inset
+
+ and 25.8 mm, against 18.26 cm
+\begin_inset Formula $^{3}$
+\end_inset
+
+ of geometric cells and 8 mm of real thickness. The effective length is three times the real one: the end corrections are the least certain dimension of the whole block.
+\end_layout
+
+\begin_layout Standard
+Second, from a plucked tongue on its chamber (gesture (b) of chapter 2). The shift of the plucked frequency, predicted at 1.2 to 3.5 cents downward, calibrates the share 
+\begin_inset Formula $\kappa^{2}$
+\end_inset
+
+ of the swept volume that really goes through the chamber; the measured frequency of the air resonator calibrates the effective length of the hole, the volume being kept from the drawing; and the damping of that resonator gives the loss resistance that the lossless finite element model does not have, through 
+\begin_inset Formula $\zeta_{H}=(R/2)\sqrt{C/L_{t}}$
+\end_inset
+
+ for a series resistance, compliance and inertance. The measurement is cheap, a microphone and a toothpick, and it has a verdict built in: a shift of the wrong sign, or three times too large, or a resonator more than 10 per cent away from Elmer, would mean that the coupling through the slot must be reformulated, not re-tuned.
+\end_layout
+
+\begin_layout Standard
+Third, from a played sound. Here the honest answer is that a single note is not enough. Fitting a source and a resonator on the envelope of one note is under-determined: the envelope passes through the tops of the partials and mixes the two. The repository measured how many notes are needed to separate them, about ten spread over the compass, because below six the resonance is poorly located and above twelve the gain is marginal. The identification tool keeps two columns, what is measured and what is assumed, and prints both, because a parameter assumed and taken for measured is the surest way to be wrong for a long time. Before any optimisation in ten dimensions, a Plackett-Burman plan of experiments on the parameters of the model says which ones matter.
+\end_layout
+
+\begin_layout Standard
+A cautionary tale belongs here, about the frequency shift as a measure of the chamber. An early version of the one-reed model predicted that the played note stands 16 per cent above the plucked one, with an effective volume of 40 cm
+\begin_inset Formula $^{3}$
+\end_inset
+
+, and proposed to read the volume from that shift. The shift was real in the model but came from a term of swept volume that a free reed does not have: it compressed its chamber like a piston, which a tongue sitting in its slot does not do. Once that term was removed, the geometric chamber of 7.9 cm
+\begin_inset Formula $^{3}$
+\end_inset
+
+ was enough for the model to start, and the shift fell to tens of cents in the bass and a few cents above (plus 30 cents at 102 Hz, plus 2 cents at 440 Hz in that closed-cavity version), then changed sign once the hole of the soundboard entered the network. The inverse problem is only as good as the direct model it inverts.
 \end_layout
 
 \begin_layout Section
 Reed block geometry
 \end_layout
 
+\begin_layout Standard
+How deep should a chamber be, how wide its hole? The maker has rules of thumb, often inherited. Here is what a numerical plan of experiments on the small network says, with its limits stated first: one mode of blade, uniform steel blades, guessed lift and clearance, a mechanism of start-up that the sandwich experiment refutes. What is read is how the threshold moves when the chamber is changed, not the value of the threshold.
+\end_layout
+
+\begin_layout Standard
+The chamber and its hole form a Helmholtz resonator of frequency 
+\begin_inset Formula $f_{H}=\frac{c}{2\pi}\sqrt{S/(VL_{\mathrm{eff}})}$
+\end_inset
+
+, where 
+\begin_inset Formula $c$
+\end_inset
+
+ is the speed of sound, 
+\begin_inset Formula $S$
+\end_inset
+
+ the area of the hole, 
+\begin_inset Formula $V$
+\end_inset
+
+ the volume of the cells and 
+\begin_inset Formula $L_{\mathrm{eff}}$
+\end_inset
+
+ the effective length of the hole, its real length plus an end correction of 
+\begin_inset Formula $\kappa$
+\end_inset
+
+ times the equivalent radius. Against Elmer, the formula with the volume of the cells alone is too high by 0 to 10 per cent, and the inner correction seen by Elmer is 0.85 to 1.34 times the equivalent radius (mean 1.03), which gives 
+\begin_inset Formula $\kappa$
+\end_inset
+
+ close to 1.9 for both ends together; the plans of 3 October 2026 ran with 1.55. The chain is the one wanted: Elmer calibrates the effective lengths on the real geometry, the small network runs the plan.
+\end_layout
+
+\begin_layout Standard
+The plan sweeps the ratio of the chamber resonance to the frequency of the blade. Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fenetre"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ gives, for a blade of 700 Hz in a chamber of 10.2 cm
+\begin_inset Formula $^{3}$
+\end_inset
+
+ (the volume of chamber 12), the threshold pressure and the pitch at threshold. Below the resonance nothing starts. At a ratio of 1.1 the threshold is enormous and the note is pulled far down. Between 1.2 and 1.7 the threshold is lowest; above 2 it rises again. The study of 3 October 2026 concluded on a window of 1.2 to 1.7. The lower edge is itself uncertain: the 1000 Hz blade has its lowest threshold at 1.2 (423 Pa) and the 1400 Hz blade at 1.1 (775 Pa), where the plan stops being clean. It is the maker's window: a chamber whose resonance stands a fifth to a minor sixth above the tongue makes it speak most easily. The pitch at threshold tells the other side of the story: the closer the resonance, the more it pulls the note down, from 36 cents at 1.2 to 6 cents at 2.0. The same tendencies hold in the real R12 chambers 1 and 12 computed by Elmer, with their proper volumes.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fenetre"
+
+\end_inset
+
+Threshold and pitch at threshold of a 700 Hz uniform steel blade in a 10.2 cm
+\begin_inset Formula $^{3}$
+\end_inset
+
+ chamber, as the area of the hole moves the chamber resonance (small network with the Elmer effective lengths; tendencies, not pascals).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{rrrrr}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+$S$ (mm$^{2}$) & $f_{H}$ (Hz) & $f_{H}/f_{1}$ & $p_{
+\backslash
+mathrm{on}}$ (Pa) & pitch (cents) 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+21.7 & 700 & 1.0 & silence & -- 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+27.7 & 770 & 1.1 & 4155 & $-$144 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+35.0 & 840 & 1.2 & 453 & $-$36 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+54.1 & 980 & 1.4 & 234 & $-$17 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+98.8 & 1190 & 1.7 & 227 & $-$9 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+176.2 & 1400 & 2.0 & 350 & $-$6 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Applied to the R12 with hypothetical notes (a diatonic row in G, not yet confirmed), the window is reachable with machinable dimensions only for chambers 8 to 10. The low chambers, 1 to 7, have resonances 2.4 to 7.8 times their notes and would need an enormous chamber or a minute hole; for them the proposal only moves the resonance at least 50 cents away from the harmonics 1 to 6 of the notes, so that it pulls neither pitch nor timbre, and three chambers (3, 4 and 7) have their A-against-B mode within 20 cents of a harmonic. The two highest chambers carry a note above their resonance, which does not start in the model; chamber 12 would need a smaller volume than the bounds allow. All of this is a proposal written to a file, nothing has been changed in the drawing, and the notes are a hypothesis: as soon as the real notes are in notes_r12.csv everything recomputes itself.
+\end_layout
+
+\begin_layout Standard
+Two remarks on what the plan cannot see. In this network the push and the draw give the same growth rates, because the chain is symmetric; the model does not distinguish the inner tongue, inside the cell, from the outer one. And the position of the slot on the plate is centred by default, with the tip of the tongue neither towards the hole nor towards the bottom: a dimension to measure.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the real notes of the twelve chambers of the R12 (notes_r12.csv), and the real dimensions of one hole of the soundboard and one pallet, with a calliper. Without them, Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fenetre"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ is a tendency on an imagined instrument.
+\end_layout
+
 \begin_layout Subsection
 Application : Bend technics
+\end_layout
+
+\begin_layout Standard
+A bend is a note pulled away from its pitch by the player, with the hands or the bellows, and brought back. On a free reed the levers are few, and the models of this work name them.
+\end_layout
+
+\begin_layout Standard
+The first lever is pressure. In every version of the models that starts, the note goes down when the player pushes harder: the one-reed model gives minus 15.7 cents from 1.3 to 2 times the threshold, and the two-reed network a few cents below the blade at threshold, falling further with pressure. This is the sense that every player knows. The numbers are predictions of models whose amplitude is not yet bounded correctly; the sign is robust.
+\end_layout
+
+\begin_layout Standard
+The second lever is the chamber, and here Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fenetre"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ is the guide. A chamber tuned far above the tongue, as all the low chambers of the R12 are, hardly pulls the note: in the plan the pitch moves by one or two cents between 300 and 2000 Pa when the resonance is 1.3 times the note. A chamber tuned close to the tongue pulls hard: at a ratio of 1.02 the same blade plays 84 cents low at threshold and 97 cents low at 2000 Pa, but its threshold has risen from 208 to 1322 Pa. A bendable chamber is a hard-blowing chamber, in the model. The experiment with modelling clay (E4 of the audit, halving a chamber far from resonance) predicts a slightly harder start and almost no pitch change; it tests the same point from the other side.
+\end_layout
+
+\begin_layout Standard
+The third lever is the air path above the tongue, hole and pallet. In the version of the two-reed network with the closing section, the mass of air of that path is part of the engine: dividing it by ten, the tongue does not start; multiplying it by three, it starts less well. A pallet half closed changes that mass. Whether it also changes the pitch by more than the 0.1 cent that the tuner of this work resolves is not known.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): on the bench, one tongue at fixed pressure, the pallet angle swept over its eight steps (the Clapet factor of the plan of experiments), the pitch read by the tuner in cents at each step. Then the same with the pressure staircase of the wind tunnel protocol, going up and down. Two curves, one afternoon.
 \end_layout
 
 \begin_layout Chapter
 Reed coupling
 \end_layout
 
+\begin_layout Standard
+A tongue is never alone. It is coupled to its plate, the plate to the block, the block to the soundboard, and through the air to the other tongue of its note. This chapter takes these couplings one by one, from the pot of wax to the pair of voices that beat.
+\end_layout
+
 \begin_layout Section
 Wax or nails ? or ...
+\end_layout
+
+\begin_layout Standard
+Hot wax poured around the plate, or nails driven through it into the wood with a strip of leather beneath: the two ways of fixing a plate have their partisans. What does the fixing do to the tongue? Two things, in principle. It seals the plate against the block, and it sets the boundary condition of the plate, which is the ground on which the tongue is clamped.
+\end_layout
+
+\begin_layout Standard
+On the second point this work has one number, and it is about the tongue, not the plate. In Elmer, replacing an ideal clamping of the tongue by its real one, a heel pressed from below at the rivet, lowers the first frequency by 0.3 per cent, about 5 cents. The plate itself is rigid in every model of this work; a plate held only by wax at its edges may flex, and nothing here has computed or measured by how much.
+\end_layout
+
+\begin_layout Standard
+On the first point, sealing, the figure is again the proposed workshop criterion: a block with its plates, bare or furnished, under 0.05 litre per minute at 500 Pa. A leak at the edge of a plate is a second slot in parallel with the tongue; the workshop knows its symptoms, the pressure that falls before the note and the soft attack, and sometimes a neighbouring note that sounds faintly without being played.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): one plate, plucked three times waxed and three times nailed, alternately, with the chain of chapter 2 (microphone at 15 cm, fixed gain, pince_modes.py). The frequency is measured to better than 0.3 cent and the damping to 3 per cent on synthetic sounds, but remounting a plate moves the frequency by more than the shift of the chamber itself, hence the alternation. Does the fixing change the damping of the first mode? Which plate?
 \end_layout
 
 \begin_layout Section
 Glued reed block or wise
 \end_layout
 
+\begin_layout Standard
+The title keeps a French word: vis, screws. A block glued on the soundboard against a block held by screws, with a gasket between. The glued block is tight by nature and cannot be taken off; the screwed block comes off for tuning and relies on its gasket. The physics of this work has nothing to compare the two yet, but it has the test that would.
+\end_layout
+
+\begin_layout Standard
+The test is the one Ewen already does at the tuning table, written here so that it can be repeated the same way. The block is on the table at a fixed pressure, always the same for a given type of block, 500 Pa for example; the flow meter reads the air that passes. Ten readings in five seconds give the free flow and its scatter. Then a finger or a weight presses the joint, always at the same place with the same force, and after three seconds ten readings give the pressed flow. The difference is the leak of that joint, in litres per minute. Three pairs are taken, and the joint leaks if the difference exceeds three times the scatter at rest in all three. What the test does not see is a leak elsewhere, which the finger does not close; for the whole block the pressure decay test of the bench gives the global leak, and the appendix on leak detection gives the ways to locate one.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the leak at 500 Pa of a glued block and of a screwed block of the same instrument, by the test above. And a question only you can answer: when a screwed block is taken off and put back, does any tongue change pitch by more than the few cents that the chamber itself shifts it?
+\end_layout
+
 \begin_layout Section
 Parallel or perpendicular design
+\end_layout
+
+\begin_layout Standard
+Plates can lie flat on the soundboard, parallel to it, or stand on the walls of a block, perpendicular to it, which is the common design. What changes is the shape of the chamber behind each tongue and the road from the slot to the hole. The method of chapter 2 is made for exactly this comparison, since the input impedance seen from the slot is computed on whatever geometry is drawn; but only the perpendicular design, the R12 block, has been drawn and computed. A geometry of tongue and cavity drawn by Ewen in 2020 (the Elmer project Reed_with_cav, FreeCAD, four bodies) was never computed, no solver being active in it; it is kept, not as a duplicate but as the starting point of the other design.
+\end_layout
+
+\begin_layout Standard
+One result of chapter 2 bears on the choice without deciding it. What the tongue feels at its frequency is the inertia of the air escaping through the hole, not the stiffness of the cavity. A flat plate with a short road to its hole and a standing plate with a long cell behind it will give the tongue different masses of air, and Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fenetre"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ says that the mass, through the resonance it sets, moves the threshold and the pitch. Which design is better is therefore a question of where its resonance falls, and that is computed in minutes once the drawing exists.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the dimensions of one flat-mounted chamber of an instrument you have, so that Elmer can give its impedance seen from the slot next to that of a standing chamber of the R12.
 \end_layout
 
 \begin_layout Section
 Associate reeds in parallel / series
 \end_layout
 
+\begin_layout Standard
+A note of an accordion in the musette tuning is two tongues, sometimes three, that take their air from the same bellows and give it back through the same pallet. They share the air, and they talk to each other through it. This is the parallel association, and it is the whole purpose of the two-reed network coupled_reeds: two tongues, two chambers, two holes, one channel under the pallet, one pallet. The channel common to the two is the coupling; an option puts both tongues in the same chamber for the strongest coupling.
+\end_layout
+
+\begin_layout Standard
+The first thing the network taught is where the engine of each tongue must sit. In one version the start-up of the tongues was carried by a resistance shared at the pallet; the two voices then locked to the unison up to 80 cents of detuning, which no real musette does, since a musette beats. With the engine proper to each tongue, the voices detuned by 20 cents beat at 1.209 Hz, the difference of the blades (1.21 Hz). The common channel couples the voices, but weakly; the excitation of a tongue is its own.
+\end_layout
+
+\begin_layout Standard
+What the network predicts, in its two successive versions, is that the voices pull each other near the unison. With the first mechanism (low A reference, 300 Pa, 4 s), the beat heard is 27 per cent slower than the difference of the blades at 1 cent of detuning, 20 per cent at 2 cents, 12 per cent at 3, and equal to it from 5 cents. With the mechanism of the closing section (A4, 1000 Pa), the two voices lock to one frequency up to about 2 cents of detuning (0.6 Hz), beat 12 per cent slow at 5 cents, and freely at 20 cents. Near the lock the beat is not the difference of the blades but 
+\begin_inset Formula $\sqrt{\Delta^{2}-\Delta_{L}^{2}}$
+\end_inset
+
+, where 
+\begin_inset Formula $\Delta$
+\end_inset
+
+ is the detuning and 
+\begin_inset Formula $\Delta_{L}$
+\end_inset
+
+ the locking range, the law of Adler for two coupled oscillators; the network reproduces it without having been told. This is the physics behind a gesture of the tuner: two voices tuned close enough stick, and the musette dies. The tuner of this work (web/) separates the two tongues of a note in half a second and reads their beat; experiment E3 of the audit tunes one tongue with the other blocked, then frees it, and reads whether the beat survives.
+\end_layout
+
+\begin_layout Standard
+Two further predictions, both conditioned on guessed dimensions: the air does not double with two tongues (1.56 times the flow of one in the first version, almost twice, minus 4 per cent, in the second), and two tongues in phase radiate better than one (efficiency 
+\begin_inset Formula $2.9\times10^{-5}$
+\end_inset
+
+ against 
+\begin_inset Formula $1.5\times10^{-5}$
+\end_inset
+
+, numbers not to be trusted in absolute value, see the section on radiation).
+\end_layout
+
+\begin_layout Standard
+The series association, one tongue feeding the air to another through a shared cavity, has not been modelled as such. What comes nearest is the slot-stack model of the audit (slot_stack.py), built for the experiments of Ewen in which a flat tongue cut in a sheet of steel and held between two plates plays in both directions, and two harmonium plates mounted head to head play in both directions too. That model is honest about its failure: it reproduces the ordinary mounting and refuses to make the sandwich play, which means that the real mechanism contains something it does not, a delay of the flow at the edge of the tongue and a pressure that is not uniform along it. A series association of tongues will be understood when that mechanism is.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): experiment E3 on one musette note of your instrument, with the tuner: tune one tongue with the other blocked by a strip of paper, free it, read the beat in beats per minute at 1, 2, 3 and 5 cents of detuning. Does the beat disappear below about 2 cents, as the model says? And the sandwich: its dimensions, the plucked note of the blade, the played note in each direction against pressure with the U-tube.
+\end_layout
+
 \begin_layout Section
 Dissipation in cavities
+\end_layout
+
+\begin_layout Standard
+Where does the energy go? A tongue plucked in the air rings for seconds: its own damping is small, a damping ratio of 0.004 is the guessed value of the models, to be measured by gesture (a) of chapter 2. Blown, the same tongue settles in a cycle of fixed amplitude in a second or two: something takes energy at each cycle as fast as the breath gives it. In the two-reed network that something is named: the orifice losses of the hole and of the pallet, 
+\begin_inset Formula $\rho q|q|/(2(C_{d}S)^{2})$
+\end_inset
+
+. It is there that the ordered motion of the air becomes heat, and it is this loss that bounds the amplitude in the network, without any resistance adjusted by hand.
+\end_layout
+
+\begin_layout Standard
+The linear theory explains a thing the maker sees without naming it. A chamber helps the tongue only if its impedance, at the frequency of play, is dominated by its compliance, so that the pressure lags the flow by a quarter of a period and the force on the tongue has a part in phase with its velocity. A real hole ventilates the chamber: its resonance lies above the whole keyboard, the impedance is inertial almost everywhere, and the chamber damps instead of helping. This is why the honest network, with real losses and the old law of opening, did not start at all: the growth rate stayed negative whatever was added, at the damping of the blade alone, minus 2.64 per second, or lower. It is also consistent with the measurement of Ricot, Caussé and Misdariis 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "ricot2005"
+literal "true"
+
+\end_inset
+, who showed that an accordion reed starts even without any acoustic coupling, by the aerodynamics of the flow in its slot. The chamber is not the engine; the engine is in the slot, and the chamber mostly takes.
+\end_layout
+
+\begin_layout Standard
+In the slot itself the losses are viscous, and that was checked with a flow computation. In a clearance of 30 micrometres between tongue and plate the Reynolds number is about 80: the flow is a Poiseuille flow, not a jet, and the law of Bernoulli alone is wrong there. On a two-dimensional section of the sandwich reed, Elmer found that 80 per cent of the pressure drop in that clearance is viscous, and its flow agreed to 0.4 per cent with the one-dimensional law, Poiseuille plus Bernoulli, of slot_stack.py. The air of the slot answers in about a microsecond, two thousand times faster than a period of the tongue, so the flow in the slot is taken as instantaneous; only the air the tongue drags along keeps its inertia, as an added mass.
+\end_layout
+
+\begin_layout Standard
+The finite element model of the chamber has no loss at all, and says so. The resistance of a real chamber comes from gesture (b): a resonator with a quality factor of 20, which is the order used in the synthetic tests, loses 40 dB in 25 ms, and the analysis finds its damping to 5 per cent. On the bench, a leak is seen as a drop of the quality factor of the air resonances of the closed instrument, measured by a sweep (frf.py) and a ring-down; it does not locate the leak but it quantifies it.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the quality factor of one chamber of the R12, closed by its plate, excited by a sweep from a small loudspeaker and recorded at 15 cm, with and without the plate waxed. The loss resistance that the models lack is this one number.
 \end_layout
 
 \begin_layout Chapter
 Entropy and least energy state
 \end_layout
 
+\begin_layout Standard
+Question 3 of the introduction asks whether the reeds work in a state of least energy. The short answer of this work is no, and the long answer is more interesting than a yes would have been.
+\end_layout
+
+\begin_layout Standard
+A tongue at rest in its slot, with no air moving, is in its state of least energy: the spring of the blade is slack, the air is still. A tongue that sings is not in such a state. It is a steady state kept alive by a flow of energy: the bellows gives work at a rate equal to the pressure times the flow, the orifices and the viscous clearance turn almost all of it into heat, and a tiny ordered part leaves as sound. The models of this work put that part between a few hundred-thousandths and a few per cent, and do not trust either figure. What is certain is the architecture: an oscillator kept away from rest by a source, bounded by dissipation. Such a state is called a limit cycle; it is a state of balance, not of minimum.
+\end_layout
+
+\begin_layout Standard
+The balance can be written. Linearised around the equilibrium of a tongue held open by the pressure, the flow through the slot acts back on the tongue with a delay set by the compliance of the chamber, and the force of pressure acquires a part in phase with the velocity. In the one-reed model that anti-damping is
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\Gamma\,a\,\frac{\partial q_{\mathrm{out}}/\partial y}{\left(a\,\partial q_{\mathrm{out}}/\partial p\right)^{2}+\omega^{2}},\qquad a=\frac{\gamma P_{\mathrm{atm}}}{V_{0}},
+\]
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+where 
+\begin_inset Formula $\Gamma$
+\end_inset
+
+ is the area swept by the tongue, 
+\begin_inset Formula $a$
+\end_inset
+
+ the stiffness of the spring of air in a chamber of volume 
+\begin_inset Formula $V_{0}$
+\end_inset
+
+, 
+\begin_inset Formula $\partial q_{\mathrm{out}}/\partial y$
+\end_inset
+
+ the modulation of the flow by the position of the tongue, 
+\begin_inset Formula $\partial q_{\mathrm{out}}/\partial p$
+\end_inset
+
+ its dependence on pressure, and 
+\begin_inset Formula $\omega$
+\end_inset
+
+ the angular frequency. The tongue starts when this term exceeds its own damping, 
+\begin_inset Formula $2\zeta\omega m$
+\end_inset
+
+, with 
+\begin_inset Formula $\zeta$
+\end_inset
+
+ the damping ratio and 
+\begin_inset Formula $m$
+\end_inset
+
+ the modal mass. The formula also says when it stops: if the opening saturates because the tongue is blown out of its slot, the modulation 
+\begin_inset Formula $\partial q_{\mathrm{out}}/\partial y$
+\end_inset
+
+ vanishes and the anti-damping with it, whatever the pressure. That is the choking every player knows, and the model produced it without being asked. The oscillation is bounded on both sides, by too little energy and by too much.
+\end_layout
+
+\begin_layout Standard
+What the maker minimises is not an energy but a pressure: the pressure at which the tongue starts. Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fenetre"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ showed that the threshold is lowest when the chamber resonance stands 1.2 to 1.7 times above the note. The maker who finds that window by ear is doing what the plan of experiments does by computation: making the state of self-sustained oscillation reachable with the least breath.
+\end_layout
+
+\begin_layout Standard
+Entropy enters this work in two places, and both are modest. The first is the word adiabatic. The air of a chamber is compressed and relaxed hundreds of times a second, too fast to exchange heat with the walls; its entropy stays constant during a cycle, which is why the spring of air has the stiffness 
+\begin_inset Formula $\gamma P_{\mathrm{atm}}/V$
+\end_inset
+
+ and not 
+\begin_inset Formula $P_{\mathrm{atm}}/V$
+\end_inset
+
+. The second is the orifices, where the entropy is produced: the kinetic energy of a jet that has passed a hole is not recovered on the other side, it becomes heat, and the term 
+\begin_inset Formula $\rho q|q|/(2(C_{d}S)^{2})$
+\end_inset
+
+ is the account of that irreversibility.
+\end_layout
+
+\begin_layout Standard
+There is a third place where the idea of a least state returns, and it is the one this book cares most about. Between the pressure where the tongue starts, 
+\begin_inset Formula $p_{\mathrm{on}}$
+\end_inset
+
+, and the lower pressure where it stops, 
+\begin_inset Formula $p_{\mathrm{off}}$
+\end_inset
+
+, two states coexist: the silent tongue and the singing one. In the one-reed model the ratio 
+\begin_inset Formula $p_{\mathrm{on}}/p_{\mathrm{off}}$
+\end_inset
+
+ came out at 1.33 (25.8 Pa over 19.4 Pa, for a model version whose thresholds are known to be too low in the bass); the bench measures the same two pressures by a ramp up and a ramp down (seuil.py). Neither state is the least state; the one the tongue is in depends on where it comes from. The tools of the stochastic chapter of the research bench see this as a potential with two wells, reconstructed from the measured drift and diffusion of the signal, and the noise of the breath as what can push the system over the barrier from one well to the other. A reed does not seek its least energy. It stays where it is until something, pressure or noise, moves it.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the hysteresis ratio of one real tongue, by the staircase of the wind tunnel protocol, up and then down, three cycles. If the measured ratio is far from 1.33, the effective volume and the source impedance are the first two parameters to recalibrate.
+\end_layout
+
 \begin_layout Part
 Mechanics and valves
+\end_layout
+
+\begin_layout Standard
+The air that does not sing is the subject of this part. An accordion is a box of pressure, and every joint of it is a place where the air may leave without a sound. The valves, the gaskets, the pallets and the keys that lift them decide how much of the breath reaches the tongues, and how fast.
 \end_layout
 
 \begin_layout Chapter
 Leaks, flow channels and valves
 \end_layout
 
+\begin_layout Standard
+A valve, in the language of the workshop, is the flap of leather or plastic glued over the slot of a tongue on the side from which the air does not come. When the plate is blown from the other side, the flap lifts and the tongue plays; when the air comes from its side, the flap closes the slot of the tongue that must stay silent, so that the air of the bellows is not wasted through it. The valve is why a plate with two tongues gives one note on the push and one on the draw. In the models of this work it appears only as a hypothesis: the flow through the slot is one-way, the valve is perfect. The audit says what is ignored: a leather valve has a mass, it leaks, and it slaps. In the experimental protocol of chapter 2 the valve of the tested tongue is removed or lifted, because lying on the slot on the chamber side it would decouple the chamber; the protocol lists the valve as a factor in its own right, in no model yet.
+\end_layout
+
+\begin_layout Standard
+The figures of this chapter come from the training booklet of Ewen and from his workshop practice. They are proposed criteria, not yet measured on his instruments, and they are given with that status. A valve should leak less than 0.02 litre per minute under 500 Pa, and no valve should lift under 1.5 times the maximum playing pressure. The bellows alone should leak less than 1 litre per minute at 500 Pa, a glued block bare or furnished less than 0.05, and the closed instrument less than 0.5. Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:trou"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ translates a leak into a hole: at 500 Pa, a round hole of 1 mm passes 0.8 litre per minute. These flows follow the law of an orifice with a contraction coefficient close to 0.6, the value 0.61 used in the models for a sharp-edged jet; the check was made here, the figures are the booklet's.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:trou"
+
+\end_inset
+
+Equivalent hole of a leak at 500 Pa (workshop figures, proposed criteria).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{rr}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+hole diameter (mm) & leak (litre per minute) 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+0.3 & 0.07 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+0.5 & 0.2 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+1 & 0.8 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+2 & 3.3 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Two instruments cost nothing. A gasometer is a box turned upside down and floating in a bucket of water: filled with air, it feeds the instrument and sinks as the air leaks out, and for the box of the workshop a descent of 6.7 cm per minute is 1 litre per minute. A U-tube of transparent hose half filled with water and a ruler is a manometer: 1 mm of water is about 10 Pa (9.81 Pa exactly). With these two, the criteria above can be checked on any instrument.
+\end_layout
+
+\begin_layout Standard
+What a leak does to the music is known in the workshop and explained by the network. A leak in parallel with the tongues takes flow from a source of finite resistance, so the pressure falls before the note: the attack is soft, and a pianissimo starts badly. A leaking valve lets air through the slot of the silent tongue of its plate, and if that tongue is close to its threshold it sounds faintly: the ghost note.
+\end_layout
+
 \begin_layout Section
 Acoustic transmittance of valves
+\end_layout
+
+\begin_layout Standard
+A closed valve, a closed pallet, a mute: each is a thin wall between a cavity full of sound and the outside. How much sound passes through it is its transmittance, usually written as a transmission loss in decibels. Nothing in this work has measured one yet; the method and the software are ready, and they are cheap.
+\end_layout
+
+\begin_layout Standard
+The rigorous way is the transfer matrix method with four microphones (standard ASTM E2611): a tube, the sample in the middle, two microphones upstream and two downstream, and two different terminations so that the four coefficients of the matrix can be separated. The transmission loss follows from the matrix as 
+\begin_inset Formula $\mathrm{TL}=20\log_{10}\left(|T_{11}+T_{12}/\rho c+\rho c\,T_{21}+T_{22}|/2\right)$
+\end_inset
+
+ for a tube of constant section and an anechoic end, where 
+\begin_inset Formula $T_{11}$
+\end_inset
+
+ to 
+\begin_inset Formula $T_{22}$
+\end_inset
+
+ are the four coefficients and 
+\begin_inset Formula $\rho c$
+\end_inset
+
+ the characteristic impedance of air (banc_recherche/transfer.py, transfer_matrix_two_load and tl_from_matrix). The cheap way uses the two microphones of the impedance tube and compares the spectra upstream and downstream, 
+\begin_inset Formula $\mathrm{TL}=10\log_{10}(S_{\mathrm{in}}/S_{\mathrm{out}})$
+\end_inset
+
+, a coarse estimate, honest about being one. The sound card has three channels; the four-microphone method would need a second pass with the microphones moved, or a second card.
+\end_layout
+
+\begin_layout Standard
+One thing the models already say about the valve is not about transmittance but about pitch, and it deserves a place here because it is surprising. In the audit of the one-reed model, an opening symmetric in the position of the tongue, 
+\begin_inset Formula $S=b|y|$
+\end_inset
+
+, modulated the slot twice per period and the model played 470 Hz for a tongue of 220 Hz: an octave wrong. The flow through a free reed is one-way, and in the reading of the models it is the valve that makes it so. Whether the real tongue would behave like that without its valve is a question for the sandwich experiments, where a tongue without any valve plays in both directions; the point stands that the valve is not an accessory of the plate but part of what fixes the note.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the transmission loss of one leather valve and one plastic valve glued on a plate, in a tube with two microphones, by the coarse method first. A difference of a few decibels between the two materials would already be a result.
 \end_layout
 
 \begin_layout Section
 Sealing material influence of sound radiated
 \end_layout
 
+\begin_layout Standard
+Leather or plastic for the valves, felt or foam for the gaskets, wax or leather under the plates: the sealing materials are chosen by the hand and judged by the ear. Their influence on the radiated sound is of two kinds, and the second is the one usually forgotten.
+\end_layout
+
+\begin_layout Standard
+The first kind is what the material lets through when it is meant to seal. A leak is a place where air escapes without making a note, and it is not silent: a jet through a small orifice under pressure becomes turbulent and radiates a broadband hiss that rises high in frequency, into the ultrasound. In a recording, the hiss of a leak is rich where the voice of the tongue and the noise of the room are poor, above a few kilohertz. This is the handle by which the appendix on leak detection catches it: filter high, take the envelope of the hiss, and, if the pressure of the bellows is modulated at a known slow frequency, keep only what blinks at that frequency. The bellows of the bench, which already makes controlled strokes at 2 to 10 Hz, is the modulator; the synchronous detection is a few lines of code (banc_recherche/leak.py, lockin and leak_map); a microphone walked over the surface gives a map. None of this has yet been run on a real instrument.
+\end_layout
+
+\begin_layout Standard
+The second kind is what the material does when it moves. A valve lifts and falls at every change of direction of the bellows; it has a mass and it slaps. The models ignore it, and the tuner of this work detects the reversal of the bellows by a sharp and isolated dip of the signal without silence, which is where the slap lives. A stiff plastic valve and a supple leather one will not fall the same way, and the attack of the note after the reversal carries the difference. Nothing here has measured it.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the same note recorded with its leather valve, then with a plastic one, at the same bellows pressure, with the tuner exporting the WAV; compare the spectra above 4 kHz during the held note (the hiss) and the first 50 ms after a reversal (the slap). Which note, and which instrument?
+\end_layout
+
 \begin_layout Section
 Dynamics of keyboard
+\end_layout
+
+\begin_layout Standard
+A key lifts a pallet. The pallet is the last door of the air road, and in the network it is an orifice: a mass of air 
+\begin_inset Formula $\rho\ell/S$
+\end_inset
+
+ and a loss, with guessed dimensions of 3 cm
+\begin_inset Formula $^{2}$
+\end_inset
+
+ of area, 10 mm of effective length and a lift of about 4 mm. On the bench it is an axis in degrees, swept from 2 to 22 degrees in the 2020 plan with a lever of 20 mm, or replaced by a fixed pallet and a timed electrovalve when only the arrival of the pressure matters. The keyboard of the bench is a matrix of electromagnets on the buttons, 24 on the left hand and 47 on the right, held with a reduced current once pressed; the firmware that drives it is written for an ESP32-S3 and has not yet been tested on hardware.
+\end_layout
+
+\begin_layout Standard
+What the speed of the key does to the note is a question of pressure rise. In the simulations the pressure of the bellows rises linearly in 20 ms, a hypothesis with no measurement behind it; a slow key gives the tongue a slow rise and a soft attack, a fast key a step. The response time of the note, from the opening to the steady sound, is already measured by the analysis chain of the research bench (the quantity called Tresp, computed with Praat 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "boersma_praat"
+literal "true"
+
+\end_inset
+ through Parselmouth 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "jadoul2018parselmouth"
+literal "true"
+
+\end_inset
+); what is missing is the position of the key against time next to it.
+\end_layout
+
+\begin_layout Standard
+There is a subtler point, and it is a prediction. In the version of the two-reed network with the closing section, the mass of air of the road above the tongue, hole and pallet together, is part of the mechanism of start-up: with that mass divided by ten the tongue does not start, with it multiplied by three it starts less well, and there is an optimum. A pallet barely open is a long thin passage and a large mass of air; a pallet wide open a small one. If the prediction holds, the depth of the key changes the ease of the start, not only the loudness. Experiment E2 of the audit is designed to see it: the starting pressure, read on the U-tube, against the lift of the pallet.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the force and travel of one key, with a load cell (HX711) and a small magnetic encoder (AS5600) on the bench, a new channel of the firmware proposed in the measurement map but not built. And experiment E2: the starting pressure of one tongue for five lifts of its pallet, set with shims. Is there an optimum, as the model says?
 \end_layout
 
 \begin_layout Section
 Pedale avec enclenchement manuel de notes type stylo bille
 \end_layout
 
+\begin_layout Standard
+The title describes a device in French: a pedal, or a latch worked by the hand, that holds a note open the way the button of a ballpoint pen holds its tip out, one press to engage and one to release. The musical purpose is a drone, a note that goes on sounding while the fingers are free. The design is Ewen's and is not in the repository; what is here is what the physics of the previous chapters says about such a note.
+\end_layout
+
+\begin_layout Standard
+A latched pallet is a constant opening. The tongue behind it then depends on one thing only, the pressure of the bellows, and that pressure is shared with every other note being played. The audit of the one-reed model takes as its working hypothesis that the bellows is a source of flow with a finite internal resistance, not a source of pressure, and gives the proof in the playing: at a constant speed of the bellows, opening a chord makes the pressure fall, where a source of pressure would hold it and double the flow. A drone therefore costs pressure for the melody, and the cost is the flow of the drone tongue times the resistance of the source. The flows that the models give per tongue (0.1 to 0.4 litre per second at 1000 Pa) are known to be too large; the real one is read on the flow meter of the bench in a minute.
+\end_layout
+
+\begin_layout Standard
+The second thing the physics says is about the two directions. A latched note on a plate with two tongues sounds one tongue on the push and the other on the draw, and the two tongues of a plate are two different blades: on Ewen's own instrument the tuner found differences of 15 to 25 cents between push and draw on the same notes. A drone that must stay in tune through the reversal of the bellows asks for the two tongues of its plate to be tuned together more carefully than the melody does.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the mechanism itself, and its question for the bench: how much flow the drone tongue takes at playing pressure, and by how much the pressure available to the other notes falls when it is latched, measured with the flow meter and the pressure sensor, or the U-tube.
+\end_layout
+
 \begin_layout Section
 Bend en bout de course du clavier
+\end_layout
+
+\begin_layout Standard
+The second French title names a key with extra travel: pressed to the bottom of its ordinary stroke the key opens the pallet, and pressed further it does something more, which bends the note. What can that something be? The models of this work name three levers, in the subsection on bend techniques above, and here they are weighed for a key.
+\end_layout
+
+\begin_layout Standard
+The key cannot change the pressure of the bellows; that lever belongs to the arm. It can change the opening of the pallet: beyond the ordinary stroke it may close the pallet partly again, or open a second, smaller passage. In the two-reed network this changes the mass of air of the road above the tongue, which the model places in the mechanism of start-up, and the pitch effect of it is not known: it may be below what the ear notices. The key can also change the chamber: a second pallet at the end of the stroke could open a cell beside the chamber, changing its volume and its resonance. Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fenetre"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ says that this lever is strong only when the chamber resonance is close to the note, within a ratio of 1.1 or so, and that such a chamber is hard to blow: 1322 Pa of threshold against 208 Pa at a ratio of 1.3, for the same blade in the plan. A bend at the end of the stroke is therefore, in the model, a trade between the depth of the bend and the ease of the note, and only a measurement will say where the trade is worth it.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the mechanism you have in mind, and one measurement before building it: with modelling clay, reduce the volume of one chamber in two or three steps and read the pitch of its tongue with the tuner at a fixed pressure of the staircase. If the pitch moves by less than a few cents, the chamber is not the lever for that note, and the pallet is the one to try.
 \end_layout
 
 \begin_layout Part
 Reedblock to {Soundboard+box} coupling
 \end_layout
 
+\begin_layout Standard
+The block does not float. It stands on the soundboard, and the soundboard is a wall of the box. Whatever the tongue does to the air, the air does to these pieces of wood, and they answer. This part has one chapter, and it is mostly a list of what has not been measured yet, with the one thing that has.
+\end_layout
+
 \begin_layout Chapter
 Soundboard
 \end_layout
 
-\begin_layout Subsection
--
+\begin_layout Standard
+The soundboard is the plate on which the block stands and in which the holes of the chambers are drilled; the pallets lie on its other face. In every model of this work it is rigid, and it enters only by its holes. That is already a great deal: the hole is the part of the chamber that the tongue feels most. Its effective length, computed by Elmer from the impedance seen from the slot, is 25.8 mm for chamber 1, 22.7 mm for chamber 6 and 30.4 mm for chamber 12, against a real thickness of 8 mm in the drawing. Two thirds of what the tongue feels as the mass of the hole is the air at its two ends, and the pallet, when it is close to the hole, lengthens it further; the finite element model takes the pallet far away, and this is a parameter to sweep.
+\end_layout
+
+\begin_layout Standard
+A small sweep on chamber 1 shows how much the hole weighs. Keeping the cells and changing only the hole, the first resonance goes from 665 Hz (hole 4 by 12.5 mm, soundboard 8 mm, large outer correction) to 1314 Hz (hole 8 by 25 mm, soundboard 4 mm, small correction). A factor of four in area and a factor of two in thickness move the resonance by an octave; the volume of the chamber, which is what the maker usually thinks of first, was not touched.
+\end_layout
+
+\begin_layout Standard
+The soundboard as a vibrating plate is absent from this work, and so is the box. The hypothesis of the network that the pallet is the only radiator is incomplete, as the audit says: the bellows, the box and the plate radiate too. How much, and at which frequencies, is a measurement that costs an impact hammer (a small screwdriver handle will do), a piezoelectric accelerometer of a few euros glued on the soundboard, and the third channel of the sound card: the frequency response from the tap to the acceleration gives the modes of the plate, their frequencies and their damping, with the same estimators the research bench already uses for tongues (the inter-spectrum of excitation.py, the ring-down and the matrix pencil 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "hua1990matrixpencil"
+literal "true"
+
+\end_inset
+).
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the frequency response of the soundboard of one instrument, block mounted and block removed, by hammer and accelerometer. The question to answer is simple: does any mode of the plate fall within a few per cent of a note of the instrument, or of the resonance of a chamber? If none does, the rigid soundboard of the models is a fair assumption for that instrument.
 \end_layout
 
 \begin_layout Part
 Other parts involved
 \end_layout
 
+\begin_layout Standard
+The bellows that breathes, the grille that the sound crosses, the box that holds it all, the pallets and the mutes: the rest of the instrument. Each one appears in this work as an assumption of the models, and this part says which assumption, and what would replace it by a measurement.
+\end_layout
+
 \begin_layout Chapter
 Bellows
+\end_layout
+
+\begin_layout Standard
+The bellows is the lung. Everything upstream of the tongue is in it: the pressure, its rise, its fall, its reversal. The models of this work treat it in the simplest ways, and the bench replaces it by a motor.
 \end_layout
 
 \begin_layout Section
 Framed bellow
 \end_layout
 
-\begin_layout Subsection
--
+\begin_layout Standard
+A framed bellows is folds of cardboard and cloth, leather at the corners, and a wooden frame at each end that takes the block and the box. The workshop knows where it leaks: at the corners and at the frame. The proposed criterion of the booklet is less than 1 litre per minute at 500 Pa for the bellows alone, closed on a board, which by Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:trou"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ is the equivalent of a round hole a little over 1 mm across.
+\end_layout
+
+\begin_layout Standard
+What is the bellows to the tongue? In the two-reed network it is an ideal source of pressure rising in 20 ms, a hypothesis without a measurement. In the one-reed model it is a source of flow with an internal resistance, 
+\begin_inset Formula $q=q_{0}-p/R$
+\end_inset
+
+, and the audit argues from the playing that this is the right picture: a real bellows, like a real turbine, gives less flow when the pressure rises. The value of 
+\begin_inset Formula $R$
+\end_inset
+
+ decides the amplitude of the note (section on the aperture) and moves the threshold: in one version of the one-reed model the starting pressure of the reference tongue was 23.0 Pa with an ideal source, 25.8 Pa with 
+\begin_inset Formula $R=2\times10^{8}$
+\end_inset
+
+ and 35.9 Pa with 
+\begin_inset Formula $5\times10^{7}$
+\end_inset
+
+ Pa s m
+\begin_inset Formula $^{-3}$
+\end_inset
+
+, a softer source helping the start less, while the choking pressure stayed at 379.8 Pa. These are numbers of a model version whose bass thresholds are known to be far too low; the direction of the effect is what to keep.
+\end_layout
+
+\begin_layout Standard
+The playing pressures of an accordion are of the order of 500 to 3000 Pa, in both signs; the thresholds of the tongues are far below, a few tens to a few hundreds of pascals in the models, where a real instrument asks for roughly a hundred to a thousand all over the keyboard. The bellows also has a compliance of its own and the hand behind it; the audit says both are measurable with a manometer and neither is in a model.
+\end_layout
+
+\begin_layout Standard
+On the bench the bellows is motorised: a stepper axis on a linear table, the only source of air, driven at a set speed or servoed to a pressure, reversing at the ends of its finite stroke so that a measurement is made within one pass, push and draw being the two signs of pressure. The bench does not work at present and has never been rebuilt; the firmware exists and is untested; the flow meter is still there. The same motorised bellows is the modulator of the leak imaging method of the appendix, at 2 to 10 Hz.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): two measurements on one of your bellows, closed on a board with a pressure tap. The leak at 500 Pa, by the gasometer or the flow meter, against the 1 litre per minute of the booklet. And the characteristic of your own arm as a source: pressure against flow at a steady push, through a known orifice, read on the U-tube and the gasometer; its slope is the 
+\begin_inset Formula $R$
+\end_inset
+
+ of the models. Which bellows, which day?
 \end_layout
 
 \begin_layout Chapter
 Timbral elements
 \end_layout
 
+\begin_layout Standard
+After the tongue has made the sound, several pieces of the instrument shape it before it reaches the ear. This chapter lists them, says what the physics of this work would predict for each, and admits that none has been measured here.
+\end_layout
+
 \begin_layout Section
 Grid
 \end_layout
 
-\begin_layout Subsection
--
+\begin_layout Standard
+The grille is the perforated screen in front of the pallets of the right hand. The sound of every tongue crosses it. Physically it is a plate with many holes and a thin layer of air behind it: at low frequency it is transparent, since the wavelength is long compared with the holes and the depth; towards high frequencies the holes act as masses of air and the layer behind as a spring, and the grille becomes a filter whose cut-off depends on the fraction of open area and on the depth. Nothing in this work has computed or measured a grille, and no number is given here.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): one note recorded with the grille on and off, same microphone position, same bellows pressure, with the WAV export of the tuner; compare the two spectra above 2 kHz. The difference, if any, is the grille.
 \end_layout
 
 \begin_layout Section
 Resonance box
 \end_layout
 
-\begin_layout Subsection
--
+\begin_layout Standard
+Some instruments put a set of tongues behind a second chamber inside the box, a resonance box, which gives them their rounder sound. Physically it is one more cavity on the road of the air, and the method of chapter 2 applies to it unchanged: mesh its air, compute its modes and the impedance seen from the hole of the block. One caution: a resonance box is many centimetres long, and at one or two kilohertz that is no longer small compared with the wavelength; the lumped network of masses and springs stops being valid there, while the finite element model does not care, having been checked on a duct of 100 mm against the exact formula to a relative error of 
+\begin_inset Formula $1.3\times10^{-5}$
+\end_inset
+
+. No resonance box has been drawn or computed in this work.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the dimensions of the resonance box of one instrument you can open, and the recording of one tongue through it and outside it, so that the computed modes can be set against the measured spectrum.
 \end_layout
 
 \begin_layout Section
 Clapets et sourdines
 \end_layout
 
-\begin_layout Subsection
--
+\begin_layout Standard
+Pallets and mutes, in French in the title. The pallet is the door of each note, and it has had its say in this book several times: an orifice of guessed dimensions in the network, the only radiator of the model, the mass of air that the model puts in the mechanism of start-up, the last place where the key acts. The register slides, which close whole sets of tongues, are of the same family, and the workshop counts them among the places that leak. A mute is anything, felt, wood or cloth, placed on the road of the sound to soften it: a longer and narrower passage, hence more mass of air and more loss, hence less high frequency and a little less of everything.
 \end_layout
 
-\begin_layout Subsection
--
+\begin_layout Standard
+What is said of valves in the chapter on leaks applies to both: their transmittance can be measured in a tube with two or four microphones, the software is ready, the rig is not. What the models predict for the pallet, an optimum of its lift for the ease of the start, is experiment E2 and is unmeasured.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the transmission loss of one register slide, closed, in the two-microphone tube, by the coarse method of transfer.py. And the lift of your pallets at full key, with a feeler gauge: the 4 mm of the model is a guess.
 \end_layout
 
 \begin_layout Part
