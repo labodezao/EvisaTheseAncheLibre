@@ -19,7 +19,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '27';
+const APP_VERSION = '28';
 function versionMismatch(what, got) {
   const b = document.getElementById('versionBanner');
   if (!b) return;
@@ -355,6 +355,9 @@ function pushConfig() {
 // ---- Réception des analyses --------------------------------------------------
 function onTick(t) {
   state.tickAt = performance.now();
+  // Dernière analyse brute, même quand l'écran est gelé : la carte « Seuils »
+  // du Banc en a besoin (un gel figerait le niveau d'une anche qui s'est tue).
+  state.rawTick = t;
   showTwoReeds(t);
   showBeat(t);
   drawVu(t);
@@ -2760,6 +2763,12 @@ initBench(() => {
     level_db: (t && !t.quiet) ? 20 * Math.log10(t.level + 1e-9) : null,
     attack_ms: a?.riseMs ?? null,
     sigma: a?.sigma ?? null,
+    // Pour les seuils d'auto-entretien : niveau même en silence, périodicité
+    // (clarté NSDF, 0 = souffle, ~1 = note) et âge de la dernière analyse.
+    level_raw_db: state.rawTick ? 20 * Math.log10(state.rawTick.level + 1e-9) : null,
+    clarity: state.rawTick ? (state.rawTick.quiet ? 0 : state.rawTick.clarity ?? 0) : null,
+    f0_raw: state.rawTick?.f0 ?? null,
+    age_s: state.tickAt != null ? (performance.now() - state.tickAt) / 1000 : null,
   };
 });
 refreshReport();

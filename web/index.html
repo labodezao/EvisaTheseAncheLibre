@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" data-version="27">
+<html lang="fr" data-version="28">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -435,7 +435,9 @@
             <button id="bcValvePulse">impulsion</button><input type="number" id="bcPulseMs" value="500" size="4"> ms</div>
           <label class="inline"><input type="checkbox" id="bcClamp"> bridage</label>
           <div class="row">Test de fuite <button id="bcLeak">décroissance P</button>
-            <input type="number" id="bcLeakDur" value="10" size="3"> s <span id="bcLeakRes" class="hint">—</span></div>
+            <input type="number" id="bcLeakDur" value="10" size="3"> s
+            volume fermé <input type="number" id="bcLeakVol" value="" step="0.1" size="4" placeholder="L"> L
+            <span id="bcLeakRes" class="hint">—</span></div>
         </div>
 
         <div class="bench-card">
@@ -467,6 +469,50 @@
       </div>
 
       <div class="bench-card wide">
+        <h3>Seuils d'auto-entretien <span class="hint">où l'anche démarre, s'éteint, se plaque — niveau et débit en fonction de la pression</span></h3>
+        <div class="row">
+          Source <select id="suMode">
+            <option value="manuel">manuelle (je règle l'air moi-même, lentement)</option>
+            <option value="auto">rampe asservie (consigne PRESSURE)</option>
+          </select>
+          Essai <input type="text" id="suLabel" value="anche A levée 1" size="16">
+          Bouton <input type="number" id="suBtn" value="-1" min="-1" max="70" size="3">
+        </div>
+        <div class="row">
+          Rampe de <input type="number" id="suPmin" value="0" step="10" size="4"> à
+          <input type="number" id="suPmax" value="800" step="50" size="4"> Pa à
+          <input type="number" id="suRate" value="10" step="1" size="3"> Pa/s,
+          <input type="number" id="suCycles" value="3" min="1" size="2"> cycles
+        </div>
+        <div class="row">
+          L'anche sonne si clarté ≥ <input type="number" id="suClar" value="0.8" step="0.05" size="3">
+          et niveau ≥ fond + <input type="number" id="suMarge" value="6" step="1" size="2"> dB ;
+          maintien <input type="number" id="suHold" value="0.15" step="0.05" size="3"> s ;
+          retard du capteur <input type="number" id="suLag" value="0" step="0.05" size="3"> s ;
+          rampe min. <input type="number" id="suMinRise" value="20" step="5" size="3"> Pa
+        </div>
+        <div class="row">
+          <button id="suStart" class="primary">● Enregistrer</button>
+          <button id="suStop" class="danger" disabled>■ Arrêter et calculer</button>
+          <button id="suRedo">Recalculer</button>
+          <button id="suCsv">Export CSV</button>
+          <button id="suClear" class="danger">Effacer</button>
+          <span id="suProgress" class="hint">—</span>
+        </div>
+        <canvas id="suPlot" class="su-plot" width="900" height="260"></canvas>
+        <div class="bench-logwrap"><table class="bench-log">
+          <thead><tr><th>cycle</th><th>démarre (Pa)</th><th>s'éteint (Pa)</th><th>se plaque (Pa)</th>
+            <th>repart (Pa)</th><th>hystérésis</th><th>plage utile</th><th>rapport</th></tr></thead>
+          <tbody id="suBody"></tbody>
+        </table></div>
+        <p class="hint">Lance d'abord l'accordeur (micro), connecte le banc, fais la tare. Monte la pression
+          lentement (2 à 20 Pa/s), au-delà du plaquage si possible, puis redescends jusqu'au silence.
+          Rouge = montée, bleu = descente, pâle = l'anche ne sonne pas, vert = débit. Deux vitesses de rampe
+          permettent de retrouver le seuil à vitesse nulle (<code>banc-recherche-cli seuils</code>).
+          Deux anches : bloque l'une avec une bande de papier, mesure l'autre, puis les deux ensemble.</p>
+      </div>
+
+      <div class="bench-card wide">
         <h3>Journal de mesures <span class="hint">chaque point = pneumatique (rafale) + lecture acoustique fusionnés</span></h3>
         <div class="row">
           Acquisition <input type="number" id="bcAcqDur" value="3" size="3"> s à <input type="number" id="bcAcqHz" value="100" size="4"> Hz
@@ -488,7 +534,7 @@
   <span>Accordeur pour instruments à anche libre — plage Mi0 → Do9 · précision &lt; 0,1 cent · </span>
   <a href="aide.html" target="_blank">guide d'utilisation</a> ·
   <a href="#" id="aboutLink">à propos</a> ·
-  <span id="appVersion">version 27</span>
+  <span id="appVersion">version 28</span>
 </footer>
 <div id="versionBanner" class="version-banner hidden"></div>
 

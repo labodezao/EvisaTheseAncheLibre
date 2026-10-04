@@ -15,6 +15,7 @@ from filters import Filtered
 from display import Display
 from drivers.bmp280 import BMP280
 from drivers.sfm3000 import SFM3000
+from drivers.sdp8xx import SDP8xx
 from drivers.actuators import Axis, Digital
 from drivers.shiftreg import Buttons
 
@@ -30,9 +31,19 @@ class Bench:
         self.display.message("Banc accordage", C.FW_VERSION, "init...")
 
         try:
-            self.bmp = BMP280(self.i2c, C.ADDR_BMP280)
+            self.bmp = BMP280(self.i2c, C.ADDR_BMP280,
+                              iir=getattr(C, "BMP280_IIR", 16))
         except Exception:
             self.bmp = None
+        # Capteur de pression DIFFÉRENTIELLE (optionnel) : s'il répond, c'est
+        # lui qui donne la pression (plus rapide, sans dérive météo) ; le
+        # BMP280 garde la température.
+        self.sdp = None
+        if getattr(C, "ADDR_SDP", None) is not None:
+            try:
+                self.sdp = SDP8xx(self.i2c, C.ADDR_SDP)
+            except Exception:
+                self.sdp = None
         try:
             self.sfm = SFM3000(self.i2c, C.ADDR_SFM3000)
         except Exception:
@@ -104,6 +115,12 @@ class Bench:
         p = t = None
         if self.bmp:
             p, t = self.bmp.read()
+        if self.sdp:
+            r = self.sdp.read()
+            if r is not None:
+                p = r[0]                      # Pa relatifs (dedans - dehors)
+                if t is None:
+                    t = r[1]
         q = self.sfm.read() if self.sfm else None
         return p, t, q
 
@@ -136,8 +153,9 @@ class Bench:
         self.valve.set(False)
         self.bell_v = 0.0
         await asyncio.sleep_ms(1500)
-        if self.bmp:
-            self.p0, _ = self.bmp.read()
+        p, _, _ = self._read()               # même source que les mesures
+        if p is not None:
+            self.p0 = p
         self.state = "pret"
 
     def move_screw_mm(self, mm_abs):

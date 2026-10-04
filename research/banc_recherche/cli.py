@@ -6,6 +6,7 @@ ouvrir la GUI (utile en lot, sur serveur, ou pour la reproductibilité) :
     banc-recherche-cli batch data/Measure_dataset_....hdf5 --plots out/
     banc-recherche-cli devices
     banc-recherche-cli gui
+    banc-recherche-cli seuils seuils_2026-10-03.csv --png seuils.png
 """
 from __future__ import annotations
 
@@ -87,6 +88,68 @@ def _cmd_justesse(args) -> int:
     return 0
 
 
+def _fmt(x, d=0):
+    return "—" if x != x else f"{x:.{d}f}"
+
+
+def _cmd_seuils(args) -> int:
+    """Seuils d'auto-entretien d'un export « Seuils » de l'onglet Banc :
+    démarrage, extinction, plaquage, reprise, par cycle puis en moyenne."""
+    import numpy as np
+    from . import seuil
+
+    d = seuil.read_bench_csv(args.csv)
+    if not d["t_s"].size:
+        print(f"{args.csv} : aucune ligne de mesure.")
+        return 1
+    q = d["q_slm"] if np.isfinite(d["q_slm"]).any() else None
+    res = seuil.analyse_run(d["t_s"], d["p_Pa"], d["level_db"], d["clarity"], q=q,
+                            lag_s=args.lag, clarity_min=args.clarte,
+                            margin_db=args.marge, hold_s=args.maintien,
+                            min_rise=args.min_rise)
+    s = res.summary
+    print(f"{args.csv} — {d['t_s'].size} instants, fond {res.floor_db:.1f} dB, "
+          f"{len(s.cycles)} cycle(s) montée-descente")
+    print(f"{'cycle':>5} {'p_on':>7} {'p_off':>7} {'p_plaq':>7} {'p_rep':>7} "
+          f"{'hyst':>6} {'plage':>7} {'rapport':>7}")
+    for k, c in enumerate(s.cycles, 1):
+        print(f"{k:>5} {_fmt(c.p_on):>7} {_fmt(c.p_off):>7} {_fmt(c.p_choke):>7} "
+              f"{_fmt(c.p_unchoke):>7} {_fmt(c.hysteresis):>6} "
+              f"{_fmt(c.usable_range):>7} {_fmt(c.ratio, 2):>7}")
+    if s.cycles:
+        print("moyenne ± écart-type (Pa) : " + ", ".join(
+            f"{k} {_fmt(s.mean[k])} ± {_fmt(s.std[k])}"
+            for k in ("p_on", "p_off", "p_choke", "p_unchoke")))
+    c, n, r2 = res.flow
+    if c == c:
+        print(f"débit quand l'anche sonne : q = {c:.3g} · p^{n:.2f} L/min "
+              f"(r² {r2:.2f} ; 0,5 = orifice, 1 = visqueux)")
+    if args.png:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        fig, ax = plt.subplots(1, 2 if q is not None else 1, figsize=(11, 4), squeeze=False)
+        a0 = ax[0, 0]
+        rising = np.gradient(res.p, res.t) >= 0
+        for m, lab, col in ((rising, "montée", "C3"), (~rising, "descente", "C0")):
+            a0.plot(res.p[m], res.level_db[m], ".", ms=2, color=col, label=lab)
+        for c_ in s.cycles:
+            for v, ls in ((c_.p_on, "-"), (c_.p_off, "--"), (c_.p_choke, ":")):
+                if v == v:
+                    a0.axvline(v, color="k", ls=ls, lw=0.6)
+        a0.set_xlabel("pression (Pa)"); a0.set_ylabel("niveau (dB)")
+        a0.legend(); a0.set_title("niveau sonore et seuils")
+        if q is not None:
+            a1 = ax[0, 1]
+            a1.plot(res.p[res.osc], res.q[res.osc], ".", ms=2, color="C2", label="sonne")
+            a1.plot(res.p[~res.osc], res.q[~res.osc], ".", ms=2, color="0.6", label="muette")
+            a1.set_xlabel("pression (Pa)"); a1.set_ylabel("débit (L/min)")
+            a1.legend(); a1.set_title("consommation d'air")
+        fig.tight_layout(); fig.savefig(args.png, dpi=150)
+        print(f"figure → {args.png}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="banc-recherche-cli",
                                 description="Banc de recherche — anches libres")
@@ -113,6 +176,22 @@ def build_parser() -> argparse.ArgumentParser:
     j.add_argument("--points", type=int, default=3000,
                    help="finesse du balayage autour de chaque note")
     j.set_defaults(func=_cmd_justesse)
+
+    s = sub.add_parser("seuils",
+                       help="seuils d'auto-entretien (export Seuils de l'onglet Banc)")
+    s.add_argument("csv", help="seuils_*.csv exporté par l'onglet Banc")
+    s.add_argument("--lag", type=float, default=0.0,
+                   help="retard du capteur de pression à corriger (s)")
+    s.add_argument("--clarte", type=float, default=0.8,
+                   help="périodicité minimale pour dire « l'anche sonne » (0..1)")
+    s.add_argument("--marge", type=float, default=6.0,
+                   help="marge au-dessus du fond de souffle (dB)")
+    s.add_argument("--maintien", type=float, default=0.15,
+                   help="durée minimale d'un changement d'état (s)")
+    s.add_argument("--min-rise", type=float, default=20.0,
+                   help="amplitude minimale d'une rampe pour compter un cycle (Pa)")
+    s.add_argument("--png", help="enregistrer la figure niveau/débit en fonction de p")
+    s.set_defaults(func=_cmd_seuils)
     return p
 
 
