@@ -232,3 +232,137 @@ Les résultats vont dans `fem/resultats/` (`comparaison_pince_<id>.csv`, `recala
   dans aucun modèle. Le geste (b) l'enlève pour isoler la chambre.
 - La loi d'amplitude (E5) demande l'excursion du bout, pas le niveau du micro : à faire avec la
   photo stroboscopique (E6).
+
+---
+
+## Ajouts du 04/10/2026 (ce qu'Ewen a dit)
+
+### Vocabulaire : « bellow shake »
+
+Le **bellow shake** est un aller-retour rapide du soufflet (on pousse, on tire, vite, et on
+recommence). C'est un geste de jeu, pas une vérification. Ne pas écrire « bellow check ».
+En français dans ce dépôt : « bellow shake (aller-retour rapide du soufflet) ».
+
+### La levée des anches au repos : un protocole simple
+
+Aujourd'hui, la levée n'a pas de protocole. Or c'est la cote que la soufflerie recale (geste c).
+Il faut donc au moins la mesurer de la même façon à chaque fois.
+
+**Définition.** La levée au repos est la hauteur du dessous du bout de la languette au-dessus
+du dessus de la plaque, au milieu de la largeur, anche au repos, plaque posée à plat.
+
+**Matériel.** Un marbre ou une plaque de verre bien plane ; un comparateur au 1/100 mm sur un
+support (ou une jauge de profondeur) ; un jeu de cales d'épaisseur (0,05 à 1 mm) ; une lampe
+derrière la plaque.
+
+**Mesurer (5 minutes par anche).**
+1. Pose la plaque à plat sur le marbre, la languette vers le haut. Note la température.
+2. Mets le comparateur à zéro sur la plaque, à 2 mm à côté de la fente.
+3. Lis la hauteur du dessus de la languette au bout, au milieu de la largeur. Retire
+   l'épaisseur de la languette au bout (dans la banque d'anches) : c'est la levée.
+4. Refais la lecture au milieu de la longueur et à 3 mm du rivet. Ces trois points donnent la
+   forme (droite ou courbée).
+5. Relève le comparateur, repose-le, relis le bout. Trois fois. Écris les trois valeurs.
+6. Contrôle croisé, une fois par séance : glisse la cale la plus épaisse qui passe sous le bout
+   sans le soulever (lampe derrière : on voit le jour).
+7. Écris la médiane des trois lectures du bout dans la colonne `levee_mm` de la banque
+   (`fem/anche/banque_anches.csv`).
+
+**Régler.** On plie la languette près du rivet avec l'outil habituel, petit à petit. Après
+chaque geste : tapote la languette deux fois (elle se remet en place), puis refais les
+étapes 3 et 5. On s'arrête quand la levée est dans la cible à 0,02 mm près. La cible est
+d'abord celle de l'atelier ; plus tard, celle que donne le modèle recalé (geste c).
+
+**Ce qu'on en apprend.** L'écart entre les trois lectures dit la précision du geste. Si
+l'écart dépasse 0,03 mm, la mesure n'est pas assez sûre pour recaler la levée au banc : il
+faut un meilleur appui du comparateur avant d'aller plus loin.
+
+### Le test de fuite actuel, à la table d'accordage (formalisé)
+
+**Ce que fait Ewen.** Sur la table d'accordage numérique, le débitmètre (SFM3000) mesure
+l'air qui passe. Il appuie sur une soupape pour comprimer son joint, et regarde si le débit
+baisse. Si le débit baisse, le joint de cette soupape fuyait.
+
+**Le même test, écrit pour être refait pareil.**
+1. Monte le bloc (ou la plaque) sur la table, comme d'habitude. Note la date, le bloc, la
+   soupape testée, la température.
+2. Règle la table à une pression fixe, toujours la même pour un même type de bloc (à noter :
+   par exemple 500 Pa). Une fuite dépend de la pression : sans pression fixe, on ne peut pas
+   comparer deux essais.
+3. Attends 3 s que le débit se stabilise.
+4. **Q1 (soupape libre)** : lis 10 valeurs de débit en 5 s. Écris la moyenne et l'écart
+   (plus grande moins plus petite).
+5. **Q2 (soupape appuyée)** : appuie sur la soupape avec un poids ou un doigt, toujours au
+   même endroit et avec la même force. Attends 3 s. Lis 10 valeurs. Écris la moyenne et l'écart.
+6. Relâche. Refais 4 et 5 deux fois (3 couples en tout).
+7. **Résultat** : la fuite du joint est dQ = Q1 - Q2, en litres par minute.
+8. **Décision** : le joint fuit si dQ est plus grand que trois fois l'écart du débit au repos
+   (étape 4), sur les trois couples. Sinon : « pas de fuite visible à cette pression ».
+
+**Ce que ce test ne dit pas.** Il ne voit que la fuite que le doigt arrête. Une fuite
+ailleurs (cire, cadre, autre soupape) ne bouge pas avec ce geste. Pour une fuite globale, le
+banc a aussi la méthode de la chute de pression (commande `LEAKTEST` du firmware, analyse par
+`banc_recherche/leak.py`, `fit_decay`) ; pour localiser, voir `fuites_air_methodes.md`.
+
+### Le banc à soufflet motorisé (ESP32) : où est le code, comment le remettre en route
+
+**État.** Le banc ne marche pas et n'a jamais été refait. Ewen a encore le débitmètre SFM3000.
+
+**Le code.** Il est dans `firmware/` à la racine du dépôt. Il est écrit en **MicroPython**,
+pour une carte **ESP32-S3** (`firmware/README.md`, ligne 1 : « firmware ESP32-S3
+(MicroPython) »). C'est une réécriture de l'ancien script Pyboard. Le README le dit lui-même :
+« Firmware non testé sur matériel ». Les fichiers :
+- `main.py` (démarrage, watchdog), `bench.py` (le contrôleur), `config.py` (broches et
+  constantes, À ADAPTER) ;
+- `drivers/sfm3000.py` (débit, I2C), `drivers/bmp280.py` (pression et température, I2C),
+  `drivers/actuators.py` (moteurs pas à pas), `drivers/shiftreg.py` (électro-aimants des
+  boutons) ;
+- `transport_uart.py` (câble série), `transport_ws.py` (WiFi et WebSocket vers l'accordeur web).
+Les ancêtres : `research/legacy/table-accordage-2021/tableaccordage.py` (Pyboard, BMP280 +
+SFM3000, 2021) et `research/legacy/mesanche-xgzp6847d-2023/` (capteur de pression XGZP6847D).
+
+**Le matériel qu'il faut** (d'après `firmware/README.md` et `firmware/config.py`) :
+- une carte ESP32-S3 avec MicroPython récent (asyncio intégré) ;
+- le SFM3000 (adresse I2C 0x40) ;
+- un capteur de pression : le firmware lit un **BMP280** (0x76, pression absolue) ; pour des
+  seuils de quelques dizaines de pascals, le XGZP6847D du banc 2023 est plus adapté (voir
+  ci-dessous) ;
+- l'écran OLED SSD1306 (0x3C), facultatif ;
+- un driver de moteur pas à pas par axe (soufflet, vis de section, clapet), des fins de course,
+  une alimentation séparée pour les moteurs ;
+- pour jouer des notes : 74HC595 + TPL7407 et les électro-aimants (on peut s'en passer pour
+  les mesures d'une anche) ; l'électrovanne (GPIO12).
+
+**Les étapes pour le remettre en route** (une à la fois, actionneurs DÉBRANCHÉS d'abord) :
+1. Flasher MicroPython sur l'ESP32-S3. Installer les bibliothèques :
+   `mpremote connect <port> mip install ssd1306` (et `microdot` si WiFi).
+2. Copier le firmware : `mpremote connect <port> fs cp -r firmware/. :`, puis `reset`.
+3. Brancher seulement le bus I2C (SDA = GPIO8, SCL = GPIO9). Dans la console :
+   `from machine import I2C, Pin; I2C(0, sda=Pin(8), scl=Pin(9)).scan()`. On doit voir 64
+   (0x40, le SFM3000), et 118 (0x76) si le BMP280 est là.
+4. Tester le SFM3000 seul, soufflet arrêté : le débit doit être proche de 0 et stable.
+   **À vérifier sur la fiche Sensirion** : le pilote prend un décalage de 32 768 et une échelle
+   de 140 (`drivers/sfm3000.py`, ligne 8). Si la fiche de ton modèle dit un autre décalage
+   (32 000 est courant pour l'air), le débit au repos ne sera pas nul : il faut corriger le
+   décalage. Vérifie aussi la tension : le SFM3000 est alimenté en 5 V ; regarde sur la fiche
+   si ses lignes I2C acceptent le 3,3 V de l'ESP32, sinon il faut un adaptateur de niveau.
+5. Tester le lien série : envoyer `PING` (réponse `PONG`), puis `STREAM 1 5` (télémétrie).
+6. Brancher UN moteur (le soufflet), alimentation moteurs à part. Vérifier les broches dans
+   `config.py` (soufflet : STEP 4, DIR 5, fin de course 13). Tester `HOME`, puis `BELLOWS 100`
+   et `STOP`.
+7. Mesurer la course réelle de la table et la reporter dans `BELLOWS_TRAVEL_MM`
+   (`config.py`, ligne 26 : 120 mm, « à mesurer »).
+8. Pression : soit garder le BMP280 (faire `TARE` à l'arrêt), soit porter le pilote
+   `research/legacy/mesanche-xgzp6847d-2023/xgzp6847d.py` dans `firmware/drivers/` et le
+   brancher dans `bench.py` à la place du BMP280 (lignes 16, 33, 105, 139). Puis contrôler
+   l'échelle une fois avec le tube en U à eau.
+9. Seulement ensuite : la vanne, le clapet, la vis de section, les électro-aimants.
+
+### À vérifier : le capteur de pression est-il absolu ou différentiel ?
+
+Ce protocole (geste c) et la thèse disent que le XGZP6847 lit la pression **absolue**
+(environ 101 kPa). Mais `research/legacy/mesanche-xgzp6847d-2023/README.md` dit que le
+XGZP6847**D** monté en 2023 est un capteur **différentiel** (relatif à l'air de la pièce),
+gamme probable 4 à 8 kPa. Ewen : regarde la référence exacte écrite sur le capteur. Si c'est
+un D différentiel, le « zéro » reste utile (dérive), mais il est proche de 0 Pa et non de
+101 kPa, et le bruit sera bien plus faible que celui d'un capteur absolu.

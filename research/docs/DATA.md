@@ -81,3 +81,34 @@ git add .gitattributes
 
 Les `.npy` de plusieurs centaines de Mo à 2 Go restent hors LFS (quotas) :
 Drive reste la source.
+
+## Que veut dire « L » dans les noms des dossiers de mesures ? (04/10/2026)
+
+Les dossiers : `data_d1_L` (13/04/2023) et `data_D#0_1_L_2v` (16/04/2023), sur le Drive.
+Ewen pense que « L » veut dire le débit.
+
+**Ce que dit le code : rien sur « L ».** Aucun script n'écrit ces noms. Le script de mesure
+écrit toujours dans un dossier nommé `data` :
+
+- `research/scripts/legacy/Mesures.py`, ligne 62 : `path = 'data\\'` (puis `os.mkdir(path)`).
+- Même fichier, ligne 95 : le fichier HDF5 s'appelle
+  `Measure_dataset` + `nSec{...}nPress{...}nClap{...}` + `.hdf5` (pas de « L »).
+- Même fichier, lignes 181-182 : les WAV s'appellent `PPos{P_pos}Sec{S_plus}PPlus{P_plus}iClap{i_Clap}`
+  (pas de « L »).
+
+Les dossiers ont donc été **renommés à la main** après la mesure. Trois scripts d'analyse les
+**lisent** par leur nom, écrit en dur :
+
+- `research/legacy/banc-pc-2023/testpraat.py`, ligne 18 : `path = 'data_d1_L/'`
+- `research/legacy/banc-pc-2023/enveloppepraat.py`, ligne 163 : `path = 'data_D#0_1_L_2v/'`
+- `research/legacy/banc-pc-2023/plotsmeasure.py`, ligne 14, et `praatformants.py`, ligne 15 :
+  `path = 'data_D#0_1_L_2v/'`
+
+**Réponse : le sens de « L » ne se trouve pas dans le code.** Le débit ne peut pas être
+distingué par ce nom : `Mesures.py` enregistre le débit dans toutes les campagnes
+(jeu de données `Mesures_Debit`, ligne 98). Ce qu'on peut dire des autres morceaux du nom,
+comme hypothèses à confirmer par Ewen : `d1` et `D#0` ressemblent à des notes (ré1, ré#0),
+`2v` à « 2 voix ». Pour trancher « L » : regarder une note ou un fichier texte dans ces
+dossiers sur le Drive, ou comparer les paramètres `Measure_params` des HDF5 de `data`,
+`data_d1_L` et `data_D#0_1_L_2v` (s'ils diffèrent, la différence dit peut-être ce que « L »
+change).
