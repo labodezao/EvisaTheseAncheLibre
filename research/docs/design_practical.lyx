@@ -2327,10 +2327,12 @@ Feuille de route — ce qui reste à faire
 \end_layout
 
 \begin_layout Standard
-Récapitulatif de travail, à la date du 21 septembre 2026, de tout ce qui a été identifié comme restant à faire au fil des échanges sur ce projet — modèle physique, banc de mesure, pont vers TUTT, instrument jouable, écriture. Le détail de chaque point vit dans les fichiers .md du dossier \begin_inset Quotes eld
+Récapitulatif de travail, à la date du 21 septembre 2026, de tout ce qui a été identifié comme restant à faire au fil des échanges sur ce projet — modèle physique, banc de mesure, pont vers TUTT, instrument jouable, écriture. Le détail de chaque point vit dans les fichiers .md du dossier 
+\begin_inset Quotes eld
 \end_inset
 
-docs/\begin_inset Quotes erd
+docs/
+\begin_inset Quotes erd
 \end_inset
 
  ; cette liste ne fait que les rassembler, pour qu'aucun ne se perde entre deux séances.
@@ -2352,11 +2354,14 @@ Modes propres d'un tronc de cône
 \end_layout
 
 \begin_layout Itemize
-résolu : le cône ne donnait pas l'octave parce que le calcul empilait des cylindres, ce qui perd les termes en \begin_inset Formula $\Delta=(D_{L}-D_{0})/(D_{0}L)$
+résolu : le cône ne donnait pas l'octave parce que le calcul empilait des cylindres, ce qui perd les termes en 
+\begin_inset Formula $\Delta=(D_{L}-D_{0})/(D_{0}L)$
 \end_inset
- de l'onde sphérique. Le source de TUTT (Perce2.for, Ltran9.for) les donne ; implémentés, le cône rend 1 : 2,02 : 3,06 et la cavité d'anche de Ninob ramène l'octave d'un cône tronqué de +95 à +2 cents. Reste : les coniques idéalisées à un tronçon gardent un fondamental trop faible (2\begin_inset Formula $^{e}$
+ de l'onde sphérique. Le source de TUTT (Perce2.for, Ltran9.for) les donne ; implémentés, le cône rend 1 : 2,02 : 3,06 et la cavité d'anche de Ninob ramène l'octave d'un cône tronqué de +95 à +2 cents. Reste : les coniques idéalisées à un tronçon gardent un fondamental trop faible (2
+\begin_inset Formula $^{e}$
 \end_inset
- sommet 3 dB au-dessus du 1\begin_inset Formula $^{er}$
+ sommet 3 dB au-dessus du 1
+\begin_inset Formula $^{er}$
 \end_inset
 ), donc saut d'octave au clavier — il y faut une vraie perce et un modèle d'embouchure ;
 \end_layout
@@ -2418,10 +2423,12 @@ TUTT et B.B. Ninob
 \end_layout
 
 \begin_layout Itemize
-docs/tutt_ninob.md porte encore une question marquée \begin_inset Quotes eld
+docs/tutt_ninob.md porte encore une question marquée 
+\begin_inset Quotes eld
 \end_inset
 
-Reste pour Ninob\begin_inset Quotes erd
+Reste pour Ninob
+\begin_inset Quotes erd
 \end_inset
 
  (TUTT sait-il sortir les partiels d'un doigté ?) alors qu'elle est déjà résolue plus haut dans le même document, par la lecture du Fortran — à corriger (marquer résolue) la prochaine fois qu'on y touche ;
@@ -2460,10 +2467,12 @@ compilation LaTeX complète (biber puis pdflatex) jamais vérifiée de bout en b
 \end_layout
 
 \begin_layout Itemize
-research/docs/livre_au_seuil_de_lanche.md : squelette en sept parties, encarts \begin_inset Quotes eld
+research/docs/livre_au_seuil_de_lanche.md : squelette en sept parties, encarts 
+\begin_inset Quotes eld
 \end_inset
 
-⟢ ton expérience\begin_inset Quotes erd
+⟢ ton expérience
+\begin_inset Quotes erd
 \end_inset
 
  volontairement laissés vides — c'est le seul endroit du dépôt qui n'appartient qu'à Ewen, la Vipassana, le vécu, la troisième tresse ;
