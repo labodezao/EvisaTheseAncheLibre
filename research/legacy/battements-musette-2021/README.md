@@ -12,7 +12,7 @@
 
 ## Ce que c'est
 
-Chaque fichier est sans doute une note jouée avec deux anches légèrement désaccordées (musette) : à confirmer par Ewen. Une
+Chaque fichier est une note de musette (deux voix légèrement désaccordées). **Précision d'Ewen (04/10/2026) : ce n'est pas un vrai accordéon. C'est une musette jouée sur un instrument samplé trouvé sur Internet.** Une
 lecture rapide du spectre (`battements_lecture_rapide.csv`) donne deux raies proches et
 leur écart : de 0,6 Hz (vers 164 Hz) à 5,1 Hz (vers 785 Hz), soit 4 à 13 cents. Les notes
 vont d'environ Si1 à Sol4 (notation française, La3 = 440 Hz).
@@ -23,8 +23,11 @@ Précision de cette lecture : environ ± 0,2 Hz (fenêtre de 5 s, zéro-padding)
 
 ## À quoi ça sert aujourd'hui
 
-C'est une **vérité terrain réelle** pour l'accordeur web : le `CLAUDE.md` dit que le
-battement (bat/min) n'est vérifié qu'en synthèse. Il suffit de rejouer ces WAV avec
+C'est un **jeu de test enregistré** pour l'accordeur web : le `CLAUDE.md` dit que le
+battement (bat/min) n'est vérifié qu'en synthèse. Attention : comme le son vient d'un
+instrument samplé, ce n'est pas une mesure d'anches réelles. Le battement est celui que le
+sample a figé (boucle, désaccord fixé par le fabricant du sample). Il sert à tester la
+lecture du battement, pas à étudier la physique des anches. Il suffit de rejouer ces WAV avec
 `test/outils/rejoue.mjs` et de comparer.
 
 ## Comment relancer

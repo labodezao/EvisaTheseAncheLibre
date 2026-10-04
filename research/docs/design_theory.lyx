@@ -815,7 +815,7 @@ A physical model for reed design
 \end_layout
 
 \begin_layout Section
-Finite element model with fluid structure interraction
+Finite element model with fluid structure interaction
 \end_layout
 
 \begin_layout Standard
@@ -868,7 +868,7 @@ A tongue is described in the reed bank as a series of sections from the rivet to
 \end_layout
 
 \begin_layout Standard
-Two clampings are compared. The ideal one fixes the whole cross-section at the root of the slot. The realistic one, called rivet clamping, extends the heel 5 mm behind the slot and holds only its lower face over a 2 mm band centred on the rivet, as the plate does. The realistic clamping lowers 
+Two clampings are compared. The ideal one fixes the whole cross-section at the root of the slot. The realistic one, called rivet clamping, extends the heel 5 mm behind the slot, lets it rest on the plate (no vertical displacement under the heel) and holds it at every point over a 2 mm band under the head of the rivet, 3 mm behind the slot. The realistic clamping lowers 
 \begin_inset Formula $f_{1}$
 \end_inset
  by 0.3 per cent: small, but larger than the remaining discretisation error, so it is the default. The eigenproblem is linear elasticity, solved with the direct solver Umfpack (MUMPS is not shipped with Elmer 26.2).
@@ -1013,7 +1013,7 @@ end{tabular}
 \end_layout
 
 \begin_layout Standard
-The first frequency moves by 0.15 per cent from the coarse to the medium mesh and by 0.04 per cent from the medium to the fine one; the medium mesh, three seconds per run, is the default. The refinement is not uniform in the three directions, so the observed order of convergence is only indicative. What remains, about +0.3 per cent above the exact beam value, is not a mesh error: it is the plate effect. A tongue several times wider than thick bends a little like a plate, with the stiffness 
+The first frequency moves by 0.15 per cent from the coarse to the medium mesh and by 0.04 per cent from the medium to the fine one; the medium mesh, under four seconds per run, is the default. The refinement is not uniform in the three directions, so the observed order of convergence is only indicative. What remains, +0.3 to +0.4 per cent above the exact beam value, is not a mesh error: it is the plate effect. A tongue several times wider than thick bends a little like a plate, with the stiffness 
 \begin_inset Formula $D=Eh^{3}/\left(12(1-\nu^{2})\right)$
 \end_inset
  instead of 
@@ -1122,7 +1122,7 @@ name "fig:maillage"
 (a) Convergence of 
 \begin_inset Formula $f_{1}$
 \end_inset
- for the matrix.txt tongue with 20-node hexahedra, as a deviation from the exact Euler-Bernoulli frequency; the residual +0.3 per cent is the plate effect. (b) The 2019 CAD blade: exact Euler-Bernoulli, Elmer with quadratic hexahedra, and Code_Aster with one layer of linear tetrahedra (locked).
+ for the matrix.txt tongue with 20-node hexahedra, as a deviation from the exact Euler-Bernoulli frequency; the residual +0.3 to +0.4 per cent is the plate effect. (b) The 2019 CAD blade: exact Euler-Bernoulli, Elmer with quadratic hexahedra, and Code_Aster with one layer of linear tetrahedra (locked).
 \end_layout
 
 \end_inset
@@ -1295,7 +1295,16 @@ end{tabular}
 \end_layout
 
 \begin_layout Standard
-Elmer and the exact beam agree within 0.03 to 1.1 per cent on five modes, and their first mode shapes differ by 0.09 per cent. The two-mode Ritz model is 51 per cent too high. Its integrals are right; its basis is poor. Global shape functions of a uniform cantilever cannot bend sharply in the thin 0.20 mm hinge just before the 1.5 mm tip block, so the hinge is made artificially stiff. Ritz is an upper bound and converges slowly here (6 per cent with five functions, 1.3 per cent with twenty). The error lies in the stiffness, not in the mass: reduced to the tip, the modal stiffness of the two-mode model is 2.4 times too large while its modal mass is only 4.7 per cent too large. For a uniform blade the same two functions are exact, which is why the problem went unnoticed.
+Table
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:references"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ compares the three methods. Elmer and the exact beam agree within 0.03 to 1.1 per cent on five modes, and their first mode shapes differ by 0.09 per cent. The two-mode Ritz model is 51 per cent too high. Its integrals are right; its basis is poor. Global shape functions of a uniform cantilever cannot bend sharply in the thin 0.20 mm hinge just before the 1.5 mm tip block, so the hinge is made artificially stiff. Ritz is an upper bound and converges slowly here (6 per cent with five functions, 1.3 per cent with twenty). The error lies in the stiffness, not in the mass: reduced to the tip, the modal stiffness of the two-mode model is 2.4 times too large while its modal mass is only 4.7 per cent too large. For a uniform blade the same two functions are exact, which is why the problem went unnoticed.
 \end_layout
 
 \begin_layout Subsection
@@ -1373,7 +1382,7 @@ The main physical result is about the sign. At the frequency of the tongue, far 
 ), behaves as a spring (phase 
 \begin_inset Formula $-$
 \end_inset
-90 degrees). In the band of the tongue, the impedance of the closed cavity is wrong by 12 400 per cent for the bass reed (median), 494 per cent for the medium and 232 per cent for the high one; one Foster resonator brings the error below 9 per cent, two below 0.5 per cent.
+90 degrees). In the band of the tongue, the impedance of the closed cavity is wrong by 12 400 per cent for the bass reed (median), 494 per cent for the medium and 232 per cent for the high one; one Foster resonator brings the error below 9 per cent, two to 0.5 per cent or less.
 \end_layout
 
 \begin_layout Section
@@ -1556,7 +1565,16 @@ The chamber next. The closed cavity was replaced by the network fitted on Elmer 
  for the bass, medium and high chambers instead of 7.875 cm
 \begin_inset Formula $^{3}$
 \end_inset
- for all.
+ for all (Figure
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:rk4"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+, top).
 \end_layout
 
 \begin_layout Standard
@@ -1820,7 +1838,7 @@ What is judged. A wrong thickness factor or a wrong modulus multiplies all frequ
  and 
 \begin_inset Formula $f_{3}/f_{1}$
 \end_inset
- do not depend on them. If they differ from the model by more than 3 per cent, the shape is wrong (tip mass, scraped profile, free length, clamping), not the thickness. The comparison pairs the bending modes first: the in-plane bending of the bass tongue (996 Hz in Elmer) lies close to the second bending mode (842 Hz) but is hardly excited by a pluck normal to the blade.
+ do not depend on them. If they differ from the model by more than 3 per cent, the shape is wrong (tip mass, scraped profile, free length, clamping), not the thickness. The comparison pairs the bending modes first: the in-plane bending of the bass tongue (996 Hz in Elmer, rivet clamping) lies close to the second bending mode (842 Hz) but is hardly excited by a pluck normal to the blade.
 \end_layout
 
 \begin_layout Subsection
@@ -1896,7 +1914,7 @@ What is calibrated.
 \end_layout
 
 \begin_layout Standard
-The plate is mounted as for playing, valve in place, on the wind chest. The pressure sensor, an XGZP6847 reading the absolute pressure, is connected to a static tap in a wall of the chest, away from the jet. The overpressure is the reading minus a zero taken with the blower stopped, before and after the series. Two cheap checks come first: ten readings at rest give the noise of the sensor, which bounds the step of the staircase; a water U-tube in parallel on the chest (1 mm of water is 9.81 Pa) checks the scale once. An absolute sensor with a full scale of about 100 kPa may have a noise of a few pascals, while the threshold of a bass reed is predicted between 10 and 50 Pa depending on the model; for the bass reeds the U-tube may be the better instrument.
+The plate is mounted as for playing, valve in place, on the wind chest. The pressure sensor, an XGZP6847 reading the absolute pressure, is connected to a static tap in a wall of the chest, away from the jet. The overpressure is the reading minus a zero taken with the blower stopped, before and after the series. Two cheap checks come first: ten readings at rest give the noise of the sensor, which bounds the step of the staircase; a water U-tube in parallel on the chest (1 mm of water is 9.81 Pa) checks the scale once. An absolute sensor with a full scale of about 100 kPa may have a noise of a few pascals, while the threshold of a bass reed is predicted between about 9 and 52 Pa depending on the model; for the bass reeds the U-tube may be the better instrument.
 \end_layout
 
 \begin_layout Standard

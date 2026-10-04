@@ -119,7 +119,7 @@ Détails : `anche/resultats/verification_languette.csv`, `convergence_languette.
 
 Le protocole complet, avec les étapes pour l'atelier : `../docs/protocole_recalage_experimental.md`.
 La version de thèse : `../docs/design_theory.lyx`, chapitre « Static and modal analysis », sections
-« Finite element model with fluid structure interraction »,
+« Finite element model with fluid structure interaction »,
 « Updating the time-domain model... » et « Experimental model updating... ».
 
 | geste | outil | ce qu'on recale | ce qui juge le modèle |
