@@ -742,28 +742,202 @@ status collapsed
 Introduction
 \end_layout
 
+\begin_layout Standard
+Press a button, open the bellows a little, and at first nothing happens. Air goes through, but there is no note. Push a little harder and, suddenly, the reed speaks. Behind this small event hides a strange machine: a steady stream of air is turned into a regular vibration, hundreds of times per second, and the vibration starts by itself.
+\end_layout
+
+\begin_layout Standard
+This part follows one steel tongue, from its shape at rest to the sound it gives. Six questions, written by Ewen before the work began, form its plan. They are kept as they were asked. Each section below gives a first, short answer, and says where this part develops it; the chapters that follow tell how far each answer can be trusted. For a general introduction to the acoustics of free-reed instruments, see Cottingham 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "cottingham2011"
+literal "true"
+
+\end_inset
+.
+\end_layout
+
 \begin_layout Section
 Q1 : How the sound is created with free reeds ?
+\end_layout
+
+\begin_layout Standard
+A free reed is a thin steel tongue riveted over a slot cut in a metal plate. The tongue can swing through the slot, up and down, without touching its edges. The gap around it is tiny: about 30 
+\begin_inset Formula $\mu$
+\end_inset
+m in the models of this thesis, a value that is still to be measured. This is what makes the reed free. A clarinet reed is different: it beats against the mouthpiece and closes it. A free reed never closes its slot completely. It only makes the opening wider and narrower.
+\end_layout
+
+\begin_layout Standard
+So the reed is a valve. Each time the tongue leaves the slot, a puff of air goes through. Each time it comes back, the flow is cut down. The note we hear is mostly this chopped air, as in a siren. All the models of this part make this hypothesis: the sound is radiated by the pulsed flow, like a small source that breathes in and out, and the far-field sound pressure follows the rate of change of the flow, 
+\begin_inset Formula $\mathrm{d}q/\mathrm{d}t$
+\end_inset
+, not the pressure inside the chamber. The soundboard, the box and the bellows also radiate; they are left aside here (Part Other parts involved).
+\end_layout
+
+\begin_layout Standard
+A free reed speaks in one direction only. When the air comes the other way, a small leather valve closes the slot. This is why each button of an accordion has one reed for pushing and another one for pulling. The models found that this one-way opening is not a detail: a symmetric opening, which lets the air through on both sides of the plate, modulates the flow twice per period, and a reed tuned at 220 Hz then sang at 470 Hz, one octave too high.
+\end_layout
+
+\begin_layout Standard
+Where does the energy come from? The flow is steady. The tongue is a spring, and a spring left alone comes to rest. Something in the way the air and the tongue talk to each other must give the tongue a small push at the right moment of each cycle, like a child pushed on a swing. Finding this push is the central question of this part. The chapter Static and modal analysis studies the swing, the tongue alone. The chapter Self-sustained conditions studies the push. The answer is not complete yet: the simplest models reproduce the normal accordion reed, but they fail on another reed that plays anyway (Section A physical model for reed design).
 \end_layout
 
 \begin_layout Section
 Q2 : What is the coupling method of reed and cavity ?
 \end_layout
 
+\begin_layout Standard
+Under each reed there is a small room of air: the chamber of the reed block. The tongue and this room exchange forces. When the tongue opens the slot, air leaves the room (or enters it, when the bellows pulls), the pressure in the room changes, and this pressure pushes back on the tongue. The air of the chamber acts as a spring. The air in the holes around it, in the soundboard and under the pallet, acts as small masses. The question is: in this exchange, who leads?
+\end_layout
+
+\begin_layout Standard
+Two answers were tried. In the first one, the chamber is the partner: the tongue would sing because the chamber gives the push back at the right time. The computations say no for a chamber vented by its hole in the soundboard. With the guessed dimensions of the default model, the resonance of the chamber and its hole is near 1.9 kHz, far above most notes. Below that resonance, the chamber does not store the push and give it back late; it lets the air escape, and it damps the tongue instead of feeding it. This agrees with Ricot, Caussé and Misdariis 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "ricot2005"
+literal "true"
+
+\end_inset
+: an accordion reed starts even without acoustic coupling, through the aerodynamics of the flow in its slot.
+\end_layout
+
+\begin_layout Standard
+In the second answer, the coupling is local. It sits in the slot itself and in the masses of air just around it. If the opening closes as the tongue moves into the slot, these masses turn a slowing of the flow into an overpressure in phase with the velocity of the tongue, and the tongue is fed. This mechanism reproduces the normal accordion reed. It does not explain a reed mounted between two plates, which also plays. Section A physical model for reed design tells this story, and Section Multi reed coupling follows two reeds that share their air. Part Reed blocks coupling studies the chamber itself in more detail.
+\end_layout
+
 \begin_layout Section
 Q3 : Are the reeds working in least energy state ?
+\end_layout
+
+\begin_layout Standard
+A stone rolls down to the bottom of a valley and stays there. This is a state of least energy. A sounding reed is not like that. It is an open system: at every cycle it takes energy from the air, and it loses energy in its steel, in its rivet, in the turbulent air and in the sound. Its steady note is a balance, not a rest. Physicists call it a limit cycle: the closed path that the motion keeps following, because on this path the energy gained during one period equals the energy lost. When the bellows stops, the gain disappears and the tongue falls back to rest, its real state of least energy, within a few seconds at most.
+\end_layout
+
+\begin_layout Standard
+In this strict sense, the answer to Q3 is no. But the question hides a better one: among all the ways a reed could vibrate, does it choose the one that wastes the least? This part answers what it can with the energy balance of the tongue, in the sections Stored energy and Dissipation. Part Reed blocks coupling comes back to it with the chamber (chapter Entropy and least energy state).
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): what did you mean by least energy state when you wrote this question: the lowest stored energy, the lowest power lost for a given loudness, or the lowest production of entropy? The answer decides how Part Reed blocks coupling treats it.
 \end_layout
 
 \begin_layout Section
 Q4 : The drawback and advantages of using a bellow ?
 \end_layout
 
+\begin_layout Standard
+The accordion is fed by a bellows moved by the arm. This is not a detail. A bellows pushes a volume of air per second, more than it holds a pressure: it behaves more like a source of flow than a source of pressure. The proof is in the hands of every player. Keep the bellows speed constant and open a chord: the pressure drops, because the same flow is now shared by more reeds. A pressure source, like the large reservoir of an organ, would keep the pressure and send twice the flow through two reeds.
+\end_layout
+
+\begin_layout Standard
+The advantages are musical. The player controls the air directly, with nuance and accent, and the bellows itself becomes a voice: the bellow shake, a fast push-pull movement of the bellows, is a playing effect. The drawbacks are physical. The air is limited by the size of the bellows. The direction must change, and each change is a short break and a change of reeds. The folds of the bellows give a little under pressure, and they leak.
+\end_layout
+
+\begin_layout Standard
+For the models, the truth lies between the two ideal sources. A real source gives less flow when the pressure rises. The simplest law is a straight line, 
+\begin_inset Formula $q=q_{0}-p/R$
+\end_inset
+, where 
+\begin_inset Formula $q_{0}$
+\end_inset
+ is the flow at zero pressure and 
+\begin_inset Formula $R$
+\end_inset
+ is the internal impedance of the source, in Pa
+\begin_inset Formula $\cdot$
+\end_inset
+s/m
+\begin_inset Formula $^{3}$
+\end_inset
+. A vertical line on the 
+\begin_inset Formula $(q,p)$
+\end_inset
+ plane is an ideal flow source; a horizontal line is an ideal pressure source. The slope is the number the model needs. It can be measured on the bench with the flow meter and the pressure sensor, by sweeping the opening at a fixed drive and plotting 
+\begin_inset Formula $p$
+\end_inset
+ against 
+\begin_inset Formula $q$
+\end_inset
+ (experiment E1 of the list of experiments). An even simpler test settles the question of the type of source in ten minutes: at a fixed drive, open one reed, then two, then three, and read 
+\begin_inset Formula $p$
+\end_inset
+ and 
+\begin_inset Formula $q$
+\end_inset
+. A flow source keeps 
+\begin_inset Formula $q$
+\end_inset
+ and lets 
+\begin_inset Formula $p$
+\end_inset
+ drop; a pressure source keeps 
+\begin_inset Formula $p$
+\end_inset
+ and lets 
+\begin_inset Formula $q$
+\end_inset
+ grow. The sections Dissipation and Hysteresis vs self sustained conditions show how the source enters the losses and the thresholds of the reed.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the 
+\begin_inset Formula $(q,p)$
+\end_inset
+ curve of the bench turbine and, if possible, of the bellows moved by hand, to replace the provisional value of 
+\begin_inset Formula $R$
+\end_inset
+ in the models.
+\end_layout
+
 \begin_layout Section
 Q5 : What about the self sustained conditions ?
 \end_layout
 
+\begin_layout Standard
+Self-sustained means that the reed keeps vibrating by itself, as long as the air flows, with no hand to pluck it again. Three things must meet. First, a source of energy: the steady flow. Second, a valve: the tongue, which modulates the flow. Third, the right timing: the force of the air on the tongue must have a part in phase with its velocity, so that the air pushes the tongue in the direction it is already moving, like the push on a swing given at the right moment. When this push is larger than the losses, the rest position becomes unstable, and the smallest disturbance grows: the reed starts. This change of behaviour is called a Hopf bifurcation.
+\end_layout
+
+\begin_layout Standard
+Two pressures frame the life of a note, and every accordionist knows both. Below the starting pressure 
+\begin_inset Formula $p_{\mathrm{on}}$
+\end_inset
+ nothing sounds. Above the choking pressure, the tongue is blown too far out of its slot, it no longer modulates the flow, and the note dies. A third pressure, 
+\begin_inset Formula $p_{\mathrm{off}}$
+\end_inset
+, appears when the pressure is lowered on a sounding reed: if the reed keeps sounding below 
+\begin_inset Formula $p_{\mathrm{on}}$
+\end_inset
+ and stops only at 
+\begin_inset Formula $p_{\mathrm{off}}<p_{\mathrm{on}}$
+\end_inset
+, there is a zone where the reed can be either silent or sounding, depending on its past. This memory is called hysteresis. The chapter Self-sustained conditions develops these three pressures.
+\end_layout
+
 \begin_layout Section
 Q6 : It is possible to create a Poly-Dynamic Instrument ?
+\end_layout
+
+\begin_layout Standard
+A free reed lives in a narrow window. Below its starting pressure it is silent. Above its choking pressure it dies. And in between, its pitch drifts with the pressure: in every version of the models of this part, the note goes down when the player pushes harder (chapter Temporal and frequency of free reed). A poly-dynamic instrument would widen this window: keep its tuning and its timbre over a wider range of loudness, or give the player new ways to shape the sound.
+\end_layout
+
+\begin_layout Standard
+What can be measured now: the drift of pitch with pressure, with the tuner of the repository and a water manometer, and the way timbre changes with loudness, as a table of notes by nuances (experiments E1 of the two-reed audit and E11 of the list of experiments). The sections Frequency shift, Intensity and Harmonic Saturation come back to this question with what the models and the bench can already say.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): what does poly-dynamic mean for you: a wider range of loudness at constant pitch, several reeds per note that take over one another as the pressure grows, or a control of timbre that does not depend on loudness? The answer sets the design goals of Parts II to V.
 \end_layout
 
 \begin_layout Chapter
@@ -774,44 +948,828 @@ Static and modal analysis
 Static analysis of free reeds
 \end_layout
 
+\begin_layout Standard
+Before a reed sings, it rests. Its shape at rest decides where the tongue starts from, and so how the air meets it at the very first moment. A steady pressure also bends it before any vibration begins. This section looks at the tongue standing still.
+\end_layout
+
 \begin_layout Subsection
 Static shape of free reeds reeds
+\end_layout
+
+\begin_layout Standard
+At rest, the tip of the tongue is not in the plane of the plate: it is lifted. In the models, it is lifted on the side the air comes from, so that the first breath pushes the tongue into its slot. Whether real reeds are set this way is one of the open questions of this part (Section A physical model for reed design). The lift is defined as the height of the underside of the tip above the top of the plate, at mid-width, with the reed at rest and the plate lying flat. A simple protocol measures it the same way every time: a flat glass plate or a marble, a dial gauge reading to 0.01 mm (or a depth gauge), a set of feeler gauges from 0.05 to 1 mm, and a lamp behind the plate (research/docs/protocole_recalage_experimental.md).
+\end_layout
+
+\begin_layout Standard
+The whole profile can be measured with cheap means. The tool profile.py moves a displacement sensor along the reed with the stepper table of the bench: a dial gauge read by hand, a low-cost analog distance sensor, an inductive sensor, or even a photograph whose edge is found by OpenCV. From the profile it computes the curvature, the second derivative of the shape, and the largest deflection at rest.
+\end_layout
+
+\begin_layout Standard
+Now blow on a tongue while holding it so that it cannot vibrate. A steady pressure difference 
+\begin_inset Formula $\Delta p$
+\end_inset
+, spread over its face, bends it like a diving board under a uniform load. For a uniform tongue of length 
+\begin_inset Formula $L$
+\end_inset
+ and thickness 
+\begin_inset Formula $t$
+\end_inset
+, beam theory gives the deflection of the tip:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+\delta=\frac{3\,\Delta p\,L^{4}}{2\,E\,t^{3}}
+\]
+
+\end_inset
+
+\end_layout
+
+\begin_layout Standard
+where 
+\begin_inset Formula $E$
+\end_inset
+ is the Young modulus of the steel. The width has disappeared: a wider tongue receives more force, but it is stiffer in the same ratio. For a steel tongue of the size used in the models for an A4 (24 mm long, 0.3 mm thick), at 1000 Pa, this gives about 0.09 mm. This is small compared with the lift assumed in the models, 1.5 thicknesses or 0.45 mm (a guessed value), but not negligible: the steady pressure alone moves the tip about a fifth of the way towards its slot before any vibration. The fourth power of the length makes long tongues much more sensitive: at the same thickness, doubling the length multiplies the static deflection by sixteen. Bass reeds rest much closer to their slot under pressure than treble reeds.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the rest lift and the static profile of the reference reeds of the reed bank, measured with the protocol above and profile.py, and the side of the lift relative to the air (pushing and pulling reeds).
 \end_layout
 
 \begin_layout Section
 Modal analysis of free reeds
 \end_layout
 
+\begin_layout Standard
+Pluck a reed with a fingernail, without air. It rings for a moment and dies away. What you hear is the tongue moving in its own natural ways, its modes. In the first mode, the whole tongue swings like a diving board; this mode sets the pitch of the note. In the next ones, the tongue bends with one or two still points along its length, or twists. They are hidden in the attack and in the timbre. This section explains how the modes depend on the shape of the tongue, and why the sound of a reed is harmonic even though its modes are not.
+\end_layout
+
 \begin_layout Subsection
 Mechanical theory of free reeds
+\end_layout
+
+\begin_layout Standard
+A tongue is thin: a few tenths of a millimetre for some tens of millimetres of length (0.3 mm for 24 mm in the A4 example). For such a beam, each cross-section stays flat as the beam bends, and only two properties matter: how hard it resists bending, its bending stiffness 
+\begin_inset Formula $EI$
+\end_inset
+, and how heavy it is per metre, 
+\begin_inset Formula $\rho A$
+\end_inset
+. Here 
+\begin_inset Formula $E$
+\end_inset
+ is the Young modulus, 
+\begin_inset Formula $I=bt^{3}/12$
+\end_inset
+ the second moment of area of a section of width 
+\begin_inset Formula $b$
+\end_inset
+ and thickness 
+\begin_inset Formula $t$
+\end_inset
+, 
+\begin_inset Formula $\rho$
+\end_inset
+ the density and 
+\begin_inset Formula $A=bt$
+\end_inset
+ the area of the section. The Euler-Bernoulli equation says that bending stiffness and inertia balance at every point of the tongue:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+EI\,\frac{\partial^{4}w}{\partial x^{4}}+\rho A\,\frac{\partial^{2}w}{\partial t^{2}}=0
+\]
+
+\end_inset
+
+\end_layout
+
+\begin_layout Standard
+where 
+\begin_inset Formula $w(x,t)$
+\end_inset
+ is the displacement of the tongue at the distance 
+\begin_inset Formula $x$
+\end_inset
+ from the rivet. At the rivet the tongue is clamped: no displacement, no slope. At the tip it is free: no bending moment, no shear force. Only some frequencies satisfy all four conditions. For a uniform tongue they are
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+f_{n}=\frac{(\beta_{n}L)^{2}}{2\pi L^{2}}\sqrt{\frac{EI}{\rho A}}=\frac{(\beta_{n}L)^{2}\,t}{2\pi L^{2}}\sqrt{\frac{E}{12\,\rho}},\qquad\beta_{1}L=1.875,\;\beta_{2}L=4.694,\;\beta_{3}L=7.855
+\]
+
+\end_inset
+
+\end_layout
+
+\begin_layout Standard
+Read it in words. The stiffness grows like the cube of the thickness and the mass like the thickness, so the frequency grows like the thickness. The length enters squared: a tongue twice as long sounds two octaves lower. The width cancels out. The material enters only through 
+\begin_inset Formula $\sqrt{E/\rho}$
+\end_inset
+, a property of the steel itself.
+\end_layout
+
+\begin_layout Standard
+Real tongues are not uniform. The repository describes a tongue as a series of sections from the rivet to the tip, each with its length, its width and its thickness at both ends, and its material (banc_recherche/languette.py, after Ewen's tool of 2020). The same description feeds three independent computations: the exact Euler-Bernoulli solution by transfer matrices 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "pestel1963"
+literal "true"
+
+\end_inset
+, the Rayleigh-Ritz method, and the finite elements of Elmer (Section Finite element model with fluid structure interaction). The modal code was first checked on the one case where the answer is known exactly: on a uniform beam it finds the three first frequencies of the cantilever formula (134.11, 840.46 and 2353.30 Hz in the test case) with no visible error.
 \end_layout
 
 \begin_layout Subsection
 Constant height reeds
 \end_layout
 
+\begin_layout Standard
+The simplest tongue has the same thickness everywhere. Its first mode follows directly from the formula above. A steel tongue 24 mm long and 0.3 mm thick, with 
+\begin_inset Formula $E=210$
+\end_inset
+ GPa and 
+\begin_inset Formula $\rho=7800$
+\end_inset
+ kg/m
+\begin_inset Formula $^{3}$
+\end_inset
+, gives about 437 Hz: almost an A4.
+\end_layout
+
+\begin_layout Standard
+This law tells how a set of reeds must grow from treble to bass. Going down one octave at constant thickness asks for a length multiplied by 
+\begin_inset Formula $\sqrt{2}\approx1.41$
+\end_inset
+; at constant length, it asks for half the thickness. Over the four or five octaves of an accordion, neither can be kept constant: the tongues would become too long, or too thin. The models of the repository use a simple rule, geometric similarity: all three dimensions scale like 
+\begin_inset Formula $1/f$
+\end_inset
+, so the mass scales like 
+\begin_inset Formula $1/f^{3}$
+\end_inset
+. Whether real reed makers follow a continuous law or change thickness by steps, register by register, is a hypothesis to test.
+\end_layout
+
+\begin_layout Standard
+The scaling matters for more than pitch. At fixed dimensions, the amplitude that a given pressure can drive falls like 
+\begin_inset Formula $1/\omega^{2}$
+\end_inset
+. When a tongue cut for a low A was simply retuned higher in the model, it stopped modulating anything above 185 Hz and the reed became mute; this was heard at once when the model was played at a keyboard. A reed set must therefore change its proportions along the keyboard, and the law of this change is part of the design.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): on a complete reed set from a salvaged accordion, from bass to treble, the length, width, thickness and note of each tongue (a calliper, a feeler gauge, the tuner of the repository; experiment E18). On a log-log plot, geometric similarity gives three straight lines of slope 
+\begin_inset Formula $-1$
+\end_inset
+; steps would show the real rule of the makers.
+\end_layout
+
 \begin_layout Subsection
 Variable height reeds (common used reeds)
+\end_layout
+
+\begin_layout Standard
+Real tongues are profiled, and the tuner shapes them with a scraper. Scraping near the rivet makes the hinge more flexible and lowers the pitch. Scraping near the tip removes mass and raises it. Bass tongues often carry a heavier tip, which lowers the pitch without making the tongue too long. The profile is therefore the main tool of the reed maker, and a model that ignores it cannot help him.
+\end_layout
+
+\begin_layout Standard
+Two profiles appear in this thesis. The first is the default bass tongue of the time-domain model: three sections of 0.40, 0.045 and 0.70 mm, thin in the middle and thick at the end. It gives 
+\begin_inset Formula $f_{1}=100.5$
+\end_inset
+ Hz, close to G2 (98 Hz), the classic design of a weighted bass reed. The thin middle section, 0.045 mm, is surprising; if it were 0.45 mm the same tongue would give 92.9 Hz, an F sharp 2. It must be checked with a calliper (experiment E7). The second is the tongue measured by Ewen in 2020 for the reedgui tool (matrix.txt): four sections over 37.4 mm, thicknesses of 0.35, 0.20 and 0.275 mm, and a 1.5 mm thick tip block over the last 9 mm. Its exact first frequency is 67.47 Hz; Elmer gives 67.72 Hz.
+\end_layout
+
+\begin_layout Standard
+The profile is also a trap for computations. The finite element section below shows that the two-mode Rayleigh-Ritz model, written in 2020 and used for years, is 51 per cent too high on the matrix.txt tongue: its smooth shape functions cannot bend sharply in the thin hinge just before the heavy tip, so they make the hinge too stiff. For a uniform tongue the same two functions are exact, which is why the error went unnoticed. A profiled tongue needs a method that sees its profile: exact transfer matrices, or well-chosen finite elements.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): a few scrape-and-pluck tests on one tongue: where you scrape, how much material you remove, the frequency before and after (the pince.py tool reads it from a phone recording). They would turn the craft rule into numbers and test the models on the gesture that matters most to a tuner.
 \end_layout
 
 \begin_layout Subsection
 Inharmonicity in reeds
 \end_layout
 
+\begin_layout Standard
+The modes of a tongue are not harmonic. For a uniform tongue, the second mode is at 6.27 times the first and the third at 17.55 times, far from the 2, 3, 4 of a vibrating string. The profile spreads them even more: on the matrix.txt tongue the ratios are 12.6 and 40.3. A twisting mode sits among them: for this tongue, with the realistic rivet clamping, Elmer predicts 67.5, 842 and 2699 Hz in bending and 1677 Hz in torsion.
+\end_layout
+
+\begin_layout Standard
+And yet the note of a reed is harmonic: its partials sit at exact multiples of the playing frequency. These harmonics are not the modes. They are made by the air. The tongue swings almost like a pure sine at its first mode, but the opening it leaves to the air is cut in a one-way, non-linear manner: the flow is chopped, and a chopped flow is rich in harmonics, as the pulses of a siren are. In the spectrum of a plucked tongue the harmonics of the first mode also appear, because the tongue passes through its slot; the tool pince_modes.py marks them (frequency equal to 
+\begin_inset Formula $k f_{1}$
+\end_inset
+ within 0.3 per cent) so that they are not mistaken for modes.
+\end_layout
+
+\begin_layout Standard
+The higher modes are hidden in the sound but not absent. They show in the attack, before the motion has settled, and in the ring of a plucked tongue. The tool pince_modes.py finds them in a phone recording: it isolates a narrow band around each peak and fits damped sinusoids with the ESPRIT method 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "roy1989esprit"
+literal "true"
+
+\end_inset
+, which gives both the frequency and the damping of each mode.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the first modes and their damping measured on the matrix.txt tongue, plucked alone and then on its chamber (gestures a and b of the protocol), to compare with the predictions above (experiment E8).
+\end_layout
+
 \begin_layout Subsection
 iso-frequency reeds
+\end_layout
+
+\begin_layout Standard
+Two tongues can give the same note and still be different reeds. For a uniform tongue the first frequency depends on 
+\begin_inset Formula $t/L^{2}$
+\end_inset
+ only. A tongue 0.3 mm thick and 24 mm long and a tongue 0.6 mm thick and about 34 mm long have the same first mode. But the second one is twice as thick and 41 per cent longer. It is about 2.8 times heavier for the same width, its tip bends about half as much under the same steady pressure, and it sweeps a different volume of air per millimetre of travel. Everything that depends on these quantities can differ between the two reeds at the same pitch: the starting pressure, the loudness, the attack, the air they consume.
+\end_layout
+
+\begin_layout Standard
+This is a design freedom. Among all the tongues that give a note, which one starts most easily, which one has the widest range between its starting and its choking pressure, which one keeps its pitch best when the player pushes? The models of this part are not yet able to answer (Section A physical model for reed design lists what they still get wrong). The question can be answered by experiment first.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): please confirm that iso-frequency reeds means reeds of the same pitch but of different geometry. If so, a few pairs of such tongues, measured on the same chamber (starting pressure, pitch at several pressures, sound level), would be the cleanest test of the models and a direct guide for design.
 \end_layout
 
 \begin_layout Section
 Material of reeds
 \end_layout
 
+\begin_layout Standard
+A reed is a spring, and its material decides two things: how stiff it is for its weight, and how long it keeps ringing once plucked. Accordion tongues are made of spring steel. The models take 
+\begin_inset Formula $E=210$
+\end_inset
+ GPa for its Young modulus, 
+\begin_inset Formula $\rho=7800$
+\end_inset
+ kg/m
+\begin_inset Formula $^{3}$
+\end_inset
+ for its density and 
+\begin_inset Formula $\nu=0.29$
+\end_inset
+ for its Poisson ratio, usual handbook values.
+\end_layout
+
+\begin_layout Standard
+Handbook values are not good enough for tuning. The frequency of a tongue depends on 
+\begin_inset Formula $\sqrt{E/\rho}$
+\end_inset
+, and 
+\begin_inset Formula $E$
+\end_inset
+ varies by about 3 per cent with the grade of steel. An error of 3 per cent on 
+\begin_inset Formula $E$
+\end_inset
+ is an error of 1.5 per cent on the frequency, about 26 cents: more than a quarter of a semitone. The material must therefore be measured, not looked up. The tool material.py does it with a uniform strip of the same steel: clamp it, excite it, read its first frequency 
+\begin_inset Formula $f_{1}$
+\end_inset
+, and solve the cantilever formula for 
+\begin_inset Formula $E$
+\end_inset
+:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E=12\,\rho\left(\frac{2\pi f_{1}L^{2}}{(\beta_{1}L)^{2}\,t}\right)^{2}
+\]
+
+\end_inset
+
+\end_layout
+
+\begin_layout Standard
+The thickness must be measured with care: since 
+\begin_inset Formula $f_{1}$
+\end_inset
+ is proportional to 
+\begin_inset Formula $t$
+\end_inset
+, an error of 1 per cent on the thickness becomes an error of 2 per cent on 
+\begin_inset Formula $E$
+\end_inset
+.
+\end_layout
+
+\begin_layout Standard
+The second property is damping: how fast the ringing dies. It is written as a damping ratio 
+\begin_inset Formula $\zeta$
+\end_inset
+, or as a quality factor 
+\begin_inset Formula $Q=1/(2\zeta)$
+\end_inset
+. The models use 
+\begin_inset Formula $\zeta=0.004$
+\end_inset
+ (
+\begin_inset Formula $Q\approx125$
+\end_inset
+), a guessed value. It can be measured with a phone. The tool pince.py finds each pluck in a recording, keeps a narrow band around the first mode, fits the decay of its envelope, and returns the frequency, 
+\begin_inset Formula $\zeta$
+\end_inset
+ and 
+\begin_inset Formula $Q$
+\end_inset
+; pince_modes.py does the same for the next modes. One trap is worth knowing: the automatic gain of a phone raises a sound that is dying, and it can make a tongue look less damped than it is. The frequency is not affected. Two plucks of different strength give a check.
+\end_layout
+
+\begin_layout Standard
+The damping measured on a plucked reed is not only the damping of the steel. It also includes the losses in the rivet and the clamping, and the air around the tongue. Separating these parts is a question for later; for the models, the total is what counts.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the Young modulus of the steel of your reed bank (one uniform strip, material.py), and the damping of the first modes of a few tongues (plucked alone, gesture a of the protocol). These two numbers replace the handbook value and the guessed 
+\begin_inset Formula $\zeta$
+\end_inset
+ in every model of this part.
+\end_layout
+
 \begin_layout Section
 The reed socket
 \end_layout
 
+\begin_layout Standard
+The tongue does not live alone. It is riveted to a plate, over a slot, and the plate is waxed onto the reed block. We call socket everything that holds the tongue and shapes the air around it: the rivet, the slot, the plate, the gap around the tongue, the lift of the tip, and the leather valve. Small details of the socket decide whether a reed speaks well.
+\end_layout
+
+\begin_layout Standard
+The rivet first. A rivet is not a perfect wall. In the finite element model, a realistic clamping, where the heel of the tongue rests on the plate and is held only under the head of the rivet, lowers the first frequency by 0.3 per cent compared with a perfect clamping at the root of the slot (Section Finite element model with fluid structure interaction).
+\end_layout
+
+\begin_layout Standard
+Then the gap. Around the tongue, inside the slot, the air passes through a gap of a few hundredths of a millimetre (30 
+\begin_inset Formula $\mu$
+\end_inset
+m in the models, a guessed value). In such a narrow passage the air is sticky. The Reynolds number, which compares inertia with viscosity, is about 
+\begin_inset Formula $vh/\nu\approx40\times3\cdot10^{-5}/1.5\cdot10^{-5}\approx80$
+\end_inset
+ for an air speed 
+\begin_inset Formula $v$
+\end_inset
+ of 40 m/s in a gap 
+\begin_inset Formula $h$
+\end_inset
+ of 30 
+\begin_inset Formula $\mu$
+\end_inset
+m. At this value viscosity rules, and the law of Bernoulli, which describes a jet with no friction, is the wrong law: the flow follows the law of Poiseuille for a thin slit. A two-dimensional flow computation with Elmer confirms it: in the 30 
+\begin_inset Formula $\mu$
+\end_inset
+m gap, 80 per cent of the pressure drop is viscous. The same computation gives the steady flow through the slot at 1000 Pa within 0.4 per cent of the one-dimensional model that combines Poiseuille in the gap and Bernoulli outside it.
+\end_layout
+
+\begin_layout Standard
+Out of the gap, where the tongue has left the slot, Bernoulli becomes valid again. The flow follows the motion of the tongue without delay as long as the Strouhal number 
+\begin_inset Formula $fh/v$
+\end_inset
+ stays small: about 
+\begin_inset Formula $440\times0.5\cdot10^{-3}/40\approx0.006$
+\end_inset
+ for an A4. The jet narrows after the sharp edge of the slot; the models take a contraction coefficient of 0.61, a value borrowed from steady jets and not checked for an opening that oscillates.
+\end_layout
+
+\begin_layout Standard
+The lift and the thickness of the plate are guessed in the models: 1.5 and 3 times the thickness of the tongue. The leather valve, which stops the reverse flow, is taken as perfect: in reality it has a mass, it leaks a little and it slaps.
+\end_layout
+
+\begin_layout Standard
+Finally, an experiment by Ewen shows that the socket can change everything. A tongue cut in a steel sheet and held between two plates, a sandwich, plays in both directions of the air. And its pitch depends on the height of the supports on each side: the same tongue gives an A when blown and a B when sucked, a whole tone apart, 12 per cent in frequency. Two harmonium plates mounted head to head, which normally play in one direction only, also play both ways. The next section shows that this simple experiment refutes the models that explain the normal reed.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the gap around the tongue, the lift and the thickness of the plate of a few reeds (feeler gauges, grazing light, calliper; experiment E6 of the two-reed audit); and for the sandwich: the dimensions of the tongue, the height of each support, the gap, the pitch when plucked, the pitch in each direction at a few pressures read on a water manometer, and how the air was given (mouth, box or bellows). A slow-motion phone video (240 frames per second) of a bass reed would show whether the tip leaves the faces of the plates.
+\end_layout
+
 \begin_layout Section
 A physical model for reed design
+\end_layout
+
+\begin_layout Standard
+A physical model is a small world in which one thing can be changed at a time. Its purpose here is practical: to design a reed, its profile and its chamber, on paper, and to know beforehand how it will speak. This section tells how the model of the repository was built, and how it was proven wrong several times. The story matters as much as the result: each time, nature answered what it is, not what was expected.
+\end_layout
+
+\begin_layout Standard
+The model has five ingredients. The tongue, described by its modes. The flow through the opening, by Bernoulli, in one direction only. The opening law, which says how wide the passage is for a given position of the tongue. The chamber, an air spring whose pressure rises when more air comes in than goes out. And the source, the bellows or the turbine of the bench, with its internal impedance.
+\end_layout
+
+\begin_layout Standard
+The starting point was Ewen's MATLAB code, ported to Python (banc_recherche/reed_model.py). A careful audit showed that it could not oscillate, for reasons that each teach something. The law of the chamber was inverted: air was injected and the pressure went down, so the tongue was sucked against the plate 99.2 per cent of the time. Written properly, with the pressure as the variable of the chamber, the equation becomes stiff: the air spring of a small chamber is so hard (
+\begin_inset Formula $\rho c^{2}/V_{0}\approx1.8\cdot10^{10}$
+\end_inset
+ Pa/m
+\begin_inset Formula $^{3}$
+\end_inset
+) that a standard Runge-Kutta scheme at 44.1 kHz explodes. It needs eight times smaller steps. The opening had no lower and no upper bound, so a tongue could pass 10 cm through its plate without the code noticing. And the damping matrix was not symmetric, so in some directions it injected energy instead of removing it. The corrected model (banc_recherche/reed_oscillator.py) fixes these four points: pressure as state variable, eight times oversampling, an opening bounded on both sides and open in one direction only, and a symmetric damping built from the true modes of the tongue. Nine tests check it, among them the conservation of mass and the absence of any numerical blow-up.
+\end_layout
+
+\begin_layout Standard
+One tool changed the method. Instead of simulating a second of sound to see whether a reed starts, the model is linearised around its rest position, and the eigenvalues of the linear system are read. If the largest growth rate is negative, the rest is stable and the reed stays silent; if it is positive, the reed starts, and the imaginary part gives its starting frequency. A search on the flow then finds the starting threshold. One evaluation takes about one millisecond instead of about one second of simulation. Each new hypothesis can be tested in a minute.
+\end_layout
+
+\begin_layout Standard
+The first twist was a piston that should not be there. The balance of the chamber contained a term for the volume swept by the tongue, as if the tongue were a piston in the wall of the chamber. This is right for a beating reed, like a clarinet reed pressed on its mouthpiece. It is wrong for a free reed: the tongue sits in its own slot, and the air it moves on one side is taken back at once through the slot itself. It does not compress its chamber; it modulates an opening. With this term, the model played a 102.1 Hz tongue at 119.2 Hz, 267 cents too high, a minor third, at every pressure. Without it, the note comes back to the blade, and the small remaining shift fades towards the treble, as it should (Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:hauteur-languette"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+). The real chamber, 7.9 cm
+\begin_inset Formula $^{3}$
+\end_inset
+ (35 by 15 by 15 mm), is now enough to start; before, the model needed five times this volume. And the note now goes down when the player pushes, as on every accordion: 
+\begin_inset Formula $-15.7$
+\end_inset
+ cents between 1.3 and 2 times the starting flow.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:hauteur-languette"
+
+\end_inset
+
+Playing frequency of the single-reed model at its starting threshold, before and after removing the swept-volume term (audit of the reed model, 2026).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{rrrr}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+tongue (Hz) & before (Hz) & after (Hz) & shift after (cents) 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+102.1 & 119.2 & 103.9 & +30 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+220 & -- & 221.2 & +10 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+440 & -- & 440.5 & +2 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+880 & -- & 880.1 & 0 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+This twist came with a lesson about tests. Three of the fifteen tests of the model protected the error they should have caught. One accepted a playing frequency up to 1.4 times the frequency of the blade, that is up to 580 cents: wide enough to let a minor third pass. A test that freezes a behaviour without confronting it with a measurable quantity freezes a bug as well as a law.
+\end_layout
+
+\begin_layout Standard
+What is still wrong in the single-reed model is said plainly. The starting pressure covers three decades over the keyboard, from 1.80 Pa at 102 Hz to 1781 Pa at 880 Hz, where a real accordion seems to need roughly one decade, of the order of 100 to 1000 Pa everywhere (an estimate from playing, to be measured). And the amplitude is no longer bounded: the travel of the tip, from one extreme to the other, reaches 2.15 mm at twice the starting flow and 47.4 mm at sixteen times, for a tongue 55 mm long, which is absurd. The term that was removed also acted as a brake; without it, there is no other limiting mechanism in the model. The most likely missing piece explains both faults at once: the model applies the pressure on the whole tongue whatever its position, whereas a tongue that has left its slot sits in the jet and no longer feels the full pressure drop.
+\end_layout
+
+\begin_layout Standard
+The second step put two reeds together, as in a real note with two voices: two tongues, two chambers, the holes in the soundboard, the common channel under the pallet, and the pallet (banc_recherche/coupled_reeds.py). Each element is a quantity that a calliper can measure: a volume, or a mass of air 
+\begin_inset Formula $\rho\ell/S$
+\end_inset
+ for a duct of length 
+\begin_inset Formula $\ell$
+\end_inset
+ and section 
+\begin_inset Formula $S$
+\end_inset
+, with its losses. With these honest losses, no reed starts at all. This is consistent with Ricot, Caussé and Misdariis 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "ricot2005"
+literal "true"
+
+\end_inset
+: the starting of an accordion reed comes from the flow in its slot, and a model with a uniform pressure on the tongue does not contain it.
+\end_layout
+
+\begin_layout Standard
+A geometric idea then made the model start without any tuned resistance. Suppose that, at rest, the tip is lifted on the side the air comes from, so that the air first pushes the tongue into its slot: the opening closes as the tongue advances, then opens again on the other side. When the tongue advances, the flow slows down; the mass of air along the path resists this slowing, and turns it into an overpressure in phase with the velocity of the tongue, the push on the swing. The prediction was made before the check, and the check removed one ingredient at a time (Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:section-qui-se-ferme"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+). Only the two predicted ingredients matter, the closing opening and the mass of air, and there is an optimum of mass: too much air mass decouples the tongue from the flow.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:section-qui-se-ferme"
+
+\end_inset
+
+Growth rate of the oscillation in the two-reed model with a closing opening (A4, 1000 Pa), removing one ingredient at a time. The tongue alone decays at 
+\begin_inset Formula $-11.1$
+\end_inset
+ s
+\begin_inset Formula $^{-1}$
+\end_inset
+. Positive: the reed starts.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{lr}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+case & growth rate (s$^{-1}$) 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+reference & +19.0 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+without the volume swept by the tongue & +19.6 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+without the slot in series & +19.7 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+air mass of the path divided by 10 & $-$8.4 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+air mass of the path multiplied by 3 & +4.4 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+chamber divided by 4 / multiplied by 4 & +17.3 / +25.2 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+opening law opened by the flow & $-$16.3 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+With this mechanism the model predicts, for guessed dimensions: a start between 200 and 1000 Pa from A2 to A5, a playing pitch a few cents below the blade (
+\begin_inset Formula $-4$
+\end_inset
+ to 
+\begin_inset Formula $-24$
+\end_inset
+ cents), and a pitch that goes down when the pressure rises. It also gives results that are clearly wrong: a travel of 4 to 5 mm for an A4 tongue, 0.4 L/s of air per reed, and a sound efficiency of 1 to 3 per cent. Something brakes the real tongue that the model does not have. The audit of the two-reed model classifies every element as derived, checked, hypothesis, guessed or borrowed, and lists the cheap experiments that can contradict it (research/docs/audit_deux_anches.md). The publications that inspired it, Ricot et al. 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "ricot2005"
+literal "true"
+
+\end_inset
+ and Millot and Baumann 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "millot2007"
+literal "true"
+
+\end_inset
+, were taken as starting ideas, not as proofs.
+\end_layout
+
+\begin_layout Standard
+The third step looked at the slot on both sides of the tongue (banc_recherche/slot_stack.py). The slot crosses a stack of supports; the tongue can sit anywhere in it; the air crosses three parts in series: the column of air before the tongue, the passage around it (the viscous gap while it is inside the stack, the curtain between its edge and the edge of the slot when it is out), and the column after it. This single description covers the normal reed, the same reed with the air reversed, and the sandwich. The result is clear. The normal mounting plays, with a pitch 
+\begin_inset Formula $-9$
+\end_inset
+, 
+\begin_inset Formula $-14$
+\end_inset
+ and 
+\begin_inset Formula $-26$
+\end_inset
+ cents below the blade at 300, 1000 and 3000 Pa. The reversed mounting does not play, as expected. But the sandwich never plays, whatever the heights of the supports and the pressure, even when the pressure pushes the tip 0.25 mm out of the downstream face.
+\end_layout
+
+\begin_layout Standard
+So the model is refuted by the sandwich. In a flow that is one-dimensional and instantaneous, a tongue centred in its slot has no source of energy. Since the real sandwich plays, the real mechanism involves what this model does not contain: a delay of the flow at the edge of the tongue (the jet forming and separating, small vortices) and a pressure that is not uniform along the tongue. The closing-opening mechanism is at best a special case: it reproduces the accordion mounting, it does not explain the sandwich. A test of the repository records this disagreement instead of hiding it; it will pass on the day the model makes a sandwich play.
+\end_layout
+
+\begin_layout Standard
+The next experiment is numerical: an unsteady two-dimensional flow around a moving tongue, with the coupling between the air and the tongue (research/cfd/sandwich2d, Elmer and Gmsh, free software). The steady case is validated. The oscillating case moves the tongue by 
+\begin_inset Formula $\pm5$
+\end_inset
+ 
+\begin_inset Formula $\mu$
+\end_inset
+m at 440 Hz and computes the work of the air on the tongue at each cycle, and the damping and stiffness that the air adds, to be compared with those of the steel. If the air gives energy to a flat, centred tongue, the computation will show where it comes from.
+\end_layout
+
+\begin_layout Standard
+Where does this leave the reed designer? The modal part of the model can be trusted, with the right method for profiled tongues. The trend of the pitch with pressure is the same in every version: the note goes down when the player pushes. The stability analysis, which says whether a reed starts and at what frequency, is fast and reliable for a given model. But the starting pressures, the amplitude, the loudness and the air consumption are not yet predicted. They wait for the measurements of the reed itself, and for the missing mechanism.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the measurements that can contradict the models first, in this order: the pitch of a tongue plucked and then played at several pressures (E1 of the two-reed audit), the beat of two reeds of one note tuned one at a time and then together (E3), and the sandwich measurements of Section The reed socket. Then the results of the oscillating flow computation, when it has run.
 \end_layout
 
 \begin_layout Section
@@ -1982,32 +2940,496 @@ literal "true"
 Self-sustained conditions
 \end_layout
 
+\begin_layout Standard
+A plucked reed rings and dies. A blown reed rings and goes on. This chapter is about the difference: where the energy of the note is kept, where it leaks away, and what decides that the gain wins. It answers Q5, and on the way it gives what this part can say about Q3 (the least energy state) and Q4 (the bellows).
+\end_layout
+
 \begin_layout Section
 Stored energy
 \end_layout
 
-\begin_layout Subsection
--
+\begin_layout Standard
+Think of a child on a swing. At the top of each swing the child is still, and all the energy is in the height. At the bottom the child goes fastest, and the energy is in the speed. The energy passes from one form to the other, twice per period. A vibrating tongue does the same. Its energy is shared between motion and bending:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula 
+\[
+E=\tfrac{1}{2}\,m\,\dot{y}^{2}+\tfrac{1}{2}\,k\,y^{2}
+\]
+
+\end_inset
+
+\end_layout
+
+\begin_layout Standard
+where 
+\begin_inset Formula $y$
+\end_inset
+ is the displacement of the tip, 
+\begin_inset Formula $\dot{y}$
+\end_inset
+ its velocity, and 
+\begin_inset Formula $m$
+\end_inset
+ and 
+\begin_inset Formula $k$
+\end_inset
+ the modal mass and stiffness of the first mode reduced to the tip, so that the tongue behaves like a single mass on a spring (Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:rk4"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ gives them for five tongues). At the end of each swing all the energy is in the bending; at the middle of the slot, all of it is in the motion.
+\end_layout
+
+\begin_layout Standard
+A swing left alone slows down, and so does a tongue. With a damping ratio 
+\begin_inset Formula $\zeta$
+\end_inset
+, the energy left after one cycle is multiplied by about 
+\begin_inset Formula $e^{-4\pi\zeta}$
+\end_inset
+: the tongue loses a fraction of about 
+\begin_inset Formula $4\pi\zeta$
+\end_inset
+ of its energy at each cycle. With the value used in the models, 
+\begin_inset Formula $\zeta=0.004$
+\end_inset
+ (a guessed value), this is 5 per cent per cycle. A steady note therefore asks the air to give back about 5 per cent of the stored energy at every cycle: 440 times per second for an A4.
+\end_layout
+
+\begin_layout Standard
+How does the air give energy? The force of the air on the tongue does work as the tongue moves: over one cycle, the work is 
+\begin_inset Formula $W=\oint F\,\mathrm{d}y=\oint F\,\dot{y}\,\mathrm{d}t$
+\end_inset
+. Split the force in two parts. The part that follows the displacement 
+\begin_inset Formula $y$
+\end_inset
+ only makes the spring stiffer or softer: it changes the pitch, and over a full cycle it gives nothing. Only the part that follows the velocity 
+\begin_inset Formula $\dot{y}$
+\end_inset
+ does work. This is the exact meaning of the push on the swing given at the right moment. The flow computation of the repository (research/cfd/sandwich2d) computes precisely these two parts on a tongue forced to move: the work of the air per cycle, and the damping and stiffness that the air adds to the steel.
+\end_layout
+
+\begin_layout Standard
+The air around the tongue also stores energy, for a short time. The air of the chamber is a spring: its compliance 
+\begin_inset Formula $C=V/(\gamma P_{\mathrm{atm}})$
+\end_inset
+, for a volume 
+\begin_inset Formula $V$
+\end_inset
+, the atmospheric pressure 
+\begin_inset Formula $P_{\mathrm{atm}}$
+\end_inset
+ and the ratio of specific heats 
+\begin_inset Formula $\gamma$
+\end_inset
+, stores 
+\begin_inset Formula $\tfrac{1}{2}Cp^{2}$
+\end_inset
+ when the pressure in it varies by 
+\begin_inset Formula $p$
+\end_inset
+. The air in the holes is a mass: its inertance 
+\begin_inset Formula $L=\rho\ell/S$
+\end_inset
+, for a hole of length 
+\begin_inset Formula $\ell$
+\end_inset
+ and section 
+\begin_inset Formula $S$
+\end_inset
+, stores 
+\begin_inset Formula $\tfrac{1}{2}Lq^{2}$
+\end_inset
+ when a flow 
+\begin_inset Formula $q$
+\end_inset
+ goes through it. These reservoirs take energy and give it back within each cycle. They do not create energy; they shift it in time. And shifting the force in time is exactly what can turn a force that follows the displacement into a force that follows the velocity.
+\end_layout
+
+\begin_layout Standard
+Back to Q3. On the limit cycle, the stored energy does not rise or fall from one cycle to the next: the gain balances the loss. The sounding reed sits where the books balance, not where the energy is lowest. Whether, among the possible regimes, it settles in the one that wastes the least would need the efficiency of each regime, and the models do not predict efficiency yet (Section Intensity).
 \end_layout
 
 \begin_layout Section
 Dissipation
 \end_layout
 
-\begin_layout Subsection
--
+\begin_layout Standard
+Where does the energy go? Follow a puff of air through a note.
+\end_layout
+
+\begin_layout Itemize
+Into the steel and its rivet. The tongue rubs inside itself and against its clamp. This is the damping 
+\begin_inset Formula $\zeta$
+\end_inset
+ measured on a plucked tongue (Section Material of reeds).
+\end_layout
+
+\begin_layout Itemize
+Into the gap. Around the tongue, in the slot, the air is sticky: in a gap of 30 
+\begin_inset Formula $\mu$
+\end_inset
+m, 80 per cent of the pressure drop is viscous (Section The reed socket).
+\end_layout
+
+\begin_layout Itemize
+Into the jets. At each sharp hole, in the soundboard and under the pallet, the air leaves as a jet and loses its speed in turbulence. The models write this loss as 
+\begin_inset Formula $\Delta p=\rho\,q|q|/\left(2(C_{d}S)^{2}\right)$
+\end_inset
+ for a hole of section 
+\begin_inset Formula $S$
+\end_inset
+ and discharge coefficient 
+\begin_inset Formula $C_{d}$
+\end_inset
+.
+\end_layout
+
+\begin_layout Itemize
+Into the source. A bellows or a turbine that gives less flow when the pressure rises takes part of the energy back (question Q4).
+\end_layout
+
+\begin_layout Itemize
+Into the sound. A small opening in a flat baffle radiates the power 
+\begin_inset Formula $P=\rho\,\omega^{2}Q^{2}/(4\pi c)$
+\end_inset
+, where 
+\begin_inset Formula $Q$
+\end_inset
+ is the amplitude of the oscillating flow, 
+\begin_inset Formula $\omega$
+\end_inset
+ its angular frequency, 
+\begin_inset Formula $\rho$
+\end_inset
+ the density of air and 
+\begin_inset Formula $c$
+\end_inset
+ the speed of sound. The code of the repository recovers this formula within 0.01 per cent on a known sinusoidal flow (
+\begin_inset Formula $2.1277\cdot10^{-5}$
+\end_inset
+ W against 
+\begin_inset Formula $2.1279\cdot10^{-5}$
+\end_inset
+ W). The sound is the purpose of the instrument, but it is a small part of the budget.
+\end_layout
+
+\begin_layout Standard
+Which of these losses sets the starting pressure? In the single-reed model, the starting pressure grows like 
+\begin_inset Formula $\zeta^{2}$
+\end_inset
+. One could hope to fix the too-low thresholds of the bass (1.8 Pa instead of something near 100 Pa, Section A physical model for reed design) with more damping. But it would take 
+\begin_inset Formula $Q=12$
+\end_inset
+, whereas a plucked reed rings for several seconds. The damping of the tongue cannot be what is missing. The missing piece is in the motor, the push, not in the brakes.
+\end_layout
+
+\begin_layout Standard
+A warning belongs here. An early version of the model said that the flow dissipated fifteen times more than the tongue: 
+\begin_inset Formula $-40$
+\end_inset
+ s
+\begin_inset Formula $^{-1}$
+\end_inset
+ against 
+\begin_inset Formula $-2.6$
+\end_inset
+ s
+\begin_inset Formula $^{-1}$
+\end_inset
+ for the tongue alone. These 40 s
+\begin_inset Formula $^{-1}$
+\end_inset
+ came from the swept-volume term that should not be there, and a test protected the number. The true share of each loss is not known yet.
+\end_layout
+
+\begin_layout Standard
+Back to Q4. The source is part of the losses, and its place in the circuit matters. In one version of the single-reed model, a softer source raised the starting pressure (23.0 Pa with an ideal flow source, 25.8 Pa with 
+\begin_inset Formula $R=2\cdot10^{8}$
+\end_inset
+ Pa
+\begin_inset Formula $\cdot$
+\end_inset
+s/m
+\begin_inset Formula $^{3}$
+\end_inset
+, 35.9 Pa with 
+\begin_inset Formula $R=5\cdot10^{7}$
+\end_inset
+) and left the choking pressure unchanged, because choking is set by the geometry of the opening. These numbers come from the version with the swept-volume term and must be computed again. In the two-reed network, a resistance shared at the pallet locked two reeds together, while one resistance per chamber let them beat (Section Multi reed coupling). The internal impedance of the real source must be measured before any of these numbers can be trusted (experiment E1).
 \end_layout
 
 \begin_layout Section
 Multi reed coupling
 \end_layout
 
+\begin_layout Standard
+Play a musette chord. Two or three reeds sound each note, tuned a little apart, and their beating gives the shimmer of the musette. The reeds of one note take their air from the same bellows and give it back through the same pallet. They share their air, and they talk through it. Do they pull each other towards unison?
+\end_layout
+
+\begin_layout Standard
+The two-reed network of the repository answers for each version of the model. Its elements are two tongues, two chambers, two holes in the soundboard, the common channel under the pallet, and the pallet. In the version where the start was obtained with a tuned resistance, the place of this resistance decided everything. Shared at the pallet, it locked the two reeds to unison up to 80 cents apart (4.9 Hz): no real musette does that. One resistance per chamber let them beat freely: 1.209 Hz of beating for two blades 1.21 Hz apart (20 cents). Near unison the voices still pulled each other: the beat was 27 per cent slower than the difference of the blades at 1 cent, 20 per cent at 2 cents, 12 per cent at 3 cents, and not slower at all at 5 cents (low A, 300 Pa). The air did not double: two identical reeds took 1.56 times the air of one. And two reeds in phase radiated better than one, with an efficiency of 
+\begin_inset Formula $2.9\cdot10^{-5}$
+\end_inset
+ against 
+\begin_inset Formula $1.5\cdot10^{-5}$
+\end_inset
+.
+\end_layout
+
+\begin_layout Standard
+In the version with a closing opening, which starts without any tuned resistance, two A4 reeds at 1000 Pa lock up to about 2 cents apart, the beat is 12 per cent slower at 5 cents, and they are free at 20 cents. There, the air nearly doubles with two reeds (4 per cent less than double).
+\end_layout
+
+\begin_layout Standard
+The versions disagree on the numbers, and on the air. They agree on the shape: the voices pull each other near unison, and the pull vanishes beyond a few cents. A musette tuned some tens of cents apart should beat freely. The test is simple and cheap: tune one reed while the other is blocked, then release both and read the beat at the tuner (experiment E3 of the two-reed audit).
+\end_layout
+
+\begin_layout Standard
+One warning on the data. The recordings of beating reeds kept in the repository since 2021 (beat-01 to beat-17) are a musette played on a sampled instrument found online, not a real accordion. They cannot test the coupling.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): experiment E3 on two or three notes of a real instrument: each reed tuned alone (the other blocked with tape or paper), then both together, at two pressures read on the water manometer.
+\end_layout
+
 \begin_layout Section
 Harmonic Saturation
 \end_layout
 
+\begin_layout Standard
+Play a note softly: it is round. Play it loud: it grows bright, richer in high partials. Push harder still, and at some point it chokes. Two things saturate along the way: the amplitude of the tongue, and the richness of the sound.
+\end_layout
+
+\begin_layout Standard
+The harmonics are made by the chopping of the flow (Section Inharmonicity in reeds). The more abruptly the tongue closes and opens the passage, the richer the sound. Measuring this richness looks easy and hides two traps, both met while studying the model. The first trap is to measure the wrong quantity: the sound of a free reed is radiated by the modulated flow, and far away it follows 
+\begin_inset Formula $\mathrm{d}q/\mathrm{d}t$
+\end_inset
+, not the pressure in the chamber. The second trap is to take the strongest peak of the spectrum as the fundamental. Differentiating the flow raises the high partials by 6 dB per octave, and the strongest peak had moved to the fourth harmonic, so every harmonic was counted from the wrong frequency. Counted from the true fundamental (120 Hz) on 
+\begin_inset Formula $\mathrm{d}q/\mathrm{d}t$
+\end_inset
+, one version of the model gave twelve harmonics above 
+\begin_inset Formula $-30$
+\end_inset
+ dB: a rich timbre. This count was made with the version that still had the swept-volume term; it must be made again with the corrected model, and compared with a real reed (experiment E12).
+\end_layout
+
+\begin_layout Standard
+The amplitude must saturate too, and in the corrected single-reed model it does not: the travel of the tip keeps growing with the flow (Section A physical model for reed design). A real tongue is held back by something the model lacks. The best candidate is a force that depends on the position of the tongue: once out of its slot, the tongue sits in the jet and no longer feels the full pressure drop.
+\end_layout
+
+\begin_layout Standard
+The last saturation is choking. When the pressure is too high, the tongue is blown out of its slot and stays out. The opening then no longer changes with the position of the tongue: 
+\begin_inset Formula $\partial h/\partial y=0$
+\end_inset
+. The valve stops modulating, the push disappears, and the note dies. The corrected model shows this cleanly: above the band of oscillation, the growth rate falls exactly to 
+\begin_inset Formula $-\zeta\omega_{1}$
+\end_inset
+, the damping of the tongue alone, as if the air were no longer there. In the earlier version with the swept-volume term, the band ran from 23.0 to 379.8 Pa; the model gave the choking pressure without being asked for it. With the corrected model, this band must be computed again, and compared with the bench (experiment E4).
+\end_layout
+
+\begin_layout Standard
+Back to Q6. How the brightness follows the loudness is the control law of an instrument: it is what makes a physical model playable in continuous nuances, instead of switching between recorded layers. It is measured as a table of notes by nuances, pushing and pulling (experiment E11).
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the spectrum of one isolated reed at three nuances (pp, mf, ff), close microphone, pushing and pulling (experiments E11 and E12), and the pressure at which it chokes (E4).
+\end_layout
+
 \begin_layout Section
 Hysteresis vs self sustained conditions
+\end_layout
+
+\begin_layout Standard
+Reeds are said to need more pressure to start than to keep sounding. If this is true, a reed has a memory: between two pressures, it can be silent or sounding, and which one depends on its past. This section explains what this memory means for the physics, and how to test it.
+\end_layout
+
+\begin_layout Standard
+When the rest of the tongue becomes unstable, the oscillation can be born in two ways. In the gentle way, called supercritical, the amplitude grows from zero, continuously, as the pressure passes the threshold; near the threshold the square of the amplitude grows in proportion to the distance to the threshold (the normal form of Stuart and Landau). There is no memory. In the abrupt way, called subcritical, the amplitude jumps to a finite value at the threshold. Coming down, the reed keeps sounding below 
+\begin_inset Formula $p_{\mathrm{on}}$
+\end_inset
+, and stops only at 
+\begin_inset Formula $p_{\mathrm{off}}<p_{\mathrm{on}}$
+\end_inset
+. Between the two, the silent reed and the sounding reed both exist: the system is bistable, and it stays in the state where it is.
+\end_layout
+
+\begin_layout Standard
+How can the two be told apart? Only by going up and coming down. The model showed why. A first study concluded that the bifurcation was supercritical, after two errors. The state of the tongue, described by several modes, had been rebuilt from the position of the tip alone, which is not enough information, and every restart died out. And the amplitude followed the square-root law above the threshold (successive ratios of 1.35, 1.29, 1.35 and 1.45, as expected), which seemed to settle the question. But a weakly subcritical bifurcation follows the same law above its threshold. The law is necessary, not sufficient. Starting from an established oscillation and lowering the flow settled it (Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:hysteresis-modele"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+): the reed kept sounding down to 0.82 times the starting flow. The model gave 
+\begin_inset Formula $p_{\mathrm{on}}=25.76$
+\end_inset
+ Pa and 
+\begin_inset Formula $p_{\mathrm{off}}\approx19.44$
+\end_inset
+ Pa, a ratio of about 1.33. The bifurcation is subcritical.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:hysteresis-modele"
+
+\end_inset
+
+Lowering the flow from an established oscillation in the single-reed model (version with the source impedance and the swept-volume term). The reed keeps sounding below its starting flow 
+\begin_inset Formula $q_{\mathrm{on}}$
+\end_inset
+.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{rrrl}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+$q/q_{
+\backslash
+mathrm{on}}$ & pressure (Pa) & travel (mm) & state 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+0.95 & -- & 0.498 & sounding 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+0.85 & -- & 0.379 & sounding 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+0.82 & 19.44 & 0.292 & sounding 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+0.79 & 18.40 & 0.001 & stops 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+0.70 & 16.35 & 0.000 & stops 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+These numbers were obtained with a version of the model that still contained the swept-volume term (Section A physical model for reed design). The method stands; the numbers must be computed again with the corrected model. If the measured ratio differs from the model, the first quantities to adjust are the two on which the width of the hysteresis depends most: the effective volume of air seen by the tongue, and the internal impedance of the source (Q4).
+\end_layout
+
+\begin_layout Standard
+The bench measures the same quantities as the model, so that the two can finally be compared. The tool seuil.py takes the pressure and the amplitude during a ramp that goes up and then down, and finds 
+\begin_inset Formula $p_{\mathrm{on}}$
+\end_inset
+ on the way up and 
+\begin_inset Formula $p_{\mathrm{off}}$
+\end_inset
+ on the way down. The tool bifurcation.py draws the amplitude against the pressure, fits the branch born at the threshold, and classifies the bifurcation. The tool stochastic.py goes one step further. From a recording of the amplitude it rebuilds the deterministic force and the noise that drive it (a Langevin description), and from them an effective potential: one valley means one stable state, two valleys mean bistability. The passage below, in French, is the inner side of this physics.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): 
+\begin_inset Formula $p_{\mathrm{on}}$
+\end_inset
+ and 
+\begin_inset Formula $p_{\mathrm{off}}$
+\end_inset
+ measured on a few reeds, with a slow ramp up and down (experiment E3 of the list of experiments); and the hysteresis of the corrected model, computed with the same method.
 \end_layout
 
 \begin_layout Section*
@@ -2047,20 +3469,225 @@ Une habitude, une réaction, un pli du caractère obéissent à la même loi :
 Temporal and frequency of free reed
 \end_layout
 
+\begin_layout Standard
+A note is not a fixed object. It is born, it drifts with the breath of the bellows, and it dies. This chapter follows the note in time and in pitch: how much its frequency moves, how long it takes to speak, how loud it can be, and how its past shapes its present. It is also where this part answers Q6 as far as it can.
+\end_layout
+
 \begin_layout Section
 Frequency shift
+\end_layout
+
+\begin_layout Standard
+Every tuner knows that a reed does not keep exactly the pitch it had on the bench. Tuned when plucked or blown softly, it moves once mounted in the instrument and played at other nuances. Three shifts add up.
+\end_layout
+
+\begin_layout Standard
+The first shift happens without any air flowing: the tongue alone, then the same tongue on its chamber. Below the resonance of the chamber, the air that the tongue pushes into the chamber and through the hole moves with it, like a small added mass, and the pitch goes slightly down. For three reeds of the R12 reed block, the prediction is 1.2 cents lower for the bass reed, 2.8 cents for the medium one and 3.5 cents for the high one (Section Experimental model updating, gesture b).
+\end_layout
+
+\begin_layout Standard
+The second shift is between the plucked tongue and the played reed. Here the models do not agree, not even on the sign. The corrected single-reed model plays a little above the blade, and the shift fades towards the treble: 
+\begin_inset Formula $+30$
+\end_inset
+ cents at 102 Hz, 
+\begin_inset Formula $+2$
+\end_inset
+ cents at 440 Hz, nothing at 880 Hz (Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:hauteur-languette"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+). The reason is simple: the stiffness added by the air is roughly fixed, while the stiffness of the tongue grows like the square of its frequency. The two-reed model with a closing opening plays a few cents below the blade (
+\begin_inset Formula $-4$
+\end_inset
+ to 
+\begin_inset Formula $-24$
+\end_inset
+ cents from A2 to A5), and so does the model of the slot with its supports (
+\begin_inset Formula $-9$
+\end_inset
+ cents at 300 Pa).
+\end_layout
+
+\begin_layout Standard
+The third shift is with pressure, and here all the models agree: the note goes down when the player pushes. In the corrected single-reed model the pitch drops by 15.7 cents between 1.3 and 2 times the starting flow, and by 36 to 39 cents at 4 to 16 times (where the travel of the tongue is already absurd). The model of the slot with its supports gives 
+\begin_inset Formula $-9$
+\end_inset
+, 
+\begin_inset Formula $-14$
+\end_inset
+ and 
+\begin_inset Formula $-26$
+\end_inset
+ cents at 300, 1000 and 3000 Pa. The direction is the one players know; the size is to be measured.
+\end_layout
+
+\begin_layout Standard
+The largest shift of all is the most mysterious. In Ewen's sandwich, the same tongue gives an A when blown and a B when sucked: a whole tone, 12 per cent in frequency, set only by the height of the supports on each side (Section The reed socket). No model of the repository explains it yet.
+\end_layout
+
+\begin_layout Standard
+The measurement that decides is easy: pluck the tongue and read its pitch, then play it at several pressures read on a water manometer, and read the pitch each time with the tuner of the repository, whose precision is better than 0.1 cent (experiment E1 of the two-reed audit).
+\end_layout
+
+\begin_layout Standard
+Back to Q6. For a poly-dynamic instrument, the drop of pitch with pressure is the first obstacle. A reed is tuned at one pressure; if the models are right, it is tens of cents flat at the loudest nuances. Measuring this curve, note by note, is the first step; designing a reed or a socket that flattens it would be the second.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): experiment E1 on a few reeds across the keyboard: plucked pitch, then played pitch at three or four pressures, pushing and pulling.
 \end_layout
 
 \begin_layout Section
 Response time
 \end_layout
 
+\begin_layout Standard
+The time a reed takes to speak is part of its character. Between the moment the air arrives and the moment the note is fully there, the tongue has to grow from almost nothing to its full swing. The repository measures this response time, written 
+\begin_inset Formula $T_{\mathrm{resp}}$
+\end_inset
+, from a recording: the tool analysis.py takes it from the onset of the sound to the moment the amplitude reaches 90 per cent of its steady value.
+\end_layout
+
+\begin_layout Standard
+The physics behind it is a growth. Just after the threshold has been crossed, the amplitude grows like 
+\begin_inset Formula $A(t)=A_{0}\,e^{\sigma t}$
+\end_inset
+, where 
+\begin_inset Formula $\sigma$
+\end_inset
+ is the growth rate given by the stability analysis (Section A physical model for reed design) and 
+\begin_inset Formula $A_{0}$
+\end_inset
+ the small amplitude it starts from. Going from 
+\begin_inset Formula $A_{0}$
+\end_inset
+ to 
+\begin_inset Formula $A$
+\end_inset
+ takes the time 
+\begin_inset Formula $t=\ln(A/A_{0})/\sigma$
+\end_inset
+. In the two-reed model with a closing opening, an A4 at 1000 Pa grows at 
+\begin_inset Formula $\sigma=19.0$
+\end_inset
+ s
+\begin_inset Formula $^{-1}$
+\end_inset
+: about 53 ms for each factor 
+\begin_inset Formula $e$
+\end_inset
+, and about 0.36 s to grow by a factor of one thousand, 60 dB. Two consequences follow. A larger first kick, a sharper attack of the bellows or a stronger first puff, shortens the response, because 
+\begin_inset Formula $A_{0}$
+\end_inset
+ is larger. And near the threshold, where 
+\begin_inset Formula $\sigma$
+\end_inset
+ tends to zero, the response time grows without limit: the reed hesitates.
+\end_layout
+
+\begin_layout Standard
+This hesitation has a name: critical slowing down. Near a bifurcation, a system takes longer and longer to answer a small disturbance. It is one of the precursors that stochastic.py looks for in recordings. The model met it too: near the threshold, the oscillation took about 1.5 s to settle, and a simulation of only 0.9 s once led to the wrong conclusion that the amplitude kept growing for ever. A system that is slow to settle must be watched long enough.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the response time of a few notes at several pressures (a microphone and analysis.py). And: were response times computed during the measurement campaigns of 2019 to 2021 (folders described in research/docs/DATA.md)? If so, where are the results?
+\end_layout
+
 \begin_layout Section
 Intensity 
 \end_layout
 
+\begin_layout Standard
+Push harder and the note grows louder, until it chokes. How much louder, and at what cost in air?
+\end_layout
+
+\begin_layout Standard
+The sound power comes from the oscillating flow. For a small opening in a flat baffle, the radiated power is 
+\begin_inset Formula $P=\rho\,\omega^{2}Q^{2}/(4\pi c)$
+\end_inset
+ (Section Dissipation). This simple law holds while the opening is small compared with the wavelength: the product 
+\begin_inset Formula $ka$
+\end_inset
+ of the wave number and the size of the opening is about 0.08 at 440 Hz, and it reaches about 0.9 near 5 kHz, where the law starts to fail.
+\end_layout
+
+\begin_layout Standard
+The efficiency of a reed is the ratio of the sound power to the pneumatic power that the bellows spends, the product 
+\begin_inset Formula $p\,q$
+\end_inset
+ of the pressure and the flow. The bench gives this product directly (impedance.py computes the impedance 
+\begin_inset Formula $p/q$
+\end_inset
+ and the power 
+\begin_inset Formula $p\,q$
+\end_inset
+ from the pressure and flow sensors). The models do not predict it yet. The successive versions of the model give efficiencies from 
+\begin_inset Formula $1.5\cdot10^{-5}$
+\end_inset
+ (one reed, network with a tuned resistance) to 
+\begin_inset Formula $2.9\cdot10^{-5}$
+\end_inset
+ (two reeds in phase) and up to 1 to 3 per cent (the closing-opening version, which is suspect because its tongues travel too far): three orders of magnitude apart. The air consumption is just as uncertain: two reeds take 1.56 times the air of one in one version, almost twice in the other. Only the flow meter can decide.
+\end_layout
+
+\begin_layout Standard
+Near the threshold, one law is expected in all cases. If the bifurcation is supercritical, or weakly subcritical above its threshold, the amplitude grows like 
+\begin_inset Formula $\sqrt{p-p_{\mathrm{on}}}$
+\end_inset
+ (experiment E5). Measured on the sound level and on the travel of the tip, it tells how fast a reed gains its voice.
+\end_layout
+
+\begin_layout Standard
+Back to Q6. The dynamic range of a reed is the distance, in decibels, between its softest sound just above 
+\begin_inset Formula $p_{\mathrm{on}}$
+\end_inset
+ and its loudest sound just before choking. Together with the drop of pitch (Section Frequency shift), it is the first figure of merit of a poly-dynamic reed.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): for one reed at several pressures: the sound level (the same phone, at a fixed distance, is enough for relative levels) and the flow (flow meter), to give its dynamic range, its efficiency and its consumption.
+\end_layout
+
 \begin_layout Section
 Hysteresis
+\end_layout
+
+\begin_layout Standard
+The hysteresis of the reed also has a side in time. Inside the band where the reed can be silent or sounding, which state it is in depends on its history, and on chance.
+\end_layout
+
+\begin_layout Standard
+History first. The measured starting pressure depends on how fast the pressure rises. Near the threshold, the oscillation grows slowly (Section Response time), so a fast ramp passes the threshold before the oscillation has become visible, and the reed seems to start later than it really does. This is why seuil.py works on slow ramps, why ramp.py repeats them, and why every measured threshold must be given with the speed of its ramp.
+\end_layout
+
+\begin_layout Standard
+Chance second. The flow is never perfectly steady: turbulence and the hand of the player add noise. Inside the bistable band, noise can flip the reed from silent to sounding and back. Each state is a valley of the effective potential, and the noise is a random shaking. The time spent in a valley before escaping grows very fast with the height of the barrier between the valleys, compared with the strength of the noise: this is the escape rate of Kramers. The tool stochastic.py rebuilds the potential from a recording, measures the residence times in each state, and computes this escape rate. A note held near 
+\begin_inset Formula $p_{\mathrm{off}}$
+\end_inset
+ is fragile: a small change of the breath can let it drop out.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): 
+\begin_inset Formula $p_{\mathrm{on}}$
+\end_inset
+ and 
+\begin_inset Formula $p_{\mathrm{off}}$
+\end_inset
+ of one reed at three ramp speeds; and one long recording with the pressure held inside the band, to count the spontaneous starts and stops.
 \end_layout
 
 \begin_layout Part
