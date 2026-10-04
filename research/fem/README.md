@@ -88,6 +88,10 @@ Détails : `anche/resultats/verification_languette.csv`, `convergence_languette.
 | `../banc_recherche/pince.py` | le son pincé : fréquence et amortissement (wav, m4a par ffmpeg) |
 | `../reedgui/` | l'interface pour décrire une anche |
 | `recalage_rk4.py` | recalage Elmer <-> modèle RK4 (`reed_model`, `FreeReedModel`, `coupled_reeds`) |
+| `../banc_recherche/pince_modes.py` | le son pincé, TOUS les modes : fréquence et amortissement (ESPRIT par bande) |
+| `comparer_pince.py` | anche seule et anche sur sa chambre, pincées, contre Elmer : épaisseur, zeta, kappa, trou, pertes |
+| `souffle.py`, `plans/feuille_soufflerie_modele.csv` | la soufflerie : seuils par escalier, fréquence de jeu (`recalage.py --souffle`) |
+| `figures_these.py` | figures du manuscrit (maillage et verrouillage, analyse du son pincé) |
 | `lot.py`, `cache.py`, `plans/` | calculs en lot avec cache (`J:\claude\calculs\cache\`) |
 | `sommier/etude_impedance.py` | méthode, maillage et solveur de l'impédance : temps et précision |
 | `sommier/optimisation_r12.py`, `notes_r12.csv` | proposition de cotes pour les chambres du R12 (notes hypothétiques) |
@@ -110,6 +114,24 @@ Détails : `anche/resultats/verification_languette.csv`, `convergence_languette.
 - L'impédance est sans pertes : les pics réels seront moins pointus. Seul le premier résonateur va dans le réseau ; le mode « case A contre case B » est calculé mais pas encore branché.
 - La fente est centrée sur la plaque par défaut : sa vraie place (et le côté de la pointe) est à mesurer.
 - L'amortissement du son pincé est celui sans souffle ; un téléphone peut le fausser (gain automatique) : comparer un pincement faible et un fort.
+
+## Recalage expérimental : une vraie anche, puis son sommier (04/10/2026)
+
+Le protocole complet, avec les étapes pour l'atelier : `../docs/protocole_recalage_experimental.md`.
+La version de thèse : `../docs/design_practical.lyx`, sections « Modal analysis of free reeds »,
+« Updating the time-domain model... » et « Experimental model updating... ».
+
+| geste | outil | ce qu'on recale | ce qui juge le modèle |
+|---|---|---|---|
+| (a) anche seule pincée | `comparer_pince.py ID --seule son.wav` | épaisseur (ou E), zeta1 et zeta2 | rapports f2/f1, f3/f1 (à 3 %) |
+| (b) anche pincée sur sa chambre | `comparer_pince.py ID --seule ... --cavite son.wav` | kappa (part du volume balayé qui passe par la chambre), longueur effective du trou, pertes R | signe et taille du décalage, fréquence du résonateur |
+| (c) soufflerie | `souffle.py feuille.csv`, puis `recalage.py --souffle ID feuille.csv --recaler-levee` | levée au repos (par p_on) | p_on/p_off, fréquence de jeu contre fréquence pincée sur la chambre |
+
+Prédictions avant mesure (kappa = 1, réseau d'Elmer) : sur sa chambre, la languette pincée est plus
+grave de 1,2 cent (grave), 2,8 (médium), 3,5 (aigu) ; résonateurs à 1 140, 1 453 et 1 574 Hz.
+Vérifié sur des sons de synthèse (`tests/test_pince_modes.py`) : f à 1e-4, zeta à 3 %, résonateur
+de chambre à Q = 20 à 5 %, harmonique 2 reconnu, 50 Hz écarté ; kappa², trou et pertes retrouvés.
+`ReedModel` accepte maintenant un zeta par mode (`zeta=[z1, z2]`).
 
 ## Recalage entre Elmer et le modèle Runge-Kutta 4 (`recalage_rk4.py`)
 

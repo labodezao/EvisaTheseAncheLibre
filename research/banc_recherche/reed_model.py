@@ -52,7 +52,7 @@ class Result:
 
 class ReedModel:
     def __init__(self, sections=None, cavity: Cavity | None = None,
-                 n_modes: int = 2, zeta: float = 0.01, n_quad: int = 400,
+                 n_modes: int = 2, zeta=0.01, n_quad: int = 400,
                  modal_params=None):
         """`modal_params` (option « paramètres issus d'Elmer ») : un objet avec
         `m_eff`, `k_eff`, `gamma` du mode 1, normalisés au déplacement du bout
@@ -108,7 +108,10 @@ class ReedModel:
         w2, Phi = self._eig_generalise()
         w = np.sqrt(np.clip(w2, 0.0, None))
         self.omega = w
-        self.C = self.M @ Phi @ np.diag(2 * zeta * w) @ Phi.T @ self.M
+        # zeta : un nombre, ou un par mode (mesuré au son pincé, `fem/comparer_pince.py`) ;
+        # np.asarray évite qu'une liste Python soit RÉPÉTÉE par « 2 * zeta »
+        z = np.broadcast_to(np.asarray(zeta, float), w.shape)
+        self.C = self.M @ Phi @ np.diag(2 * z * w) @ Phi.T @ self.M
         self.V0 = self.cav.length * self.cav.width * self.cav.height
 
     def _eig_generalise(self):

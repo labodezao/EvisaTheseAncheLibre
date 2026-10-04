@@ -72,6 +72,11 @@ n'a de sens que reliée à ce qui se passe dans le cadre du corps.
 - `research/reedgui/` : l'outil d'Ewen (2020) réécrit, seule version vivante.
 - Leçon : Rayleigh-Ritz sur 2 modes de poutre uniforme (km.py) surestime de 51 % une anche
   grattée à masse au bout ; référence = Euler-Bernoulli exact (matrices de transfert), Elmer à 0,4 %.
+- Recalage expérimental (2026-10-04) : `research/docs/protocole_recalage_experimental.md` (anche
+  seule pincée, sur sa chambre, soufflerie par escalier noté à la main) ; outils `pince_modes.py`,
+  `fem/comparer_pince.py`, `fem/souffle.py`. Thèse : `design_practical.lyx` (en anglais, comme le
+  reste du technique). Les sons d'Ewen arrivent dans `J:\multimedia à tier\INBOX` : les lire, ne
+  jamais les déplacer. Le .lyx est en CRLF dans le dépôt : garder CRLF (sinon tout le fichier change).
 
 ## Accordeur web (`web/`) — état et leçons (v27, 2026-09-26)
 Déployé sur GitHub Pages depuis `main` (https://labodezao.github.io/EvisaTheseAncheLibre/).
