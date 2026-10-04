@@ -74,8 +74,11 @@ n'a de sens que reliée à ce qui se passe dans le cadre du corps.
   grattée à masse au bout ; référence = Euler-Bernoulli exact (matrices de transfert), Elmer à 0,4 %.
 - Recalage expérimental (2026-10-04) : `research/docs/protocole_recalage_experimental.md` (anche
   seule pincée, sur sa chambre, soufflerie par escalier noté à la main) ; outils `pince_modes.py`,
-  `fem/comparer_pince.py`, `fem/souffle.py`. Thèse : `design_practical.lyx` (en anglais, comme le
-  reste du technique). Les sons d'Ewen arrivent dans `J:\multimedia à tier\INBOX` : les lire, ne
+  `fem/comparer_pince.py`, `fem/souffle.py`. Thèse : `design_theory.lyx` (chapitre Static and
+  modal analysis, en anglais). design_practical = comment concevoir un accordéon, PAS la thèse
+  (correction d'Ewen, 04/10). Compilation : biblatex (structure.tex du gabarit Legrand) ->
+  `\addbibresource{references.bib}`, `\printbibliography` en ERT, biber, `bibliography.bib` vide ;
+  pas de grec ni de symbole Unicode en texte (formule). Les sons d'Ewen arrivent dans `J:\multimedia à tier\INBOX` : les lire, ne
   jamais les déplacer. Le .lyx est en CRLF dans le dépôt : garder CRLF (sinon tout le fichier change).
 
 ## Accordeur web (`web/`) — état et leçons (v27, 2026-09-26)

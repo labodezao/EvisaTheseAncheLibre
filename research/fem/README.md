@@ -118,7 +118,8 @@ Détails : `anche/resultats/verification_languette.csv`, `convergence_languette.
 ## Recalage expérimental : une vraie anche, puis son sommier (04/10/2026)
 
 Le protocole complet, avec les étapes pour l'atelier : `../docs/protocole_recalage_experimental.md`.
-La version de thèse : `../docs/design_practical.lyx`, sections « Modal analysis of free reeds »,
+La version de thèse : `../docs/design_theory.lyx`, chapitre « Static and modal analysis », sections
+« Finite element model with fluid structure interraction »,
 « Updating the time-domain model... » et « Experimental model updating... ».
 
 | geste | outil | ce qu'on recale | ce qui juge le modèle |

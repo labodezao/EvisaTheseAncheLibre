@@ -3,7 +3,7 @@
 Écrit le 04/10/2026. Trois gestes, dans cet ordre : (a) l'anche seule pincée, (b) l'anche
 pincée sur sa chambre, (c) l'anche jouée à la soufflerie. Chacun recale une partie du modèle,
 et le suivant s'appuie sur le précédent. La version de thèse (en anglais) est dans
-`design_practical.lyx`, chapitre « Static and modal analysis », section « Experimental model
+`design_theory.lyx`, chapitre « Static and modal analysis », section « Experimental model
 updating ».
 
 Les outils : `banc_recherche/pince_modes.py` (les modes d'un son pincé),
