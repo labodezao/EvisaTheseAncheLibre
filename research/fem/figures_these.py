@@ -1,4 +1,4 @@
-"""Figures du manuscrit (design_practical.lyx), chapitre « Static and modal analysis ».
+"""Figures du manuscrit (design_theory.lyx), chapitre « Static and modal analysis ».
 
 Elles sont produites à partir des résultats déjà versés (aucun calcul Elmer ici) :
 - `docs/figures/elmer_maillage_languette.png` : (a) convergence du maillage de la languette
