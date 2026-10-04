@@ -3699,11 +3699,11 @@ Reed blocks coupling
 \end_layout
 
 \begin_layout Standard
-Take a reed plate off its block and hold it in the hand. It plays, but it plays alone. Put it back on the block, over its chamber, under the soundboard, behind its pallet, and it plays with everything around it. This part is about that everything: the chamber of wood below the tongue, the hole in the soundboard above it, the channel under the pallet, and the other tongue of the same note that breathes the same air. The maker chooses all of it with a saw, a chisel and a pot of wax. The physics says what each choice does to the start of the note, to its pitch and to its sound.
+Prenez une plaque d'anche hors de son sommier et tenez-la dans la main. Elle joue, mais elle joue seule. Remettez-la sur le sommier, au-dessus de sa chambre, sous la table d'harmonie, derrière son clapet, et elle joue avec tout ce qui l'entoure. Cette partie parle de ce tout : la chambre de bois sous la languette, le trou de la table au-dessus d'elle, le canal sous le clapet, et l'autre languette de la même note qui respire le même air. Le facteur choisit tout cela avec une scie, un ciseau et un pot de cire. La physique dit ce que chaque choix fait au démarrage de la note, à sa hauteur et à son son.
 \end_layout
 
 \begin_layout Standard
-The method of this part is the one of chapter 2. A finite element model (Elmer) gives the passive answer of the air in the chamber, seen from the slot of the tongue. A small network of masses of air, springs of air and orifices (the semi-analytical model coupled_reeds) receives these numbers and makes the tongue oscillate. Every number quoted below is either a finite element result on the chambers of the R12 block, a prediction of that small network, or a figure from the workshop. The status of each one is said in the text, because the small network is known to be wrong on several points (chapter 2 and the audit of the two-reed model, docs/audit_deux_anches.md): its tongues travel too far and its flows are too large, and the experiment of the sandwich reed refutes its mechanism of start-up. Its tendencies are kept; its pascals are not.
+La méthode de cette partie est celle du chapitre 2. Un modèle par éléments finis (Elmer) donne la réponse passive de l'air de la chambre, vue depuis la fente de la languette. Un petit réseau de masses d'air, de ressorts d'air et d'orifices (le modèle semi-analytique coupled_reeds) reçoit ces nombres et fait osciller la languette. Chaque chiffre cité plus bas est soit un résultat d'éléments finis sur les chambres du sommier R12, soit une prédiction de ce petit réseau, soit un chiffre de l'atelier. Le statut de chacun est dit dans le texte, parce que le petit réseau est connu pour être faux sur plusieurs points (chapitre 2 et audit du modèle à deux anches, docs/audit_deux_anches.md) : ses languettes vont trop loin, ses débits sont trop grands, et l'expérience de l'anche en sandwich réfute son mécanisme de démarrage. On garde ses tendances ; pas ses pascals.
 \end_layout
 
 \begin_layout Chapter
@@ -3711,7 +3711,7 @@ Reed block design
 \end_layout
 
 \begin_layout Standard
-A reed block is a wooden comb. Each tooth of the comb is a wall, and between two walls lies a chamber. The plate with its two tongues closes the chamber on one side; the soundboard, with a hole, closes it on the other. In the R12 block studied here, each chamber is made of two cells, called A and B, separated by a central partition that changes side in the middle of the block. The air of such a chamber was meshed with second-order tetrahedra and its modes computed with Elmer 
+Un sommier est un peigne de bois. Chaque dent du peigne est une cloison, et entre deux cloisons il y a une chambre. La plaque, avec ses deux languettes, ferme la chambre d'un côté ; la table d'harmonie, percée d'un trou, la ferme de l'autre. Dans le sommier R12 étudié ici, chaque chambre est faite de deux cases, A et B, séparées par une cloison centrale qui change de côté au milieu du sommier. L'air d'une telle chambre a été maillé en tétraèdres du second ordre et ses modes calculés avec Elmer 
 \begin_inset CommandInset citation
 LatexCommand cite
 after ""
@@ -3720,7 +3720,7 @@ key "elmer_models"
 literal "true"
 
 \end_inset
-, the mesh being made with Gmsh 
+, le maillage étant fait avec Gmsh 
 \begin_inset CommandInset citation
 LatexCommand cite
 after ""
@@ -3729,23 +3729,23 @@ key "geuzaine2009gmsh"
 literal "true"
 
 \end_inset
-. The walls and the plates are rigid in the model, the slots are closed (tongues at rest), the air is at 20 degrees Celsius. The far end of the hole opens on a large volume at zero pressure, the pallet being far away.
+. Les parois et les plaques sont rigides dans le modèle, les fentes sont fermées (languettes au repos), l'air est à 20 degrés. Le bout du trou débouche sur un grand volume à pression nulle, le clapet étant loin.
 \end_layout
 
 \begin_layout Standard
-What came out first is a number for each chamber. With a hole of 8 by 25 mm through a soundboard 8 mm thick (dimensions taken from the small network, not measured on the instrument), the first air resonance of the twelve chambers of the R12 goes from 1142 Hz (chamber 1, the largest, 18.3 cm
+Ce qui est sorti d'abord, c'est un nombre pour chaque chambre. Avec un trou de 8 par 25 mm à travers une table de 8 mm (dimensions prises dans le petit réseau, pas mesurées sur l'instrument), la première résonance d'air des douze chambres du R12 va de 1142 Hz (chambre 1, la plus grande, 18,3 cm
 \begin_inset Formula $^{3}$
 \end_inset
 
- of cells) to 1575 Hz (chamber 12, 10.2 cm
+ de cases) à 1575 Hz (chambre 12, 10,2 cm
 \begin_inset Formula $^{3}$
 \end_inset
 
-). A second mode, where the air of cell A swings against the air of cell B, lies between 1402 and 2017 Hz. A mesh of 2 mm is enough for a plan of experiments: the first mode of chamber 12 moves from 1575.5 Hz to 1574.1 Hz when the mesh is refined from 2 mm to 0.8 mm, which is 0.1 per cent or 1.5 cent. The solver was checked on a rigid box of 50 by 15 by 10 mm, where it gives 3430.0 Hz for the exact 
+). Un second mode, où l'air de la case A bascule contre l'air de la case B, se trouve entre 1402 et 2017 Hz. Une maille de 2 mm suffit pour un plan d'expériences : le premier mode de la chambre 12 passe de 1575,5 Hz à 1574,1 Hz quand on affine la maille de 2 mm à 0,8 mm, soit 0,1 pour cent ou 1,5 cent. Le solveur a été vérifié sur une boîte rigide de 50 par 15 par 10 mm, où il donne 3430,0 Hz pour le 
 \begin_inset Formula $c/2L=3430$
 \end_inset
 
- Hz, and on the same box open at one end (1715.0, 5145.0 and 8575.0 Hz for the quarter-wave series).
+ Hz exact, et sur la même boîte ouverte à un bout (1715,0 ; 5145,0 et 8575,0 Hz pour la série du quart d'onde).
 \end_layout
 
 \begin_layout Section
@@ -3753,25 +3753,25 @@ Glues or solid RB
 \end_layout
 
 \begin_layout Standard
-A block can be built up from pieces, partitions glued on a base, or cut from one solid piece of wood. The maker feels the difference in the hand and hears it, or believes he hears it. What does the physics of this work say about it? Honestly, little so far, and it is better to say what it does not say.
+Un sommier peut être assemblé de pièces, des cloisons collées sur une base, ou taillé dans une seule pièce de bois. Le facteur sent la différence dans la main et l'entend, ou croit l'entendre. Que dit là-dessus la physique de ce travail ? Honnêtement, peu pour l'instant, et il vaut mieux dire ce qu'elle ne dit pas.
 \end_layout
 
 \begin_layout Standard
-All the acoustic computations of this work take the walls as rigid. A rigid wall does two things: it keeps the air in, and it gives the air nothing back. A real wall of a glued block does the same two things imperfectly. A glue joint that is not tight is a leak, and a thin wall that flexes adds a little compliance to the chamber and takes a little energy from it at each cycle. The finite element model is also without losses: its resonance peaks are infinitely sharp, and the real ones, as the repository says, will be rounder. The resistance of a real chamber is calibrated from a measurement, not computed (section on the chamber seen from the slot, gesture (b) of the experimental protocol).
+Tous les calculs acoustiques de ce travail prennent les parois comme rigides. Une paroi rigide fait deux choses : elle garde l'air dedans, et elle ne rend rien à l'air. Une vraie paroi de sommier collé fait ces deux choses imparfaitement. Un joint de colle qui n'est pas étanche est une fuite, et une cloison mince qui fléchit ajoute un peu de compliance à la chambre et lui prend un peu d'énergie à chaque cycle. Le modèle par éléments finis est aussi sans pertes : ses pics de résonance sont infiniment fins, et les vrais, comme le dit le dépôt, seront plus ronds. La résistance d'une vraie chambre se recale sur une mesure, elle ne se calcule pas (section sur la chambre vue de la fente, geste (b) du protocole expérimental).
 \end_layout
 
 \begin_layout Standard
-The workshop criterion for the tightness of a block is a figure from the training booklet of Ewen, a proposed criterion, not yet measured on his instruments: a glued block, bare or furnished with its plates, should leak less than 0.05 litre per minute under 500 Pa. The way to measure it is the flow meter of the tuning table, or the pressure decay test of the bench (command LEAKTEST of the firmware, analysed by the function fit_decay of banc_recherche/leak.py, which fits 
+Le critère d'atelier pour l'étanchéité d'un sommier est un chiffre du livret de stage d'Ewen, un critère proposé, pas encore mesuré sur ses instruments : un sommier collé, nu ou garni de ses plaques, doit fuir moins de 0,05 litre par minute sous 500 Pa. Pour le mesurer, le débitmètre de la table d'accordage, ou le test de chute de pression du banc (commande LEAKTEST du firmware, analysée par la fonction fit_decay de banc_recherche/leak.py, qui ajuste 
 \begin_inset Formula $p(t)=p_{0}e^{-t/\tau}$
 \end_inset
 
- on the logarithm of the pressure and returns the time constant and a conductance).
+ sur le logarithme de la pression et rend la constante de temps et une conductance).
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): is there a measurable difference between a glued chamber and a solid one? Two measurements, both cheap: the leak at 500 Pa of each block on the tuning table (flow meter SFM3000, or the gasometer and the U-tube of the workshop), and the quality factor of one chamber excited by a short sweep from a small loudspeaker and recorded by the microphone (ring-down, banc_recherche/ringdown.py). A chamber whose walls flex should show a lower Q. Which block, which chamber, and on what day?
+À compléter (Ewen) : y a-t-il une différence mesurable entre une chambre collée et une chambre massive ? Deux mesures, toutes deux bon marché : la fuite à 500 Pa de chaque sommier à la table d'accordage (débitmètre SFM3000, ou le gazomètre et le tube en U de l'atelier), et le facteur de qualité d'une chambre excitée par un petit balayage d'un petit haut-parleur et enregistrée au micro (ring-down, banc_recherche/ringdown.py). Une chambre dont les parois fléchissent devrait montrer un Q plus bas. Quel sommier, quelle chambre, et quel jour ?
 \end_layout
 
 \begin_layout Section
@@ -3779,67 +3779,67 @@ Fluid organization in cavity
 \end_layout
 
 \begin_layout Standard
-Follow the air. On the push, it leaves the bellows, passes through the slot of the tongue, fills the chamber, climbs through the hole of the soundboard into the channel under the pallet, lifts the pallet and goes out. On the draw, the same road is run in the other direction: the outside air enters by the pallet, goes down the hole, fills the chamber, passes the other tongue of the plate and ends in the bellows, which is in depression. In both cases the tongue stands between two pressures, and it is their difference that pushes it out of its slot and drives the air through.
+Suivez l'air. En poussé, il quitte le soufflet, passe par la fente de la languette, remplit la chambre, monte par le trou de la table dans le canal sous le clapet, soulève le clapet et sort. En tiré, le même chemin est parcouru dans l'autre sens : l'air du dehors entre par le clapet, descend le trou, remplit la chambre, passe l'autre languette de la plaque et finit dans le soufflet, qui est en dépression. Dans les deux cas la languette est entre deux pressions, et c'est leur différence qui la pousse hors de sa fente et fait passer l'air.
 \end_layout
 
 \begin_layout Standard
-Each element of that road can be measured with a calliper, and each one becomes a simple thing in the model. The chamber is a spring of air: a volume 
+Chaque élément de ce chemin se mesure au pied à coulisse, et chacun devient une chose simple dans le modèle. La chambre est un ressort d'air : un volume 
 \begin_inset Formula $V$
 \end_inset
 
- gives a compliance 
+ donne une compliance 
 \begin_inset Formula $V/(\gamma P_{\mathrm{atm}})$
 \end_inset
 
-, where 
+, où 
 \begin_inset Formula $\gamma$
 \end_inset
 
- is the adiabatic constant of air (about 1.4) and 
+ est la constante adiabatique de l'air (environ 1,4) et 
 \begin_inset Formula $P_{\mathrm{atm}}$
 \end_inset
 
- the atmospheric pressure. The hole of the soundboard and the opening of the pallet are masses of air, 
+ la pression atmosphérique. Le trou de la table et l'ouverture du clapet sont des masses d'air, 
 \begin_inset Formula $\rho\ell/S$
 \end_inset
 
-, where 
+, où 
 \begin_inset Formula $\rho$
 \end_inset
 
- is the density of air, 
+ est la masse volumique de l'air, 
 \begin_inset Formula $\ell$
 \end_inset
 
- the effective length of the passage (its real length plus the end corrections, about 0.8 times the equivalent radius on each side) and 
+ la longueur effective du passage (sa longueur réelle plus les corrections d'extrémité, environ 0,8 fois le rayon équivalent de chaque côté) et 
 \begin_inset Formula $S$
 \end_inset
 
- its area; they also carry an orifice loss, 
+ sa section ; ils portent aussi une perte d'orifice, 
 \begin_inset Formula $\rho q|q|/(2(C_{d}S)^{2})$
 \end_inset
 
-, where 
+, où 
 \begin_inset Formula $q$
 \end_inset
 
- is the flow and 
+ est le débit et 
 \begin_inset Formula $C_{d}$
 \end_inset
 
- a discharge coefficient. The channel under the pallet is a volume common to the two tongues of the note. This is the whole network of coupled_reeds, and everything in it is derived from the conservation of mass and the law of Bernoulli for a short passage of incompressible air. What is not derived is the dimensions: chamber 35 by 15 by 15 mm, hole 8 by 25 by 20 mm, channel 4 cm
+ un coefficient de débit. Le canal sous le clapet est un volume commun aux deux languettes de la note. C'est tout le réseau de coupled_reeds, et tout y est dérivé de la conservation de la masse et de la loi de Bernoulli pour un passage court d'air incompressible. Ce qui n'est pas dérivé, ce sont les dimensions : chambre 35 par 15 par 15 mm, trou 8 par 25 par 20 mm, canal 4 cm
 \begin_inset Formula $^{3}$
 \end_inset
 
-, pallet 3 cm
+, clapet 3 cm
 \begin_inset Formula $^{2}$
 \end_inset
 
- by 10 mm are guessed orders of magnitude of a medium reed block, and each is to be taken on the instrument.
+ par 10 mm sont des ordres de grandeur devinés d'un sommier de médium, et chacun est à relever sur l'instrument.
 \end_layout
 
 \begin_layout Standard
-Such a network of lumped elements is valid as long as every dimension is small compared with the wavelength: at 440 Hz the wavelength is about 78 cm and a chamber is 3 cm long. The resonances of the network lie far above the fundamentals of the tongues: chamber and hole near 2 kHz with the guessed dimensions (1142 to 1575 Hz with the R12 chambers computed by Elmer), channel and pallet near 5 kHz. They colour the high partials; they do not make the note.
+Un tel réseau à constantes localisées est valable tant que chaque dimension est petite devant la longueur d'onde : à 440 Hz la longueur d'onde est d'environ 78 cm et une chambre fait 3 cm. Les résonances du réseau sont bien au-dessus des fondamentales des languettes : chambre et trou vers 2 kHz avec les dimensions devinées (1142 à 1575 Hz pour les chambres du R12 calculées par Elmer), canal et clapet vers 5 kHz. Elles colorent les partiels aigus ; elles ne font pas la note.
 \end_layout
 
 \begin_layout Subsection
@@ -3847,47 +3847,47 @@ Section aperture
 \end_layout
 
 \begin_layout Standard
-On the bench of this work, the air does not come from a hand but from a motor, and the passage between the air supply and the tongue is a slot opened by a screw. Its width is 15 mm; the screw sets its length; the area is the product. In the plan of experiments inherited from the 2020 bench (Mesures.py), this area is the factor called Section, with 8 steps, crossed with 8 steps of pallet angle and with the steps of pressure, each point measured in both directions of pressure. This is the aperture of this section: how much the supply is throttled before the tongue.
+Sur le banc de ce travail, l'air ne vient pas d'une main mais d'un moteur, et le passage entre l'alimentation en air et la languette est une fente ouverte par une vis. Sa largeur est de 15 mm ; la vis règle sa longueur ; la section est le produit. Dans le plan d'expériences hérité du banc de 2020 (Mesures.py), cette section est le facteur appelé Section, en 8 pas, croisé avec 8 pas d'angle de clapet et avec les pas de pression, chaque point étant mesuré dans les deux sens de pression. C'est l'ouverture dont parle cette section : de combien l'alimentation est étranglée avant la languette.
 \end_layout
 
 \begin_layout Standard
-Why does it matter? Because the bellows is not an ideal source. An ideal pressure source holds its pressure whatever the flow; an ideal flow source holds its flow whatever the pressure. A real bellows, like the turbine of the bench, gives less flow when the pressure rises. In the model this is written 
+Pourquoi est-ce important ? Parce que le soufflet n'est pas une source idéale. Une source de pression idéale tient sa pression quel que soit le débit ; une source de débit idéale tient son débit quelle que soit la pression. Un vrai soufflet, comme la turbine du banc, donne moins de débit quand la pression monte. Dans le modèle cela s'écrit 
 \begin_inset Formula $q=q_{0}-p/R$
 \end_inset
 
-: the flow 
+ : le débit 
 \begin_inset Formula $q$
 \end_inset
 
- that really arrives is the set flow 
+ qui arrive vraiment est le débit de consigne 
 \begin_inset Formula $q_{0}$
 \end_inset
 
- minus the pressure 
+ moins la pression 
 \begin_inset Formula $p$
 \end_inset
 
- divided by an internal resistance 
+ divisée par une résistance interne 
 \begin_inset Formula $R$
 \end_inset
 
-. The slope 
+. La pente 
 \begin_inset Formula $R$
 \end_inset
 
- is read directly on the bench: at a fixed motor command, sweep the Section factor, note the pairs of pressure and flow, and plot pressure against flow. A vertical line is a flow source, a horizontal line a pressure source, an oblique line a real one, and its slope is 
+ se lit directement sur le banc : à commande de moteur fixe, balayer le facteur Section, noter les couples pression et débit, et tracer la pression en fonction du débit. Une droite verticale est une source de débit, une horizontale une source de pression, une oblique une source réelle, et sa pente est 
 \begin_inset Formula $R$
 \end_inset
 
-. The repository calls this experiment E1 and puts it first, because every amplitude the model predicts depends on it.
+. Le dépôt appelle cette expérience E1 et la met en premier, parce que chaque amplitude que le modèle prédit en dépend.
 \end_layout
 
 \begin_layout Standard
-The value of 
+La valeur de 
 \begin_inset Formula $R$
 \end_inset
 
- in the model has its own history, and it is worth telling. It was first set to 
+ dans le modèle a sa propre histoire, et elle vaut d'être racontée. Elle fut d'abord posée à 
 \begin_inset Formula $2\times10^{8}$
 \end_inset
 
@@ -3895,11 +3895,11 @@ The value of
 \begin_inset Formula $^{-3}$
 \end_inset
 
- without any measurement. At that stiffness the tongue of a 55 mm blade was allowed to travel 110 mm at full loudness, which is absurd. Sweeping 
+ sans aucune mesure. À cette raideur la languette d'une lame de 55 mm pouvait parcourir 110 mm à pleine nuance, ce qui est absurde. Un balayage de 
 \begin_inset Formula $R$
 \end_inset
 
- showed that 
+ a montré que 
 \begin_inset Formula $5\times10^{6}$
 \end_inset
 
@@ -3907,41 +3907,41 @@ The value of
 \begin_inset Formula $^{-3}$
 \end_inset
 
- gives travels of about 2 mm all over the keyboard, and the smallest pitch deviations; it corresponds to a supply restriction of about 8 mm
+ donne des courses d'environ 2 mm sur tout le clavier, et les plus petits écarts de justesse ; cela correspond à une restriction d'alimentation d'environ 8 mm
 \begin_inset Formula $^{2}$
 \end_inset
 
-, the order of magnitude of a reed block channel. At 
+, l'ordre de grandeur d'un canal de sommier. À 
 \begin_inset Formula $2\times10^{6}$
 \end_inset
 
- nothing starts any more. The number 
+ plus rien ne démarre. Le nombre 
 \begin_inset Formula $5\times10^{6}$
 \end_inset
 
- is therefore a choice made so that the model stays in the range of a real accordion, not a measurement; the measurement is E1. Note also that the choking pressure, above which the tongue is blown out of its slot and stops, does not depend on 
+ est donc un choix fait pour que le modèle reste dans la plage d'un vrai accordéon, pas une mesure ; la mesure, c'est E1. Notez aussi que la pression d'étouffement, au-dessus de laquelle la languette est soufflée hors de sa fente et s'arrête, ne dépend pas du tout de 
 \begin_inset Formula $R$
 \end_inset
 
- at all in the one-reed model (379.8 Pa for the reference tongue, whatever the source): it is set by the geometry of the slot, not by the supply.
+ dans le modèle à une anche (379,8 Pa pour la languette de référence, quelle que soit la source) : elle est fixée par la géométrie de la fente, pas par l'alimentation.
 \end_layout
 
 \begin_layout Standard
-There is a second aperture, the hole of the soundboard. The numerical plan of experiments on the chambers (research/fem/sommier/seuils_cavite.py) sweeps its area from 25 to 400 mm
+Il y a une seconde ouverture, le trou de la table d'harmonie. Le plan d'expériences numérique sur les chambres (research/fem/sommier/seuils_cavite.py) balaie sa section de 25 à 400 mm
 \begin_inset Formula $^{2}$
 \end_inset
 
-, and a floor of 100 mm
+, et un plancher de 100 mm
 \begin_inset Formula $^{2}$
 \end_inset
 
- is kept in the proposal for the R12, so as not to throttle the air that the tongue consumes. That floor is a hypothesis, half of the assumed present hole, to be confirmed by the flow measured on the bench.
+ est gardé dans la proposition pour le R12, pour ne pas étrangler l'air que la languette consomme. Ce plancher est une hypothèse, la moitié du trou actuel supposé, à confirmer par le débit mesuré au banc.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): the characteristic of your source, pressure against flow, at a fixed motor command and for the eight Section steps (experiment E1), with the flow meter SFM3000 and the pressure sensor of the bench, or a water U-tube. One slope, one number. Which day?
+À compléter (Ewen) : la caractéristique de ta source, pression en fonction du débit, à commande de moteur fixe et pour les huit pas de Section (expérience E1), avec le débitmètre SFM3000 et le capteur de pression du banc, ou un tube en U à eau. Une pente, un nombre. Quel jour ?
 \end_layout
 
 \begin_layout Subsection
@@ -3949,33 +3949,33 @@ Pressure and Flow : impedance
 \end_layout
 
 \begin_layout Standard
-Impedance is a word for a simple question: when I push a flow, what pressure do I get back? The ratio of the two is the impedance. The bench of this work measures it in the crudest and most useful way, from the pressure sensor and the flow meter during a held note: banc_recherche/impedance.py takes the mean of pressure over flow, and also the product of the two, which is the pneumatic power that the player spends. This is the impedance of the whole instrument seen from the bellows, at zero frequency, and it is what the hand feels.
+L'impédance est un mot pour une question simple : quand je pousse un débit, quelle pression est-ce que je reçois en retour ? Le rapport des deux est l'impédance. Le banc de ce travail la mesure de la manière la plus rustique et la plus utile, à partir du capteur de pression et du débitmètre pendant une note tenue : banc_recherche/impedance.py prend la moyenne de la pression sur le débit, et aussi le produit des deux, qui est la puissance pneumatique que le joueur dépense. C'est l'impédance de tout l'instrument vue du soufflet, à fréquence nulle, et c'est ce que la main sent.
 \end_layout
 
 \begin_layout Standard
-The acoustic impedance seen by the tongue is another thing, and chapter 2 computed it. When the tongue pushes a small oscillating flow 
+L'impédance acoustique vue par la languette est autre chose, et le chapitre 2 l'a calculée. Quand la languette pousse un petit débit oscillant 
 \begin_inset Formula $q$
 \end_inset
 
- through its slot, the chamber, the hole and the outside give back a pressure 
+ à travers sa fente, la chambre, le trou et le dehors lui rendent une pression 
 \begin_inset Formula $p$
 \end_inset
 
-; the ratio 
+ ; le rapport 
 \begin_inset Formula $Z(f)=p/q$
 \end_inset
 
-, frequency by frequency, is all that the surroundings do to the tongue. Elmer solves the Helmholtz equation for it and the result is condensed in the Foster form, a mass of air in series with a sum of lossless resonators. The main result is a sign. Far below the chamber resonance, which is where every tongue plays, the open chamber behaves as a mass of air: the air pushed by the tongue escapes through the hole and the tongue feels its inertia. A closed cavity behaves as a spring. In the band of the tongue the closed cavity of the old time-domain model was wrong by 12 400 per cent for the bass reed, 494 per cent for the medium and 232 per cent for the high one; one Foster resonator brings the error under 9 per cent and two under 0.5 per cent. The chamber of a reed block is not a box: it is a mass of air hanging on a hole.
+, fréquence par fréquence, est tout ce que l'entourage fait à la languette. Elmer résout l'équation de Helmholtz pour l'obtenir et le résultat est condensé dans la forme de Foster, une masse d'air en série avec une somme de résonateurs sans pertes. Le résultat principal est un signe. Bien en dessous de la résonance de la chambre, là où joue chaque languette, la chambre ouverte se comporte comme une masse d'air : l'air poussé par la languette s'échappe par le trou et la languette sent son inertie. Une cavité fermée se comporte comme un ressort. Dans la bande de la languette, la cavité fermée de l'ancien modèle temporel était fausse de 12 400 pour cent pour l'anche grave, 494 pour cent pour la médium et 232 pour cent pour l'aiguë ; un résonateur de Foster ramène l'erreur sous 9 pour cent et deux sous 0,5 pour cent. La chambre d'un sommier n'est pas une boîte : c'est une masse d'air suspendue à un trou.
 \end_layout
 
 \begin_layout Standard
-Measuring an acoustic impedance with almost nothing is possible, and the software for it is already in the repository. The two-microphone method of the standard ISO 10534-2 puts two small microphones in a tube in front of the sample (a chamber, a pallet, a mute) and a loudspeaker at the other end; from the ratio of the two pressures and the spacing of the microphones one obtains the reflection coefficient, the normalised impedance and the absorption of the sample (banc_recherche/transfer.py, functions estimate_H12 and reflection_impedance). The sound card of the bench offers three channels, one stereo input and one mono, which is enough. The rig itself, a tube and two cheap measurement microphones, has not been built.
+Mesurer une impédance acoustique avec presque rien est possible, et le logiciel est déjà dans le dépôt. La méthode à deux microphones de la norme ISO 10534-2 place deux petits micros dans un tube devant l'échantillon (une chambre, un clapet, une sourdine) et un haut-parleur à l'autre bout ; du rapport des deux pressions et de l'écart des micros on tire le coefficient de réflexion, l'impédance normalisée et l'absorption de l'échantillon (banc_recherche/transfer.py, fonctions estimate_H12 et reflection_impedance). La carte son du banc offre trois voies, une entrée stéréo et une mono, ce qui suffit. Le montage lui-même, un tube et deux micros de mesure bon marché, n'a pas été construit.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): the first two-microphone measurement on a chamber of the R12, with the block closed by its plate and the hole open, to compare with the Elmer curve of the same chamber (first pole predicted at 1140 Hz for chamber 1). A plastic tube, two microphones, the sweep of frf.py. Who lends the second microphone, and when?
+À compléter (Ewen) : la première mesure à deux micros sur une chambre du R12, le sommier fermé par sa plaque et le trou ouvert, pour comparer à la courbe Elmer de la même chambre (premier pôle prédit à 1140 Hz pour la chambre 1). Un tube en plastique, deux micros, le balayage de frf.py. Qui prête le second micro, et quand ?
 \end_layout
 
 \begin_layout Subsection
@@ -3983,65 +3983,65 @@ Acoustic radiation
 \end_layout
 
 \begin_layout Standard
-Where does the sound come out? In the model of this work, through the pallet. A small opening breathing in and out, small compared with the wavelength, radiates like a monopole: at a distance 
+Par où sort le son ? Dans le modèle de ce travail, par le clapet. Une petite ouverture qui respire, petite devant la longueur d'onde, rayonne comme un monopôle : à une distance 
 \begin_inset Formula $r$
 \end_inset
 
- the pressure is 
+ la pression est 
 \begin_inset Formula $p(r,t)=\rho/(4\pi r)\cdot\mathrm{d}q_{p}/\mathrm{d}t$
 \end_inset
 
-, where 
+, où 
 \begin_inset Formula $q_{p}$
 \end_inset
 
- is the flow through the pallet. This is derived, and valid as long as 
+ est le débit par le clapet. C'est dérivé, et valable tant que 
 \begin_inset Formula $ka$
 \end_inset
 
-, the product of the wavenumber by the radius of the opening, stays small: about 0.08 at 440 Hz for the guessed pallet, and up to 0.9 near 5 kHz, where the formula ceases to hold. The radiated power is computed on the spectrum of the pallet flow with the radiation resistance of a baffled opening, 
+, le produit du nombre d'onde par le rayon de l'ouverture, reste petit : environ 0,08 à 440 Hz pour le clapet deviné, et jusqu'à 0,9 vers 5 kHz, où la formule cesse de tenir. La puissance rayonnée se calcule sur le spectre du débit du clapet avec la résistance de rayonnement d'une ouverture bafflée, 
 \begin_inset Formula $\rho\omega^{2}/(2\pi c)$
 \end_inset
 
-, and checked numerically: for a known sinusoidal flow the function returns 
-\begin_inset Formula $2.1277\times10^{-5}$
+, et elle est vérifiée numériquement : pour un débit sinusoïdal connu la fonction rend 
+\begin_inset Formula $2,1277\times10^{-5}$
 \end_inset
 
- W where the formula 
+ W là où la formule 
 \begin_inset Formula $\rho\omega^{2}Q^{2}/(4\pi c)$
 \end_inset
 
- gives 
-\begin_inset Formula $2.1279\times10^{-5}$
+ donne 
+\begin_inset Formula $2,1279\times10^{-5}$
 \end_inset
 
  W.
 \end_layout
 
 \begin_layout Standard
-One lesson of chapter 2 is repeated here because it is easy to forget. A free reed radiates by its modulated flow, not by the pressure of its chamber. The spectrum to compare with a microphone is that of 
+Une leçon du chapitre 2 est répétée ici parce qu'elle s'oublie facilement. Une anche libre rayonne par son débit modulé, pas par la pression de sa chambre. Le spectre à comparer à un micro est celui de 
 \begin_inset Formula $\mathrm{d}q/\mathrm{d}t$
 \end_inset
 
-. Counted that way, the one-reed model has twelve harmonics above minus 30 dB; counted on the chamber pressure, and with the fundamental taken at the loudest partial, it seemed to have two. The model was not poor; it was read wrongly.
+. Compté ainsi, le modèle à une anche a douze harmoniques au-dessus de moins 30 dB ; compté sur la pression de chambre, et avec le fondamental pris sur le partiel le plus fort, il semblait en avoir deux. Le modèle n'était pas pauvre ; il était mal lu.
 \end_layout
 
 \begin_layout Standard
-What the model says about efficiency, the share of the breath that becomes sound, is not to be trusted yet. One version gave 
-\begin_inset Formula $1.5\times10^{-5}$
+Ce que le modèle dit du rendement, la part du souffle qui devient son, n'est pas encore à croire. Une version donnait 
+\begin_inset Formula $1,5\times10^{-5}$
 \end_inset
 
- for one tongue and 
-\begin_inset Formula $2.9\times10^{-5}$
+ pour une languette et 
+\begin_inset Formula $2,9\times10^{-5}$
 \end_inset
 
- for two tongues in phase; a later version, with the mechanism of the closing section, gave 1 to 3 per cent, which the audit calls suspect. Both numbers follow from tongue travels and flows that the audit already knows to be too large. And the hypothesis that the pallet is the only source is incomplete: the bellows, the box and the plate radiate too, and nothing in this work has measured how much.
+ pour deux languettes en phase ; une version plus tardive, avec le mécanisme de la section qui se ferme, donnait 1 à 3 pour cent, que l'audit dit suspect. Les deux nombres découlent de courses et de débits que l'audit sait déjà trop grands. Et l'hypothèse que le clapet est la seule source est incomplète : le soufflet, la caisse et la plaque rayonnent aussi, et rien dans ce travail n'a mesuré combien.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): the acoustic power of one note against the pneumatic power spent, with a calibrated microphone (the calibration of the microphone has not been done) and the pressure and flow of the bench. One ratio, for one reed, at 1.5 times the threshold. This single number would judge the efficiency of every model.
+À compléter (Ewen) : la puissance acoustique d'une note contre la puissance pneumatique dépensée, avec un micro calibré (la calibration du micro n'a pas été faite) et la pression et le débit du banc. Un rapport, pour une anche, à 1,5 fois le seuil. Ce seul nombre jugerait le rendement de tous les modèles.
 \end_layout
 
 \begin_layout Section
@@ -4049,67 +4049,67 @@ Impedance and inverse problem solving
 \end_layout
 
 \begin_layout Standard
-The direct problem is to compute what a known geometry does. The inverse problem is the maker's problem: from what is heard or measured, to find the geometry, or the few numbers that stand for it. This work meets it three times, and each time the same rule is applied: calibrate the least certain parameters on the most robust measurements, and keep the remaining observables as predictions. A model fitted on everything can no longer be contradicted, and then it teaches nothing.
+Le problème direct, c'est calculer ce que fait une géométrie connue. Le problème inverse, c'est le problème du facteur : à partir de ce qu'on entend ou mesure, retrouver la géométrie, ou les quelques nombres qui la représentent. Ce travail le rencontre trois fois, et chaque fois la même règle s'applique : recaler les paramètres les moins sûrs sur les mesures les plus robustes, et garder les autres observables comme prédictions. Un modèle ajusté sur tout ne peut plus être contredit, et alors il n'apprend rien.
 \end_layout
 
 \begin_layout Standard
-First, from the finite elements. Sweeping 70 frequencies through Elmer for one chamber took 487 s. Instead, the poles of the impedance are taken from one eigenvalue computation, the residues from 14 harmonic solutions far from the poles, and the Foster form is rebuilt; on the same mesh it reproduces the sweep to 0.017 per cent (median) in 53 s. The first resonator then hands the network its effective volume, 
+D'abord, à partir des éléments finis. Balayer 70 fréquences dans Elmer pour une chambre a pris 487 s. À la place, les pôles de l'impédance sont pris d'un seul calcul aux valeurs propres, les résidus de 14 solutions harmoniques loin des pôles, et la forme de Foster est reconstruite ; sur le même maillage elle reproduit le balayage à 0,017 pour cent (médiane) en 53 s. Le premier résonateur donne alors au réseau son volume effectif, 
 \begin_inset Formula $V=\rho c^{2}/a_{1}$
 \end_inset
 
-, and the effective length of the hole, 
+, et la longueur effective du trou, 
 \begin_inset Formula $\ell=(a_{1}/\omega_{1}^{2})S/\rho$
 \end_inset
 
-, where 
+, où 
 \begin_inset Formula $a_{1}$
 \end_inset
 
- and 
+ et 
 \begin_inset Formula $\omega_{1}$
 \end_inset
 
- are the residue and the angular frequency of that resonator and 
+ sont le résidu et la pulsation de ce résonateur et 
 \begin_inset Formula $S$
 \end_inset
 
- the area of the hole. For chamber 1 under the bass tongue: 17.79 cm
+ la section du trou. Pour la chambre 1 sous la languette grave : 17,79 cm
 \begin_inset Formula $^{3}$
 \end_inset
 
- and 25.8 mm, against 18.26 cm
+ et 25,8 mm, contre 18,26 cm
 \begin_inset Formula $^{3}$
 \end_inset
 
- of geometric cells and 8 mm of real thickness. The effective length is three times the real one: the end corrections are the least certain dimension of the whole block.
+ de cases géométriques et 8 mm d'épaisseur réelle. La longueur effective est trois fois la réelle : les corrections d'extrémité sont la dimension la moins sûre de tout le sommier.
 \end_layout
 
 \begin_layout Standard
-Second, from a plucked tongue on its chamber (gesture (b) of chapter 2). The shift of the plucked frequency, predicted at 1.2 to 3.5 cents downward, calibrates the share 
+Ensuite, à partir d'une languette pincée sur sa chambre (geste (b) du chapitre 2). Le décalage de la fréquence pincée, prédit de 1,2 à 3,5 cents vers le bas, recale la part 
 \begin_inset Formula $\kappa^{2}$
 \end_inset
 
- of the swept volume that really goes through the chamber; the measured frequency of the air resonator calibrates the effective length of the hole, the volume being kept from the drawing; and the damping of that resonator gives the loss resistance that the lossless finite element model does not have, through 
+ du volume balayé qui passe vraiment par la chambre ; la fréquence mesurée du résonateur d'air recale la longueur effective du trou, le volume étant gardé du dessin ; et l'amortissement de ce résonateur donne la résistance de perte que le modèle par éléments finis sans pertes n'a pas, par 
 \begin_inset Formula $\zeta_{H}=(R/2)\sqrt{C/L_{t}}$
 \end_inset
 
- for a series resistance, compliance and inertance. The measurement is cheap, a microphone and a toothpick, and it has a verdict built in: a shift of the wrong sign, or three times too large, or a resonator more than 10 per cent away from Elmer, would mean that the coupling through the slot must be reformulated, not re-tuned.
+ pour une résistance, une compliance et une inertance en série. La mesure est bon marché, un micro et un cure-dent, et elle porte son verdict : un décalage du mauvais signe, ou trois fois trop grand, ou un résonateur à plus de 10 pour cent d'Elmer, voudrait dire que le couplage par la fente doit être reformulé, pas réajusté.
 \end_layout
 
 \begin_layout Standard
-Third, from a played sound. Here the honest answer is that a single note is not enough. Fitting a source and a resonator on the envelope of one note is under-determined: the envelope passes through the tops of the partials and mixes the two. The repository measured how many notes are needed to separate them, about ten spread over the compass, because below six the resonance is poorly located and above twelve the gain is marginal. The identification tool keeps two columns, what is measured and what is assumed, and prints both, because a parameter assumed and taken for measured is the surest way to be wrong for a long time. Before any optimisation in ten dimensions, a Plackett-Burman plan of experiments on the parameters of the model says which ones matter.
+Enfin, à partir d'un son joué. Ici la réponse honnête est qu'une seule note ne suffit pas. Ajuster une source et un résonateur sur l'enveloppe d'une note est sous-déterminé : l'enveloppe passe par les sommets des partiels et mélange les deux. Le dépôt a mesuré combien de notes il faut pour les séparer, une dizaine réparties sur la tessiture, parce qu'en dessous de six la résonance est mal localisée et au-delà de douze le gain devient marginal. L'outil d'identification tient deux colonnes, ce qui se mesure et ce qui se suppose, et imprime les deux, parce qu'un paramètre supposé qu'on prend pour mesuré est la façon la plus sûre de se tromper longtemps. Avant toute optimisation en dix dimensions, un plan de Plackett-Burman sur les paramètres du modèle dit lesquels comptent.
 \end_layout
 
 \begin_layout Standard
-A cautionary tale belongs here, about the frequency shift as a measure of the chamber. An early version of the one-reed model predicted that the played note stands 16 per cent above the plucked one, with an effective volume of 40 cm
+Un récit d'avertissement a sa place ici, sur le décalage de fréquence comme mesure de la chambre. Une première version du modèle à une anche prédisait que la note jouée se tient 16 pour cent au-dessus de la note pincée, avec un volume effectif de 40 cm
 \begin_inset Formula $^{3}$
 \end_inset
 
-, and proposed to read the volume from that shift. The shift was real in the model but came from a term of swept volume that a free reed does not have: it compressed its chamber like a piston, which a tongue sitting in its slot does not do. Once that term was removed, the geometric chamber of 7.9 cm
+, et proposait de lire le volume dans ce décalage. Le décalage était réel dans le modèle mais venait d'un terme de volume balayé qu'une anche libre n'a pas : elle comprimait sa chambre comme un piston, ce qu'une languette assise dans sa fente ne fait pas. Une fois ce terme retiré, la chambre géométrique de 7,9 cm
 \begin_inset Formula $^{3}$
 \end_inset
 
- was enough for the model to start, and the shift fell to tens of cents in the bass and a few cents above (plus 30 cents at 102 Hz, plus 2 cents at 440 Hz in that closed-cavity version), then changed sign once the hole of the soundboard entered the network. The inverse problem is only as good as the direct model it inverts.
+ a suffi au modèle pour démarrer, et le décalage est tombé à quelques dizaines de cents dans le grave et quelques cents au-dessus (plus 30 cents à 102 Hz, plus 2 cents à 440 Hz dans cette version à cavité fermée), puis a changé de signe quand le trou de la table est entré dans le réseau. Le problème inverse ne vaut que ce que vaut le modèle direct qu'il inverse.
 \end_layout
 
 \begin_layout Section
@@ -4117,43 +4117,43 @@ Reed block geometry
 \end_layout
 
 \begin_layout Standard
-How deep should a chamber be, how wide its hole? The maker has rules of thumb, often inherited. Here is what a numerical plan of experiments on the small network says, with its limits stated first: one mode of blade, uniform steel blades, guessed lift and clearance, a mechanism of start-up that the sandwich experiment refutes. What is read is how the threshold moves when the chamber is changed, not the value of the threshold.
+Quelle profondeur pour une chambre, quelle largeur pour son trou ? Le facteur a des règles de pouce, souvent héritées. Voici ce que dit un plan d'expériences numérique sur le petit réseau, ses limites d'abord : un mode de lame, des lames d'acier uniformes, levée et jeu devinés, un mécanisme de démarrage que l'expérience du sandwich réfute. Ce qu'on lit, c'est comment le seuil bouge quand la chambre change, pas la valeur du seuil.
 \end_layout
 
 \begin_layout Standard
-The chamber and its hole form a Helmholtz resonator of frequency 
+La chambre et son trou forment un résonateur de Helmholtz de fréquence 
 \begin_inset Formula $f_{H}=\frac{c}{2\pi}\sqrt{S/(VL_{\mathrm{eff}})}$
 \end_inset
 
-, where 
+, où 
 \begin_inset Formula $c$
 \end_inset
 
- is the speed of sound, 
+ est la vitesse du son, 
 \begin_inset Formula $S$
 \end_inset
 
- the area of the hole, 
+ la section du trou, 
 \begin_inset Formula $V$
 \end_inset
 
- the volume of the cells and 
+ le volume des cases et 
 \begin_inset Formula $L_{\mathrm{eff}}$
 \end_inset
 
- the effective length of the hole, its real length plus an end correction of 
+ la longueur effective du trou, sa longueur réelle plus une correction d'extrémité de 
 \begin_inset Formula $\kappa$
 \end_inset
 
- times the equivalent radius. Against Elmer, the formula with the volume of the cells alone is too high by 0 to 10 per cent, and the inner correction seen by Elmer is 0.85 to 1.34 times the equivalent radius (mean 1.03), which gives 
+ fois le rayon équivalent. Face à Elmer, la formule avec le volume des cases seules est trop haute de 0 à 10 pour cent, et la correction intérieure vue par Elmer vaut 0,85 à 1,34 fois le rayon équivalent (moyenne 1,03), ce qui donne 
 \begin_inset Formula $\kappa$
 \end_inset
 
- close to 1.9 for both ends together; the plans of 3 October 2026 ran with 1.55. The chain is the one wanted: Elmer calibrates the effective lengths on the real geometry, the small network runs the plan.
+ proche de 1,9 pour les deux bouts ensemble ; les plans du 3 octobre 2026 ont tourné avec 1,55. La chaîne est celle qu'on voulait : Elmer recale les longueurs effectives sur la vraie géométrie, le petit réseau fait le plan.
 \end_layout
 
 \begin_layout Standard
-The plan sweeps the ratio of the chamber resonance to the frequency of the blade. Table 
+Le plan balaie le rapport entre la résonance de la chambre et la fréquence de la lame. Le tableau 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "tab:fenetre"
@@ -4162,11 +4162,11 @@ caps "false"
 noprefix "false"
 
 \end_inset
- gives, for a blade of 700 Hz in a chamber of 10.2 cm
+ donne, pour une lame de 700 Hz dans une chambre de 10,2 cm
 \begin_inset Formula $^{3}$
 \end_inset
 
- (the volume of chamber 12), the threshold pressure and the pitch at threshold. Below the resonance nothing starts. At a ratio of 1.1 the threshold is enormous and the note is pulled far down. Between 1.2 and 1.7 the threshold is lowest; above 2 it rises again. The study of 3 October 2026 concluded on a window of 1.2 to 1.7. The lower edge is itself uncertain: the 1000 Hz blade has its lowest threshold at 1.2 (423 Pa) and the 1400 Hz blade at 1.1 (775 Pa), where the plan stops being clean. It is the maker's window: a chamber whose resonance stands a fifth to a minor sixth above the tongue makes it speak most easily. The pitch at threshold tells the other side of the story: the closer the resonance, the more it pulls the note down, from 36 cents at 1.2 to 6 cents at 2.0. The same tendencies hold in the real R12 chambers 1 and 12 computed by Elmer, with their proper volumes.
+ (le volume de la chambre 12), la pression de seuil et la justesse au seuil. En dessous de la résonance, rien ne démarre. À un rapport de 1,1 le seuil est énorme et la note est tirée loin vers le bas. Entre 1,2 et 1,7 le seuil est le plus bas ; au-dessus de 2 il remonte. L'étude du 3 octobre 2026 a conclu sur une fenêtre de 1,2 à 1,7. Le bord bas est lui-même incertain : la lame de 1000 Hz a son seuil le plus bas à 1,2 (423 Pa) et la lame de 1400 Hz à 1,1 (775 Pa), là où le plan cesse d'être propre. C'est la fenêtre du facteur : une chambre dont la résonance se tient une quinte à une sixte mineure au-dessus de la languette la fait parler le plus facilement. La justesse au seuil raconte l'autre face : plus la résonance est proche, plus elle tire la note vers le bas, de 36 cents à 1,2 à 6 cents à 2,0. Les mêmes tendances tiennent dans les vraies chambres 1 et 12 du R12 calculées par Elmer, avec leurs volumes propres.
 \end_layout
 
 \begin_layout Standard
@@ -4185,11 +4185,11 @@ name "tab:fenetre"
 
 \end_inset
 
-Threshold and pitch at threshold of a 700 Hz uniform steel blade in a 10.2 cm
+Seuil et justesse au seuil d'une lame d'acier uniforme de 700 Hz dans une chambre de 10,2 cm
 \begin_inset Formula $^{3}$
 \end_inset
 
- chamber, as the area of the hole moves the chamber resonance (small network with the Elmer effective lengths; tendencies, not pascals).
+, quand la section du trou déplace la résonance de la chambre (petit réseau avec les longueurs effectives d'Elmer ; des tendances, pas des pascals).
 \end_layout
 
 \end_inset
@@ -4218,7 +4218,7 @@ hline
 
 $S$ (mm$^{2}$) & $f_{H}$ (Hz) & $f_{H}/f_{1}$ & $p_{
 \backslash
-mathrm{on}}$ (Pa) & pitch (cents) 
+mathrm{on}}$ (Pa) & justesse (cents) 
 \backslash
 
 \backslash
@@ -4233,7 +4233,7 @@ hline
 
 \begin_layout Plain Layout
 
-21.7 & 700 & 1.0 & silence & -- 
+21,7 & 700 & 1,0 & silence & -- 
 \backslash
 
 \backslash
@@ -4242,7 +4242,7 @@ hline
 
 \begin_layout Plain Layout
 
-27.7 & 770 & 1.1 & 4155 & $-$144 
+27,7 & 770 & 1,1 & 4155 & $-$144 
 \backslash
 
 \backslash
@@ -4251,7 +4251,7 @@ hline
 
 \begin_layout Plain Layout
 
-35.0 & 840 & 1.2 & 453 & $-$36 
+35,0 & 840 & 1,2 & 453 & $-$36 
 \backslash
 
 \backslash
@@ -4260,7 +4260,7 @@ hline
 
 \begin_layout Plain Layout
 
-54.1 & 980 & 1.4 & 234 & $-$17 
+54,1 & 980 & 1,4 & 234 & $-$17 
 \backslash
 
 \backslash
@@ -4269,7 +4269,7 @@ hline
 
 \begin_layout Plain Layout
 
-98.8 & 1190 & 1.7 & 227 & $-$9 
+98,8 & 1190 & 1,7 & 227 & $-$9 
 \backslash
 
 \backslash
@@ -4278,7 +4278,7 @@ hline
 
 \begin_layout Plain Layout
 
-176.2 & 1400 & 2.0 & 350 & $-$6 
+176,2 & 1400 & 2,0 & 350 & $-$6 
 \backslash
 
 \backslash
@@ -4308,17 +4308,17 @@ end{tabular}
 \end_layout
 
 \begin_layout Standard
-Applied to the R12 with hypothetical notes (a diatonic row in G, not yet confirmed), the window is reachable with machinable dimensions only for chambers 8 to 10. The low chambers, 1 to 7, have resonances 2.4 to 7.8 times their notes and would need an enormous chamber or a minute hole; for them the proposal only moves the resonance at least 50 cents away from the harmonics 1 to 6 of the notes, so that it pulls neither pitch nor timbre, and three chambers (3, 4 and 7) have their A-against-B mode within 20 cents of a harmonic. The two highest chambers carry a note above their resonance, which does not start in the model; chamber 12 would need a smaller volume than the bounds allow. All of this is a proposal written to a file, nothing has been changed in the drawing, and the notes are a hypothesis: as soon as the real notes are in notes_r12.csv everything recomputes itself.
+Appliquée au R12 avec des notes hypothétiques (un rang diatonique en sol, pas encore confirmé), la fenêtre n'est atteignable avec des cotes usinables que pour les chambres 8 à 10. Les chambres graves, 1 à 7, ont des résonances de 2,4 à 7,8 fois leurs notes et demanderaient une chambre énorme ou un trou minuscule ; pour elles la proposition se contente d'éloigner la résonance d'au moins 50 cents des harmoniques 1 à 6 des notes, pour qu'elle ne tire ni la justesse ni le timbre, et trois chambres (3, 4 et 7) ont leur mode A-contre-B à moins de 20 cents d'un harmonique. Les deux chambres les plus aiguës portent une note au-dessus de leur résonance, qui ne démarre pas dans le modèle ; la chambre 12 demanderait un volume plus petit que les bornes ne le permettent. Tout cela est une proposition écrite dans un fichier, rien n'a été changé dans le dessin, et les notes sont une hypothèse : dès que les vraies notes sont dans notes_r12.csv, tout se recalcule seul.
 \end_layout
 
 \begin_layout Standard
-Two remarks on what the plan cannot see. In this network the push and the draw give the same growth rates, because the chain is symmetric; the model does not distinguish the inner tongue, inside the cell, from the outer one. And the position of the slot on the plate is centred by default, with the tip of the tongue neither towards the hole nor towards the bottom: a dimension to measure.
+Deux remarques sur ce que le plan ne peut pas voir. Dans ce réseau le poussé et le tiré donnent les mêmes taux de croissance, parce que la chaîne est symétrique ; le modèle ne distingue pas la languette intérieure, dans la case, de l'extérieure. Et la position de la fente sur la plaque est centrée par défaut, la pointe de la languette ni vers le trou ni vers le fond : une dimension à mesurer.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): the real notes of the twelve chambers of the R12 (notes_r12.csv), and the real dimensions of one hole of the soundboard and one pallet, with a calliper. Without them, Table 
+À compléter (Ewen) : les vraies notes des douze chambres du R12 (notes_r12.csv), et les vraies dimensions d'un trou de la table d'harmonie et d'un clapet, au pied à coulisse ou dans la CAO. Sans elles, le tableau 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "tab:fenetre"
@@ -4327,7 +4327,7 @@ caps "false"
 noprefix "false"
 
 \end_inset
- is a tendency on an imagined instrument.
+ est une tendance sur un instrument imaginé.
 \end_layout
 
 \begin_layout Subsection
@@ -4335,15 +4335,15 @@ Application : Bend technics
 \end_layout
 
 \begin_layout Standard
-A bend is a note pulled away from its pitch by the player, with the hands or the bellows, and brought back. On a free reed the levers are few, and the models of this work name them.
+Un bend est une note tirée hors de sa hauteur par le joueur, avec les mains ou le soufflet, et ramenée. Sur une anche libre les leviers sont peu nombreux, et les modèles de ce travail les nomment.
 \end_layout
 
 \begin_layout Standard
-The first lever is pressure. In every version of the models that starts, the note goes down when the player pushes harder: the one-reed model gives minus 15.7 cents from 1.3 to 2 times the threshold, and the two-reed network a few cents below the blade at threshold, falling further with pressure. This is the sense that every player knows. The numbers are predictions of models whose amplitude is not yet bounded correctly; the sign is robust.
+Le premier levier est la pression. Dans toutes les versions des modèles qui démarrent, la note baisse quand le joueur pousse plus fort : le modèle à une anche donne moins 15,7 cents de 1,3 à 2 fois le seuil, et le réseau à deux anches quelques cents sous la lame au seuil, descendant encore avec la pression. C'est le sens que connaît tout joueur. Les nombres sont des prédictions de modèles dont l'amplitude n'est pas encore bornée correctement ; le signe est robuste.
 \end_layout
 
 \begin_layout Standard
-The second lever is the chamber, and here Table 
+Le second levier est la chambre, et là le tableau 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "tab:fenetre"
@@ -4352,17 +4352,17 @@ caps "false"
 noprefix "false"
 
 \end_inset
- is the guide. A chamber tuned far above the tongue, as all the low chambers of the R12 are, hardly pulls the note: in the plan the pitch moves by one or two cents between 300 and 2000 Pa when the resonance is 1.3 times the note. A chamber tuned close to the tongue pulls hard: at a ratio of 1.02 the same blade plays 84 cents low at threshold and 97 cents low at 2000 Pa, but its threshold has risen from 208 to 1322 Pa. A bendable chamber is a hard-blowing chamber, in the model. The experiment with modelling clay (E4 of the audit, halving a chamber far from resonance) predicts a slightly harder start and almost no pitch change; it tests the same point from the other side.
+ est le guide. Une chambre accordée loin au-dessus de la languette, comme le sont toutes les chambres graves du R12, tire à peine la note : dans le plan la justesse bouge d'un ou deux cents entre 300 et 2000 Pa quand la résonance vaut 1,3 fois la note. Une chambre accordée près de la languette tire fort : à un rapport de 1,02 la même lame joue 84 cents bas au seuil et 97 cents bas à 2000 Pa, mais son seuil est monté de 208 à 1322 Pa. Une chambre qui bend est une chambre dure à souffler, dans le modèle. L'expérience à la pâte à modeler (E4 de l'audit, diviser par deux une chambre loin de la résonance) prédit un démarrage un peu plus difficile et presque aucun changement de justesse ; elle teste le même point par l'autre côté.
 \end_layout
 
 \begin_layout Standard
-The third lever is the air path above the tongue, hole and pallet. In the version of the two-reed network with the closing section, the mass of air of that path is part of the engine: dividing it by ten, the tongue does not start; multiplying it by three, it starts less well. A pallet half closed changes that mass. Whether it also changes the pitch by more than the 0.1 cent that the tuner of this work resolves is not known.
+Le troisième levier est le chemin d'air au-dessus de la languette, trou et clapet. Dans la version du réseau à deux anches avec la section qui se ferme, la masse d'air de ce chemin fait partie du moteur : divisée par dix, la languette ne démarre pas ; multipliée par trois, elle démarre moins bien. Un clapet à moitié fermé change cette masse. Qu'il change aussi la hauteur de plus que le dixième de cent que l'accordeur de ce travail résout, on ne le sait pas.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): on the bench, one tongue at fixed pressure, the pallet angle swept over its eight steps (the Clapet factor of the plan of experiments), the pitch read by the tuner in cents at each step. Then the same with the pressure staircase of the wind tunnel protocol, going up and down. Two curves, one afternoon.
+À compléter (Ewen) : au banc, une languette à pression fixe, l'angle du clapet balayé sur ses huit pas (le facteur Clapet du plan d'expériences), la justesse lue à l'accordeur en cents à chaque pas. Puis la même chose avec l'escalier de pression du protocole de soufflerie, en montant et en descendant. Deux courbes, une après-midi.
 \end_layout
 
 \begin_layout Chapter
@@ -4370,7 +4370,7 @@ Reed coupling
 \end_layout
 
 \begin_layout Standard
-A tongue is never alone. It is coupled to its plate, the plate to the block, the block to the soundboard, and through the air to the other tongue of its note. This chapter takes these couplings one by one, from the pot of wax to the pair of voices that beat.
+Une languette n'est jamais seule. Elle est couplée à sa plaque, la plaque au sommier, le sommier à la table d'harmonie, et par l'air à l'autre languette de sa note. Ce chapitre prend ces couplages un à un, du pot de cire à la paire de voix qui battent.
 \end_layout
 
 \begin_layout Section
@@ -4378,21 +4378,21 @@ Wax or nails ? or ...
 \end_layout
 
 \begin_layout Standard
-Hot wax poured around the plate, or nails driven through it into the wood with a strip of leather beneath: the two ways of fixing a plate have their partisans. What does the fixing do to the tongue? Two things, in principle. It seals the plate against the block, and it sets the boundary condition of the plate, which is the ground on which the tongue is clamped.
+De la cire chaude coulée autour de la plaque, ou des clous enfoncés à travers elle dans le bois avec une bande de cuir dessous : les deux manières de fixer une plaque ont leurs partisans. Que fait la fixation à la languette ? Deux choses, en principe. Elle rend la plaque étanche contre le sommier, et elle fixe la condition aux limites de la plaque, qui est le sol sur lequel la languette est encastrée.
 \end_layout
 
 \begin_layout Standard
-On the second point this work has one number, and it is about the tongue, not the plate. In Elmer, replacing an ideal clamping of the tongue by its real one, a heel pressed from below at the rivet, lowers the first frequency by 0.3 per cent, about 5 cents. The plate itself is rigid in every model of this work; a plate held only by wax at its edges may flex, and nothing here has computed or measured by how much.
+Sur le second point ce travail a un nombre, et il concerne la languette, pas la plaque. Dans Elmer, remplacer un encastrement idéal de la languette par le vrai, un talon appuyé par dessous au rivet, abaisse la première fréquence de 0,3 pour cent, environ 5 cents. La plaque elle-même est rigide dans tous les modèles de ce travail ; une plaque tenue seulement par la cire à ses bords peut fléchir, et rien ici n'a calculé ni mesuré de combien.
 \end_layout
 
 \begin_layout Standard
-On the first point, sealing, the figure is again the proposed workshop criterion: a block with its plates, bare or furnished, under 0.05 litre per minute at 500 Pa. A leak at the edge of a plate is a second slot in parallel with the tongue; the workshop knows its symptoms, the pressure that falls before the note and the soft attack, and sometimes a neighbouring note that sounds faintly without being played.
+Sur le premier point, l'étanchéité, le chiffre est encore le critère d'atelier proposé : un sommier avec ses plaques, nu ou garni, sous 0,05 litre par minute à 500 Pa. Une fuite au bord d'une plaque est une seconde fente en parallèle avec la languette ; l'atelier en connaît les symptômes, la pression qui tombe avant la note et l'attaque molle, et parfois une note voisine qui sonne faiblement sans qu'on la joue.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): one plate, plucked three times waxed and three times nailed, alternately, with the chain of chapter 2 (microphone at 15 cm, fixed gain, pince_modes.py). The frequency is measured to better than 0.3 cent and the damping to 3 per cent on synthetic sounds, but remounting a plate moves the frequency by more than the shift of the chamber itself, hence the alternation. Does the fixing change the damping of the first mode? Which plate?
+À compléter (Ewen) : une plaque, pincée trois fois cirée et trois fois clouée, en alternance, avec la chaîne du chapitre 2 (micro à 15 cm, gain fixe, pince_modes.py). La fréquence se mesure à mieux que 0,3 cent et l'amortissement à 3 pour cent sur des sons de synthèse, mais remonter une plaque déplace la fréquence de plus que le décalage de la chambre elle-même, d'où l'alternance. La fixation change-t-elle l'amortissement du premier mode ? Quelle plaque ?
 \end_layout
 
 \begin_layout Section
@@ -4400,17 +4400,17 @@ Glued reed block or wise
 \end_layout
 
 \begin_layout Standard
-The title keeps a French word: vis, screws. A block glued on the soundboard against a block held by screws, with a gasket between. The glued block is tight by nature and cannot be taken off; the screwed block comes off for tuning and relies on its gasket. The physics of this work has nothing to compare the two yet, but it has the test that would.
+Le titre garde le mot vis : un sommier collé sur la table d'harmonie contre un sommier tenu par des vis, avec un joint entre les deux. Le sommier collé est étanche par nature et ne se démonte pas ; le sommier vissé se démonte pour l'accordage et compte sur son joint. La physique de ce travail n'a encore rien pour comparer les deux, mais elle a le test qui le ferait.
 \end_layout
 
 \begin_layout Standard
-The test is the one Ewen already does at the tuning table, written here so that it can be repeated the same way. The block is on the table at a fixed pressure, always the same for a given type of block, 500 Pa for example; the flow meter reads the air that passes. Ten readings in five seconds give the free flow and its scatter. Then a finger or a weight presses the joint, always at the same place with the same force, and after three seconds ten readings give the pressed flow. The difference is the leak of that joint, in litres per minute. Three pairs are taken, and the joint leaks if the difference exceeds three times the scatter at rest in all three. What the test does not see is a leak elsewhere, which the finger does not close; for the whole block the pressure decay test of the bench gives the global leak, and the appendix on leak detection gives the ways to locate one.
+Le test est celui qu'Ewen fait déjà à la table d'accordage, écrit ici pour être refait pareil. Le sommier est sur la table à pression fixe, toujours la même pour un type de sommier donné, 500 Pa par exemple ; le débitmètre lit l'air qui passe. Dix lectures en cinq secondes donnent le débit libre et son écart. Puis un doigt ou un poids appuie sur le joint, toujours au même endroit avec la même force, et après trois secondes dix lectures donnent le débit appuyé. La différence est la fuite de ce joint, en litres par minute. On prend trois couples, et le joint fuit si la différence dépasse trois fois l'écart au repos dans les trois. Ce que le test ne voit pas, c'est une fuite ailleurs, que le doigt ne ferme pas ; pour tout le sommier le test de chute de pression du banc donne la fuite globale, et l'annexe sur la détection des fuites donne les moyens d'en localiser une.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): the leak at 500 Pa of a glued block and of a screwed block of the same instrument, by the test above. And a question only you can answer: when a screwed block is taken off and put back, does any tongue change pitch by more than the few cents that the chamber itself shifts it?
+À compléter (Ewen) : la fuite à 500 Pa d'un sommier collé et d'un sommier vissé du même instrument, par le test ci-dessus. Et une question à laquelle toi seul peux répondre : quand un sommier vissé est démonté et remonté, une languette change-t-elle de hauteur de plus que les quelques cents dont la chambre elle-même la décale ?
 \end_layout
 
 \begin_layout Section
@@ -4418,11 +4418,11 @@ Parallel or perpendicular design
 \end_layout
 
 \begin_layout Standard
-Plates can lie flat on the soundboard, parallel to it, or stand on the walls of a block, perpendicular to it, which is the common design. What changes is the shape of the chamber behind each tongue and the road from the slot to the hole. The method of chapter 2 is made for exactly this comparison, since the input impedance seen from the slot is computed on whatever geometry is drawn; but only the perpendicular design, the R12 block, has been drawn and computed. A geometry of tongue and cavity drawn by Ewen in 2020 (the Elmer project Reed_with_cav, FreeCAD, four bodies) was never computed, no solver being active in it; it is kept, not as a duplicate but as the starting point of the other design.
+Les plaques peuvent être couchées sur la table d'harmonie, parallèles à elle, ou dressées sur les cloisons d'un sommier, perpendiculaires à elle, ce qui est le montage courant. Ce qui change, c'est la forme de la chambre derrière chaque languette et le chemin de la fente au trou. La méthode du chapitre 2 est faite exactement pour cette comparaison, puisque l'impédance d'entrée vue de la fente se calcule sur n'importe quelle géométrie dessinée ; mais seul le montage perpendiculaire, le sommier R12, a été dessiné et calculé. Une géométrie de languette et de cavité dessinée par Ewen en 2020 (le projet Elmer Reed_with_cav, FreeCAD, quatre corps) n'a jamais été calculée, aucun solveur n'y étant actif ; elle est gardée, non comme doublon mais comme point de départ de l'autre montage.
 \end_layout
 
 \begin_layout Standard
-One result of chapter 2 bears on the choice without deciding it. What the tongue feels at its frequency is the inertia of the air escaping through the hole, not the stiffness of the cavity. A flat plate with a short road to its hole and a standing plate with a long cell behind it will give the tongue different masses of air, and Table 
+Un résultat du chapitre 2 pèse sur le choix sans le trancher. Ce que la languette sent à sa fréquence, c'est l'inertie de l'air qui s'échappe par le trou, pas la raideur de la cavité. Une plaque à plat avec un chemin court vers son trou et une plaque dressée avec une longue case derrière elle donneront à la languette des masses d'air différentes, et le tableau 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "tab:fenetre"
@@ -4431,13 +4431,13 @@ caps "false"
 noprefix "false"
 
 \end_inset
- says that the mass, through the resonance it sets, moves the threshold and the pitch. Which design is better is therefore a question of where its resonance falls, and that is computed in minutes once the drawing exists.
+ dit que la masse, par la résonance qu'elle fixe, déplace le seuil et la justesse. Quel montage est le meilleur est donc une question de là où tombe sa résonance, et cela se calcule en quelques minutes dès que le dessin existe.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): the dimensions of one flat-mounted chamber of an instrument you have, so that Elmer can give its impedance seen from the slot next to that of a standing chamber of the R12.
+À compléter (Ewen) : les cotes d'une chambre à plat d'un instrument que tu as, pour qu'Elmer donne son impédance vue de la fente à côté de celle d'une chambre dressée du R12.
 \end_layout
 
 \begin_layout Section
@@ -4445,49 +4445,49 @@ Associate reeds in parallel / series
 \end_layout
 
 \begin_layout Standard
-A note of an accordion in the musette tuning is two tongues, sometimes three, that take their air from the same bellows and give it back through the same pallet. They share the air, and they talk to each other through it. This is the parallel association, and it is the whole purpose of the two-reed network coupled_reeds: two tongues, two chambers, two holes, one channel under the pallet, one pallet. The channel common to the two is the coupling; an option puts both tongues in the same chamber for the strongest coupling.
+Une note d'accordéon en accord musette, ce sont deux languettes, parfois trois, qui prennent leur air au même soufflet et le rendent par le même clapet. Elles partagent l'air, et elles se parlent par lui. C'est l'association en parallèle, et c'est toute la raison d'être du réseau à deux anches coupled_reeds : deux languettes, deux chambres, deux trous, un canal sous le clapet, un clapet. Le canal commun aux deux est le couplage ; une option met les deux languettes dans la même chambre pour le couplage le plus fort.
 \end_layout
 
 \begin_layout Standard
-The first thing the network taught is where the engine of each tongue must sit. In one version the start-up of the tongues was carried by a resistance shared at the pallet; the two voices then locked to the unison up to 80 cents of detuning, which no real musette does, since a musette beats. With the engine proper to each tongue, the voices detuned by 20 cents beat at 1.209 Hz, the difference of the blades (1.21 Hz). The common channel couples the voices, but weakly; the excitation of a tongue is its own.
+La première chose que le réseau a apprise, c'est où doit se trouver le moteur de chaque languette. Dans une version le démarrage des languettes était porté par une résistance partagée au clapet ; les deux voix se verrouillaient alors à l'unisson jusqu'à 80 cents de désaccord, ce qu'aucune musette réelle ne fait, puisqu'une musette bat. Avec le moteur propre à chaque languette, les voix désaccordées de 20 cents battent à 1,209 Hz, l'écart des lames (1,21 Hz). Le canal commun couple les voix, mais faiblement ; l'excitation d'une languette lui est propre.
 \end_layout
 
 \begin_layout Standard
-What the network predicts, in its two successive versions, is that the voices pull each other near the unison. With the first mechanism (low A reference, 300 Pa, 4 s), the beat heard is 27 per cent slower than the difference of the blades at 1 cent of detuning, 20 per cent at 2 cents, 12 per cent at 3, and equal to it from 5 cents. With the mechanism of the closing section (A4, 1000 Pa), the two voices lock to one frequency up to about 2 cents of detuning (0.6 Hz), beat 12 per cent slow at 5 cents, and freely at 20 cents. Near the lock the beat is not the difference of the blades but 
+Ce que le réseau prédit, dans ses deux versions successives, c'est que les voix se tirent près de l'unisson. Avec le premier mécanisme (la grave de référence, 300 Pa, 4 s), le battement entendu est 27 pour cent plus lent que l'écart des lames à 1 cent de désaccord, 20 pour cent à 2 cents, 12 pour cent à 3, et égal à lui à partir de 5 cents. Avec le mécanisme de la section qui se ferme (la4, 1000 Pa), les deux voix se verrouillent sur une fréquence jusqu'à environ 2 cents de désaccord (0,6 Hz), battent 12 pour cent trop lentement à 5 cents, et librement à 20 cents. Près du verrouillage le battement n'est pas l'écart des lames mais 
 \begin_inset Formula $\sqrt{\Delta^{2}-\Delta_{L}^{2}}$
 \end_inset
 
-, where 
+, où 
 \begin_inset Formula $\Delta$
 \end_inset
 
- is the detuning and 
+ est le désaccord et 
 \begin_inset Formula $\Delta_{L}$
 \end_inset
 
- the locking range, the law of Adler for two coupled oscillators; the network reproduces it without having been told. This is the physics behind a gesture of the tuner: two voices tuned close enough stick, and the musette dies. The tuner of this work (web/) separates the two tongues of a note in half a second and reads their beat; experiment E3 of the audit tunes one tongue with the other blocked, then frees it, and reads whether the beat survives.
+ la plage de verrouillage, la loi d'Adler pour deux oscillateurs couplés ; le réseau la reproduit sans qu'on la lui ait dite. C'est la physique derrière un geste de l'accordeur : deux voix accordées assez près se collent, et la musette meurt. L'accordeur de ce travail (web/) sépare les deux languettes d'une note en une demi-seconde et lit leur battement ; l'expérience E3 de l'audit accorde une languette l'autre bloquée, puis la libère, et lit si le battement survit.
 \end_layout
 
 \begin_layout Standard
-Two further predictions, both conditioned on guessed dimensions: the air does not double with two tongues (1.56 times the flow of one in the first version, almost twice, minus 4 per cent, in the second), and two tongues in phase radiate better than one (efficiency 
-\begin_inset Formula $2.9\times10^{-5}$
+Deux autres prédictions, toutes deux conditionnées à des dimensions devinées : l'air ne double pas avec deux languettes (1,56 fois le débit d'une seule dans la première version, presque le double, moins 4 pour cent, dans la seconde), et deux languettes en phase rayonnent mieux qu'une (rendement 
+\begin_inset Formula $2,9\times10^{-5}$
 \end_inset
 
- against 
-\begin_inset Formula $1.5\times10^{-5}$
+ contre 
+\begin_inset Formula $1,5\times10^{-5}$
 \end_inset
 
-, numbers not to be trusted in absolute value, see the section on radiation).
+, nombres à ne pas croire en valeur absolue, voir la section sur le rayonnement).
 \end_layout
 
 \begin_layout Standard
-The series association, one tongue feeding the air to another through a shared cavity, has not been modelled as such. What comes nearest is the slot-stack model of the audit (slot_stack.py), built for the experiments of Ewen in which a flat tongue cut in a sheet of steel and held between two plates plays in both directions, and two harmonium plates mounted head to head play in both directions too. That model is honest about its failure: it reproduces the ordinary mounting and refuses to make the sandwich play, which means that the real mechanism contains something it does not, a delay of the flow at the edge of the tongue and a pressure that is not uniform along it. A series association of tongues will be understood when that mechanism is.
+L'association en série, une languette qui passe l'air à une autre par une cavité partagée, n'a pas été modélisée comme telle. Ce qui s'en approche le plus est le modèle de la pile de supports de l'audit (slot_stack.py), construit pour les essais d'Ewen où une languette plate découpée dans une tôle d'acier et prise entre deux plaques joue dans les deux sens, et où deux plaques d'harmonium montées tête-à-tête jouent aussi dans les deux sens. Ce modèle est honnête sur son échec : il reproduit le montage ordinaire et refuse de faire jouer le sandwich, ce qui veut dire que le vrai mécanisme contient quelque chose qu'il n'a pas, un retard de l'écoulement au bord de la languette et une pression qui n'est pas uniforme le long d'elle. Une association en série de languettes sera comprise quand ce mécanisme le sera.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): experiment E3 on one musette note of your instrument, with the tuner: tune one tongue with the other blocked by a strip of paper, free it, read the beat in beats per minute at 1, 2, 3 and 5 cents of detuning. Does the beat disappear below about 2 cents, as the model says? And the sandwich: its dimensions, the plucked note of the blade, the played note in each direction against pressure with the U-tube.
+À compléter (Ewen) : l'expérience E3 sur une note musette de ton instrument, avec l'accordeur : accorder une languette l'autre bloquée par une bande de papier, la libérer, lire le battement en battements par minute à 1, 2, 3 et 5 cents de désaccord. Le battement disparaît-il sous environ 2 cents, comme le dit le modèle ? Et le sandwich : ses cotes, la note pincée de la lame, la note jouée dans chaque sens en fonction de la pression au tube en U.
 \end_layout
 
 \begin_layout Section
@@ -4495,15 +4495,15 @@ Dissipation in cavities
 \end_layout
 
 \begin_layout Standard
-Where does the energy go? A tongue plucked in the air rings for seconds: its own damping is small, a damping ratio of 0.004 is the guessed value of the models, to be measured by gesture (a) of chapter 2. Blown, the same tongue settles in a cycle of fixed amplitude in a second or two: something takes energy at each cycle as fast as the breath gives it. In the two-reed network that something is named: the orifice losses of the hole and of the pallet, 
+Où va l'énergie ? Une languette pincée dans l'air sonne des secondes : son propre amortissement est petit, un taux d'amortissement de 0,004 est la valeur devinée des modèles, à mesurer par le geste (a) du chapitre 2. Soufflée, la même languette s'installe dans un cycle d'amplitude fixe en une seconde ou deux : quelque chose prend de l'énergie à chaque cycle aussi vite que le souffle en donne. Dans le réseau à deux anches ce quelque chose est nommé : les pertes d'orifice du trou et du clapet, 
 \begin_inset Formula $\rho q|q|/(2(C_{d}S)^{2})$
 \end_inset
 
-. It is there that the ordered motion of the air becomes heat, and it is this loss that bounds the amplitude in the network, without any resistance adjusted by hand.
+. C'est là que le mouvement ordonné de l'air devient chaleur, et c'est cette perte qui borne l'amplitude dans le réseau, sans aucune résistance réglée à la main.
 \end_layout
 
 \begin_layout Standard
-The linear theory explains a thing the maker sees without naming it. A chamber helps the tongue only if its impedance, at the frequency of play, is dominated by its compliance, so that the pressure lags the flow by a quarter of a period and the force on the tongue has a part in phase with its velocity. A real hole ventilates the chamber: its resonance lies above the whole keyboard, the impedance is inertial almost everywhere, and the chamber damps instead of helping. This is why the honest network, with real losses and the old law of opening, did not start at all: the growth rate stayed negative whatever was added, at the damping of the blade alone, minus 2.64 per second, or lower. It is also consistent with the measurement of Ricot, Caussé and Misdariis 
+La théorie linéaire explique une chose que le facteur voit sans la nommer. Une chambre n'aide la languette que si son impédance, à la fréquence de jeu, est dominée par sa compliance, de sorte que la pression retarde sur le débit d'un quart de période et que la force sur la languette a une part en phase avec sa vitesse. Un vrai trou ventile la chambre : sa résonance est au-dessus de tout le clavier, l'impédance est inertielle presque partout, et la chambre amortit au lieu d'aider. C'est pourquoi le réseau honnête, avec les vraies pertes et l'ancienne loi d'ouverture, ne démarrait pas du tout : le taux de croissance restait négatif quoi qu'on ajoute, à l'amortissement de la lame seule, moins 2,64 par seconde, ou plus bas. C'est aussi cohérent avec la mesure de Ricot, Caussé et Misdariis 
 \begin_inset CommandInset citation
 LatexCommand cite
 after ""
@@ -4512,21 +4512,21 @@ key "ricot2005"
 literal "true"
 
 \end_inset
-, who showed that an accordion reed starts even without any acoustic coupling, by the aerodynamics of the flow in its slot. The chamber is not the engine; the engine is in the slot, and the chamber mostly takes.
+, qui ont montré qu'une anche d'accordéon démarre même sans aucun couplage acoustique, par l'aérodynamique de l'écoulement dans sa fente. La chambre n'est pas le moteur ; le moteur est dans la fente, et la chambre surtout prend.
 \end_layout
 
 \begin_layout Standard
-In the slot itself the losses are viscous, and that was checked with a flow computation. In a clearance of 30 micrometres between tongue and plate the Reynolds number is about 80: the flow is a Poiseuille flow, not a jet, and the law of Bernoulli alone is wrong there. On a two-dimensional section of the sandwich reed, Elmer found that 80 per cent of the pressure drop in that clearance is viscous, and its flow agreed to 0.4 per cent with the one-dimensional law, Poiseuille plus Bernoulli, of slot_stack.py. The air of the slot answers in about a microsecond, two thousand times faster than a period of the tongue, so the flow in the slot is taken as instantaneous; only the air the tongue drags along keeps its inertia, as an added mass.
+Dans la fente elle-même les pertes sont visqueuses, et cela a été vérifié par un calcul d'écoulement. Dans un jeu de 30 micromètres entre languette et plaque le nombre de Reynolds est d'environ 80 : l'écoulement est un écoulement de Poiseuille, pas un jet, et la loi de Bernoulli seule y est fausse. Sur une coupe en deux dimensions de l'anche en sandwich, Elmer a trouvé que 80 pour cent de la chute de pression dans ce jeu est visqueuse, et son débit s'accordait à 0,4 pour cent avec la loi à une dimension, Poiseuille plus Bernoulli, de slot_stack.py. L'air de la fente répond en une microseconde environ, deux mille fois plus vite qu'une période de la languette, donc l'écoulement dans la fente est pris comme instantané ; seul l'air que la languette entraîne garde son inertie, comme masse ajoutée.
 \end_layout
 
 \begin_layout Standard
-The finite element model of the chamber has no loss at all, and says so. The resistance of a real chamber comes from gesture (b): a resonator with a quality factor of 20, which is the order used in the synthetic tests, loses 40 dB in 25 ms, and the analysis finds its damping to 5 per cent. On the bench, a leak is seen as a drop of the quality factor of the air resonances of the closed instrument, measured by a sweep (frf.py) and a ring-down; it does not locate the leak but it quantifies it.
+Le modèle par éléments finis de la chambre n'a aucune perte, et le dit. La résistance d'une vraie chambre vient du geste (b) : un résonateur de facteur de qualité 20, qui est l'ordre utilisé dans les tests de synthèse, perd 40 dB en 25 ms, et l'analyse retrouve son amortissement à 5 pour cent. Au banc, une fuite se voit comme une chute du facteur de qualité des résonances d'air de l'instrument fermé, mesurée par un balayage (frf.py) et un ring-down ; elle ne localise pas la fuite mais elle la quantifie.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): the quality factor of one chamber of the R12, closed by its plate, excited by a sweep from a small loudspeaker and recorded at 15 cm, with and without the plate waxed. The loss resistance that the models lack is this one number.
+À compléter (Ewen) : le facteur de qualité d'une chambre du R12, fermée par sa plaque, excitée par un balayage d'un petit haut-parleur et enregistrée à 15 cm, avec et sans la plaque cirée. La résistance de perte qui manque aux modèles, c'est ce seul nombre.
 \end_layout
 
 \begin_layout Chapter
@@ -4534,15 +4534,15 @@ Entropy and least energy state
 \end_layout
 
 \begin_layout Standard
-Question 3 of the introduction asks whether the reeds work in a state of least energy. The short answer of this work is no, and the long answer is more interesting than a yes would have been.
+La question 3 de l'introduction demande si les anches travaillent dans un état de moindre énergie. La réponse courte de ce travail est non, et la réponse longue est plus intéressante qu'un oui ne l'aurait été.
 \end_layout
 
 \begin_layout Standard
-A tongue at rest in its slot, with no air moving, is in its state of least energy: the spring of the blade is slack, the air is still. A tongue that sings is not in such a state. It is a steady state kept alive by a flow of energy: the bellows gives work at a rate equal to the pressure times the flow, the orifices and the viscous clearance turn almost all of it into heat, and a tiny ordered part leaves as sound. The models of this work put that part between a few hundred-thousandths and a few per cent, and do not trust either figure. What is certain is the architecture: an oscillator kept away from rest by a source, bounded by dissipation. Such a state is called a limit cycle; it is a state of balance, not of minimum.
+Une languette au repos dans sa fente, sans air qui bouge, est dans son état de moindre énergie : le ressort de la lame est détendu, l'air est immobile. Une languette qui chante n'est pas dans un tel état. C'est un état stationnaire tenu en vie par un flux d'énergie : le soufflet donne du travail au rythme de la pression fois le débit, les orifices et le jeu visqueux transforment presque tout en chaleur, et une infime part ordonnée s'en va en son. Les modèles de ce travail mettent cette part entre quelques cent-millièmes et quelques pour cent, et ne croient ni l'un ni l'autre. Ce qui est sûr, c'est l'architecture : un oscillateur tenu loin du repos par une source, borné par la dissipation. Un tel état s'appelle un cycle limite ; c'est un état d'équilibre, pas de minimum.
 \end_layout
 
 \begin_layout Standard
-The balance can be written. Linearised around the equilibrium of a tongue held open by the pressure, the flow through the slot acts back on the tongue with a delay set by the compliance of the chamber, and the force of pressure acquires a part in phase with the velocity. In the one-reed model that anti-damping is
+L'équilibre peut s'écrire. Linéarisé autour de l'équilibre d'une languette tenue ouverte par la pression, le débit par la fente rétroagit sur la languette avec un retard fixé par la compliance de la chambre, et la force de pression acquiert une part en phase avec la vitesse. Dans le modèle à une anche cet anti-amortissement vaut
 \end_layout
 
 \begin_layout Standard
@@ -4557,15 +4557,15 @@ The balance can be written. Linearised around the equilibrium of a tongue held o
 \end_layout
 
 \begin_layout Standard
-where 
+où 
 \begin_inset Formula $\Gamma$
 \end_inset
 
- is the area swept by the tongue, 
+ est la surface balayée par la languette, 
 \begin_inset Formula $a$
 \end_inset
 
- the stiffness of the spring of air in a chamber of volume 
+ la raideur du ressort d'air dans une chambre de volume 
 \begin_inset Formula $V_{0}$
 \end_inset
 
@@ -4573,35 +4573,35 @@ where
 \begin_inset Formula $\partial q_{\mathrm{out}}/\partial y$
 \end_inset
 
- the modulation of the flow by the position of the tongue, 
+ la modulation du débit par la position de la languette, 
 \begin_inset Formula $\partial q_{\mathrm{out}}/\partial p$
 \end_inset
 
- its dependence on pressure, and 
+ sa dépendance à la pression, et 
 \begin_inset Formula $\omega$
 \end_inset
 
- the angular frequency. The tongue starts when this term exceeds its own damping, 
+ la pulsation. La languette démarre quand ce terme dépasse son propre amortissement, 
 \begin_inset Formula $2\zeta\omega m$
 \end_inset
 
-, with 
+, avec 
 \begin_inset Formula $\zeta$
 \end_inset
 
- the damping ratio and 
+ le taux d'amortissement et 
 \begin_inset Formula $m$
 \end_inset
 
- the modal mass. The formula also says when it stops: if the opening saturates because the tongue is blown out of its slot, the modulation 
+ la masse modale. La formule dit aussi quand elle s'arrête : si l'ouverture sature parce que la languette est soufflée hors de sa fente, la modulation 
 \begin_inset Formula $\partial q_{\mathrm{out}}/\partial y$
 \end_inset
 
- vanishes and the anti-damping with it, whatever the pressure. That is the choking every player knows, and the model produced it without being asked. The oscillation is bounded on both sides, by too little energy and by too much.
+ s'annule et l'anti-amortissement avec elle, quelle que soit la pression. C'est l'étouffement que connaît tout joueur, et le modèle l'a produit sans qu'on le lui demande. L'oscillation est bornée des deux côtés, par trop peu d'énergie et par trop.
 \end_layout
 
 \begin_layout Standard
-What the maker minimises is not an energy but a pressure: the pressure at which the tongue starts. Table 
+Ce que le facteur minimise n'est pas une énergie mais une pression : celle à laquelle la languette démarre. Le tableau 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "tab:fenetre"
@@ -4610,45 +4610,45 @@ caps "false"
 noprefix "false"
 
 \end_inset
- showed that the threshold is lowest when the chamber resonance stands 1.2 to 1.7 times above the note. The maker who finds that window by ear is doing what the plan of experiments does by computation: making the state of self-sustained oscillation reachable with the least breath.
+ a montré que le seuil est le plus bas quand la résonance de la chambre se tient 1,2 à 1,7 fois au-dessus de la note. Le facteur qui trouve cette fenêtre à l'oreille fait ce que le plan d'expériences fait par le calcul : rendre l'état d'oscillation auto-entretenue atteignable avec le moins de souffle.
 \end_layout
 
 \begin_layout Standard
-Entropy enters this work in two places, and both are modest. The first is the word adiabatic. The air of a chamber is compressed and relaxed hundreds of times a second, too fast to exchange heat with the walls; its entropy stays constant during a cycle, which is why the spring of air has the stiffness 
+L'entropie entre dans ce travail en deux endroits, et les deux sont modestes. Le premier est le mot adiabatique. L'air d'une chambre est comprimé et détendu des centaines de fois par seconde, trop vite pour échanger de la chaleur avec les parois ; son entropie reste constante pendant un cycle, et c'est pourquoi le ressort d'air a la raideur 
 \begin_inset Formula $\gamma P_{\mathrm{atm}}/V$
 \end_inset
 
- and not 
+ et non 
 \begin_inset Formula $P_{\mathrm{atm}}/V$
 \end_inset
 
-. The second is the orifices, where the entropy is produced: the kinetic energy of a jet that has passed a hole is not recovered on the other side, it becomes heat, and the term 
+. Le second, ce sont les orifices, où l'entropie est produite : l'énergie cinétique d'un jet qui a passé un trou n'est pas récupérée de l'autre côté, elle devient chaleur, et le terme 
 \begin_inset Formula $\rho q|q|/(2(C_{d}S)^{2})$
 \end_inset
 
- is the account of that irreversibility.
+ est le compte de cette irréversibilité.
 \end_layout
 
 \begin_layout Standard
-There is a third place where the idea of a least state returns, and it is the one this book cares most about. Between the pressure where the tongue starts, 
+Il y a un troisième endroit où l'idée d'un état de moindre quelque chose revient, et c'est celui qui compte le plus pour ce livre. Entre la pression où la languette démarre, 
 \begin_inset Formula $p_{\mathrm{on}}$
 \end_inset
 
-, and the lower pressure where it stops, 
+, et la pression plus basse où elle s'arrête, 
 \begin_inset Formula $p_{\mathrm{off}}$
 \end_inset
 
-, two states coexist: the silent tongue and the singing one. In the one-reed model the ratio 
+, deux états coexistent : la languette muette et la languette qui chante. Dans le modèle à une anche le rapport 
 \begin_inset Formula $p_{\mathrm{on}}/p_{\mathrm{off}}$
 \end_inset
 
- came out at 1.33 (25.8 Pa over 19.4 Pa, for a model version whose thresholds are known to be too low in the bass); the bench measures the same two pressures by a ramp up and a ramp down (seuil.py). Neither state is the least state; the one the tongue is in depends on where it comes from. The tools of the stochastic chapter of the research bench see this as a potential with two wells, reconstructed from the measured drift and diffusion of the signal, and the noise of the breath as what can push the system over the barrier from one well to the other. A reed does not seek its least energy. It stays where it is until something, pressure or noise, moves it.
+ est sorti à 1,33 (25,8 Pa sur 19,4 Pa, pour une version du modèle dont les seuils sont connus pour être trop bas dans le grave) ; le banc mesure les mêmes deux pressions par une rampe montante et une rampe descendante (seuil.py). Aucun des deux états n'est l'état de moindre quelque chose ; celui où la languette se trouve dépend d'où elle vient. Les outils du chapitre stochastique du banc de recherche voient cela comme un potentiel à deux puits, reconstruit à partir de la dérive et de la diffusion mesurées du signal, et le bruit du souffle comme ce qui peut pousser le système par-dessus la barrière d'un puits à l'autre. Une anche ne cherche pas sa moindre énergie. Elle reste où elle est jusqu'à ce que quelque chose, pression ou bruit, la déplace.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): the hysteresis ratio of one real tongue, by the staircase of the wind tunnel protocol, up and then down, three cycles. If the measured ratio is far from 1.33, the effective volume and the source impedance are the first two parameters to recalibrate.
+À compléter (Ewen) : le rapport d'hystérésis d'une vraie languette, par l'escalier du protocole de soufflerie, en montant puis en descendant, trois cycles. Si le rapport mesuré est loin de 1,33, le volume effectif et l'impédance de source sont les deux premiers paramètres à recaler.
 \end_layout
 
 \begin_layout Part
@@ -4656,7 +4656,7 @@ Mechanics and valves
 \end_layout
 
 \begin_layout Standard
-The air that does not sing is the subject of this part. An accordion is a box of pressure, and every joint of it is a place where the air may leave without a sound. The valves, the gaskets, the pallets and the keys that lift them decide how much of the breath reaches the tongues, and how fast.
+L'air qui ne chante pas est le sujet de cette partie. Un accordéon est une boîte de pression, et chacun de ses joints est un endroit où l'air peut partir sans un son. Les soupapes, les joints, les clapets et les touches qui les soulèvent décident de la part du souffle qui arrive aux languettes, et à quelle vitesse.
 \end_layout
 
 \begin_layout Chapter
@@ -4664,11 +4664,11 @@ Leaks, flow channels and valves
 \end_layout
 
 \begin_layout Standard
-A valve, in the language of the workshop, is the flap of leather or plastic glued over the slot of a tongue on the side from which the air does not come. When the plate is blown from the other side, the flap lifts and the tongue plays; when the air comes from its side, the flap closes the slot of the tongue that must stay silent, so that the air of the bellows is not wasted through it. The valve is why a plate with two tongues gives one note on the push and one on the draw. In the models of this work it appears only as a hypothesis: the flow through the slot is one-way, the valve is perfect. The audit says what is ignored: a leather valve has a mass, it leaks, and it slaps. In the experimental protocol of chapter 2 the valve of the tested tongue is removed or lifted, because lying on the slot on the chamber side it would decouple the chamber; the protocol lists the valve as a factor in its own right, in no model yet.
+Une soupape, dans la langue de l'atelier, est la peau de cuir ou de plastique collée sur la fente d'une languette du côté d'où l'air ne vient pas. Quand la plaque est soufflée par l'autre côté, la peau se soulève et la languette joue ; quand l'air vient de son côté, la peau ferme la fente de la languette qui doit rester muette, pour que l'air du soufflet ne se perde pas par elle. La soupape est la raison pour laquelle une plaque à deux languettes donne une note en poussé et une en tiré. Dans les modèles de ce travail elle n'apparaît que comme hypothèse : le débit par la fente est à sens unique, la soupape est parfaite. L'audit dit ce qui est ignoré : une soupape de cuir a une masse, elle fuit, et elle claque. Dans le protocole expérimental du chapitre 2 la soupape de la languette testée est enlevée ou relevée, parce que, couchée sur la fente côté chambre, elle découplerait la chambre ; le protocole liste la soupape comme un facteur à part entière, dans aucun modèle encore.
 \end_layout
 
 \begin_layout Standard
-The figures of this chapter come from the training booklet of Ewen and from his workshop practice. They are proposed criteria, not yet measured on his instruments, and they are given with that status. A valve should leak less than 0.02 litre per minute under 500 Pa, and no valve should lift under 1.5 times the maximum playing pressure. The bellows alone should leak less than 1 litre per minute at 500 Pa, a glued block bare or furnished less than 0.05, and the closed instrument less than 0.5. Table 
+Les chiffres de ce chapitre viennent du livret de stage d'Ewen et de sa pratique d'atelier. Ce sont des critères proposés, pas encore mesurés sur ses instruments, et ils sont donnés avec ce statut. Une soupape doit fuir moins de 0,02 litre par minute sous 500 Pa, et aucune soupape ne doit décoller sous 1,5 fois la pression maximale de jeu. Le soufflet seul doit fuir moins de 1 litre par minute à 500 Pa, un sommier collé nu ou garni moins de 0,05, et l'instrument fermé moins de 0,5. Le tableau 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "tab:trou"
@@ -4677,7 +4677,7 @@ caps "false"
 noprefix "false"
 
 \end_inset
- translates a leak into a hole: at 500 Pa, a round hole of 1 mm passes 0.8 litre per minute. These flows follow the law of an orifice with a contraction coefficient close to 0.6, the value 0.61 used in the models for a sharp-edged jet; the check was made here, the figures are the booklet's.
+ traduit une fuite en trou : à 500 Pa, un trou rond de 1 mm laisse passer 0,8 litre par minute. Ces débits suivent la loi d'un orifice avec un coefficient de contraction proche de 0,6, la valeur 0,61 employée dans les modèles pour un jet à arête vive ; la vérification a été faite ici, les chiffres sont ceux du livret.
 \end_layout
 
 \begin_layout Standard
@@ -4696,7 +4696,7 @@ name "tab:trou"
 
 \end_inset
 
-Equivalent hole of a leak at 500 Pa (workshop figures, proposed criteria).
+Trou équivalent d'une fuite à 500 Pa (chiffres d'atelier, critères proposés).
 \end_layout
 
 \end_inset
@@ -4723,7 +4723,7 @@ hline
 
 \begin_layout Plain Layout
 
-hole diameter (mm) & leak (litre per minute) 
+diamètre du trou (mm) & fuite (litre par minute) 
 \backslash
 
 \backslash
@@ -4738,7 +4738,7 @@ hline
 
 \begin_layout Plain Layout
 
-0.3 & 0.07 
+0,3 & 0,07 
 \backslash
 
 \backslash
@@ -4747,7 +4747,7 @@ hline
 
 \begin_layout Plain Layout
 
-0.5 & 0.2 
+0,5 & 0,2 
 \backslash
 
 \backslash
@@ -4756,7 +4756,7 @@ hline
 
 \begin_layout Plain Layout
 
-1 & 0.8 
+1 & 0,8 
 \backslash
 
 \backslash
@@ -4765,7 +4765,7 @@ hline
 
 \begin_layout Plain Layout
 
-2 & 3.3 
+2 & 3,3 
 \backslash
 
 \backslash
@@ -4795,11 +4795,11 @@ end{tabular}
 \end_layout
 
 \begin_layout Standard
-Two instruments cost nothing. A gasometer is a box turned upside down and floating in a bucket of water: filled with air, it feeds the instrument and sinks as the air leaks out, and for the box of the workshop a descent of 6.7 cm per minute is 1 litre per minute. A U-tube of transparent hose half filled with water and a ruler is a manometer: 1 mm of water is about 10 Pa (9.81 Pa exactly). With these two, the criteria above can be checked on any instrument.
+Deux instruments ne coûtent rien. Un gazomètre est une boîte retournée qui flotte dans un seau d'eau : remplie d'air, elle alimente l'instrument et descend à mesure que l'air fuit, et pour la boîte de l'atelier une descente de 6,7 cm par minute vaut 1 litre par minute. Un tube en U de tuyau transparent à moitié rempli d'eau et une règle font un manomètre : 1 mm d'eau vaut environ 10 Pa (9,81 Pa exactement). Avec ces deux-là, les critères ci-dessus se vérifient sur n'importe quel instrument.
 \end_layout
 
 \begin_layout Standard
-What a leak does to the music is known in the workshop and explained by the network. A leak in parallel with the tongues takes flow from a source of finite resistance, so the pressure falls before the note: the attack is soft, and a pianissimo starts badly. A leaking valve lets air through the slot of the silent tongue of its plate, and if that tongue is close to its threshold it sounds faintly: the ghost note.
+Ce qu'une fuite fait à la musique est connu de l'atelier et expliqué par le réseau. Une fuite en parallèle avec les languettes prend du débit à une source de résistance finie, donc la pression tombe avant la note : l'attaque est molle, et un pianissimo part mal. Une soupape qui fuit laisse passer l'air par la fente de la languette muette de sa plaque, et si cette languette est proche de son seuil elle sonne faiblement : la note fantôme.
 \end_layout
 
 \begin_layout Section
@@ -4807,45 +4807,45 @@ Acoustic transmittance of valves
 \end_layout
 
 \begin_layout Standard
-A closed valve, a closed pallet, a mute: each is a thin wall between a cavity full of sound and the outside. How much sound passes through it is its transmittance, usually written as a transmission loss in decibels. Nothing in this work has measured one yet; the method and the software are ready, and they are cheap.
+Une soupape fermée, un clapet fermé, une sourdine : chacun est une paroi mince entre une cavité pleine de son et le dehors. La part du son qui la traverse est sa transmittance, écrite d'habitude comme une perte par transmission en décibels. Rien dans ce travail n'en a encore mesuré une ; la méthode et le logiciel sont prêts, et ils sont bon marché.
 \end_layout
 
 \begin_layout Standard
-The rigorous way is the transfer matrix method with four microphones (standard ASTM E2611): a tube, the sample in the middle, two microphones upstream and two downstream, and two different terminations so that the four coefficients of the matrix can be separated. The transmission loss follows from the matrix as 
+La manière rigoureuse est la méthode de la matrice de transfert à quatre microphones (norme ASTM E2611) : un tube, l'échantillon au milieu, deux micros en amont et deux en aval, et deux terminaisons différentes pour que les quatre coefficients de la matrice se séparent. La perte par transmission suit de la matrice par 
 \begin_inset Formula $\mathrm{TL}=20\log_{10}\left(|T_{11}+T_{12}/\rho c+\rho c\,T_{21}+T_{22}|/2\right)$
 \end_inset
 
- for a tube of constant section and an anechoic end, where 
+ pour un tube de section constante et un bout anéchoïque, où 
 \begin_inset Formula $T_{11}$
 \end_inset
 
- to 
+ à 
 \begin_inset Formula $T_{22}$
 \end_inset
 
- are the four coefficients and 
+ sont les quatre coefficients et 
 \begin_inset Formula $\rho c$
 \end_inset
 
- the characteristic impedance of air (banc_recherche/transfer.py, transfer_matrix_two_load and tl_from_matrix). The cheap way uses the two microphones of the impedance tube and compares the spectra upstream and downstream, 
+ l'impédance caractéristique de l'air (banc_recherche/transfer.py, transfer_matrix_two_load et tl_from_matrix). La manière bon marché utilise les deux micros du tube d'impédance et compare les spectres amont et aval, 
 \begin_inset Formula $\mathrm{TL}=10\log_{10}(S_{\mathrm{in}}/S_{\mathrm{out}})$
 \end_inset
 
-, a coarse estimate, honest about being one. The sound card has three channels; the four-microphone method would need a second pass with the microphones moved, or a second card.
+, une estimation grossière, honnête de l'être. La carte son a trois voies ; la méthode à quatre micros demanderait une seconde passe en déplaçant les micros, ou une seconde carte.
 \end_layout
 
 \begin_layout Standard
-One thing the models already say about the valve is not about transmittance but about pitch, and it deserves a place here because it is surprising. In the audit of the one-reed model, an opening symmetric in the position of the tongue, 
+Une chose que les modèles disent déjà de la soupape ne concerne pas la transmittance mais la hauteur, et elle mérite une place ici parce qu'elle est surprenante. Dans l'audit du modèle à une anche, une ouverture symétrique en la position de la languette, 
 \begin_inset Formula $S=b|y|$
 \end_inset
 
-, modulated the slot twice per period and the model played 470 Hz for a tongue of 220 Hz: an octave wrong. The flow through a free reed is one-way, and in the reading of the models it is the valve that makes it so. Whether the real tongue would behave like that without its valve is a question for the sandwich experiments, where a tongue without any valve plays in both directions; the point stands that the valve is not an accessory of the plate but part of what fixes the note.
+, modulait la fente deux fois par période et le modèle jouait 470 Hz pour une languette de 220 Hz : une octave faux. Le débit par une anche libre est à sens unique, et dans la lecture des modèles c'est la soupape qui le rend tel. Que la vraie languette se comporte ainsi sans sa soupape est une question pour les essais du sandwich, où une languette sans aucune soupape joue dans les deux sens ; le point demeure que la soupape n'est pas un accessoire de la plaque mais une partie de ce qui fixe la note.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): the transmission loss of one leather valve and one plastic valve glued on a plate, in a tube with two microphones, by the coarse method first. A difference of a few decibels between the two materials would already be a result.
+À compléter (Ewen) : la perte par transmission d'une soupape de cuir et d'une soupape de plastique collées sur une plaque, dans un tube à deux micros, par la méthode grossière d'abord. Une différence de quelques décibels entre les deux matériaux serait déjà un résultat.
 \end_layout
 
 \begin_layout Section
@@ -4853,21 +4853,21 @@ Sealing material influence of sound radiated
 \end_layout
 
 \begin_layout Standard
-Leather or plastic for the valves, felt or foam for the gaskets, wax or leather under the plates: the sealing materials are chosen by the hand and judged by the ear. Their influence on the radiated sound is of two kinds, and the second is the one usually forgotten.
+Cuir ou plastique pour les soupapes, feutre ou mousse pour les joints, cire ou cuir sous les plaques : les matériaux d'étanchéité se choisissent à la main et se jugent à l'oreille. Leur influence sur le son rayonné est de deux sortes, et la seconde est celle qu'on oublie d'habitude.
 \end_layout
 
 \begin_layout Standard
-The first kind is what the material lets through when it is meant to seal. A leak is a place where air escapes without making a note, and it is not silent: a jet through a small orifice under pressure becomes turbulent and radiates a broadband hiss that rises high in frequency, into the ultrasound. In a recording, the hiss of a leak is rich where the voice of the tongue and the noise of the room are poor, above a few kilohertz. This is the handle by which the appendix on leak detection catches it: filter high, take the envelope of the hiss, and, if the pressure of the bellows is modulated at a known slow frequency, keep only what blinks at that frequency. The bellows of the bench, which already makes controlled strokes at 2 to 10 Hz, is the modulator; the synchronous detection is a few lines of code (banc_recherche/leak.py, lockin and leak_map); a microphone walked over the surface gives a map. None of this has yet been run on a real instrument.
+La première sorte, c'est ce que le matériau laisse passer quand il est censé fermer. Une fuite est un endroit où l'air s'échappe sans faire de note, et elle n'est pas silencieuse : un jet par un petit orifice sous pression devient turbulent et rayonne un sifflement large bande qui monte haut en fréquence, jusque dans l'ultrason. Dans un enregistrement, le sifflement d'une fuite est riche là où la voix de la languette et le bruit de la pièce sont pauvres, au-dessus de quelques kilohertz. C'est la poignée par laquelle l'annexe sur la détection des fuites l'attrape : filtrer haut, prendre l'enveloppe du sifflement, et, si la pression du soufflet est modulée à une fréquence lente connue, ne garder que ce qui clignote à cette fréquence. Le soufflet du banc, qui fait déjà des courses contrôlées à 2 à 10 Hz, est le modulateur ; la détection synchrone tient en quelques lignes de code (banc_recherche/leak.py, lockin et leak_map) ; un micro promené sur la surface donne une carte. Rien de tout cela n'a encore tourné sur un vrai instrument.
 \end_layout
 
 \begin_layout Standard
-The second kind is what the material does when it moves. A valve lifts and falls at every change of direction of the bellows; it has a mass and it slaps. The models ignore it, and the tuner of this work detects the reversal of the bellows by a sharp and isolated dip of the signal without silence, which is where the slap lives. A stiff plastic valve and a supple leather one will not fall the same way, and the attack of the note after the reversal carries the difference. Nothing here has measured it.
+La seconde sorte, c'est ce que le matériau fait quand il bouge. Une soupape se soulève et retombe à chaque changement de sens du soufflet ; elle a une masse et elle claque. Les modèles l'ignorent, et l'accordeur de ce travail détecte l'inversion du soufflet par un creux net et isolé du signal sans silence, qui est là où vit le claquement. Une soupape de plastique raide et une de cuir souple ne retomberont pas de la même façon, et l'attaque de la note après l'inversion porte la différence. Rien ici ne l'a mesurée.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): the same note recorded with its leather valve, then with a plastic one, at the same bellows pressure, with the tuner exporting the WAV; compare the spectra above 4 kHz during the held note (the hiss) and the first 50 ms after a reversal (the slap). Which note, and which instrument?
+À compléter (Ewen) : la même note enregistrée avec sa soupape de cuir, puis avec une de plastique, à la même pression de soufflet, avec l'export WAV de l'accordeur ; comparer les spectres au-dessus de 4 kHz pendant la note tenue (le sifflement) et les 50 premières millisecondes après une inversion (le claquement). Quelle note, et quel instrument ?
 \end_layout
 
 \begin_layout Section
@@ -4875,19 +4875,19 @@ Dynamics of keyboard
 \end_layout
 
 \begin_layout Standard
-A key lifts a pallet. The pallet is the last door of the air road, and in the network it is an orifice: a mass of air 
+Une touche soulève un clapet. Le clapet est la dernière porte du chemin d'air, et dans le réseau c'est un orifice : une masse d'air 
 \begin_inset Formula $\rho\ell/S$
 \end_inset
 
- and a loss, with guessed dimensions of 3 cm
+ et une perte, avec des dimensions devinées de 3 cm
 \begin_inset Formula $^{2}$
 \end_inset
 
- of area, 10 mm of effective length and a lift of about 4 mm. On the bench it is an axis in degrees, swept from 2 to 22 degrees in the 2020 plan with a lever of 20 mm, or replaced by a fixed pallet and a timed electrovalve when only the arrival of the pressure matters. The keyboard of the bench is a matrix of electromagnets on the buttons, 24 on the left hand and 47 on the right, held with a reduced current once pressed; the firmware that drives it is written for an ESP32-S3 and has not yet been tested on hardware.
+ de section, 10 mm de longueur effective et une levée d'environ 4 mm. Au banc c'est un axe en degrés, balayé de 2 à 22 degrés dans le plan de 2020 avec un levier de 20 mm, ou remplacé par un clapet fixe et une électrovanne temporisée quand seule l'arrivée de la pression compte. Le clavier du banc est une matrice d'électro-aimants sur les boutons, 24 à la main gauche et 47 à la main droite, maintenus à courant réduit une fois enfoncés ; le firmware qui le pilote est écrit pour un ESP32-S3 et n'a pas encore été testé sur le matériel.
 \end_layout
 
 \begin_layout Standard
-What the speed of the key does to the note is a question of pressure rise. In the simulations the pressure of the bellows rises linearly in 20 ms, a hypothesis with no measurement behind it; a slow key gives the tongue a slow rise and a soft attack, a fast key a step. The response time of the note, from the opening to the steady sound, is already measured by the analysis chain of the research bench (the quantity called Tresp, computed with Praat 
+Ce que la vitesse de la touche fait à la note est une question de montée de pression. Dans les simulations la pression du soufflet monte linéairement en 20 ms, une hypothèse sans mesure derrière ; une touche lente donne à la languette une montée lente et une attaque molle, une touche rapide une marche. Le temps de réponse de la note, de l'ouverture au son établi, est déjà mesuré par la chaîne d'analyse du banc de recherche (la grandeur appelée Tresp, calculée avec Praat 
 \begin_inset CommandInset citation
 LatexCommand cite
 after ""
@@ -4896,7 +4896,7 @@ key "boersma_praat"
 literal "true"
 
 \end_inset
- through Parselmouth 
+ par Parselmouth 
 \begin_inset CommandInset citation
 LatexCommand cite
 after ""
@@ -4905,17 +4905,17 @@ key "jadoul2018parselmouth"
 literal "true"
 
 \end_inset
-); what is missing is the position of the key against time next to it.
+) ; ce qui manque, c'est la position de la touche en fonction du temps à côté.
 \end_layout
 
 \begin_layout Standard
-There is a subtler point, and it is a prediction. In the version of the two-reed network with the closing section, the mass of air of the road above the tongue, hole and pallet together, is part of the mechanism of start-up: with that mass divided by ten the tongue does not start, with it multiplied by three it starts less well, and there is an optimum. A pallet barely open is a long thin passage and a large mass of air; a pallet wide open a small one. If the prediction holds, the depth of the key changes the ease of the start, not only the loudness. Experiment E2 of the audit is designed to see it: the starting pressure, read on the U-tube, against the lift of the pallet.
+Il y a un point plus fin, et c'est une prédiction. Dans la version du réseau à deux anches avec la section qui se ferme, la masse d'air du chemin au-dessus de la languette, trou et clapet ensemble, fait partie du mécanisme de démarrage : cette masse divisée par dix, la languette ne démarre pas, multipliée par trois, elle démarre moins bien, et il existe un optimum. Un clapet à peine ouvert est un passage long et mince et une grande masse d'air ; un clapet grand ouvert une petite. Si la prédiction tient, l'enfoncement de la touche change la facilité du démarrage, pas seulement la force. L'expérience E2 de l'audit est faite pour le voir : la pression de démarrage, lue au tube en U, en fonction de la levée du clapet.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): the force and travel of one key, with a load cell (HX711) and a small magnetic encoder (AS5600) on the bench, a new channel of the firmware proposed in the measurement map but not built. And experiment E2: the starting pressure of one tongue for five lifts of its pallet, set with shims. Is there an optimum, as the model says?
+À compléter (Ewen) : la force et la course d'une touche, avec une cellule de charge (HX711) et un petit codeur magnétique (AS5600) sur le banc, une nouvelle voie du firmware proposée dans la carte des mesures mais pas construite. Et l'expérience E2 : la pression de démarrage d'une languette pour cinq levées de son clapet, réglées avec des cales. Y a-t-il un optimum, comme le dit le modèle ?
 \end_layout
 
 \begin_layout Section
@@ -4923,21 +4923,21 @@ Pedale avec enclenchement manuel de notes type stylo bille
 \end_layout
 
 \begin_layout Standard
-The title describes a device in French: a pedal, or a latch worked by the hand, that holds a note open the way the button of a ballpoint pen holds its tip out, one press to engage and one to release. The musical purpose is a drone, a note that goes on sounding while the fingers are free. The design is Ewen's and is not in the repository; what is here is what the physics of the previous chapters says about such a note.
+Le titre décrit un dispositif : une pédale, ou un verrou manoeuvré à la main, qui tient une note ouverte comme le bouton d'un stylo à bille tient sa pointe sortie, une pression pour engager et une pour relâcher. Le but musical est un bourdon, une note qui continue de sonner pendant que les doigts sont libres. Le dessin est celui d'Ewen et n'est pas dans le dépôt ; ce qui est ici, c'est ce que la physique des chapitres précédents dit d'une telle note.
 \end_layout
 
 \begin_layout Standard
-A latched pallet is a constant opening. The tongue behind it then depends on one thing only, the pressure of the bellows, and that pressure is shared with every other note being played. The audit of the one-reed model takes as its working hypothesis that the bellows is a source of flow with a finite internal resistance, not a source of pressure, and gives the proof in the playing: at a constant speed of the bellows, opening a chord makes the pressure fall, where a source of pressure would hold it and double the flow. A drone therefore costs pressure for the melody, and the cost is the flow of the drone tongue times the resistance of the source. The flows that the models give per tongue (0.1 to 0.4 litre per second at 1000 Pa) are known to be too large; the real one is read on the flow meter of the bench in a minute.
+Un clapet verrouillé est une ouverture constante. La languette derrière lui ne dépend alors que d'une chose, la pression du soufflet, et cette pression est partagée avec toutes les autres notes jouées. L'audit du modèle à une anche prend comme hypothèse de travail que le soufflet est une source de débit à résistance interne finie, pas une source de pression, et en donne la preuve dans le jeu : à vitesse de soufflet constante, ouvrir un accord fait tomber la pression, là où une source de pression la tiendrait et doublerait le débit. Un bourdon coûte donc de la pression à la mélodie, et le coût est le débit de la languette du bourdon fois la résistance de la source. Les débits que les modèles donnent par languette (0,1 à 0,4 litre par seconde à 1000 Pa) sont connus pour être trop grands ; le vrai se lit au débitmètre du banc en une minute.
 \end_layout
 
 \begin_layout Standard
-The second thing the physics says is about the two directions. A latched note on a plate with two tongues sounds one tongue on the push and the other on the draw, and the two tongues of a plate are two different blades: on Ewen's own instrument the tuner found differences of 15 to 25 cents between push and draw on the same notes. A drone that must stay in tune through the reversal of the bellows asks for the two tongues of its plate to be tuned together more carefully than the melody does.
+La seconde chose que dit la physique concerne les deux sens. Une note verrouillée sur une plaque à deux languettes fait sonner une languette en poussé et l'autre en tiré, et les deux languettes d'une plaque sont deux lames différentes : sur l'instrument d'Ewen lui-même l'accordeur a trouvé des écarts de 15 à 25 cents entre poussé et tiré sur les mêmes notes. Un bourdon qui doit rester juste à travers l'inversion du soufflet demande que les deux languettes de sa plaque soient accordées ensemble plus soigneusement que la mélodie ne le demande.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): the mechanism itself, and its question for the bench: how much flow the drone tongue takes at playing pressure, and by how much the pressure available to the other notes falls when it is latched, measured with the flow meter and the pressure sensor, or the U-tube.
+À compléter (Ewen) : le mécanisme lui-même, et sa question pour le banc : combien de débit la languette du bourdon prend à la pression de jeu, et de combien la pression disponible pour les autres notes tombe quand il est verrouillé, mesuré avec le débitmètre et le capteur de pression, ou le tube en U.
 \end_layout
 
 \begin_layout Section
@@ -4945,11 +4945,11 @@ Bend en bout de course du clavier
 \end_layout
 
 \begin_layout Standard
-The second French title names a key with extra travel: pressed to the bottom of its ordinary stroke the key opens the pallet, and pressed further it does something more, which bends the note. What can that something be? The models of this work name three levers, in the subsection on bend techniques above, and here they are weighed for a key.
+Le titre nomme une touche avec une course supplémentaire : enfoncée au bout de sa course ordinaire, la touche ouvre le clapet, et enfoncée plus loin, elle fait quelque chose de plus, qui bend la note. Que peut être ce quelque chose ? Les modèles de ce travail nomment trois leviers, dans la sous-section sur la technique du bend plus haut, et ici ils sont pesés pour une touche.
 \end_layout
 
 \begin_layout Standard
-The key cannot change the pressure of the bellows; that lever belongs to the arm. It can change the opening of the pallet: beyond the ordinary stroke it may close the pallet partly again, or open a second, smaller passage. In the two-reed network this changes the mass of air of the road above the tongue, which the model places in the mechanism of start-up, and the pitch effect of it is not known: it may be below what the ear notices. The key can also change the chamber: a second pallet at the end of the stroke could open a cell beside the chamber, changing its volume and its resonance. Table 
+La touche ne peut pas changer la pression du soufflet ; ce levier appartient au bras. Elle peut changer l'ouverture du clapet : au-delà de la course ordinaire elle peut le refermer en partie, ou ouvrir un second passage, plus petit. Dans le réseau à deux anches cela change la masse d'air du chemin au-dessus de la languette, que le modèle place dans le mécanisme de démarrage, et l'effet sur la hauteur n'est pas connu : il peut être sous ce que l'oreille remarque. La touche peut aussi changer la chambre : un second clapet en bout de course pourrait ouvrir une case à côté de la chambre, changeant son volume et sa résonance. Le tableau 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "tab:fenetre"
@@ -4958,13 +4958,13 @@ caps "false"
 noprefix "false"
 
 \end_inset
- says that this lever is strong only when the chamber resonance is close to the note, within a ratio of 1.1 or so, and that such a chamber is hard to blow: 1322 Pa of threshold against 208 Pa at a ratio of 1.3, for the same blade in the plan. A bend at the end of the stroke is therefore, in the model, a trade between the depth of the bend and the ease of the note, and only a measurement will say where the trade is worth it.
+ dit que ce levier n'est fort que quand la résonance de la chambre est proche de la note, dans un rapport de 1,1 environ, et qu'une telle chambre est dure à souffler : 1322 Pa de seuil contre 208 Pa à un rapport de 1,3, pour la même lame dans le plan. Un bend en bout de course est donc, dans le modèle, un échange entre la profondeur du bend et la facilité de la note, et seule une mesure dira où l'échange vaut la peine.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): the mechanism you have in mind, and one measurement before building it: with modelling clay, reduce the volume of one chamber in two or three steps and read the pitch of its tongue with the tuner at a fixed pressure of the staircase. If the pitch moves by less than a few cents, the chamber is not the lever for that note, and the pallet is the one to try.
+À compléter (Ewen) : le mécanisme que tu as en tête, et une mesure avant de le construire : avec de la pâte à modeler, réduire le volume d'une chambre en deux ou trois pas et lire la hauteur de sa languette à l'accordeur à une pression fixe de l'escalier. Si la hauteur bouge de moins de quelques cents, la chambre n'est pas le levier pour cette note, et c'est le clapet qu'il faut essayer.
 \end_layout
 
 \begin_layout Part
@@ -4972,7 +4972,7 @@ Reedblock to {Soundboard+box} coupling
 \end_layout
 
 \begin_layout Standard
-The block does not float. It stands on the soundboard, and the soundboard is a wall of the box. Whatever the tongue does to the air, the air does to these pieces of wood, and they answer. This part has one chapter, and it is mostly a list of what has not been measured yet, with the one thing that has.
+Le sommier ne flotte pas. Il se tient sur la table d'harmonie, et la table d'harmonie est une paroi de la caisse. Tout ce que la languette fait à l'air, l'air le fait à ces pièces de bois, et elles répondent. Cette partie a un chapitre, et c'est surtout une liste de ce qui n'a pas encore été mesuré, avec la seule chose qui l'a été.
 \end_layout
 
 \begin_layout Chapter
@@ -4980,15 +4980,15 @@ Soundboard
 \end_layout
 
 \begin_layout Standard
-The soundboard is the plate on which the block stands and in which the holes of the chambers are drilled; the pallets lie on its other face. In every model of this work it is rigid, and it enters only by its holes. That is already a great deal: the hole is the part of the chamber that the tongue feels most. Its effective length, computed by Elmer from the impedance seen from the slot, is 25.8 mm for chamber 1, 22.7 mm for chamber 6 and 30.4 mm for chamber 12, against a real thickness of 8 mm in the drawing. Two thirds of what the tongue feels as the mass of the hole is the air at its two ends, and the pallet, when it is close to the hole, lengthens it further; the finite element model takes the pallet far away, and this is a parameter to sweep.
+La table d'harmonie est la planche sur laquelle le sommier se tient et dans laquelle les trous des chambres sont percés ; les clapets reposent sur son autre face. Dans tous les modèles de ce travail elle est rigide, et elle n'entre que par ses trous. C'est déjà beaucoup : le trou est la partie de la chambre que la languette sent le plus. Sa longueur effective, calculée par Elmer à partir de l'impédance vue de la fente, est de 25,8 mm pour la chambre 1, 22,7 mm pour la chambre 6 et 30,4 mm pour la chambre 12, contre une épaisseur réelle de 8 mm dans le dessin. Les deux tiers de ce que la languette sent comme masse du trou sont l'air à ses deux bouts, et le clapet, quand il est près du trou, l'allonge encore ; le modèle par éléments finis met le clapet loin, et c'est un paramètre à balayer.
 \end_layout
 
 \begin_layout Standard
-A small sweep on chamber 1 shows how much the hole weighs. Keeping the cells and changing only the hole, the first resonance goes from 665 Hz (hole 4 by 12.5 mm, soundboard 8 mm, large outer correction) to 1314 Hz (hole 8 by 25 mm, soundboard 4 mm, small correction). A factor of four in area and a factor of two in thickness move the resonance by an octave; the volume of the chamber, which is what the maker usually thinks of first, was not touched.
+Un petit balayage sur la chambre 1 montre combien le trou pèse. En gardant les cases et en ne changeant que le trou, la première résonance va de 665 Hz (trou 4 par 12,5 mm, table 8 mm, grande correction extérieure) à 1314 Hz (trou 8 par 25 mm, table 4 mm, petite correction). Un facteur quatre sur la section et un facteur deux sur l'épaisseur déplacent la résonance d'une octave ; le volume de la chambre, auquel le facteur pense d'habitude en premier, n'a pas été touché.
 \end_layout
 
 \begin_layout Standard
-The soundboard as a vibrating plate is absent from this work, and so is the box. The hypothesis of the network that the pallet is the only radiator is incomplete, as the audit says: the bellows, the box and the plate radiate too. How much, and at which frequencies, is a measurement that costs an impact hammer (a small screwdriver handle will do), a piezoelectric accelerometer of a few euros glued on the soundboard, and the third channel of the sound card: the frequency response from the tap to the acceleration gives the modes of the plate, their frequencies and their damping, with the same estimators the research bench already uses for tongues (the inter-spectrum of excitation.py, the ring-down and the matrix pencil 
+La table d'harmonie comme plaque vibrante est absente de ce travail, et la caisse aussi. L'hypothèse du réseau que le clapet est le seul rayonneur est incomplète, comme le dit l'audit : le soufflet, la caisse et la plaque rayonnent aussi. Combien, et à quelles fréquences, c'est une mesure qui coûte un marteau d'impact (un manche de tournevis fera l'affaire), un accéléromètre piézo de quelques euros collé sur la table, et la troisième voie de la carte son : la réponse en fréquence du coup à l'accélération donne les modes de la plaque, leurs fréquences et leur amortissement, avec les mêmes estimateurs que le banc de recherche emploie déjà pour les languettes (l'inter-spectre de excitation.py, le ring-down et le Matrix Pencil 
 \begin_inset CommandInset citation
 LatexCommand cite
 after ""
@@ -5003,7 +5003,7 @@ literal "true"
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): the frequency response of the soundboard of one instrument, block mounted and block removed, by hammer and accelerometer. The question to answer is simple: does any mode of the plate fall within a few per cent of a note of the instrument, or of the resonance of a chamber? If none does, the rigid soundboard of the models is a fair assumption for that instrument.
+À compléter (Ewen) : la réponse en fréquence de la table d'harmonie d'un instrument, sommier monté et sommier démonté, au marteau et à l'accéléromètre. La question à trancher est simple : un mode de la plaque tombe-t-il à quelques pour cent d'une note de l'instrument, ou de la résonance d'une chambre ? Si aucun, la table rigide des modèles est une hypothèse honnête pour cet instrument.
 \end_layout
 
 \begin_layout Part
@@ -5011,7 +5011,7 @@ Other parts involved
 \end_layout
 
 \begin_layout Standard
-The bellows that breathes, the grille that the sound crosses, the box that holds it all, the pallets and the mutes: the rest of the instrument. Each one appears in this work as an assumption of the models, and this part says which assumption, and what would replace it by a measurement.
+Le soufflet qui respire, la grille que le son traverse, la caisse qui tient tout, les clapets et les sourdines : le reste de l'instrument. Chacun apparaît dans ce travail comme une hypothèse des modèles, et cette partie dit laquelle, et ce qui la remplacerait par une mesure.
 \end_layout
 
 \begin_layout Chapter
@@ -5019,7 +5019,7 @@ Bellows
 \end_layout
 
 \begin_layout Standard
-The bellows is the lung. Everything upstream of the tongue is in it: the pressure, its rise, its fall, its reversal. The models of this work treat it in the simplest ways, and the bench replaces it by a motor.
+Le soufflet est le poumon. Tout ce qui est en amont de la languette est en lui : la pression, sa montée, sa chute, son inversion. Les modèles de ce travail le traitent de la façon la plus simple, et le banc le remplace par un moteur.
 \end_layout
 
 \begin_layout Section
@@ -5027,7 +5027,7 @@ Framed bellow
 \end_layout
 
 \begin_layout Standard
-A framed bellows is folds of cardboard and cloth, leather at the corners, and a wooden frame at each end that takes the block and the box. The workshop knows where it leaks: at the corners and at the frame. The proposed criterion of the booklet is less than 1 litre per minute at 500 Pa for the bellows alone, closed on a board, which by Table 
+Un soufflet à cadre, ce sont des plis de carton et de toile, du cuir aux coins, et un cadre de bois à chaque bout qui reçoit le sommier et la caisse. L'atelier sait où il fuit : aux coins et au cadre. Le critère proposé du livret est moins de 1 litre par minute à 500 Pa pour le soufflet seul, fermé sur une planche, ce qui, par le tableau 
 \begin_inset CommandInset ref
 LatexCommand ref
 reference "tab:trou"
@@ -5036,23 +5036,23 @@ caps "false"
 noprefix "false"
 
 \end_inset
- is the equivalent of a round hole a little over 1 mm across.
+, est l'équivalent d'un trou rond d'un peu plus de 1 mm.
 \end_layout
 
 \begin_layout Standard
-What is the bellows to the tongue? In the two-reed network it is an ideal source of pressure rising in 20 ms, a hypothesis without a measurement. In the one-reed model it is a source of flow with an internal resistance, 
+Qu'est-ce que le soufflet pour la languette ? Dans le réseau à deux anches c'est une source de pression idéale qui monte en 20 ms, une hypothèse sans mesure. Dans le modèle à une anche c'est une source de débit à résistance interne, 
 \begin_inset Formula $q=q_{0}-p/R$
 \end_inset
 
-, and the audit argues from the playing that this is the right picture: a real bellows, like a real turbine, gives less flow when the pressure rises. The value of 
+, et l'audit soutient à partir du jeu que c'est la bonne image : un vrai soufflet, comme une vraie turbine, donne moins de débit quand la pression monte. La valeur de 
 \begin_inset Formula $R$
 \end_inset
 
- decides the amplitude of the note (section on the aperture) and moves the threshold: in one version of the one-reed model the starting pressure of the reference tongue was 23.0 Pa with an ideal source, 25.8 Pa with 
+ décide de l'amplitude de la note (section sur l'ouverture) et déplace le seuil : dans une version du modèle à une anche la pression de démarrage de la languette de référence était de 23,0 Pa avec une source idéale, 25,8 Pa avec 
 \begin_inset Formula $R=2\times10^{8}$
 \end_inset
 
- and 35.9 Pa with 
+ et 35,9 Pa avec 
 \begin_inset Formula $5\times10^{7}$
 \end_inset
 
@@ -5060,25 +5060,21 @@ What is the bellows to the tongue? In the two-reed network it is an ideal source
 \begin_inset Formula $^{-3}$
 \end_inset
 
-, a softer source helping the start less, while the choking pressure stayed at 379.8 Pa. These are numbers of a model version whose bass thresholds are known to be far too low; the direction of the effect is what to keep.
+, une source plus molle aidant moins le démarrage, tandis que la pression d'étouffement restait à 379,8 Pa. Ce sont les nombres d'une version du modèle dont les seuils graves sont connus pour être bien trop bas ; le sens de l'effet est ce qu'il faut garder.
 \end_layout
 
 \begin_layout Standard
-The playing pressures of an accordion are of the order of 500 to 3000 Pa, in both signs; the thresholds of the tongues are far below, a few tens to a few hundreds of pascals in the models, where a real instrument asks for roughly a hundred to a thousand all over the keyboard. The bellows also has a compliance of its own and the hand behind it; the audit says both are measurable with a manometer and neither is in a model.
+Les pressions de jeu d'un accordéon sont de l'ordre de 500 à 3000 Pa, dans les deux signes ; les seuils des languettes sont loin en dessous, quelques dizaines à quelques centaines de pascals dans les modèles, là où un vrai instrument en demande à peu près une centaine à un millier sur tout le clavier. Le soufflet a aussi une souplesse propre et la main derrière ; l'audit dit que les deux se mesurent au manomètre et qu'aucun n'est dans un modèle.
 \end_layout
 
 \begin_layout Standard
-On the bench the bellows is motorised: a stepper axis on a linear table, the only source of air, driven at a set speed or servoed to a pressure, reversing at the ends of its finite stroke so that a measurement is made within one pass, push and draw being the two signs of pressure. The bench does not work at present and has never been rebuilt; the firmware exists and is untested; the flow meter is still there. The same motorised bellows is the modulator of the leak imaging method of the appendix, at 2 to 10 Hz.
+Au banc le soufflet est motorisé : un axe pas-à-pas sur une table linéaire, la seule source d'air, piloté à vitesse donnée ou asservi à une pression, s'inversant aux bouts de sa course finie de sorte qu'une mesure se fait dans une passe, poussé et tiré étant les deux signes de pression. Le banc ne marche pas pour l'instant et n'a jamais été refait ; le firmware existe et n'est pas testé ; le débitmètre est toujours là. Le même soufflet motorisé est le modulateur de la méthode d'imagerie de fuite de l'annexe, à 2 à 10 Hz.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): two measurements on one of your bellows, closed on a board with a pressure tap. The leak at 500 Pa, by the gasometer or the flow meter, against the 1 litre per minute of the booklet. And the characteristic of your own arm as a source: pressure against flow at a steady push, through a known orifice, read on the U-tube and the gasometer; its slope is the 
-\begin_inset Formula $R$
-\end_inset
-
- of the models. Which bellows, which day?
+À compléter (Ewen) : deux mesures sur un de tes soufflets, fermé sur une planche avec une prise de pression. La fuite à 500 Pa, au gazomètre ou au débitmètre, contre le 1 litre par minute du livret. Et la caractéristique de ton propre bras comme source : pression en fonction du débit à poussée régulière, par un orifice connu, lue au tube en U et au gazomètre ; sa pente est le R des modèles. Quel soufflet, quel jour ?
 \end_layout
 
 \begin_layout Chapter
@@ -5086,7 +5082,7 @@ Timbral elements
 \end_layout
 
 \begin_layout Standard
-After the tongue has made the sound, several pieces of the instrument shape it before it reaches the ear. This chapter lists them, says what the physics of this work would predict for each, and admits that none has been measured here.
+Une fois que la languette a fait le son, plusieurs pièces de l'instrument le façonnent avant qu'il atteigne l'oreille. Ce chapitre les liste, dit ce que la physique de ce travail prédirait pour chacune, et admet qu'aucune n'a été mesurée ici.
 \end_layout
 
 \begin_layout Section
@@ -5094,13 +5090,13 @@ Grid
 \end_layout
 
 \begin_layout Standard
-The grille is the perforated screen in front of the pallets of the right hand. The sound of every tongue crosses it. Physically it is a plate with many holes and a thin layer of air behind it: at low frequency it is transparent, since the wavelength is long compared with the holes and the depth; towards high frequencies the holes act as masses of air and the layer behind as a spring, and the grille becomes a filter whose cut-off depends on the fraction of open area and on the depth. Nothing in this work has computed or measured a grille, and no number is given here.
+La grille est l'écran percé devant les clapets de la main droite. Le son de chaque languette la traverse. Physiquement c'est une plaque à beaucoup de trous et une mince couche d'air derrière : à basse fréquence elle est transparente, puisque la longueur d'onde est longue devant les trous et la profondeur ; vers les hautes fréquences les trous agissent comme des masses d'air et la couche derrière comme un ressort, et la grille devient un filtre dont la coupure dépend de la fraction de surface ouverte et de la profondeur. Rien dans ce travail n'a calculé ni mesuré une grille, et aucun nombre n'est donné ici.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): one note recorded with the grille on and off, same microphone position, same bellows pressure, with the WAV export of the tuner; compare the two spectra above 2 kHz. The difference, if any, is the grille.
+À compléter (Ewen) : une note enregistrée grille posée et grille enlevée, même position de micro, même pression de soufflet, avec l'export WAV de l'accordeur ; comparer les deux spectres au-dessus de 2 kHz. La différence, s'il y en a une, c'est la grille.
 \end_layout
 
 \begin_layout Section
@@ -5108,17 +5104,17 @@ Resonance box
 \end_layout
 
 \begin_layout Standard
-Some instruments put a set of tongues behind a second chamber inside the box, a resonance box, which gives them their rounder sound. Physically it is one more cavity on the road of the air, and the method of chapter 2 applies to it unchanged: mesh its air, compute its modes and the impedance seen from the hole of the block. One caution: a resonance box is many centimetres long, and at one or two kilohertz that is no longer small compared with the wavelength; the lumped network of masses and springs stops being valid there, while the finite element model does not care, having been checked on a duct of 100 mm against the exact formula to a relative error of 
-\begin_inset Formula $1.3\times10^{-5}$
+Certains instruments mettent un jeu de languettes derrière une seconde chambre à l'intérieur de la caisse, une caisse de résonance, qui leur donne leur son plus rond. Physiquement c'est une cavité de plus sur le chemin de l'air, et la méthode du chapitre 2 s'y applique sans changement : mailler son air, calculer ses modes et l'impédance vue du trou du sommier. Une prudence : une caisse de résonance fait plusieurs centimètres, et à un ou deux kilohertz ce n'est plus petit devant la longueur d'onde ; le réseau à constantes localisées de masses et de ressorts cesse d'y être valable, alors que le modèle par éléments finis s'en moque, ayant été vérifié sur un conduit de 100 mm contre la formule exacte à une erreur relative de 
+\begin_inset Formula $1,3\times10^{-5}$
 \end_inset
 
-. No resonance box has been drawn or computed in this work.
+. Aucune caisse de résonance n'a été dessinée ni calculée dans ce travail.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): the dimensions of the resonance box of one instrument you can open, and the recording of one tongue through it and outside it, so that the computed modes can be set against the measured spectrum.
+À compléter (Ewen) : les cotes de la caisse de résonance d'un instrument que tu peux ouvrir, et l'enregistrement d'une languette à travers elle et hors d'elle, pour que les modes calculés soient mis en face du spectre mesuré.
 \end_layout
 
 \begin_layout Section
@@ -5126,17 +5122,17 @@ Clapets et sourdines
 \end_layout
 
 \begin_layout Standard
-Pallets and mutes, in French in the title. The pallet is the door of each note, and it has had its say in this book several times: an orifice of guessed dimensions in the network, the only radiator of the model, the mass of air that the model puts in the mechanism of start-up, the last place where the key acts. The register slides, which close whole sets of tongues, are of the same family, and the workshop counts them among the places that leak. A mute is anything, felt, wood or cloth, placed on the road of the sound to soften it: a longer and narrower passage, hence more mass of air and more loss, hence less high frequency and a little less of everything.
+Le clapet est la porte de chaque note, et il a eu son mot à dire plusieurs fois dans ce livre : un orifice de dimensions devinées dans le réseau, le seul rayonneur du modèle, la masse d'air que le modèle met dans le mécanisme de démarrage, le dernier endroit où la touche agit. Les tiroirs de registre, qui ferment des jeux entiers de languettes, sont de la même famille, et l'atelier les compte parmi les endroits qui fuient. Une sourdine est n'importe quoi, feutre, bois ou tissu, placé sur le chemin du son pour l'adoucir : un passage plus long et plus étroit, donc plus de masse d'air et plus de perte, donc moins d'aigu et un peu moins de tout.
 \end_layout
 
 \begin_layout Standard
-What is said of valves in the chapter on leaks applies to both: their transmittance can be measured in a tube with two or four microphones, the software is ready, the rig is not. What the models predict for the pallet, an optimum of its lift for the ease of the start, is experiment E2 and is unmeasured.
+Ce qui est dit des soupapes dans le chapitre sur les fuites s'applique aux deux : leur transmittance se mesure dans un tube à deux ou quatre micros, le logiciel est prêt, le montage ne l'est pas. Ce que les modèles prédisent pour le clapet, un optimum de sa levée pour la facilité du démarrage, c'est l'expérience E2 et elle n'est pas mesurée.
 \end_layout
 
 \begin_layout Standard
 
 \shape italic
-To be completed (Ewen): the transmission loss of one register slide, closed, in the two-microphone tube, by the coarse method of transfer.py. And the lift of your pallets at full key, with a feeler gauge: the 4 mm of the model is a guess.
+À compléter (Ewen) : la perte par transmission d'un tiroir de registre, fermé, dans le tube à deux micros, par la méthode grossière de transfer.py. Et la levée de tes clapets à touche enfoncée, à la cale d'épaisseur : les 4 mm du modèle sont une supposition.
 \end_layout
 
 \begin_layout Part
