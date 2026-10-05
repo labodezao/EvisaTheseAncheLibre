@@ -76,7 +76,12 @@ n'a de sens que reliée à ce qui se passe dans le cadre du corps.
   seule pincée, sur sa chambre, soufflerie par escalier noté à la main) ; outils `pince_modes.py`,
   `fem/comparer_pince.py`, `fem/souffle.py`. Thèse : `design_theory.lyx` (chapitre Static and
   modal analysis, en anglais). design_practical = comment concevoir un accordéon, PAS la thèse
-  (correction d'Ewen, 04/10). Compilation : biblatex (structure.tex du gabarit Legrand) ->
+  (correction d'Ewen, 04/10). Partage (Ewen, 05/10) : design_theory = la théorie vraiment
+  acoustique (anche, sommier, couplages) ; design_practical = la théorie de la fabrication,
+  appliquée à la conception d'instrument et au métier de réparateur, organisée PIÈCE PAR PIÈCE
+  de l'accordéon (étude théorique -> analyse -> outils d'aide à la conception / réparation).
+  Ex. : la mécanique main gauche, les fuites vont dans practical. Sa table des matières actuelle
+  (copie de design_theory) ne compte pas : on peut la réécrire. Compilation : biblatex (structure.tex du gabarit Legrand) ->
   `\addbibresource{references.bib}`, `\printbibliography` en ERT, biber, `bibliography.bib` vide ;
   pas de grec ni de symbole Unicode en texte (formule). Les sons d'Ewen arrivent dans `J:\multimedia à tier\INBOX` : les lire, ne
   jamais les déplacer. Le .lyx est en CRLF dans le dépôt : garder CRLF (sinon tout le fichier change).

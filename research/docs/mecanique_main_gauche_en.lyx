@@ -1,0 +1,2267 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass book
+\begin_preamble
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% The Legrand Orange Book
+% LaTeX Template
+% Version 2.1.1 (14/2/16)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% Original author:
+% Mathias Legrand (legrand.mathias@gmail.com) with modifications by:
+% Vel (vel@latextemplates.com)
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+% Compiling this template:
+% This template uses biber for its bibliography and makeindex for its index.
+% When you first open the template, compile it from the command line with the 
+% commands below to make sure your LaTeX distribution is configured correctly:
+%
+% 1) pdflatex main
+% 2) makeindex main.idx -s StyleInd.ist
+% 3) biber main
+% 4) pdflatex main x 2
+%
+% After this, when you wish to update the bibliography/index use the appropriate
+% command above and make sure to compile with pdflatex several times 
+% afterwards to propagate your changes to the document.
+%
+% This template also uses a number of packages which may need to be
+% updated to the newest versions for the template to compile. It is strongly
+% recommended you update your LaTeX distribution if you have any
+% compilation errors.
+%
+% Important note:
+% Chapter heading images should have a 2:1 width:height ratio,
+% e.g. 920px width and 460px height.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+% Default font size and left-justified equations
+
+%----------------------------------------------------------------------------------------
+
+\input{structure} % Insert the commands.tex file which contains the majority of the structure behind the template
+\addbibresource{references.bib} % bibliographie de la thèse (biber)
+\end_preamble
+\use_default_options false
+\maintain_unincluded_children false
+\language english
+\language_package none
+\inputencoding utf8
+\fontencoding default
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command biber
+\index_command default
+\paperfontsize 11
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 2
+\use_package amssymb 0
+\use_package cancel 0
+\use_package esint 1
+\use_package mathdots 0
+\use_package mathtools 0
+\use_package mhchem 0
+\use_package stackrel 0
+\use_package stmaryrd 0
+\use_package undertilde 0
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 0
+\use_minted 0
+\branch Music
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\branch Lutherie
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\branch Sciences
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\branch Biomeca
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\branch Articles
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 1
+\math_indentation default
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 2
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+The left-hand mechanism: what a finger pays for a pallet
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+\backslash
+chapterimage{chapter_head_2.pdf}
+\end_layout
+
+\end_inset
+
+\end_layout
+
+\begin_layout Chapter
+The left-hand mechanism: what a finger pays for a pallet
+\end_layout
+
+\begin_layout Standard
+Press a bass button of an accordion while the bellows is being drawn, and the finger meets something before it meets the spring: a small resistance at the very start, a step, and then a softer travel down to the bottom. Press the same button on the push and the step is gone. Nothing in the mechanism has changed between the two gestures. What has changed is the air, and the finger is reading it. This chapter follows that small step back to its cause, and from there to every gram a player pays at the button of the left hand: the pallet, the spring that holds it, the lever that lifts it, the way the parts slide or turn, and the plastic or metal they are made of.
+\end_layout
+
+\begin_layout Standard
+The occasion was practical. Ewen is building the left-hand mechanism of the Lib RT, a free-bass instrument with grave basses, for a jazz player whose present instrument asks too much of his fingers; the aim he was given is 80 to 100 grams at the button. Four printed versions were made, the fifth (v5) plays but grinds, and the question became: is the force in the mechanism, or somewhere else? The answer of this chapter is that most of it is somewhere else, and that it can be computed before anything is built. The figures come from a small calculator written for the purpose (calcul_mecanique.py, kept with the engineering report of the Lib RT); every number below can be recomputed with the true dimensions once they are measured.
+\end_layout
+
+\begin_layout Section
+A door against the wind
+\end_layout
+
+\begin_layout Standard
+A pallet is a door. It covers a hole in the soundboard, on the side of the mechanism, and behind the hole is the air of the bellows. When the door is shut, the air pushes on it, and it pushes only where the hole is: around the hole, on the seat, the leather sees the same pressure on both faces. The force is therefore the plainest one in physics, a pressure times an area,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+F = \Delta p \, A_{\mathrm{hole}}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+and for the large basses of the Lib RT, a hole of 20 by 15 mm (300 mm²), it is 0.60 N at a playing pressure of 2 kPa and 0.90 N at a peak of 3 kPa. In grams, since that is what a finger knows, 61 and 92 g. Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:pallet-force"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ gives it for the other holes considered.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:pallet-force"
+
+\end_inset
+
+Force of the bellows pressure on a closed pallet, 
+\begin_inset Formula $\Delta$
+\end_inset
+p × A (1 N = 102 g). The critical lift A/P is the lift at which the curtain around the pallet equals the hole.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{lllllll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+hole (mm) & area (mm$^{2}$) & critical lift A/P (mm) & 1 kPa & 2 kPa & 3 kPa & 5 kPa 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+20 $
+\backslash
+times$ 15 & 300 & 4.3 & 0.30 N (31 g) & 0.60 N (61 g) & 0.90 N (92 g) & 1.50 N (153 g) 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+18 $
+\backslash
+times$ 15 & 270 & 4.1 & 0.27 N & 0.54 N & 0.81 N & 1.35 N 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+15 $
+\backslash
+times$ 15 & 225 & 3.8 & 0.23 N & 0.45 N & 0.68 N & 1.12 N 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+11 $
+\backslash
+times$ 27 & 297 & 3.9 & 0.30 N & 0.59 N & 0.89 N & 1.49 N 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+12 $
+\backslash
+times$ 12 & 144 & 3.0 & 0.14 N (15 g) & 0.29 N (29 g) & 0.43 N (44 g) & 0.72 N 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Which way does it push? It depends on which side of the board the door is. On an accordion the pallet sits on the outer face, the side of the atmosphere: on the push the air of the bellows lifts it, on the draw the outside air clamps it down. An organ puts its pallet on the other side, inside the wind chest, and the signs swap. There is no free side. Where the pressure helps to open, a spring must be strong enough to keep the door shut against the strongest push of the player; where the pressure resists, the finger pays it at the opening. The sum of the two burdens is the same either way. Only a door that is pushed equally in both senses escapes the bargain, and we shall meet it below.
+\end_layout
+
+\begin_layout Standard
+On the Lib RT the burden falls on the spring. It must hold the pallet shut against the peak of the push, with a margin for the jolts of the bellows, and it must also press the leather hard enough to seal:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+F_{0} = 1.2 \, \Delta p_{\mathrm{peak}} \, A + F_{\mathrm{seal}}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+With a peak of 3 kPa and a sealing force of 0.3 N, this is 1.38 N (141 g) at the pallet. A weaker spring leaks at the forte push: the note speaks without being pressed, the old fault of accordions with tired springs.
+\end_layout
+
+\begin_layout Standard
+What does the finger feel while the door opens? Three things are added: the preload, the stiffness of the spring, and the pressure. The last one does not stay. As soon as the pallet lifts, the air runs through two orifices in series, the curtain between pallet and seat (perimeter times lift) and the tongue itself, and the pressure left on the pallet falls as 
+\begin_inset Formula $1/(1+(P x / A_{\mathrm{reed}})^{2})$
+\end_inset
+. For a grave tongue with an effective section of about 20 mm², a quarter of the pressure force is left at 0.5 mm of lift, 8 % at 1 mm, almost nothing at 2 mm. Here is the step of the first paragraph: on the draw the finger first pays 1.38 + 0.60 = 1.98 N at the lift-off, then 1.50 N at one millimetre, then only the spring, 1.56 N at mid-stroke. Organ builders call it the pluck. On the push the pressure helps at the start (0.78 N) and the two directions meet again after a millimetre. The inequality between push and draw lives in the first millimetre and nowhere else.
+\end_layout
+
+\begin_layout Section
+The price of lift
+\end_layout
+
+\begin_layout Standard
+Why should the lift of the pallet matter to the finger? Because energy has nowhere to hide. If the button goes down by a travel 
+\begin_inset Formula $c$
+\end_inset
+ and the pallet goes up by a lift 
+\begin_inset Formula $x$
+\end_inset
+, then without losses 
+\begin_inset Formula $F_{b} c = F_{s} x$
+\end_inset
+, and
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+F_{b} = F_{s} \, \frac{x}{c} \, \frac{1}{\eta} = F_{s} \, \frac{r}{\eta}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+with 
+\begin_inset Formula $\eta$
+\end_inset
+ the efficiency of the chain, about 0.9 with steel pivots. The ratio 
+\begin_inset Formula $r$
+\end_inset
+ of lift to travel is not a detail of the drawing: it multiplies everything. A lift of 10 mm for a travel of 5 mm doubles the force at the button.
+\end_layout
+
+\begin_layout Standard
+And how much lift does the air need? The pallet stops limiting the flow when the curtain around it, perimeter 
+\begin_inset Formula $P$
+\end_inset
+ times lift 
+\begin_inset Formula $x$
+\end_inset
+, equals the area of the hole. For 20 by 15 mm, 
+\begin_inset Formula $A/P$
+\end_inset
+ = 300 / 70 = 4.3 mm; with a margin of 20 %, 5.1 mm. Above that, a pallet that opens further gives no more air, and the pressure on it has already vanished after the first millimetre. A centimetre of lift buys nothing for the sound and costs 60 to 100 % more at the finger. Whether the sound of the tongue is more open beyond 
+\begin_inset Formula $A/P$
+\end_inset
+ is a question for the ear, and the bench can answer it (experiment E-hole below); nothing in the physics expects it.
+\end_layout
+
+\begin_layout Standard
+Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:button-force"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ puts the two together for the large hole: the best that any mechanism can do, 
+\begin_inset Formula $r$
+\end_inset
+ close to 1, gives 160 to 180 g at mid-stroke and 200 to 225 g at the lift-off on the draw. The aim of 80 to 100 g is out of reach with this hole and this peak, whatever the mechanism.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:button-force"
+
+\end_inset
+
+Force at the button for the 20 × 15 mm hole (play 2 kPa, peak 3 kPa, 
+\begin_inset Formula $\eta$
+\end_inset
+ = 0.9). The last column is the force that brings the button back at the worst moment, a 3 kPa push with the pallet closed.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{lllllll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+travel (mm) & lift (mm) & r & lift-off (draw) & mid-stroke & end of stroke & return at 3 kPa push 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+5 & 4.5 & 0.90 & 202 g & 159 g & 176 g & 40 g 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+5 & 5.0 & 1.00 & 224 g & 177 g & 196 g & 44 g 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+5 & 6.0 & 1.20 & 269 g & 212 g & 235 g & 53 g 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+5 & 8.0 & 1.60 & 359 g & 282 g & 313 g & 70 g 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+5 & 10.0 & 2.00 & 449 g & 352 g & 391 g & 88 g 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+4 & 5.0 & 1.25 & 280 g & 221 g & 245 g & 55 g 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The last column deserves a moment. At the forte push, the pressure lifts the closed pallet and eats the preload of the spring; what is left to raise the button is the margin, 44 g. Below 35 to 40 g, a key that rubs a little stays down. It is very probably the fault of the player's present instrument: springs that are just strong enough, and some friction.
+\end_layout
+
+\begin_layout Standard
+Where, then, is the force? Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:levers"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ ranks the levers, and the first two are not in the mechanism at all.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:levers"
+
+\end_inset
+
+Force at mid-stroke on the draw (lift-off in brackets), for r = 1.2.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{lllll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+hole & area (mm$^{2}$) & play 1 kPa, peak 1.5 kPa & play 2 kPa, peak 3 kPa & play 3 kPa, peak 5 kPa 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+20 $
+\backslash
+times$ 15 & 300 & 129 g (155 g) & 212 g (269 g) & 322 g (408 g) 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+15 $
+\backslash
+times$ 15 & 225 & 108 g (126 g) & 170 g (212 g) & 253 g (316 g) 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+12 $
+\backslash
+times$ 12 & 144 & 86 g (96 g) & 126 g (150 g) & 179 g (217 g) 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+d 10 & 79 & 68 g (71 g) & 90 g (101 g) & 119 g (137 g) 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+The hole.
+\series default
+ A tongue needs three to five times its effective section to breathe, 60 to 100 mm². The rest of the hole serves the acoustics of the chamber and the way out of the sound. A hole of 12 by 12 mm halves the pressure force; with 
+\begin_inset Formula $r$
+\end_inset
+ = 1 and a peak of 1.5 kPa it gives 72 g at mid-stroke and 80 g at the lift-off.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+The real peak pressure.
+\series default
+ Between 1.5 and 3 kPa the preload goes from 0.84 to 1.38 N. A jazz player who plays softly may never pass 1.5 kPa; a U-tube manometer says so in an afternoon.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+r at most 1.
+\series default
+ Travel 5 mm, lift 5 to 5.5 mm.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+A long, soft spring
+\series default
+, rising by 15 to 25 % over the lift, not 100 %.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+The efficiency
+\series default
+: turning, not sliding (below).
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+The seat
+\series default
+: a flat seat and a supple leather seal with 0.3 N; a warped seat asks for 0.6 N, which the finger pays.
+\end_layout
+
+\begin_layout Section
+Four ways to cheat the wind, and why three of them fail
+\end_layout
+
+\begin_layout Standard
+Can the pressure force be compensated, the way a sash window is balanced by its counterweight? Four ideas come naturally. Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:compensations"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ draws them in section beside the plain pallet, and its last panel compares what each one leaves at the button, computed with the same assumptions as table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:button-force"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/mecanique_compensations_en.png
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:compensations"
+
+\end_inset
+
+The compensations, in section and in grams at the button (hole 20 × 15 mm, r = 1). Reference: on the draw, pressure clamps the pallet. (a) A small pilot pallet opened first. (b) Two pallets side by side. (c) A balanced pallet: two seats on one stem. (d) A helper spring at the button. (e) Lift-off, mid-stroke and return at the button.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+The pilot (a).
+\series default
+ A small pallet of 6 by 6 mm sits on a hole cut through the large one. The lever lifts it first, through a hook with a little free play; air rushes through the small hole, the chamber behind comes to the outside pressure, and only then does the hook take the large pallet. The pluck of the draw is gone: the lift-off falls from 224 to 165 g, a gain of about a quarter. But look at the mid-stroke: 176 g in both cases. The pilot removes the pressure, which only lived in the first millimetre, and leaves the spring, which must still hold the peak of the push. It costs two pallets per note.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Two pallets side by side (b).
+\series default
+ Two holes of 150 mm² have the same area as one of 300; the pressure force is the same and so is the total spring. Nothing is gained, and the parts are doubled. It is worth drawing only because it is the first idea everyone has.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+The balanced pallet (c).
+\series default
+ Here the bargain of the first section is broken. Two discs of equal area are fixed on one stem, and the air of the bellows lies between two plates: the upper disc rests on the upper plate, outside, and the pressure under it pushes it open; the lower disc rests on the lower plate, inside, and the same pressure pushes it shut. Both open by moving the same way. The two thrusts cancel, whatever the sign of the pressure, push or draw, and the spring no longer has to hold the peak: only to seal, 0.3 to 0.5 N. At the button this is 45 g at the lift-off and 51 g at mid-stroke. It is the only solution that reaches 80 g on a hole of 300 mm². The engineers of steam knew it as the double-beat valve. Its price is real: a seat on the side of the bellows or a sealed passage for the stem, two holes per note, and a design that has never been tried on an accordion and must be proved on the bench. It is kept here as a research path, not as the base of the Lib RT.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+The helper spring (d).
+\series default
+ A spring that pulls the button down with a constant force subtracts from the effort, and subtracts just as much from the return. With 44 g of return at the forte push, it can be given 5 to 10 g at most; the panel shows 168 g at mid-stroke and 36 g of return, at the edge of a key that stays down. It does nothing useful here.
+\end_layout
+
+\begin_layout Standard
+The lesson of the figure is the lesson of the whole chapter. The force is in the hole and in the pressure, the two quantities the mechanism does not touch; the balanced pallet is the one idea that reaches into them, and it does so by changing the door, not the lever.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): the lift-off of one pallet on the draw, measured with a spring balance hooked to the pallet and pulled slowly, then the force at 1, 2, 3 and 5 mm of lift (shims under its edge). Does the step of the first millimetre have the size the curve predicts?
+\end_layout
+
+\begin_layout Section
+Returns, one spring, and the space before the force
+\end_layout
+
+\begin_layout Standard
+On a chromatic accordion the same note appears on several rows, and the second button, the return, drives the same pallet through a longer chain. Two buttons, one door: will the finger feel the same force on both? It will, if the two chains have the same ratio 
+\begin_inset Formula $r$
+\end_inset
+ and if a single spring, the spring of the pallet, brings everything back. Each extra steel pivot of the return costs 0.2 to 1 % of the force; three of them, 1 to 3 %, 2 to 5 g on 180 g. The finger does not notice differences below 7 to 10 %. A second spring on the return, on the other hand, would add all of its force to that button alone; it is the one thing to avoid.
+\end_layout
+
+\begin_layout Standard
+Lost motion is subtler. A chain that a spring keeps loaded, the spring at one end and the button at the other, every joint attached, has no dead travel from its clearances: on the way down and on the way up each joint stays pressed against the same side. The clearances show up instead as sideways float and noise. A button merely resting on a lever with a gap between them has a dead travel equal to the gap. At the button, 0.1 to 0.2 mm is tolerable, 2 to 4 % of the travel; above it the finger feels a void before the resistance. And the lift has its own budget: the lift beyond the useful 
+\begin_inset Formula $1.2\,A/P$
+\end_inset
+ must cover the bending of the lever under the playing force and the crushing of leather and felt. For a lift of 6 mm on the large hole the budget is 0.9 mm, for 5.5 mm it is 0.4 mm, for 5 mm nothing at all.
+\end_layout
+
+\begin_layout Section
+Sliding against turning
+\end_layout
+
+\begin_layout Standard
+The v5 grinds. Why does a steel rod sliding in a printed hole grind, when the same rod turning in the same hole does not?
+\end_layout
+
+\begin_layout Standard
+Friction, first. Steel on printed PLA has a coefficient of 0.35 to 0.45 at rest and 0.25 to 0.35 in motion. That difference is enough for stick-slip: the rod sticks, the elastic chain that pushes it loads up, the rod jumps, and the cycle repeats in the kilohertz. That is the grinding. PTFE (0.08 at rest, 0.05 moving) or oiled sintered bronze have almost no difference between the two, and do not grind. Then the layers: a hole printed vertically has steps of 0.18 to 0.24 mm across the motion, and the rod climbs one at every layer.
+\end_layout
+
+\begin_layout Standard
+But the largest effect is geometric, and it is shown in figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:drawer"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+. When the force on the rod is offset from its axis by 
+\begin_inset Formula $e$
+\end_inset
+, through a pin for instance, the rod tilts in its guide of length 
+\begin_inset Formula $L$
+\end_inset
+ and bears at both ends with a force 
+\begin_inset Formula $N = F e / L$
+\end_inset
+. Friction acts at both ends, 
+\begin_inset Formula $2 \mu N$
+\end_inset
+, against the motion, so that
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+F_{\mathrm{push}} = \frac{F_{\mathrm{useful}}}{1 - 2 \mu e / L}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+and the rod jams when 
+\begin_inset Formula $2 \mu e / L$
+\end_inset
+ reaches 1. The v5 has its pin 5 mm off a guide 8 mm long, in PLA: the factor is 2.0, the finger pays double. If the real bearing of the guide is only 4 mm, with chamfers and layer steps, the rod jams now and then. The rule that follows is short: guide length at least 
+\begin_inset Formula $10 \mu e$
+\end_inset
+, 20 mm for PLA and 5 mm for PTFE, or better, push along the axis.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/mecanique_tiroir_en.png
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:drawer"
+
+\end_inset
+
+The drawer effect. A force offset by e makes the rod bear at both ends of its guide; the force needed rises as 1/(1 − 2
+\begin_inset Formula $\mu$
+\end_inset
+e/L) and the rod jams at 2
+\begin_inset Formula $\mu$
+\end_inset
+e/L = 1. The dotted line is the v5.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Now turn the rod into a pivot. In a pivot, friction acts only at the radius of the axle, so the loss is 
+\begin_inset Formula $\mu (d/2) / \ell$
+\end_inset
+ for an arm 
+\begin_inset Formula $\ell$
+\end_inset
+. With a steel axle of 2 mm in raw PLA (
+\begin_inset Formula $\mu$
+\end_inset
+ = 0.4) and an arm of 60 mm, the loss is 0.7 %. A pivot loses 30 to 100 times less than a slide (table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:remedies"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+). This is the whole argument for a mechanism where each key is one rotation, and against a guided rod.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:remedies"
+
+\end_inset
+
+Remedies for a sliding rod (useful force 1, offset 5 mm), against a rotation.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{llll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+guide & $
+\backslash
+mu$ & L (mm) & force factor 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+PLA as printed & 0.40 & 8 & $
+\backslash
+times$ 2.0, stick-slip 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+PLA, lengthened & 0.40 & 20 & $
+\backslash
+times$ 1.25 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+PA printed, drilled and reamed & 0.30 & 12 & $
+\backslash
+times$ 1.33 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+brass tube 3 $
+\backslash
+times$ 2, oiled & 0.19 & 10 & $
+\backslash
+times$ 1.23 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+PTFE sleeve (Bowden liner 2 $
+\backslash
+times$ 4) & 0.08 & 8 & $
+\backslash
+times$ 1.11, no stick-slip 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+rotation on a 2 mm steel axle, arm 60 mm & 0.40 & - & $
+\backslash
+times$ 1.007 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The v5 also has thin steel rods running at an angle between a printed bracket and the aluminium lever. Ewen's correction is worth recording here, because it corrected the analysis: in practice these rods do not buckle, and the computation agrees (the Euler load stays above the force carried). Their real cost is the angle. A rod at 30° to the useful motion carries 15 % more force and pushes the pivot sideways with 58 % of the useful force; if a guide takes that sideways load, a quarter of the effort goes into friction. A rod in tension does not suffer from any of this: it cannot buckle, it aligns itself on its two attachments, it can be a thin cable that passes between the others, and the chain loaded by the spring stays taut, with no dead travel. Attaching the rod on the other side of the bracket's pivot is enough to make the finger pull it instead of pushing it.
+\end_layout
+
+\begin_layout Section
+Pivots that do not wobble
+\end_layout
+
+\begin_layout Standard
+A printed hole is never what was drawn: 0.1 to 0.3 mm too small, round if printed vertically, oval by as much if printed lying down. The contact pressure is not the problem, 0.5 MPa for 3 N on an axle of 2 mm over 3 mm, against 10 MPa admissible. The problem is tilt. A lever on a short hub swings on its own clearance: the end moves by the clearance divided by the hub length, times the lever length (table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:tilt"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+). 0.05 mm of clearance on a 3 mm hub moves the end of a 100 mm lever by 1.7 mm, and with 5 mm between levers, neighbours touch.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:tilt"
+
+\end_inset
+
+Sideways movement of the end of a 100 mm lever (mm), from the clearance of its hub.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{lllll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+diametral clearance (mm) & hub 2 mm & hub 3 mm & hub 6 mm & hub 9 mm 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+0.02 & 1.00 & 0.67 & 0.33 & 0.22 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+0.05 & 2.50 & 1.67 & 0.83 & 0.56 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+0.10 & 5.00 & 3.33 & 2.50 & 1.11 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+No realistic hub holds the end of a long lever within half a millimetre. The accordion solved this long ago with a comb at the end of the levers, slots lined with felt: the clearance of the hub then matters only for noise. Two staggered axles, even levers on one and odd on the other, let each hub be twice as long. And a reamed hole or a pressed brass tube brings the clearance itself to 0.02 to 0.05 mm.
+\end_layout
+
+\begin_layout Standard
+There is a pivot with no clearance and no friction at all: a thin blade of spring steel, clamped on both sides, that bends instead of turning. A lever turns by about 0.1 rad (6 mm of lift on a 60 mm arm); a blade 0.15 mm thick and 5 mm long then carries 309 MPa, below the 600 to 700 MPa of fatigue of spring steel, and lives forever. Its own return torque is small, 0.1 N at the 60 mm arm, a help but not the spring. The printed living hinge is its plastic cousin: only polyamide, 0.4 to 0.6 mm over 3 to 5 mm, survives a million bends (a heavily played key sees 100 000 a year); PLA cracks after a few hundred. And a hinge creeps under the permanent load of the spring, so its rest position drifts: good for small brackets, not for the main pivot.
+\end_layout
+
+\begin_layout Section
+Stiffness, not strength
+\end_layout
+
+\begin_layout Standard
+What should a lever be made of? Not what one would first think. The stresses in a lever are everywhere small, below 15 MPa; nothing breaks. What matters is how much it bends, because every tenth of a millimetre of bending is taken from the lift or added to the dead travel. The admissible bending at the button is 0.2 to 0.3 mm. A rocking lever, button on one side of the axle and pallet on the other, bends as a cantilever from the axle:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+\delta = \frac{F L_{b}^{2} (L_{b} + L_{s})}{3 E I}, \qquad I = \frac{b h^{3}}{12}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+and the width 
+\begin_inset Formula $b$
+\end_inset
+ is fixed by the spacing of the keys: 3.5 mm when three rows share a 15 mm band, 6 mm with two rows. Under the playing force of the large hole, 1.5 N, PLA 3 by 7 mm bends 0.93 mm on 60 + 60 mm arms: four times too much, and it creeps, so the buttons sink with the months. ASA 3 by 12 mm holds to 60 + 60 mm (0.23 mm); carbon-filled polyamide 2.5 times better; beyond 80 mm only metal on edge holds: aluminium alloy 2 by 8 mm bends 0.16 mm on 100 + 100 mm.
+\end_layout
+
+\begin_layout Standard
+On edge is the important phrase. The stiffness goes with the cube of the height. The same strip of aluminium, 8 by 2 mm, is 16 times softer laid flat than standing on its edge: 2.6 mm against 0.16 mm under 1.5 N on 100 + 100 mm. The photographs of the v5 suggest flat levers; if the button pushes vertically, that is the soft way, and it is the first thing to check (100 g at the end, a dial gauge).
+\end_layout
+
+\begin_layout Section
+Springs: steel or nothing
+\end_layout
+
+\begin_layout Standard
+Why not print the springs too? Because a plastic under a permanent stress forgets its shape. At 23 °C PLA is only 35 K below its glass transition; under a few megapascals its chains slide slowly, and the imposed deformation becomes permanent. A printed spring loses 20 to 40 % of its force in a few weeks, and almost all of it in an afternoon at 50 °C, in a car in summer. Spring steel works at a fraction of a percent of strain with no flow at all, and stores 20 to 80 times more energy per volume. One steel spring per pallet, none at the button. For a preload of 1.38 N at a 60 mm arm and a rise of at most 25 % over the lift, a torsion spring on the axle of wire 1.0 to 1.2 mm, 7 to 10 mm in diameter, 8 to 12 coils, preloaded by 45 to 100°; or a tension spring of wire 0.5 mm, 5 mm in diameter, 15 coils, hooked 25 mm from the axle. The springs Ewen already has are usable once their stiffness is measured with a few coins: the rule is that a stiff spring hooks near the axle and a soft one further out.
+\end_layout
+
+\begin_layout Section
+What the models leave out
+\end_layout
+
+\begin_layout Standard
+The pressure on the opening pallet is a quasi-static model of two orifices in series; the transient at the lift-off, where the air running under the seat may briefly push on the whole pallet (up to 1.09 N instead of 0.60 at 2 kPa), is bounded, not computed. The effective section of the tongue, 20 mm², is estimated from the flow of a grave bass and should be measured by timing the emptying of the bellows on one note. The efficiency of 0.9 is for steel pivots; 0.95 with a PTFE comb, 0.8 with raw PLA pivots. The levers are beams of constant section with a point load; a lightened lever is softer. The data of printed materials are good to 20 %, and their fatigue is an order of magnitude: one endurance test is worth more than the table.
+\end_layout
+
+\begin_layout Standard
+Underneath these limits there is something worth saying plainly. The first question was where the force goes, and the answer came before any part was cut: in the hole and in the breath of the player, not in the cleverness of the levers. The mechanism can only add to that floor, a little (2 to 4 % for one rotation per key) or a lot (10 to 100 % for a guided rod). A good mechanism is one that adds almost nothing, and lets the finger feel the air.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): the peak pressure of the jazz player, on a U-tube connected to the bellows, pianissimo to sforzando, push and draw. It is the number that weighs most on everything above. And, if you wish, the sensation itself: what the step of the first millimetre feels like under the finger, before and after you know what it is.
+\end_layout
+
+\begin_layout Part
+Left-hand mechanism
+\end_layout
+
+\begin_layout Standard
+The theory of the left-hand mechanism is in the thesis, in the part on mechanics and valves: where the force at the button comes from, and why the hole and the pressure weigh more than the levers. This part is the workshop side of it: what to make each piece of, how to print it, how to place the pallets when the buttons are closer together than the pallets can be, how to spring and adjust seventy keys, what to measure with almost nothing, and how to decide whether the fifth version is worth repairing. The figures come from the calculator of the Lib RT engineering report (calcul_mecanique.py).
+\end_layout
+
+\begin_layout Chapter
+Building the mechanism
+\end_layout
+
+\begin_layout Section
+The geometry to start from
+\end_layout
+
+\begin_layout Standard
+A rocking lever with equal arms, button side and pallet side (
+\begin_inset Formula $r$
+\end_inset
+ = 1), for instance 60 + 60 mm or 80 + 80 mm, its axle halfway between the button plate and the soundboard. Travel 5 mm, lift 5 to 5.5 mm. The upper stop is the pallet on its seat: the button rests on the lever, the lever on the pallet, and there is no dead travel. One steel spring per lever, none at the button. This is "idea 1": one rotation per key, against the four to six joints of the v5.
+\end_layout
+
+\begin_layout Section
+Materials from the stock, and what a purchase would change
+\end_layout
+
+\begin_layout Standard
+The rule with what is already in the workshop is short: 
+\series bold
+ASA for everything printed and loaded, PETG for buttons and hinges, PLA for nothing mechanical.
+\series default
+ The purchase that changes most is carbon-filled polyamide (PA-CF): short levers and brackets 2.5 times stiffer and little creep.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:materials"
+
+\end_inset
+
+Choice of material for each piece, from the stock (PLA, PETG, ASA), then with a purchase.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{lllll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+piece & best from stock & why & to buy & gain 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+levers up to 60 + 60 mm, 5 mm spacing & ASA 3 $
+\backslash
+times$ 12 on edge, 6 walls & 0.23 mm under 1.5 N, 98 $^{
+\backslash
+circ}$C, moderate creep & PA-CF 3 $
+\backslash
+times$ 12 & 0.09 mm, allows 80 + 80 mm 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+levers up to 80 + 80 mm, 7.5 mm spacing & ASA 5 $
+\backslash
+times$ 12 & 0.32 mm (limit) & PA-CF 5 $
+\backslash
+times$ 12 & 0.13 mm 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+levers above 80 mm, long return bars & metal on edge (aluminium 2 $
+\backslash
+times$ 8, steel 1.5 $
+\backslash
+times$ 8, water-jet) & no plastic of the stock holds 0.3 mm & - & metal stays 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+pivots, hubs, brackets & ASA, drilled and reamed 2 H7, or brass tube 3 $
+\backslash
+times$ 2 & 98 $^{
+\backslash
+circ}$C under the permanent preload & PC or PA-CF & button height drift $
+\backslash
+div$ 2 to 3 in a year 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+button guides (sliding) & ASA + PTFE sleeve or brass tube & all three plastics rub hard on steel & PA or POM & with a PTFE sleeve the gain vanishes ($
+\backslash
+times$ 1.1) 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+frame, button plate & ASA (PETG if ASA warps) & a PLA plate under 70 springs warps in summer & PC & heat resistance only 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+buttons & PETG or ASA & no load & - & - 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+living hinges & PETG 0.4 mm over 5 mm (~10 000 cycles) & PLA cracks in 10 to 100 & PA 0.4 to 0.6 mm & over 10$^{6}$ cycles 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+springs & steel coil springs of the stock & no creep & - & - 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Printing
+\end_layout
+
+\begin_layout Itemize
+Print a lever 
+\series bold
+lying in its plane of rotation
+\series default
+: the axle hole vertical (round, not oval), the strands along the lever, so that bending pulls on the strands and not on the layer interfaces (which keep only 50 to 70 % of the stiffness).
+\end_layout
+
+\begin_layout Itemize
+Nozzle 0.6: a 3 mm lever is five walls, solid; set six walls or 100 % infill, layers 0.2 mm. Thirty per cent infill is for large unloaded supports only.
+\end_layout
+
+\begin_layout Itemize
+Frames and supports: PETG at least (68 °C), ASA or PC if the instrument may stay in a car (60 to 70 °C in summer); PA-CF for what carries an axle or a spring.
+\end_layout
+
+\begin_layout Itemize
+PA and PA-CF: dry the filament, anneal 2 h at 80 °C to stabilise the dimensions before reaming.
+\end_layout
+
+\begin_layout Section
+When to use metal (rods of the stock: 1, 1.5, 2, 3 mm)
+\end_layout
+
+\begin_layout Itemize
+Levers longer than 60 mm and long return bars: aluminium 2 mm or steel 1.5 mm on edge, water-jet cut like the present mechanism rods.
+\end_layout
+
+\begin_layout Itemize
+Everything under the permanent load of the spring: axles, hubs (brass tube), spring anchors.
+\end_layout
+
+\begin_layout Itemize
+Individual lever axles: 2 mm. A common axle through all levers of a band, and the axles of the return bars: 3 mm, supported every 40 mm (0.02 mm of deflection under 2 N per lever at 5 mm spacing).
+\end_layout
+
+\begin_layout Itemize
+Link rods: 1.5 mm in compression, 1 mm in tension. Better in tension: attach the rod on the other side of the bracket pivot so that the finger pulls it.
+\end_layout
+
+\begin_layout Section
+Buttons at 15 mm, pallets at 17.5 mm
+\end_layout
+
+\begin_layout Standard
+The buttons are 15 mm apart, a pallet with its seat needs 17.5 mm. Three layouts hold.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:pitch"
+
+\end_inset
+
+Placing pallets at 17.5 mm under buttons at 15 mm.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{llll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+layout & force & room & complexity 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+fan of levers (angle at most 7 to 10$^{
+\backslash
+circ}$) & + 2 to 5 
+\backslash
+% friction & none & 43 different levers, one parameter in the CAD 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+pallets on two staggered rows (30 mm per row) & + 0 
+\backslash
+% & + 25 mm of depth & two lever lengths, equal r through the arms 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+pallets at 15 mm with a hole 11 $
+\backslash
+times$ 27 mm & + 0 
+\backslash
+% & none & new soundboard and chambers; same area, A/P 3.9 mm 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+cranked arms & + 0 
+\backslash
+% in metal & none & in plastic, torsion adds 0.15 mm and a tilting moment 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Proposed: a 
+\series bold
+fan
+\series default
+ if the levers are metal and at least 100 mm long (angle 7° or less, 5 % of friction at most); 
+\series bold
+two rows
+\series default
+ if they are short (60 mm). Both combine (a fan of 3°).
+\end_layout
+
+\begin_layout Section
+Springs, and seventy keys alike
+\end_layout
+
+\begin_layout Itemize
+One steel spring per pallet, on the lever: preload 1.0 to 1.4 N at the pallet for a hole of 300 mm² and peaks of 2 to 3 kPa, stiffness 0.06 to 0.07 N/mm (25 % rise over the lift).
+\end_layout
+
+\begin_layout Itemize
+Torsion spring on the axle: wire 1.0 to 1.2 mm, diameter 7 to 10 mm, 8 to 12 coils, preload 45 to 100°. Wire 0.8 mm is overstressed.
+\end_layout
+
+\begin_layout Itemize
+Tension spring (as on the v5): wire 0.5 mm, diameter 5 mm, 15 coils, hooked 25 mm from the axle, 10 mm of preload stretch. A stiff spring (1 N/mm) hooks near the axle (15 mm) and pulls 5.5 N, so the rail must hold 70 × 5.5 N = 385 N; a soft one (0.15 to 0.25 N/mm) hooks 25 to 30 mm out and pulls 3 N.
+\end_layout
+
+\begin_layout Itemize
+Commercial springs vary by 10 %; for 5 g of spread at the button, each key needs an adjustment: the anchor on an M3 screw (a quarter turn is about 2 g at the button) or a torsion leg that is bent.
+\end_layout
+
+\begin_layout Itemize
+Every button is set to the same force, and the largest hole sets the level: the small notes get a stronger spring than they need.
+\end_layout
+
+\begin_layout Chapter
+Measuring with almost nothing
+\end_layout
+
+\begin_layout Standard
+Equipment: a kitchen scale (1 g), coins (1 c = 2.3 g, 5 c = 3.9 g, 10 c = 4.1 g, 20 c = 5.7 g, 50 c = 7.8 g, 1 € = 7.5 g, 2 € = 8.5 g), a 0 to 500 g spring balance, a dial gauge on a stand, feeler shims, a clear tube of 1 m and a ruler, a telephone (sound level, recorder, slow motion), a drill for the endurance bench.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Bellows pressure (U-tube).
+\series default
+ Half-filled tube, one side connected to the inside of the bellows; play a grave bass from pianissimo to sforzando, push and draw, and film the tube. 
+\begin_inset Formula $\Delta$
+\end_inset
+p = h × 0.098 kPa per centimetre. It is the number that sets the spring and the force.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Pallet on the bench.
+\series default
+ One pallet on a block with the hole, connected to the bellows or a vacuum cleaner with an adjustable leak. Sealing: coins on the pallet without spring, the least mass without whistle at 3 kPa (soapy water around the seat). Lift-off on the draw: a spring balance on the pallet, pulled slowly; then the force at 1, 2, 3 and 5 mm of lift.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Smallest hole for a BB95 tongue.
+\series default
+ Plates with holes of 300, 225, 144 and 100 mm², lifts of 1 to 8 mm; level at 50 cm, recording, pitch. The smallest hole and lift with no audible loss: every square millimetre less is force less at the button.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Force at the button, hysteresis, return.
+\series default
+ A light cup on the button, coins until it goes down, then remove until it comes back up. Hysteresis = down − up = twice the friction; aim below 25 g. Again bellows inflated (push) and deflated (draw). Ten grave keys, five returns, five high ones. The same on the reference Maugein: it is the number to beat.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Dead travel and float.
+\series default
+ Dial gauge on the button, a second one on the pallet edge; lower the button in steps of 0.05 mm: travel before the pallet moves is the dead travel, aim below 0.2 mm. Push the button sideways with 50 g: aim below 0.3 mm.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Stiffness of a lever.
+\series default
+ Lever clamped at its axle, 100 g at the button point, dial gauge; then turned by 90°: the ratio must be (h/b)².
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Sliding rod (v5).
+\series default
+ Spring balance along the axis, then through the offset pin: the ratio is the drawer factor. Record 20 presses at 10 cm, count the squeaks. Again with a PTFE sleeve, then a brass tube.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Creep and heat.
+\series default
+ Three identical pieces: at rest, under load for a week, under load 2 h at 50 °C. Expected: PLA − 20 to − 40 % in a week and collapsed at 50 °C, PETG − 10 %, PA-CF − 5 %, steel 0.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Endurance.
+\series default
+ A cam on a drill pressing a key at 2 to 3 Hz: 10 000 cycles in an hour; force, dead travel and noise before and after.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Repetition.
+\series default
+ Metronome; repeat the gravest note and a return, faster and faster until a note is missed. Aim: 8 notes per second, no difference between key and return.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Springs of the stock.
+\series default
+ Length at rest, then with 100 g and 200 g: k = 0.98 N / (L2 − L1). Leave 24 h under 300 g: if it has grown, it was stretched past its elastic limit.
+\end_layout
+
+\begin_layout Chapter
+Saving the v5?
+\end_layout
+
+\begin_layout Standard
+The v5 (a button sliding in the plate, a pin, a printed bracket, a link rod, an aluminium lever with a tension spring) can be repaired in four light gestures: PTFE or brass sleeves in the plate; 2 mm steel axles in reamed holes or brass tubes in the brackets; brackets and supports reprinted in ASA; link rods put in tension. This brings the lost force from + 100 % to + 10 to 15 % and the clearance from 0.2 to 0.05 mm per pivot. What stays, by principle: four to six joints per key against one or two for idea 1, rods at an angle that load the pivots sideways, the routing of the 27 returns under the plate, and a remaining slide at the button.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:v5"
+
+\end_inset
+
+The defects of the v5, their cause, and the lightest correction that keeps its principle.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{llll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+defect & cause & lightest correction & gain 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+button rod grinds and is hard & $
+\backslash
+mu$ 0.4, stick-slip; pin 5 mm off a guide of 8 mm: force $
+\backslash
+times$ 2 & PTFE sleeve 2 $
+\backslash
+times$ 4 in the plate, bearing 10 to 12 mm; or oiled brass tube & $
+\backslash
+times$ 1.1 (PTFE), $
+\backslash
+times$ 1.2 (brass), no stick-slip 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+button wobbles & hole printed on its side: oval by 0.1 to 0.3 mm & the same sleeve; an entry chamfer & float 0.3 to 0.1 mm 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+clearance of the printed pivots & raw hole, short hub & drill and ream 2 H7 or pressed brass tube, 2 mm music-wire axle & 0.02 to 0.05 mm per pivot 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+creep of PLA & 57 $^{
+\backslash
+circ}$C, strong creep under the permanent preload & reprint the same files in ASA, PETG for buttons & button drift $
+\backslash
+div$ 3 to 5 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+rods at an angle & at 30$^{
+\backslash
+circ}$: 58 
+\backslash
+% of the force sideways, + 23 
+\backslash
+% friction if guided & turn the brackets so the rod runs in the plane of the lever; or a cable in tension & friction + 23 
+\backslash
+% to + 7 
+\backslash
+% 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+no room for the return rods & rigid rods in compression must be straight and must not touch & returns by two brackets and a link, or cables in tension on two levels & crossings without contact 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+aluminium levers soft & if laid flat (8 $
+\backslash
+times$ 2): 2.6 mm under 1.5 N on 100 + 100 mm & check (test 6); turn on edge or add a rib & 2.6 to 0.16 mm 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+tension springs on the rail & 25 to 60 
+\backslash
+% rise depending on the anchor & anchor 20 to 25 mm from the axle, adjusting screw & 20 to 25 
+\backslash
+% rise, 2 g per quarter turn 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+What the repair does not change is the floor of the force. It is in the hole and the pressure: repairing the v5 or building idea 1 gives the same 177 g for a hole of 300 mm² at a 3 kPa peak. What differs is what is added to it: + 10 to 15 % and 0.1 to 0.25 mm of float for the repaired v5, + 2 to 4 % and 0.05 mm for idea 1.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:decision"
+
+\end_inset
+
+Criteria to decide, measured on the repaired v5 (10 grave keys, 5 returns, 5 high).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{lllll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+criterion & test & threshold to keep the v5 & expected repaired v5 & idea 1 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+force at mid-stroke & 4 & floor + 15 
+\backslash
+% (177 to 204 g for 300 mm$^{2}$) & floor + 10 to 15 
+\backslash
+% & floor + 2 to 4 
+\backslash
+% 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+key / return equality & 4 & difference 10 g or less & 5 to 15 g & 2 to 5 g 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+hysteresis & 4 & 25 g or less & 15 to 30 g & 5 to 10 g 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+return at the 3 kPa push & 4 and 10 & all keys return, 8 notes/s & tight if return < 40 g & same floor 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+dead travel & 5 & 0.2 mm or less & 0.1 to 0.25 mm & under 0.1 mm 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+side float & 5 & 0.3 mm or less & 0.1 to 0.2 mm & 0.2 mm 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+noise & 7 & no squeak, no click audible at 50 cm & clicks possible at rod ends & silent with a felted comb 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+after 10 000 presses & 9 & force + 10 
+\backslash
+%, clearance + 0.05 mm at most & ASA with brass: holds & holds 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+2 h at 50 $^{
+\backslash
+circ}$C & 8 & button height drift under 0.3 mm & ASA good, PETG limit, PLA no & same materials 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+working time & estimate & repair a third of idea 1 or less & 3 to 6 days & 10 to 20 days 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Decision rule: if two criteria or more remain out after the repair (most likely hysteresis, dead travel and noise), build idea 1. If everything passes except the working time, keep the v5 as the instrument that validates the hole, the pressure and the springs (all of that knowledge carries over to idea 1), and build idea 1 afterwards, losing nothing of the two months.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): the results of tests 1, 2, 4 and 5 on the v5 and on the Maugein, in the decision table, and the choice that follows.
+\end_layout
+
+\end_body
+\end_document

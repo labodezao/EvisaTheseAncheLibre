@@ -1,0 +1,2267 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass book
+\begin_preamble
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% The Legrand Orange Book
+% LaTeX Template
+% Version 2.1.1 (14/2/16)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% Original author:
+% Mathias Legrand (legrand.mathias@gmail.com) with modifications by:
+% Vel (vel@latextemplates.com)
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+% Compiling this template:
+% This template uses biber for its bibliography and makeindex for its index.
+% When you first open the template, compile it from the command line with the 
+% commands below to make sure your LaTeX distribution is configured correctly:
+%
+% 1) pdflatex main
+% 2) makeindex main.idx -s StyleInd.ist
+% 3) biber main
+% 4) pdflatex main x 2
+%
+% After this, when you wish to update the bibliography/index use the appropriate
+% command above and make sure to compile with pdflatex several times 
+% afterwards to propagate your changes to the document.
+%
+% This template also uses a number of packages which may need to be
+% updated to the newest versions for the template to compile. It is strongly
+% recommended you update your LaTeX distribution if you have any
+% compilation errors.
+%
+% Important note:
+% Chapter heading images should have a 2:1 width:height ratio,
+% e.g. 920px width and 460px height.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+% Default font size and left-justified equations
+
+%----------------------------------------------------------------------------------------
+
+\input{structure} % Insert the commands.tex file which contains the majority of the structure behind the template
+\addbibresource{references.bib} % bibliographie de la thèse (biber)
+\end_preamble
+\use_default_options false
+\maintain_unincluded_children false
+\language french
+\language_package none
+\inputencoding utf8
+\fontencoding default
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command biber
+\index_command default
+\paperfontsize 11
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 2
+\use_package amssymb 0
+\use_package cancel 0
+\use_package esint 1
+\use_package mathdots 0
+\use_package mathtools 0
+\use_package mhchem 0
+\use_package stackrel 0
+\use_package stmaryrd 0
+\use_package undertilde 0
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 0
+\use_minted 0
+\branch Music
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\branch Lutherie
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\branch Sciences
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\branch Biomeca
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\branch Articles
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 1
+\math_indentation default
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 2
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Mécanique main gauche : ce que le doigt paie pour une soupape
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+\backslash
+chapterimage{chapter_head_2.pdf}
+\end_layout
+
+\end_inset
+
+\end_layout
+
+\begin_layout Chapter
+La mécanique main gauche : ce que le doigt paie pour une soupape
+\end_layout
+
+\begin_layout Standard
+Appuyez sur un bouton de basse d'accordéon pendant qu'on tire le soufflet, et le doigt rencontre quelque chose avant le ressort : une petite résistance tout au début, une marche, puis une course plus douce jusqu'en bas. Appuyez sur le même bouton au poussé, et la marche a disparu. Rien n'a changé dans la mécanique entre les deux gestes. Ce qui a changé, c'est l'air, et le doigt est en train de le lire. Ce chapitre remonte cette petite marche jusqu'à sa cause, et de là jusqu'à chaque gramme que le musicien paie au bouton de la main gauche : la soupape, le ressort qui la tient, le levier qui la soulève, la façon dont les pièces glissent ou tournent, et le plastique ou le métal dont elles sont faites.
+\end_layout
+
+\begin_layout Standard
+L'occasion était pratique. Ewen construit la mécanique main gauche du Lib RT, un basses chromatiques à grosses basses, pour un jazzman dont l'instrument actuel demande trop à ses doigts ; le but donné est 80 à 100 grammes au bouton. Quatre versions imprimées ont été faites, la cinquième (v5) joue mais grince, et la question est devenue : l'effort est-il dans la mécanique, ou ailleurs ? La réponse de ce chapitre est qu'il est surtout ailleurs, et qu'on peut le calculer avant de fabriquer quoi que ce soit. Les chiffres viennent d'un petit calculateur écrit pour l'occasion (calcul_mecanique.py, rangé avec le rapport d'ingénierie du Lib RT) ; chacun se recalcule avec les vraies cotes, une fois mesurées.
+\end_layout
+
+\begin_layout Section
+Une porte contre le vent
+\end_layout
+
+\begin_layout Standard
+Une soupape est une porte. Elle couvre un trou de la table d'harmonie, côté mécanique, et derrière le trou il y a l'air du soufflet. Porte fermée, l'air pousse dessus, et il ne pousse que là où est le trou : autour, sur la portée, la peau voit la même pression sur ses deux faces. La force est donc la plus simple de la physique, une pression fois une surface,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+F = \Delta p \, A_{\mathrm{trou}}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+et pour les grosses basses du Lib RT, un trou de 20 sur 15 mm (300 mm²), elle vaut 0,60 N à 2 kPa de jeu et 0,90 N à 3 kPa de pointe. En grammes, puisque c'est ce que le doigt connaît, 61 et 92 g. Le tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-force"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ la donne pour les autres trous envisagés.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-force"
+
+\end_inset
+
+Force de la pression du soufflet sur une soupape fermée, 
+\begin_inset Formula $\Delta$
+\end_inset
+p × A (1 N = 102 g). La levée critique A/P est la levée à laquelle le rideau autour de la soupape égale le trou.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{lllllll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+trou (mm) & aire (mm$^{2}$) & levée critique A/P (mm) & 1 kPa & 2 kPa & 3 kPa & 5 kPa 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+20 $
+\backslash
+times$ 15 & 300 & 4,3 & 0,30 N (31 g) & 0,60 N (61 g) & 0,90 N (92 g) & 1,50 N (153 g) 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+18 $
+\backslash
+times$ 15 & 270 & 4,1 & 0,27 N & 0,54 N & 0,81 N & 1,35 N 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+15 $
+\backslash
+times$ 15 & 225 & 3,8 & 0,23 N & 0,45 N & 0,68 N & 1,12 N 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+11 $
+\backslash
+times$ 27 & 297 & 3,9 & 0,30 N & 0,59 N & 0,89 N & 1,49 N 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+12 $
+\backslash
+times$ 12 & 144 & 3,0 & 0,14 N (15 g) & 0,29 N (29 g) & 0,43 N (44 g) & 0,72 N 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Dans quel sens pousse-t-elle ? Cela dépend du côté de la table où est la porte. Sur un accordéon, la soupape est sur la face extérieure, côté atmosphère : au poussé, l'air du soufflet la soulève ; au tiré, l'air extérieur la plaque. L'orgue met sa soupape de l'autre côté, dans la laye, et les signes s'inversent. Il n'y a pas de côté gratuit. Là où la pression aide à ouvrir, il faut un ressort assez fort pour tenir la porte fermée contre le plus fort poussé du musicien ; là où elle résiste, le doigt la paie à l'ouverture. La somme des deux charges est la même des deux côtés. Seule une porte poussée également dans les deux sens échappe au marché, et nous la rencontrerons plus bas.
+\end_layout
+
+\begin_layout Standard
+Sur le Lib RT, la charge tombe sur le ressort. Il doit tenir la soupape fermée contre la pointe du poussé, avec une marge pour les à-coups du soufflet, et aussi appuyer assez la peau pour qu'elle étanche :
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+F_{0} = 1{,}2 \, \Delta p_{\mathrm{pointe}} \, A + F_{\mathrm{\acute{e}tanch}}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+Avec 3 kPa de pointe et 0,3 N d'étanchéité, cela fait 1,38 N (141 g) à la soupape. Un ressort plus faible fuit au forte poussé : la note parle sans qu'on appuie, vieux défaut des accordéons aux ressorts fatigués.
+\end_layout
+
+\begin_layout Standard
+Que sent le doigt pendant que la porte s'ouvre ? Trois choses s'ajoutent : la précharge, la raideur du ressort, et la pression. La dernière ne reste pas. Dès que la soupape décolle, l'air passe par deux orifices en série, le rideau entre soupape et portée (périmètre fois levée) et l'anche elle-même, et la part de pression qui reste sur la soupape tombe comme 
+\begin_inset Formula $1/(1+(P x / A_{\mathrm{anche}})^{2})$
+\end_inset
+. Pour une anche grave de section efficace 20 mm² environ, il reste un quart de la poussée à 0,5 mm de levée, 8 % à 1 mm, presque rien à 2 mm. Voilà la marche du premier paragraphe : au tiré, le doigt paie d'abord 1,38 + 0,60 = 1,98 N au décollement, puis 1,50 N à un millimètre, puis le ressort seul, 1,56 N à mi-course. Les facteurs d'orgue appellent cela le « pluck ». Au poussé, la pression aide au départ (0,78 N) et les deux sens se rejoignent après un millimètre. L'inégalité entre poussé et tiré vit dans le premier millimètre, et nulle part ailleurs.
+\end_layout
+
+\begin_layout Section
+Le prix de la levée
+\end_layout
+
+\begin_layout Standard
+Pourquoi la levée de la soupape regarderait-elle le doigt ? Parce que l'énergie n'a nulle part où se cacher. Si le bouton descend d'une course 
+\begin_inset Formula $c$
+\end_inset
+ et que la soupape monte d'une levée 
+\begin_inset Formula $x$
+\end_inset
+, alors sans pertes 
+\begin_inset Formula $F_{b} c = F_{s} x$
+\end_inset
+, et
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+F_{b} = F_{s} \, \frac{x}{c} \, \frac{1}{\eta} = F_{s} \, \frac{r}{\eta}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+avec 
+\begin_inset Formula $\eta$
+\end_inset
+ le rendement de la chaîne, 0,9 environ avec des pivots acier. Le rapport 
+\begin_inset Formula $r$
+\end_inset
+ de la levée à la course n'est pas un détail du dessin : il multiplie tout. Une levée de 10 mm pour une course de 5 mm double l'effort au bouton.
+\end_layout
+
+\begin_layout Standard
+Et de combien de levée l'air a-t-il besoin ? La soupape cesse de brider le débit quand le rideau autour d'elle, périmètre 
+\begin_inset Formula $P$
+\end_inset
+ fois levée 
+\begin_inset Formula $x$
+\end_inset
+, égale l'aire du trou. Pour 20 sur 15 mm, 
+\begin_inset Formula $A/P$
+\end_inset
+ = 300 / 70 = 4,3 mm ; avec 20 % de marge, 5,1 mm. Au-delà, une soupape qui s'ouvre davantage ne donne pas plus d'air, et la pression sur elle a déjà disparu après le premier millimètre. Un centimètre de levée n'achète rien au son et coûte 60 à 100 % d'effort en plus au doigt. Savoir si le son de l'anche est plus ouvert au-delà de 
+\begin_inset Formula $A/P$
+\end_inset
+ est une question pour l'oreille, et le banc peut y répondre (essai du trou, plus bas) ; rien dans la physique ne l'attend.
+\end_layout
+
+\begin_layout Standard
+Le tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-bouton"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ réunit les deux pour le grand trou : le mieux que puisse faire une mécanique, 
+\begin_inset Formula $r$
+\end_inset
+ proche de 1, donne 160 à 180 g à mi-course et 200 à 225 g au décollement au tiré. Le but de 80 à 100 g est hors d'atteinte avec ce trou et cette pointe, quelle que soit la mécanique.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-bouton"
+
+\end_inset
+
+Effort au bouton pour le trou 20 × 15 mm (jeu 2 kPa, pointe 3 kPa, 
+\begin_inset Formula $\eta$
+\end_inset
+ = 0,9). La dernière colonne est la force qui ramène le bouton au pire moment, poussé à 3 kPa, soupape fermée.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{lllllll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+course (mm) & levée (mm) & r & décollement (tiré) & mi-course & fin de course & retour au poussé 3 kPa 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+5 & 4,5 & 0,90 & 202 g & 159 g & 176 g & 40 g 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+5 & 5,0 & 1,00 & 224 g & 177 g & 196 g & 44 g 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+5 & 6,0 & 1,20 & 269 g & 212 g & 235 g & 53 g 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+5 & 8,0 & 1,60 & 359 g & 282 g & 313 g & 70 g 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+5 & 10,0 & 2,00 & 449 g & 352 g & 391 g & 88 g 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+4 & 5,0 & 1,25 & 280 g & 221 g & 245 g & 55 g 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+La dernière colonne mérite un instant. Au forte poussé, la pression soulève la soupape fermée et mange la précharge du ressort ; ce qui reste pour remonter le bouton, c'est la marge, 44 g. Sous 35 à 40 g, une touche qui frotte un peu reste en bas. C'est très probablement le défaut de l'instrument actuel du musicien : des ressorts tout juste assez forts, et un peu de frottement.
+\end_layout
+
+\begin_layout Standard
+Où est donc l'effort ? Le tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-leviers"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ classe les leviers d'action, et les deux premiers ne sont pas du tout dans la mécanique.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-leviers"
+
+\end_inset
+
+Effort à mi-course au tiré (décollement entre parenthèses), pour r = 1,2.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{lllll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+trou & aire (mm$^{2}$) & jeu 1 kPa, pointe 1,5 kPa & jeu 2 kPa, pointe 3 kPa & jeu 3 kPa, pointe 5 kPa 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+20 $
+\backslash
+times$ 15 & 300 & 129 g (155 g) & 212 g (269 g) & 322 g (408 g) 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+15 $
+\backslash
+times$ 15 & 225 & 108 g (126 g) & 170 g (212 g) & 253 g (316 g) 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+12 $
+\backslash
+times$ 12 & 144 & 86 g (96 g) & 126 g (150 g) & 179 g (217 g) 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+d 10 & 79 & 68 g (71 g) & 90 g (101 g) & 119 g (137 g) 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Le trou.
+\series default
+ Une anche a besoin de trois à cinq fois sa section efficace pour respirer, 60 à 100 mm². Le reste du trou sert à l'acoustique de la chambre et à la sortie du son. Un trou de 12 sur 12 mm divise par deux la poussée de la pression ; avec 
+\begin_inset Formula $r$
+\end_inset
+ = 1 et 1,5 kPa de pointe, il donne 72 g à mi-course et 80 g au décollement.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+La vraie pointe de pression.
+\series default
+ Entre 1,5 et 3 kPa, la précharge passe de 0,84 à 1,38 N. Un jazzman qui joue doux ne dépasse peut-être jamais 1,5 kPa ; un manomètre en U le dit en un après-midi.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+r au plus 1.
+\series default
+ Course 5 mm, levée 5 à 5,5 mm.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Un ressort long et souple
+\series default
+, qui monte de 15 à 25 % sur la levée, pas de 100 %.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Le rendement
+\series default
+ : tourner, pas glisser (plus bas).
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+La portée
+\series default
+ : une portée plane et une peau souple étanchent avec 0,3 N ; une portée gauche demande 0,6 N, que le doigt paie.
+\end_layout
+
+\begin_layout Section
+Quatre façons de tricher avec le vent, et pourquoi trois échouent
+\end_layout
+
+\begin_layout Standard
+Peut-on compenser la poussée de la pression, comme on équilibre une fenêtre à guillotine par son contrepoids ? Quatre idées viennent naturellement. La figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:fr-compensations"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ les dessine en coupe à côté de la soupape simple, et son dernier panneau compare ce que chacune laisse au bouton, avec les mêmes hypothèses que le tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-bouton"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/mecanique_compensations_fr.png
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:fr-compensations"
+
+\end_inset
+
+Les compensations, en coupe et en grammes au bouton (trou 20 × 15 mm, r = 1). Référence : au tiré, la pression plaque la soupape. (a) Une petite soupape pilote ouverte d'abord. (b) Deux soupapes côte à côte. (c) Une soupape équilibrée : deux portées sur une même tige. (d) Un ressort d'aide au bouton. (e) Décollement, mi-course et retour au bouton.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+La pilote (a).
+\series default
+ Une petite soupape de 6 sur 6 mm couvre un trou percé dans la grande. Le levier la soulève d'abord, par un crochet qui a un peu de jeu ; l'air file par le petit trou, la chambre derrière se met à la pression extérieure, et alors seulement le crochet prend la grande soupape. Le « pluck » du tiré a disparu : le décollement tombe de 224 à 165 g, un gain d'environ un quart. Mais regardez la mi-course : 176 g dans les deux cas. La pilote enlève la pression, qui ne vivait que dans le premier millimètre, et laisse le ressort, qui doit toujours tenir la pointe du poussé. Elle coûte deux soupapes par note.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Deux soupapes côte à côte (b).
+\series default
+ Deux trous de 150 mm² ont la même aire qu'un trou de 300 ; la poussée est la même, le ressort total aussi. Rien n'est gagné, et les pièces sont doublées. On la dessine seulement parce que c'est la première idée que tout le monde a.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+La soupape équilibrée (c).
+\series default
+ Ici le marché de la première section est rompu. Deux disques d'aires égales sont fixés sur une même tige, et l'air du soufflet est entre deux plaques : le disque du haut repose sur la plaque du haut, dehors, et la pression sous lui le pousse à s'ouvrir ; le disque du bas repose sur la plaque du bas, dedans, et la même pression le pousse à se fermer. Les deux s'ouvrent en bougeant dans le même sens. Les deux poussées s'annulent, quel que soit le signe de la pression, poussé ou tiré, et le ressort n'a plus à tenir la pointe : seulement à étancher, 0,3 à 0,5 N. Au bouton, cela fait 45 g au décollement et 51 g à mi-course. C'est la seule solution qui atteint 80 g sur un trou de 300 mm². Les ingénieurs de la vapeur la connaissaient sous le nom de soupape à double siège. Son prix est réel : une portée côté soufflet ou un passage étanche pour la tige, deux trous par note, et une conception jamais essayée sur un accordéon, à prouver au banc. Elle est gardée ici comme piste de recherche, pas comme base du Lib RT.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Le ressort d'aide (d).
+\series default
+ Un ressort qui tire le bouton vers le bas avec une force constante se retranche de l'effort, et se retranche tout autant du retour. Avec 44 g de retour au forte poussé, on ne peut lui donner que 5 à 10 g ; le panneau montre 168 g à mi-course et 36 g de retour, au bord d'une touche qui reste en bas. Il n'apporte rien ici.
+\end_layout
+
+\begin_layout Standard
+La leçon de la figure est celle de tout le chapitre. L'effort est dans le trou et dans la pression, les deux grandeurs que la mécanique ne touche pas ; la soupape équilibrée est la seule idée qui y entre, et elle le fait en changeant la porte, pas le levier.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : le décollement d'une soupape au tiré, mesuré avec un peson accroché à la soupape et tiré lentement, puis la force à 1, 2, 3 et 5 mm de levée (cales sous son bord). La marche du premier millimètre a-t-elle la taille que prédit la courbe ?
+\end_layout
+
+\begin_layout Section
+Les rappels, un seul ressort, et l'espace avant la force
+\end_layout
+
+\begin_layout Standard
+Sur un chromatique, la même note revient sur plusieurs rangées, et le second bouton, le rappel, mène la même soupape par une chaîne plus longue. Deux boutons, une porte : le doigt sentira-t-il la même force sur les deux ? Oui, si les deux chaînes ont le même rapport 
+\begin_inset Formula $r$
+\end_inset
+ et si un seul ressort, celui de la soupape, ramène tout. Chaque pivot acier de plus sur le rappel coûte 0,2 à 1 % d'effort ; trois de plus, 1 à 3 %, soit 2 à 5 g sur 180. Le doigt ne distingue pas une différence de force sous 7 à 10 %. Un second ressort sur le rappel, en revanche, ajouterait toute sa force à ce seul bouton : c'est la seule chose à éviter.
+\end_layout
+
+\begin_layout Standard
+Le temps mort est plus subtil. Une chaîne qu'un ressort tient chargée, le ressort à un bout et le bouton à l'autre, toutes les articulations attachées, n'a aucun temps mort dû à ses jeux : à la descente comme à la remontée, chaque articulation reste appuyée du même côté. Les jeux se montrent plutôt en flottement latéral et en bruit. Un bouton simplement posé sur un levier, avec un espace, a un temps mort égal à cet espace. Au bouton, 0,1 à 0,2 mm se tolèrent, 2 à 4 % de la course ; au-dessus, le doigt sent un vide avant la résistance. Et la levée a son propre budget : la levée au-delà du 
+\begin_inset Formula $1{,}2\,A/P$
+\end_inset
+ utile doit couvrir la flèche du levier sous l'effort de jeu et l'écrasement de la peau et du feutre. Pour 6 mm de levée sur le grand trou, le budget est 0,9 mm ; pour 5,5 mm, 0,4 mm ; pour 5 mm, rien du tout.
+\end_layout
+
+\begin_layout Section
+Glisser contre tourner
+\end_layout
+
+\begin_layout Standard
+La v5 grince. Pourquoi une tige d'acier qui coulisse dans un trou imprimé grince-t-elle, quand la même tige qui tourne dans le même trou ne grince pas ?
+\end_layout
+
+\begin_layout Standard
+Le frottement, d'abord. L'acier sur le PLA imprimé a un coefficient de 0,35 à 0,45 au repos et de 0,25 à 0,35 en mouvement. Cet écart suffit au broutage : la tige colle, la chaîne élastique qui la pousse se charge, la tige saute, et le cycle recommence dans le kilohertz. C'est le grincement. Le PTFE (0,08 au repos, 0,05 en mouvement) ou le bronze fritté huilé n'ont presque pas d'écart, et ne broutent pas. Puis les couches : un trou imprimé à la verticale a des marches de 0,18 à 0,24 mm en travers du mouvement, et la tige en franchit une à chaque couche.
+\end_layout
+
+\begin_layout Standard
+Mais le plus grand effet est géométrique, et la figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:fr-tiroir"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ le montre. Quand la force sur la tige est décalée de son axe d'une distance 
+\begin_inset Formula $e$
+\end_inset
+, par un pion par exemple, la tige se met en biais dans son guide de longueur 
+\begin_inset Formula $L$
+\end_inset
+ et s'appuie aux deux bouts avec une force 
+\begin_inset Formula $N = F e / L$
+\end_inset
+. Le frottement agit aux deux bouts, 
+\begin_inset Formula $2 \mu N$
+\end_inset
+, contre le mouvement, si bien que
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+F_{\mathrm{pouss\acute{e}e}} = \frac{F_{\mathrm{utile}}}{1 - 2 \mu e / L}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+et la tige coince quand 
+\begin_inset Formula $2 \mu e / L$
+\end_inset
+ atteint 1. La v5 a son pion à 5 mm d'un guide de 8 mm, en PLA : le facteur vaut 2,0, le doigt paie double. Si la portée réelle du guide n'est que de 4 mm, avec les chanfreins et les marches de couches, la tige coince par moments. La règle qui en sort est courte : longueur guidée au moins 
+\begin_inset Formula $10 \mu e$
+\end_inset
+, 20 mm pour le PLA et 5 mm pour le PTFE, ou mieux, pousser dans l'axe.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/mecanique_tiroir_fr.png
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:fr-tiroir"
+
+\end_inset
+
+L'effet tiroir. Une force décalée de e fait porter la tige aux deux bouts de son guide ; l'effort monte comme 1/(1 − 2
+\begin_inset Formula $\mu$
+\end_inset
+e/L) et la tige coince à 2
+\begin_inset Formula $\mu$
+\end_inset
+e/L = 1. Le pointillé est la v5.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Faisons maintenant tourner la tige. Dans un pivot, le frottement n'agit qu'au rayon de l'axe, la perte est donc 
+\begin_inset Formula $\mu (d/2) / \ell$
+\end_inset
+ pour un bras 
+\begin_inset Formula $\ell$
+\end_inset
+. Avec un axe acier de 2 mm dans du PLA brut (
+\begin_inset Formula $\mu$
+\end_inset
+ = 0,4) et un bras de 60 mm, la perte est de 0,7 %. Un pivot perd 30 à 100 fois moins qu'un coulissement (tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-remedes"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+). C'est tout l'argument pour une mécanique où chaque touche est une rotation, contre une tige guidée.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-remedes"
+
+\end_inset
+
+Remèdes pour une tige qui coulisse (effort utile 1, excentrement 5 mm), face à une rotation.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{llll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+guide & $
+\backslash
+mu$ & L (mm) & facteur d'effort 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+PLA tel qu'imprimé & 0,40 & 8 & $
+\backslash
+times$ 2,0, broutage 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+PLA allongé & 0,40 & 20 & $
+\backslash
+times$ 1,25 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+PA imprimé, percé et alésé & 0,30 & 12 & $
+\backslash
+times$ 1,33 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+tube laiton 3 $
+\backslash
+times$ 2, huilé & 0,19 & 10 & $
+\backslash
+times$ 1,23 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+gaine PTFE (gaine Bowden 2 $
+\backslash
+times$ 4) & 0,08 & 8 & $
+\backslash
+times$ 1,11, sans broutage 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+rotation sur axe acier 2 mm, bras 60 mm & 0,40 & - & $
+\backslash
+times$ 1,007 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+La v5 a aussi de fines tiges d'acier qui courent en biais entre une équerre imprimée et le levier en aluminium. La correction d'Ewen mérite d'être notée ici, parce qu'elle a corrigé l'analyse : en pratique ces tiges ne flambent pas, et le calcul est d'accord (la charge d'Euler reste au-dessus de l'effort transmis). Leur vrai coût est l'angle. Une tige à 30° du mouvement utile porte 15 % de force en plus et pousse le pivot de côté avec 58 % de l'effort utile ; si un guide reprend cette poussée latérale, un quart de l'effort part en frottement. Une tige en traction n'a aucun de ces soucis : elle ne peut pas flamber, elle s'aligne d'elle-même sur ses deux attaches, elle peut être un fin câble qui passe entre les autres, et la chaîne chargée par le ressort reste tendue, sans temps mort. Il suffit d'attacher la tige de l'autre côté du pivot de l'équerre pour que le doigt la tire au lieu de la pousser.
+\end_layout
+
+\begin_layout Section
+Des pivots qui ne branlent pas
+\end_layout
+
+\begin_layout Standard
+Un trou imprimé n'est jamais ce qu'on a dessiné : 0,1 à 0,3 mm trop petit, rond s'il est imprimé à la verticale, ovale d'autant s'il est imprimé couché. La pression de contact n'est pas le problème, 0,5 MPa pour 3 N sur un axe de 2 mm et 3 mm de long, contre 10 MPa admissibles. Le problème est le basculement. Un levier sur un moyeu court balance sur son propre jeu : le bout se déplace du jeu divisé par la longueur du moyeu, fois la longueur du levier (tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-bascule"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+). 0,05 mm de jeu sur un moyeu de 3 mm déplace le bout d'un levier de 100 mm de 1,7 mm, et avec 5 mm entre leviers, les voisins se touchent.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-bascule"
+
+\end_inset
+
+Déplacement latéral du bout d'un levier de 100 mm (mm), dû au jeu de son moyeu.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{lllll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+jeu diamétral (mm) & moyeu 2 mm & moyeu 3 mm & moyeu 6 mm & moyeu 9 mm 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+0,02 & 1,00 & 0,67 & 0,33 & 0,22 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+0,05 & 2,50 & 1,67 & 0,83 & 0,56 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+0,10 & 5,00 & 3,33 & 2,50 & 1,11 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Aucun moyeu réaliste ne tient le bout d'un long levier à moins d'un demi-millimètre. L'accordéon a résolu cela depuis longtemps avec un peigne au bout des leviers, des fentes garnies de feutre : le jeu du moyeu ne compte alors plus que pour le bruit. Deux axes alternés, leviers pairs sur l'un et impairs sur l'autre, permettent des moyeux deux fois plus longs. Et un trou alésé ou un tube laiton pressé ramène le jeu lui-même à 0,02 à 0,05 mm.
+\end_layout
+
+\begin_layout Standard
+Il existe un pivot sans jeu et sans frottement : une fine lame d'acier à ressort, pincée des deux côtés, qui fléchit au lieu de tourner. Un levier tourne d'environ 0,1 rad (6 mm de levée sur un bras de 60 mm) ; une lame de 0,15 mm d'épaisseur et 5 mm de long porte alors 309 MPa, sous les 600 à 700 MPa de fatigue de l'acier à ressort, et vit indéfiniment. Son propre couple de rappel est petit, 0,1 N au bras de 60 mm : une aide, pas le ressort. La charnière souple imprimée est sa cousine en plastique : seul le polyamide, 0,4 à 0,6 mm sur 3 à 5 mm, survit à un million de flexions (une touche très jouée en voit 100 000 par an) ; le PLA craquèle après quelques centaines. Et une charnière flue sous la charge permanente du ressort, si bien que sa position de repos dérive : bonne pour de petites équerres, pas pour le pivot principal.
+\end_layout
+
+\begin_layout Section
+La raideur, pas la résistance
+\end_layout
+
+\begin_layout Standard
+En quoi faire un levier ? Pas en ce qu'on penserait d'abord. Les contraintes dans un levier sont partout faibles, sous 15 MPa ; rien ne casse. Ce qui compte, c'est combien il fléchit, parce que chaque dixième de millimètre de flèche est pris sur la levée ou ajouté au temps mort. La flèche admissible au bouton est de 0,2 à 0,3 mm. Un levier bascule, bouton d'un côté de l'axe et soupape de l'autre, fléchit comme une console depuis l'axe :
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+\delta = \frac{F L_{b}^{2} (L_{b} + L_{s})}{3 E I}, \qquad I = \frac{b h^{3}}{12}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+et la largeur 
+\begin_inset Formula $b$
+\end_inset
+ est fixée par l'entraxe des touches : 3,5 mm quand trois rangées se partagent une bande de 15 mm, 6 mm avec deux rangées. Sous l'effort de jeu du grand trou, 1,5 N, un PLA de 3 sur 7 mm fléchit de 0,93 mm sur des bras de 60 + 60 mm : quatre fois trop, et il flue, si bien que les boutons s'enfoncent au fil des mois. L'ASA 3 sur 12 mm tient jusqu'à 60 + 60 mm (0,23 mm) ; le polyamide chargé carbone 2,5 fois mieux ; au-delà de 80 mm, seul le métal à chant tient : l'aluminium 2 sur 8 mm fléchit de 0,16 mm sur 100 + 100 mm.
+\end_layout
+
+\begin_layout Standard
+À chant est l'expression importante. La raideur va comme le cube de la hauteur. La même bande d'aluminium, 8 sur 2 mm, est 16 fois plus souple posée à plat que dressée sur sa tranche : 2,6 mm contre 0,16 mm sous 1,5 N sur 100 + 100 mm. Les photos de la v5 suggèrent des leviers à plat ; si le bouton pousse à la verticale, c'est la pose souple, et c'est la première chose à vérifier (100 g au bout, un comparateur).
+\end_layout
+
+\begin_layout Section
+Les ressorts : l'acier ou rien
+\end_layout
+
+\begin_layout Standard
+Pourquoi ne pas imprimer aussi les ressorts ? Parce qu'un plastique sous contrainte permanente oublie sa forme. À 23 °C, le PLA n'est qu'à 35 K sous sa transition vitreuse ; sous quelques mégapascals, ses chaînes glissent lentement, et la déformation imposée devient permanente. Un ressort imprimé perd 20 à 40 % de sa force en quelques semaines, et presque tout en un après-midi à 50 °C, dans une voiture l'été. L'acier à ressort travaille à une fraction de pour cent de déformation sans aucun écoulement, et stocke 20 à 80 fois plus d'énergie par volume. Un ressort acier par soupape, aucun au bouton. Pour une précharge de 1,38 N à un bras de 60 mm et une montée d'au plus 25 % sur la levée : un ressort de torsion sur l'axe en fil de 1,0 à 1,2 mm, de 7 à 10 mm de diamètre, 8 à 12 spires, préchargé de 45 à 100° ; ou un ressort de traction en fil de 0,5 mm, de 5 mm de diamètre, 15 spires, accroché à 25 mm de l'axe. Les ressorts qu'Ewen a déjà servent, une fois leur raideur mesurée avec quelques pièces de monnaie : un ressort raide s'accroche près de l'axe, un souple plus loin.
+\end_layout
+
+\begin_layout Section
+Ce que les modèles laissent de côté
+\end_layout
+
+\begin_layout Standard
+La pression sur la soupape qui s'ouvre est un modèle quasi statique de deux orifices en série ; le transitoire au décollement, où l'air qui file sous la portée peut un instant pousser sur toute la soupape (jusqu'à 1,09 N au lieu de 0,60 à 2 kPa), est borné, pas calculé. La section efficace de l'anche, 20 mm², est estimée d'après le débit d'une grosse basse, et devrait être mesurée en chronométrant la vidange du soufflet sur une seule note. Le rendement de 0,9 vaut pour des pivots acier ; 0,95 avec un peigne PTFE, 0,8 avec des pivots PLA bruts. Les leviers sont des poutres de section constante chargées en un point ; un levier évidé est plus souple. Les données des matières imprimées valent à 20 % près, et leur fatigue est un ordre de grandeur : un essai d'endurance vaut mieux que le tableau.
+\end_layout
+
+\begin_layout Standard
+Sous ces limites, il y a une chose qui mérite d'être dite simplement. La première question était : où va l'effort ? La réponse est venue avant qu'aucune pièce ne soit coupée : dans le trou et dans le souffle du musicien, pas dans l'ingéniosité des leviers. La mécanique ne peut qu'ajouter à ce plancher, un peu (2 à 4 % pour une rotation par touche) ou beaucoup (10 à 100 % pour une tige guidée). Une bonne mécanique est celle qui n'ajoute presque rien, et laisse le doigt sentir l'air.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : la pointe de pression du jazzman, sur un tube en U relié au soufflet, du pianissimo au sforzando, au poussé et au tiré. C'est le chiffre qui pèse le plus sur tout ce qui précède. Et, si tu le veux, la sensation elle-même : ce que fait la marche du premier millimètre sous le doigt, avant et après avoir su ce qu'elle est.
+\end_layout
+
+\begin_layout Part
+Mécanique main gauche : la pratique
+\end_layout
+
+\begin_layout Standard
+La théorie de la mécanique main gauche est dans la thèse, dans la partie mécanique et soupapes : d'où vient l'effort au bouton, et pourquoi le trou et la pression pèsent plus que les leviers. Cette partie en est le côté atelier : en quoi faire chaque pièce, comment l'imprimer, comment placer les soupapes quand les boutons sont plus serrés que les soupapes ne peuvent l'être, comment mettre en ressort et régler soixante-dix touches, quoi mesurer avec presque rien, et comment décider si la cinquième version vaut d'être réparée. Les chiffres viennent du calculateur du rapport d'ingénierie du Lib RT (calcul_mecanique.py).
+\end_layout
+
+\begin_layout Chapter
+Construire la mécanique
+\end_layout
+
+\begin_layout Section
+La géométrie de départ
+\end_layout
+
+\begin_layout Standard
+Un levier bascule à bras égaux, côté bouton et côté soupape (
+\begin_inset Formula $r$
+\end_inset
+ = 1), par exemple 60 + 60 mm ou 80 + 80 mm, l'axe à mi-chemin entre la plaque de boutons et la table d'harmonie. Course 5 mm, levée 5 à 5,5 mm. La butée haute est la soupape sur sa portée : le bouton repose sur le levier, le levier sur la soupape, et il n'y a pas de temps mort. Un ressort acier par levier, aucun au bouton. C'est « l'idée 1 » : une rotation par touche, contre les quatre à six articulations de la v5.
+\end_layout
+
+\begin_layout Section
+Les matières du stock, et ce qu'un achat changerait
+\end_layout
+
+\begin_layout Standard
+Avec ce qu'il y a déjà à l'atelier, la règle est courte : 
+\series bold
+ASA pour tout ce qui est imprimé et chargé, PETG pour les boutons et les charnières, PLA pour rien de mécanique.
+\series default
+ L'achat qui change le plus de choses est le polyamide chargé carbone (PA-CF) : leviers courts et équerres 2,5 fois plus raides, et peu de fluage.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-matieres"
+
+\end_inset
+
+Choix de la matière pour chaque pièce, dans le stock (PLA, PETG, ASA), puis avec un achat.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{lllll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+pièce & meilleur choix du stock & pourquoi & à acheter & gain 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+leviers jusqu'à 60 + 60 mm, entraxe 5 mm & ASA 3 $
+\backslash
+times$ 12 à chant, 6 parois & 0,23 mm sous 1,5 N, 98 $^{
+\backslash
+circ}$C, fluage moyen & PA-CF 3 $
+\backslash
+times$ 12 & 0,09 mm, permet 80 + 80 mm 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+leviers jusqu'à 80 + 80 mm, entraxe 7,5 mm & ASA 5 $
+\backslash
+times$ 12 & 0,32 mm (limite) & PA-CF 5 $
+\backslash
+times$ 12 & 0,13 mm 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+leviers au-delà de 80 mm, barres de rappel longues & métal à chant (alu 2 $
+\backslash
+times$ 8, acier 1,5 $
+\backslash
+times$ 8, jet d'eau) & aucun plastique du stock ne tient 0,3 mm & - & le métal reste 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+pivots, moyeux, équerres & ASA, percé et alésé 2 H7, ou tube laiton 3 $
+\backslash
+times$ 2 & 98 $^{
+\backslash
+circ}$C sous la précharge permanente & PC ou PA-CF & dérive des boutons $
+\backslash
+div$ 2 à 3 sur un an 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+guides de bouton (coulissement) & ASA + gaine PTFE ou tube laiton & les trois plastiques frottent fort sur l'acier & PA ou POM & avec une gaine PTFE le gain disparaît ($
+\backslash
+times$ 1,1) 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+châssis, plaque de boutons & ASA (PETG si l'ASA se déforme) & une plaque PLA sous 70 ressorts se voile l'été & PC & tenue en température seulement 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+boutons & PETG ou ASA & sans charge & - & - 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+charnières souples & PETG 0,4 mm sur 5 mm (~10 000 cycles) & le PLA craquèle en 10 à 100 & PA 0,4 à 0,6 mm & plus de 10$^{6}$ cycles 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+ressorts & ressorts à boudin acier du stock & pas de fluage & - & - 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+L'impression
+\end_layout
+
+\begin_layout Itemize
+Imprimer un levier 
+\series bold
+couché dans son plan de rotation
+\series default
+ : le trou d'axe vertical (rond, pas ovale), les cordons dans le sens du levier, pour que la flexion tire sur les cordons et non sur les interfaces de couches (qui ne gardent que 50 à 70 % de la raideur).
+\end_layout
+
+\begin_layout Itemize
+Buse 0,6 : un levier de 3 mm fait cinq parois, il est plein ; mettre six parois ou 100 % de remplissage, couches de 0,2 mm. Les 30 % de remplissage ne valent que pour les gros supports sans charge.
+\end_layout
+
+\begin_layout Itemize
+Châssis et supports : PETG au minimum (68 °C), ASA ou PC si l'instrument peut rester dans une voiture (60 à 70 °C l'été) ; PA-CF pour ce qui porte un axe ou un ressort.
+\end_layout
+
+\begin_layout Itemize
+PA et PA-CF : sécher le filament, recuire 2 h à 80 °C pour stabiliser les cotes avant d'aléser.
+\end_layout
+
+\begin_layout Section
+Quand mettre du métal (tiges du stock : 1 ; 1,5 ; 2 ; 3 mm)
+\end_layout
+
+\begin_layout Itemize
+Leviers de plus de 60 mm et barres de rappel longues : aluminium 2 mm ou acier 1,5 mm à chant, découpés au jet d'eau comme les tiges de mécanique actuelles.
+\end_layout
+
+\begin_layout Itemize
+Tout ce qui est sous la charge permanente du ressort : axes, moyeux (tube laiton), attaches de ressort.
+\end_layout
+
+\begin_layout Itemize
+Axes de levier individuels : 2 mm. Un axe commun traversant tous les leviers d'une bande, et les axes des barres de rappel : 3 mm, appuyé tous les 40 mm (0,02 mm de flèche sous 2 N par levier à 5 mm d'entraxe).
+\end_layout
+
+\begin_layout Itemize
+Tiges de liaison : 1,5 mm en compression, 1 mm en traction. Mieux vaut la traction : attacher la tige de l'autre côté du pivot de l'équerre pour que le doigt la tire.
+\end_layout
+
+\begin_layout Section
+Des boutons à 15 mm, des soupapes à 17,5 mm
+\end_layout
+
+\begin_layout Standard
+Les boutons sont à 15 mm les uns des autres, une soupape avec sa portée demande 17,5 mm. Trois dispositions tiennent.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-pas"
+
+\end_inset
+
+Placer des soupapes à 17,5 mm sous des boutons à 15 mm.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{llll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+disposition & effort & place & complexité 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+leviers en éventail (angle au plus 7 à 10$^{
+\backslash
+circ}$) & + 2 à 5 
+\backslash
+% de frottement & aucune & 43 leviers différents, un paramètre dans la CAO 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+soupapes sur deux rangs décalés (30 mm par rang) & + 0 
+\backslash
+% & + 25 mm de profondeur & deux longueurs de leviers, r égal par les bras 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+soupapes au pas de 15 mm avec un trou de 11 $
+\backslash
+times$ 27 mm & + 0 
+\backslash
+% & aucune & nouvelle table et nouvelles chambres ; même aire, A/P 3,9 mm 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+bras coudés & + 0 
+\backslash
+% en métal & aucune & en plastique, la torsion ajoute 0,15 mm et un moment de basculement 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Proposé : l'
+\series bold
+éventail
+\series default
+ si les leviers sont en métal et font au moins 100 mm (angle de 7° ou moins, 5 % de frottement au plus) ; 
+\series bold
+deux rangs
+\series default
+ s'ils sont courts (60 mm). Les deux se combinent (un éventail de 3°).
+\end_layout
+
+\begin_layout Section
+Les ressorts, et soixante-dix touches pareilles
+\end_layout
+
+\begin_layout Itemize
+Un ressort acier par soupape, sur le levier : précharge de 1,0 à 1,4 N à la soupape pour un trou de 300 mm² et des pointes de 2 à 3 kPa, raideur 0,06 à 0,07 N/mm (montée de 25 % sur la levée).
+\end_layout
+
+\begin_layout Itemize
+Ressort de torsion sur l'axe : fil de 1,0 à 1,2 mm, diamètre 7 à 10 mm, 8 à 12 spires, précharge de 45 à 100°. Le fil de 0,8 mm est trop sollicité.
+\end_layout
+
+\begin_layout Itemize
+Ressort de traction (comme sur la v5) : fil de 0,5 mm, diamètre 5 mm, 15 spires, accroché à 25 mm de l'axe, 10 mm d'allongement de précharge. Un ressort raide (1 N/mm) s'accroche près de l'axe (15 mm) et tire 5,5 N, si bien que le rail doit tenir 70 × 5,5 N = 385 N ; un souple (0,15 à 0,25 N/mm) s'accroche à 25 à 30 mm et tire 3 N.
+\end_layout
+
+\begin_layout Itemize
+Les ressorts du commerce varient de 10 % ; pour 5 g d'écart au bouton, chaque touche a besoin d'un réglage : l'accroche sur une vis M3 (un quart de tour fait environ 2 g au bouton) ou une patte de torsion qu'on cambre.
+\end_layout
+
+\begin_layout Itemize
+Tous les boutons se règlent au même effort, et c'est le plus gros trou qui fixe le niveau : les petites notes ont un ressort plus fort que nécessaire.
+\end_layout
+
+\begin_layout Chapter
+Mesurer avec presque rien
+\end_layout
+
+\begin_layout Standard
+Matériel : une balance de cuisine (1 g), des pièces de monnaie (1 c = 2,3 g, 5 c = 3,9 g, 10 c = 4,1 g, 20 c = 5,7 g, 50 c = 7,8 g, 1 € = 7,5 g, 2 € = 8,5 g), un peson de 0 à 500 g, un comparateur sur pied, des cales, un tube transparent de 1 m et une règle, un téléphone (sonomètre, enregistreur, ralenti), une perceuse pour le banc d'endurance.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Pression du soufflet (tube en U).
+\series default
+ Tube rempli à moitié, un côté relié à l'intérieur du soufflet ; jouer une basse grave du pianissimo au sforzando, au poussé et au tiré, et filmer le tube. 
+\begin_inset Formula $\Delta$
+\end_inset
+p = h × 0,098 kPa par centimètre. C'est le chiffre qui fixe le ressort et l'effort.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Soupape au banc.
+\series default
+ Une soupape sur un bloc avec le trou, relié au soufflet ou à un aspirateur avec fuite réglable. Étanchéité : des pièces sur la soupape sans ressort, la plus petite masse sans sifflement à 3 kPa (eau savonneuse autour de la portée). Décollement au tiré : un peson sur la soupape, tiré lentement ; puis la force à 1, 2, 3 et 5 mm de levée.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Plus petit trou pour une anche BB95.
+\series default
+ Plaques percées de 300, 225, 144 et 100 mm², levées de 1 à 8 mm ; niveau à 50 cm, enregistrement, hauteur. Le plus petit trou et la plus petite levée sans perte audible : chaque millimètre carré en moins est de l'effort en moins au bouton.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Effort au bouton, hystérésis, retour.
+\series default
+ Un gobelet léger sur le bouton, des pièces jusqu'à ce qu'il descende, puis en retirer jusqu'à ce qu'il remonte. Hystérésis = descente − remontée = deux fois le frottement ; viser moins de 25 g. Refaire soufflet gonflé (poussé) et dégonflé (tiré). Dix touches graves, cinq rappels, cinq aiguës. La même chose sur la Maugein de référence : c'est le chiffre à battre.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Temps mort et flottement.
+\series default
+ Comparateur sur le bouton, un second sur le bord de la soupape ; descendre le bouton par pas de 0,05 mm : la course avant que la soupape ne bouge est le temps mort, viser moins de 0,2 mm. Pousser le bouton de côté avec 50 g : viser moins de 0,3 mm.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Raideur d'un levier.
+\series default
+ Levier serré à son axe, 100 g au point du bouton, comparateur ; puis tourné de 90° : le rapport doit être (h/b)².
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Tige qui coulisse (v5).
+\series default
+ Peson dans l'axe, puis par le pion excentré : le rapport est le facteur tiroir. Enregistrer 20 appuis à 10 cm, compter les grincements. Refaire avec une gaine PTFE, puis un tube laiton.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Fluage et chaleur.
+\series default
+ Trois pièces identiques : au repos, sous charge une semaine, sous charge 2 h à 50 °C. Attendu : PLA − 20 à − 40 % en une semaine et effondré à 50 °C, PETG − 10 %, PA-CF − 5 %, acier 0.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Endurance.
+\series default
+ Une came sur une perceuse qui appuie une touche à 2 ou 3 Hz : 10 000 cycles en une heure ; effort, temps mort et bruit avant et après.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Répétition.
+\series default
+ Métronome ; répéter la note la plus grave et un rappel, de plus en plus vite jusqu'à ce qu'une note manque. But : 8 notes par seconde, aucune différence entre touche et rappel.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Ressorts du stock.
+\series default
+ Longueur au repos, puis avec 100 g et 200 g : k = 0,98 N / (L2 − L1). Laisser 24 h sous 300 g : s'il s'est allongé, il a été tendu au-delà de sa limite élastique.
+\end_layout
+
+\begin_layout Chapter
+Sauver la v5 ?
+\end_layout
+
+\begin_layout Standard
+La v5 (un bouton qui coulisse dans la plaque, un pion, une équerre imprimée, une tige de liaison, un levier en aluminium à ressort de traction) se répare en quatre gestes légers : des douilles PTFE ou laiton dans la plaque ; des axes acier de 2 mm dans des trous alésés ou des tubes laiton dans les équerres ; équerres et supports réimprimés en ASA ; tiges de liaison remises en traction. Cela ramène l'effort perdu de + 100 % à + 10 à 15 % et le jeu de 0,2 à 0,05 mm par pivot. Ce qui reste, par principe : quatre à six articulations par touche contre une ou deux pour l'idée 1, des tiges en biais qui chargent les pivots de côté, le passage des 27 rappels sous la plaque, et un coulissement résiduel au bouton.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-v5"
+
+\end_inset
+
+Les défauts de la v5, leur cause, et la correction la plus légère qui garde son principe.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{llll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+défaut & cause & correction la plus légère & gain 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+la tige du bouton grince et force & $
+\backslash
+mu$ 0,4, broutage ; pion à 5 mm d'un guide de 8 mm : effort $
+\backslash
+times$ 2 & gaine PTFE 2 $
+\backslash
+times$ 4 dans la plaque, portée 10 à 12 mm ; ou tube laiton huilé & $
+\backslash
+times$ 1,1 (PTFE), $
+\backslash
+times$ 1,2 (laiton), plus de broutage 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+le bouton branle & trou imprimé sur chant : ovale de 0,1 à 0,3 mm & la même douille ; un chanfrein d'entrée & flottement de 0,3 à 0,1 mm 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+jeu des pivots imprimés & trou brut, moyeu court & percer et aléser 2 H7 ou tube laiton pressé, axe corde à piano 2 mm & 0,02 à 0,05 mm par pivot 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+fluage du PLA & 57 $^{
+\backslash
+circ}$C, fort fluage sous la précharge permanente & réimprimer les mêmes fichiers en ASA, PETG pour les boutons & dérive des boutons $
+\backslash
+div$ 3 à 5 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+tiges en biais & à 30$^{
+\backslash
+circ}$ : 58 
+\backslash
+% de l'effort de côté, + 23 
+\backslash
+% de frottement si guidée & tourner les équerres pour que la tige parte dans le plan du levier ; ou un câble en traction & frottement de + 23 
+\backslash
+% à + 7 
+\backslash
+% 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+pas de place pour les tiges des rappels & des tiges rigides en compression doivent être droites et ne pas se toucher & rappels par deux équerres et une biellette, ou câbles en traction sur deux niveaux & croisements sans contact 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+leviers alu souples & s'ils sont à plat (8 $
+\backslash
+times$ 2) : 2,6 mm sous 1,5 N sur 100 + 100 mm & vérifier (essai 6) ; les mettre à chant ou ajouter une nervure & de 2,6 à 0,16 mm 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+ressorts de traction sur rail & montée de 25 à 60 
+\backslash
+% selon l'accroche & accrocher à 20 à 25 mm de l'axe, vis de réglage & montée de 20 à 25 
+\backslash
+%, 2 g par quart de tour 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Ce que la réparation ne change pas, c'est le plancher de l'effort. Il est dans le trou et la pression : réparer la v5 ou construire l'idée 1 donne les mêmes 177 g pour un trou de 300 mm² à 3 kPa de pointe. Ce qui diffère, c'est ce qui s'y ajoute : + 10 à 15 % et 0,1 à 0,25 mm de flottement pour la v5 réparée, + 2 à 4 % et 0,05 mm pour l'idée 1.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-decision"
+
+\end_inset
+
+Critères pour décider, mesurés sur la v5 réparée (10 touches graves, 5 rappels, 5 aiguës).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{lllll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+critère & essai & seuil pour garder la v5 & attendu v5 réparée & idée 1 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+effort à mi-course & 4 & plancher + 15 
+\backslash
+% (177 à 204 g pour 300 mm$^{2}$) & plancher + 10 à 15 
+\backslash
+% & plancher + 2 à 4 
+\backslash
+% 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+égalité touche / rappel & 4 & écart de 10 g au plus & 5 à 15 g & 2 à 5 g 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+hystérésis & 4 & 25 g au plus & 15 à 30 g & 5 à 10 g 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+retour au poussé 3 kPa & 4 et 10 & toutes les touches remontent, 8 notes/s & juste si le retour < 40 g & même plancher 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+temps mort & 5 & 0,2 mm au plus & 0,1 à 0,25 mm & sous 0,1 mm 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+flottement latéral & 5 & 0,3 mm au plus & 0,1 à 0,2 mm & 0,2 mm 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+bruit & 7 & aucun grincement, aucun cliquetis audible à 50 cm & cliquetis possibles aux attaches & silencieux avec un peigne feutré 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+après 10 000 appuis & 9 & effort + 10 
+\backslash
+%, jeu + 0,05 mm au plus & ASA bagué laiton : tient & tient 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+2 h à 50 $^{
+\backslash
+circ}$C & 8 & dérive des boutons sous 0,3 mm & ASA bon, PETG limite, PLA non & mêmes matières 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+temps de travail & estimation & réparation au plus un tiers de l'idée 1 & 3 à 6 jours & 10 à 20 jours 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Règle de décision : si deux critères ou plus restent hors seuil après la réparation (le plus probable : hystérésis, temps mort et bruit), construire l'idée 1. Si tout passe sauf le temps de travail, garder la v5 comme l'instrument qui valide le trou, la pression et les ressorts (tout ce savoir passe à l'idée 1), et construire l'idée 1 ensuite, sans rien perdre des deux mois.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : les résultats des essais 1, 2, 4 et 5 sur la v5 et sur la Maugein, dans le tableau de décision, et le choix qui en découle.
+\end_layout
+
+\end_body
+\end_document
