@@ -132,3 +132,63 @@ def test_source_de_debit_sans_chambre():
     d1, _ = mod.deriv((0.0, 1.0, 0.0, 0.0, 0.0))
     assert d1[2] < d0[2]                                 # volume balayé
     assert J.R_RAYONNEMENT < 1000                        # pas l'artefact rho.c/S de la boîte
+
+
+# --- Corrections de l'audit Fable (§ 4) et coupe 2D (05/10/2026) ------------------------------------
+def test_modele_corrige_phase_perte_et_inertie():
+    """Les phases de la lame, la perte bornée (max < somme), et l'état « débit » : la force reçoit
+    -Lambda_F.dq/dt (la lame qui ferme fait baisser le débit : surpression, force vers l'aval)."""
+    pytest.importorskip("scipy")
+    import trou_soupape_jeu as J
+    lame, st, info = J.la_lame()
+    r = J.reseau_note("12x12", 3.0)
+    m_somme = J.BasseTrouSoupape(lame, st, "12x12", 3.0, r)
+    m_max = J.BasseTrouSoupape(lame, st, "12x12", 3.0, r, perte_mode="max")
+    assert m_max.perte < m_somme.perte
+    phi = m_somme.cr.phi[0]
+    assert m_somme.phase(0.0) == "entree"
+    assert m_somme.phase((st.lift_m + 0.5 * st.plate_m) / phi) == "plaquette"
+    assert m_somme.phase((st.lift_m + st.tongue_m + 2 * st.plate_m) / phi) == "sortie"
+    sans = J.BasseTrouSoupape(lame, st, "12x12", 3.0, r, inertie=True)
+    avec = J.BasseTrouSoupape(lame, st, "12x12", 3.0, r, inertie=True, lambda_f={"entree": 5e-3})
+    s = (0.0, 0.0, 0.0, 0.0, 2e-3)          # débit au-dessus du débit d'équilibre : dq/dt < 0
+    d0, q0 = sans.deriv(s, 1000.0)
+    d1, q1 = avec.deriv(s, 1000.0)
+    assert q0 == q1 == 2e-3 and d0[4] < 0
+    assert d1[1] > d0[1]                     # -Lambda_F.dq/dt > 0 : poussée vers la fente
+    frein = J.BasseTrouSoupape(lame, st, "12x12", 3.0, r, inertie=True, c_jet={"entree": 1e-4})
+    d2, _ = frein.deriv((0.0, 1.0, 0.0, 0.0, 2e-3), 1000.0)
+    d3, _ = sans.deriv((0.0, 1.0, 0.0, 0.0, 2e-3), 1000.0)
+    assert d2[1] < d3[1]                     # c_jet.v_jet freine la lame qui avance
+
+
+def test_source_generale_sept_etats():
+    pytest.importorskip("scipy")
+    import trou_soupape_jeu as J
+    lame, st, info = J.la_lame()
+    r = J.reseau_note("12x12", 3.0)
+    m = J.BasseTrouSoupape(lame, st, "12x12", 3.0, r, inertie=True, L_s=30.0, V_amont_cm3=40.0)
+    d, q = m.deriv((0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0), 1000.0)
+    assert len(d) == 7 and d[6] > 0          # la source pousse : le débit de source monte
+    with pytest.raises(ValueError):
+        J.BasseTrouSoupape(lame, st, "12x12", 3.0, r, R_s=1e5)
+
+
+def test_coupe_2d_theorie_et_decomposition():
+    """Débits de référence, décomposition en phase / quadrature, et le loin 3D (sans Elmer)."""
+    import coupe_2d_lame as C
+    th = C.theorie_stationnaire("plaquette", 2000.0)
+    assert th["q_poiseuille"] == pytest.approx(2 * 2000 * (0.05e-3) ** 3 / (12 * C.MU * 1e-3), rel=1e-9)
+    assert th["q_poiseuille_pertes"] < th["q_poiseuille"]
+    th = C.theorie_stationnaire("entree", 2000.0)
+    assert th["q_bernoulli_0611"] == pytest.approx(2 * 0.611 * math.hypot(0.5e-3, 0.05e-3) * math.sqrt(2 * 2000 / 1.2), rel=1e-9)
+    w, Y, t0 = 2 * math.pi * 155, 2e-5, 0.01
+    t = np.linspace(0, t0 + 5 / 155, 2000)
+    y = 3.0 + 0.5 * t + 0.2 * np.sin(w * (t - t0)) - 0.05 * np.cos(w * (t - t0)) + 0.01 * np.sin(2 * w * (t - t0))
+    r = C.decomposer(t, y, t0, Y, w, 3)
+    assert r["A_s"] == pytest.approx(0.2, abs=1e-6) and r["A_c"] == pytest.approx(-0.05, abs=1e-6)
+    a, b = C.correction_3d(10.0), C.correction_3d(40.0)
+    assert a["J_m"] > b["J_m"]                                   # domaine 2D plus grand : moins à corriger
+    assert a["R_equivalent_mm"] == pytest.approx(b["R_equivalent_mm"])
+    assert 20 < a["R_equivalent_mm"] < 80                        # de l'ordre de la longueur de la lame
+    assert a["int_psi2_mm"] == pytest.approx(74.0 / 4, rel=1e-3)
