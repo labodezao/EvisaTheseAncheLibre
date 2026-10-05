@@ -280,3 +280,55 @@ note au-dessus de la résonance, qui ne démarre pas dans le modèle ; la 12 dem
 plus petit que les bornes. Trois chambres (3, 4, 7) ont leur mode A-B à moins de 20 cents
 d'un harmonique. Les seuils sont ceux de `coupled_reeds` avec des lames d'acier uniformes :
 des tendances, pas des pascals (voir le rapport du sommier).
+
+## Trou de table et levée de soupape d'une grosse basse BB95 (05/10/2026)
+
+Question de la note du coffre « Lib RT — section de l'anche, trou de soupape et levée » : pour une
+basse à 3 voix (module BB95), quel trou (8x12, 12x12, 15x15, 20x15 mm) et quelle levée brident
+l'anche ? Deux scripts dans `sommier/` :
+
+- `trou_soupape_bb95.py` : Elmer (Helmholtz) sur la géométrie réelle : chambre du module BB95
+  (94 x 24 x 18 mm, lue dans le STL `module BB95 droit.STL`), fente 74 x 8 mm, trou dans une table
+  de 5 mm, soupape rigide 26 x 21 mm à `levee` mm, dehors absorbant (`Wave Impedance 1 = c` ;
+  vérifié sur un conduit : Z = rho.c/S à 1e-6 ; avec rho.c l'erreur est de 20 %, le mot-clé
+  d'Elmer est Z/rho). Impédance vue par la fente, ajustée sur Z = i.w.L_s + 1/(i.w.C + 1/(R + i.w.L)).
+- `trou_soupape_jeu.py` : l'anche qui joue derrière ce réseau (RK4, 3 s) : lame 74 x 8 x 1 mm
+  d'Ewen avec masse au bout accordée à mi0 (41,2 Hz ; 14,4 g, HYPOTHÈSE), jeu 0,05 mm, plaquette
+  2,5 mm, levée au repos 0,5 mm ; pertes d'orifice du trou et du rideau en série (Cd 0,65). Et un
+  profil gratté (hypothèse, 3 g au bout, levée 2 mm) pour voir une lame plus souple.
+
+Convergence (12x12, levée 2 mm) : 24 000 / 60 000 / 205 000 nœuds (67 / 173 / 772 s) : l_eff 21,57 /
+21,69 / 21,81 mm, V_eff 43,5 cm³, f_H 676 / 674 / 673 Hz. Le maillage par défaut (60 000 nœuds,
+3 min par cas) est à 0,6 % du plus fin.
+
+Ce qu'Elmer change aux formules de la note (`resultats/trou_soupape_bb95.csv`) :
+
+| trou | levée (mm) | l_eff Elmer (mm) | l_eff note (mm) | f_H Elmer (Hz) | f_H note (Hz) | V_eff (cm³) | R (Pa.s/m³) |
+|---|---|---|---|---|---|---|---|
+| 8x12 | 1 | 25,2 | 13,8 | 514 | 719 | 42,9 | 3,1e4 |
+| 8x12 | 2 | 18,4 | 13,8 | 599 | 719 | 43,2 | 3,2e4 |
+| 8x12 | 3 | 16,6 | 13,8 | 638 | 719 | 42,2 | 3,1e4 |
+| 8x12 | 6 | 13,9 | 13,8 | 688 | 719 | 43,5 | 3,2e4 |
+| 12x12 | 1 | 29,8 | 15,8 | 577 | 823 | 43,2 | 3,1e4 |
+| 12x12 | 2 | 21,7 | 15,8 | 674 | 823 | 43,5 | 3,1e4 |
+| 12x12 | 3 | 18,8 | 15,8 | 723 | 823 | 43,7 | 3,2e4 |
+| 12x12 | 6 | 15,9 | 15,8 | 784 | 823 | 44,0 | 3,2e4 |
+| 15x15 | 1 | 33,6 | 18,5 | 675 | 951 | 43,9 | 3,1e4 |
+| 15x15 | 3 | 21,6 | 18,5 | 834 | 951 | 44,5 | 3,2e4 |
+| 15x15 | 6 | 18,2 | 18,5 | 905 | 951 | 45,1 | 3,2e4 |
+| 20x15 | 1 | 35,1 | 20,6 | 758 | 1041 | 44,4 | 3,1e4 |
+| 20x15 | 3 | 23,1 | 20,6 | 923 | 1041 | 45,3 | 3,2e4 |
+| 20x15 | 6 | 19,5 | 20,6 | 999 | 1041 | 45,9 | 3,2e4 |
+
+Lecture : à 6 mm de levée, les corrections de bout de la note (0,8 rayon de chaque côté) sont
+justes à 1 mm près. Mais la soupape proche ajoute une masse d'air que la note disait « moins du
+dixième » : à 1 mm de levée elle double presque l'inertance (+70 à +85 %), à 2 mm +30 à +40 %,
+à 3 mm +15 à +20 %, à 4 mm +5 à +10 %. La résonance f_H descend d'autant (514 à 999 Hz au lieu
+de 719 à 1 041), mais reste 12 à 24 fois au-dessus de mi0 : la chambre reste une masse d'air sous
+sa résonance, comme la note le disait. Le rayonnement R (3,2e4 Pa.s/m³) est 0,6 % de la résistance
+de l'anche : négligeable pour le fondamental. Le volume effectif (43 à 46 cm³) est celui de la
+chambre plus le trou et la lame d'air sous la soupape.
+
+Les résultats du modèle temporel sont dans `resultats/trou_soupape_jeu.csv` (lame d'Ewen, réseau
+d'Elmer, seuils), `trou_soupape_jeu_grattee.csv` (lame grattée), `trou_soupape_jeu_note.csv` et
+`_uniforme.csv` (mêmes lames, réseau de la note) ; la synthèse est dans la note du coffre.
