@@ -353,8 +353,10 @@ entraînée m_a et l'amortissement R_a (projection modale, juste au premier ordr
 | bande infinie (pi.rho.b²/4, Lamb ; Sader 1998) | théorie | 1,116 | 0,096 % | -0,83 c | |
 | en place, 12x12, soupape 3 mm (grossier) | 326 000 | 1,665 | 0,143 % | -1,24 c | 1,5e-6 |
 | en place, 12x12, soupape 3 mm (défaut, 1 fréquence) | 579 000 | 1,675 | 0,144 % | -1,25 c | 1,3e-6 |
+| en place, 8x12, soupape 1 mm (grossier) | | 1,703 | 0,147 % | -1,27 c | 0,9e-6 |
 
-Lecture : l'air ne déplace la lame pincée en place que de 1,2 cent et ne l'amortit presque pas.
+Lecture : l'air ne déplace la lame pincée en place que de 1,2 cent et ne l'amortit presque pas ;
+le trou et la soupape n'y changent presque rien (8x12 à 1 mm : 1,70 mg ; 12x12 à 3 mm : 1,67 mg).
 À l'arrêt, l'air chassé par la lame fait le tour par les jeux (1 mm au bout) au lieu de passer
 par la chambre et le trou. En jeu, le jet rend ces jeux résistants (2.dp/q, environ 2e6 Pa.s/m³,
 5 fois le chemin du trou) : le volume balayé passe par la chambre ; le réseau L, C du trou le
