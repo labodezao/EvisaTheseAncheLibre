@@ -253,7 +253,7 @@ parbox[c][][t]{
 \backslash
 paperwidth}{
 \backslash
-centering Conceptual accordion design : Theory
+centering Conceptual accordion design : Practice
 \backslash
 
 \backslash
@@ -613,40 +613,227 @@ status collapsed
 \end_layout
 
 \begin_layout Part
-Reeds
+How to read this book
+\end_layout
+
+\begin_layout Chapter
+From the piece to the instrument
 \end_layout
 
 \begin_layout Standard
+The thesis that goes with this book asks how a free reed makes its sound, and what the air around it does to that sound. This book asks a humbler question, the one a maker asks at the bench and a repairer asks with an instrument open in front of him or her: what does this piece do, why is it made the way it is, how do I know it is right, and what do I do when it is not?
+\end_layout
+
+\begin_layout Standard
+An accordion is a box of pressure with doors in it. The bellows makes the pressure, the reeds turn a little of it into sound, the pallets decide which reeds get it, the keyboard opens the pallets, and every joint between two pieces of wood, card, leather or wax is a place where the air may leave without singing. Each part of this book takes one of these pieces and follows the same four steps. First, what physics says about it, kept to the few laws that really decide its behaviour. Then the analysis of a real instrument with those laws: which numbers matter, which do not. Then the tools for the maker, rules of thumb that come out of the laws, with the calculation behind them. And last, the repair bench: the symptoms a player brings, what they point to, and the gesture that checks it.
+\end_layout
+
+\begin_layout Standard
+The acoustics proper, the tongue, its chamber, the coupling of two voices and the sound radiated, belongs to the thesis and is only referred to here. What this book keeps is the physics of making: forces, flows, leaks, stiffness, friction, wood that moves.
+\end_layout
+
+\begin_layout Standard
+Two habits run through every part. The first is to say, each time, where a number comes from: measured, computed, taken from the workshop practice of Ewen and his process sheets, or proposed and still to be checked. Many figures in these pages are of the last kind, and they say so. The second is that every calculation can be redone with the true dimensions of the instrument on the bench. The small program outils_atelier.py (research/scripts) does all the arithmetic of this book, from the leak of a hole to the spring of a pallet, and its tests check that it agrees with the tables printed here.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): the instruments you want this book to speak about first, with their models (21/8, 33/12, 33/18, 33/24 of the training courses, the Lib RT, others), so that the examples use their true dimensions.
+\end_layout
+
+\begin_layout Part
+Right-hand keyboard
+\end_layout
+
+\begin_layout Chapter
+A lever, a spring and a door
+\end_layout
+
+\begin_layout Standard
+Take one key of the right hand out of an instrument and look at it. It is a lever turning on an axle shared with all the others. At one end, a button that the finger presses. At the other, a pallet, a small board faced with leather, lying on a hole of the soundboard. Between the two, a spring that keeps the pallet down when nobody plays. That is all. Three pieces and an axle, repeated thirty-three times on the instruments of the training courses, and almost everything a player feels under the right hand comes from the way these three pieces share one job: to keep a door shut against the wind, and to open it at once when asked.
+\end_layout
+
+\begin_layout Standard
+In the workshop of Ewen the keys are cut on the numerical milling machine and the levers are bent and drilled by hand, the longest single task of the whole instrument (twelve hours for one right hand in the process sheets of 2026, an estimate). The trainee threads them on the axle in order, greases it, adds spacers where needed, sets every spring to 90 grams on a jig, glues the pallets with their jig and checks them against a lamp, then sets the buttons of a row at the same height with a rule. Each of these gestures has a reason in the physics, and this chapter gives it.
+\end_layout
+
+\begin_layout Section
+The door against the wind
+\end_layout
+
+\begin_layout Standard
+A pallet closed on its hole carries the pressure of the bellows on its whole area: a force 
+\begin_inset Formula $\Delta p\,A$
+\end_inset
+. On an accordion the pallet sits on the outer face of the soundboard, so the two directions of the bellows do opposite things. On the push, the air inside is above the atmosphere and it lifts the pallet: the spring must hold it down. On the draw, the outside air presses the pallet onto its seat: the finger pays that force when it opens the note. The chapter on the left-hand mechanism follows the second burden in detail; the right hand meets the same two, only smaller, because its holes are smaller.
+\end_layout
+
+\begin_layout Standard
+How strong must the spring be? Strong enough that no pallet lifts on the strongest push. The workshop criterion, a proposal still to be calibrated on real instruments, is that no pallet lifts below 1.5 times the highest playing pressure. With a playing pressure of 3 kPa at most, the force at the pallet must be
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+F \ge 1.5\,p_{\max}\,A = 4500\,\mathrm{Pa}\times A
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+which, written in the units of the bench, is a rule worth remembering: about half a gram at the pallet for every square millimetre of hole (0.46 g per mm² exactly, for 3 kPa). Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:rh-spring"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ gives it for a few holes.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:rh-spring"
+
+\end_inset
+
+The three pallet holes of Ewen's instruments: useful lift, pressure at which a pallet held by 90 g lifts, and the force that holds it up to 1.5 times 3 kPa (force at the pallet; outils_atelier.py ressort and levee).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
 \begin_inset ERT
-status collapsed
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.090
+\backslash
+linewidth}p{0.100
+\backslash
+linewidth}p{0.200
+\backslash
+linewidth}p{0.180
+\backslash
+linewidth}p{0.210
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
 
 \begin_layout Plain Layout
 
 
 \backslash
-chapterimage
+raggedright hole (mm) & 
+\backslash
+raggedright area (mm$^{2}$) & 
+\backslash
+raggedright useful lift A/P (mm) & 
+\backslash
+raggedright 90 g lifts at (Pa) & 
+\backslash
+raggedright force for 4.5 kPa (g) 
+\backslash
+tabularnewline
 \end_layout
-
-\end_inset
-
-
-\begin_inset ERT
-status collapsed
 
 \begin_layout Plain Layout
 
-{
+\backslash
+hline
 \end_layout
-
-\end_inset
-
-chapter_head_2.pdf
-\begin_inset ERT
-status collapsed
 
 \begin_layout Plain Layout
 
-}
+
+\backslash
+raggedright 8 $
+\backslash
+times$ 12 & 
+\backslash
+raggedright 96 & 
+\backslash
+raggedright 2.4 & 
+\backslash
+raggedright 9 200 & 
+\backslash
+raggedright 44 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 15 $
+\backslash
+times$ 15 & 
+\backslash
+raggedright 225 & 
+\backslash
+raggedright 3.75 & 
+\backslash
+raggedright 3 900 & 
+\backslash
+raggedright 103 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 20 $
+\backslash
+times$ 15 & 
+\backslash
+raggedright 300 & 
+\backslash
+raggedright 4.3 & 
+\backslash
+raggedright 2 900 & 
+\backslash
+raggedright 138 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
 \end_layout
 
 \end_inset
@@ -654,531 +841,5173 @@ status collapsed
 
 \end_layout
 
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The table holds a small surprise. The 90 grams of the workshop were never computed; they were found by the hand, as the force that makes a button feel right, and they are the same for every key. The air does not see it that way. On the small hole, 8 by 12 mm, 90 g hold the pallet shut up to 9.2 kPa, twice what the criterion asks: the spring there is set by the finger, not by the wind. On the 15 by 15 mm hole the same 90 g hold to 3.9 kPa, a little short of the 4.5 kPa of the criterion. On the 20 by 15 mm hole they hold only to 2.9 kPa, below the strongest playing pressure itself. One force for all holes is either too much for the small ones or too little for the large ones; the physics asks for a spring that follows the hole, about half a gram per square millimetre. The booklet of the training course already knows the consequence: a spring set weaker than the others gives a soft button, and its pallet may lift at the fortissimo. A note that sounds faintly by itself when the player pushes hard is very often that.
+\end_layout
+
+\begin_layout Standard
+On the draw, the hole costs the finger 
+\begin_inset Formula $\Delta p\,A$
+\end_inset
+ at the moment of opening, added to the spring: at 2 and 3 kPa, 20 and 29 g for the 8 by 12 mm hole, 46 and 69 g for the 15 by 15, 61 and 92 g for the 20 by 15. A button of 90 g on the push becomes one of 110 to 180 g at the very start of a strong draw, and the step disappears as soon as the pallet has lifted and the pressure has run through the reed. Players feel it, and rarely know why.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): where exactly the 90 g are read on the jig, at the button or at the pallet, and the two arms of the right-hand lever (axle to button, axle to pallet). If the arms are unequal, the force at the pallet is the force at the button times their ratio, and Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:rh-spring"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ must be read with it. And which of the three holes is used where (right hand, basses, chords), model by model. If the 20 by 15 mm pallets are held by a spring of 90 g at equal arms, do they whisper on a strong push?
+\end_layout
+
+\begin_layout Section
+How far to lift
+\end_layout
+
+\begin_layout Standard
+How far must the pallet rise? Not as far as one might think. The air does not go through the pallet; it leaves sideways, through the thin slit that opens between the edge of the hole and the leather. That slit runs all round the hole like a curtain hung from the pallet: its height is the lift 
+\begin_inset Formula $h$
+\end_inset
+, its length is the perimeter 
+\begin_inset Formula $P$
+\end_inset
+ of the hole, and its area is 
+\begin_inset Formula $P\,h$
+\end_inset
+. While the curtain is smaller than the hole, it throttles the air, and lifting more helps. When the curtain equals the hole, at
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+h = A/P
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+the hole itself becomes the narrowest passage, and lifting further gives no more air (Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:lift"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+). For the 8 by 12 mm hole, 
+\begin_inset Formula $A$
+\end_inset
+ = 96 mm² and 
+\begin_inset Formula $P$
+\end_inset
+ = 40 mm: 2.4 mm. For 15 by 15 mm, 3.75 mm; for 20 by 15 mm, 4.3 mm. For a round hole of diameter 
+\begin_inset Formula $d$
+\end_inset
+ it is simply 
+\begin_inset Formula $d/4$
+\end_inset
+. The model of the thesis guessed 4 mm for every pallet: two thirds more than the small hole needs.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/pratique_levee_en.png
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:lift"
+
+\end_inset
+
+The useful lift of a pallet. (a) The air leaves through the curtain that runs round the hole, perimeter times lift. (b) The air passage is the smaller of the curtain and the hole; it stops growing at the useful lift A/P: 2.4 mm for the 8 by 12 mm hole, 3.75 mm for 15 by 15 mm, 4.3 mm for 20 by 15 mm.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Every millimetre above the useful lift is travel of the button paid for nothing: a longer stroke of the finger, a slower repetition, and on a short lever more angle and more rubbing. A little margin is still wise, 10 to 20 per cent, because the leather is soft and the curtain is not a perfect slit. A useful design rule follows: draw the hole first, compute 
+\begin_inset Formula $A/P$
+\end_inset
+, add a fifth, and that is the lift; the button travel is the lift times the ratio of the arms.
+\end_layout
+
+\begin_layout Section
+What the speed of the key does
+\end_layout
+
+\begin_layout Standard
+A key is not only open or shut; it opens in a time, and the note answers to that time. The simulations of the thesis let the pressure under the reed rise linearly in 20 ms, a hypothesis with no measurement behind it. A slow key gives the tongue a slow rise and a soft attack, a fast key a step. The response time of the note, from the opening to the steady sound, is already measured by the analysis chain of the research bench; what is missing is the position of the key against time next to it.
+\end_layout
+
+\begin_layout Standard
+There is a subtler point, and it is a prediction of the two-reed network of the thesis. The mass of air of the road above the tongue, hole and pallet together, takes part in the start of the note: with that mass divided by ten the tongue does not start, multiplied by three it starts less well, and in between there is an optimum. A pallet barely open is a long thin passage and a large mass of air; a pallet wide open, a small one. If the prediction holds, the depth to which the player presses the key changes the ease of the start, and not only the loudness. Experiment E2 of the thesis is designed to see it: the starting pressure of one tongue, read on the U-tube, for five lifts of its pallet set with shims.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): the force and travel of one key against time, with a small load cell and a magnetic angle sensor on the bench; and experiment E2. Is there an optimum lift for the start, as the model says, and where is it compared with 
+\begin_inset Formula $A/P$
+\end_inset
+?
+\end_layout
+
+\begin_layout Section
+Two keys that do more
+\end_layout
+
+\begin_layout Standard
+Two devices of Ewen's ask more of a key, and the physics above says what each one costs.
+\end_layout
+
+\begin_layout Standard
+The first holds a note open the way the button of a ballpoint pen holds its tip out: one press to engage, one to release, so that a drone goes on sounding while the fingers are free. A latched pallet is a constant opening, and the tongue behind it depends on one thing only, the pressure of the bellows, which it shares with every other note being played. The bellows behaves more like a source of flow with an internal resistance than like a source of pressure (the bellows part of this book comes back to it): at a constant speed of the bellows, opening one more note makes the pressure fall. A drone therefore costs pressure for the melody, its own flow times the resistance of the source. And a latched note on a plate with two tongues sounds one tongue on the push and the other on the draw; on Ewen's own instrument the tuner found 15 to 25 cents between push and draw on the same notes. A drone that must stay in tune through the reversal asks for the two tongues of its plate to be tuned together more carefully than the melody does.
+\end_layout
+
+\begin_layout Standard
+The second is a key with extra travel: pressed past the bottom of its ordinary stroke, it bends the note. What can the extra travel act on? Not the pressure, which belongs to the arm. It can close the pallet partly again, or open a second small passage, which changes the mass of air above the tongue; the pitch effect of that is not known and may be below what the ear notices. Or it can open a cell beside the chamber and change its volume. The thesis shows that the chamber is a strong lever only when its resonance is close to the note, within a ratio of about 1.1, and that such a chamber is hard to blow (1322 Pa of threshold against 208 Pa at a ratio of 1.3, for the same blade, in the model). A bend at the end of the stroke is therefore a trade between the depth of the bend and the ease of the note.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): the two mechanisms as you see them, and one measurement before building the second: reduce the volume of one chamber with modelling clay in two or three steps and read the pitch of its tongue with the tuner at a fixed pressure. If the pitch moves by less than a few cents, the chamber is not the lever for that note, and the pallet is the one to try.
+\end_layout
+
 \begin_layout Chapter
-Static and modal analysis
+Building and adjusting the right hand
 \end_layout
 
-\begin_layout Section
-Static analysis of free reeds
+\begin_layout Standard
+Each step of the process sheet has a reason. Here they are in the order of the training course, with the reason next to the gesture.
 \end_layout
 
-\begin_layout Subsection
-Static shape
+\begin_layout Standard
+
+\series bold
+Springs at 90 g, on the jig.
+\series default
+ The jig puts every lever in the same position, so that the 90 g mean the same preload for all. The spring decides two things at once, the feel of the button and the pressure at which the pallet lifts (Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:rh-spring"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+); a spring set "about right" gives a button softer than its neighbours and a pallet that may whisper at the fortissimo. Check: each spring reads 90 g on the jig.
 \end_layout
 
-\begin_layout Section
-Modal analysis of free reeds
+\begin_layout Standard
+
+\series bold
+Keys on the axle, greased, with spacers where needed.
+\series default
+ A key must turn freely and must not slide sideways. Free turning keeps the button light and the return sure; sideways float lets the pallet land off-centre on its hole. The grease turns a dry rub into a lubricated one, and a lever turning on an axle loses far less to friction than a rod sliding in a guide (the left-hand chapter puts numbers on that difference). Check: each key turns freely, with no play sideways.
 \end_layout
 
-\begin_layout Section
-A physical model for reed design
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): your process sheet asks "spacers of 6.33 or 5.833 mm if necessary: when is it necessary?" What do you see that tells you a spacer is needed, and which one do you choose?
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Pallets with their jig, glued on the leather side, checked against a lamp.
+\series default
+ A pallet off its centre leaves a crescent of the hole uncovered: a leak at every note, and the hole seen against the lamp shows it at once. The silicone foam under the pallets keeps them quiet when they land. Check: each pallet is centred and shuts with no light through.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Buttons of a row at the same height, travel regular, nothing rubbing.
+\series default
+ The height of a button is the start of its stroke; a row of buttons at the same height is a row of notes that open at the same depth of the finger. Check with a rule laid along the row, then press each button and listen.
 \end_layout
 
 \begin_layout Chapter
-Self-sustained conditions
+At the repair bench
+\end_layout
+
+\begin_layout Standard
+What a player brings, what it usually means, and how to check it.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+A note that sounds by itself, faintly, when pushing hard.
+\series default
+ Its pallet lifts below the playing pressure: a spring weaker than the rule of Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:rh-spring"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+, a leather compressed or hardened, or a pallet that no longer sits flat. Check: the spring on the gram gauge against its neighbours; the pallet against the lamp. A pallet that lets light through leaks at every pressure; one that is dark but lifts on the push has a weak spring.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+A heavy button at the start of a draw, light on the push.
+\series default
+ This is the physics of the door, not a fault: the pressure clamps the pallet on the draw. It becomes a fault only if one button is much heavier than its neighbours with the same hole, which points to friction on the axle or a lever touching its neighbour.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+A button that stays down, or comes back slowly.
+\series default
+ Friction (dry axle, swollen wood, a lever rubbing on the next one or on the grille), or a spring unhooked. Check: the key alone, spring removed, must fall back by its own weight when the instrument is turned over; if it does not, the friction is the culprit, not the spring.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Uneven buttons, or a clicking key.
+\series default
+ Heights lost by a moved stop or a crushed felt; a click is a landing without foam or felt. Check with the rule, and replace the felt or foam.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): your own list of what players bring for the right hand, in the order of how often you meet it, so that this list follows the real bench and not the theory.
+\end_layout
+
+\begin_layout Part
+Left-hand mechanism
+\end_layout
+
+\begin_layout Chapter
+The left-hand mechanism: what a finger pays for a pallet
+\end_layout
+
+\begin_layout Standard
+Press a bass button of an accordion while the bellows is being drawn, and the finger meets something before it meets the spring: a small resistance at the very start, a step, and then a softer travel down to the bottom. Press the same button on the push and the step is gone. Nothing in the mechanism has changed between the two gestures. What has changed is the air, and the finger is reading it. This chapter follows that small step back to its cause, and from there to every gram a player pays at the button of the left hand: the pallet, the spring that holds it, the lever that lifts it, the way the parts slide or turn, and the plastic or metal they are made of.
+\end_layout
+
+\begin_layout Standard
+The occasion was practical. Ewen is building the left-hand mechanism of the Lib RT, a free-bass instrument with grave basses, for a jazz player whose present instrument asks too much of their fingers; the aim he was given is 80 to 100 grams at the button. Four printed versions were made, the fifth (v5) plays but grinds, and the question became: is the force in the mechanism, or somewhere else? The answer of this chapter is that most of it is somewhere else, and that it can be computed before anything is built. The figures come from a small calculator written for the purpose (calcul_mecanique.py, kept with the engineering report of the Lib RT); every number below can be recomputed with the true dimensions once they are measured.
 \end_layout
 
 \begin_layout Section
-Stored energy
-\end_layout
-
-\begin_layout Section
-Dissipation
-\end_layout
-
-\begin_layout Section
-A flow-driven formulation of the reed--chamber coupling
+A door against the wind
 \end_layout
 
 \begin_layout Standard
-The bench drives the reed with a turbine feeding a chamber, and the
- accordion itself is driven by the bellows imposing a volume velocity.
- Neither imposes a pressure: the pressure is what results once the flow
- meets the impedance of the open reeds.
- The everyday evidence is familiar to any player -- at a constant bellows
- speed, opening a chord makes the pressure drop, whereas a pressure source
- would hold the pressure and simply double the flow.
- The model is therefore written with the flow as the input variable.
+A pallet is a door. It covers a hole in the soundboard, on the side of the mechanism, and behind the hole is the air of the bellows. When the door is shut, the air pushes on it, and it pushes only where the hole is: around the hole, on the seat, the leather sees the same pressure on both faces. The force is therefore the plainest one in physics, a pressure times an area,
 \end_layout
 
 \begin_layout Standard
-Four choices of formulation turn out to be decisive, and each of them was
- reached only after the corresponding mistake had been made and measured.
-\end_layout
-
-\begin_layout Enumerate
-The state variable of the chamber is the pressure, not the volume.
- A rigid chamber has a fixed volume; what varies is the mass of air it
- holds.
- Using the volume as a state together with an adiabatic law made the
- pressure fall when air was injected, so that the chamber went into
- depression, the tongue was sucked against the plate and stayed closed
- 99.2 per cent of the time.
-\end_layout
-
-\begin_layout Enumerate
-The opening is asymmetric.
- A free reed feeds in one air direction only, the other half-swing being
- closed by the leather valve -- which is precisely why blowing and drawing
- use two distinct reeds.
- A symmetric opening law modulates the slot twice per period and produces
- a note one octave too high, measured here as 470 Hz for a 220 Hz tongue.
- The asymmetry is not a refinement: it sets the pitch.
-\end_layout
-
-\begin_layout Enumerate
-The open area is bounded on both sides: a clean closure, with the residual
- leak that every real plate has, and a saturation once the tongue has
- cleared the slot.
- A numerical floor of the kind used to keep a square root finite hides the
- closure instead of modelling it, and lets the tongue pass through its own
- plate.
-\end_layout
-
-\begin_layout Enumerate
-The modal damping matrix must be symmetric.
- The projection basis (uniform cantilever modes) is not the eigenbasis of
- a multi-section tongue, so the mass matrix carries about 43 per cent of
- off-diagonal coupling; the natural-looking product of the mass matrix by a
- diagonal of modal damping is then not symmetric, and such a matrix injects
- energy depending on the direction of motion.
+\begin_inset Formula \[
+F = \Delta p \, A_{\mathrm{hole}}
+\]
+\end_inset
 \end_layout
 
 \begin_layout Standard
-The chamber equation finally reads
+and for the large basses of the Lib RT, a hole of 20 by 15 mm (300 mm²), it is 0.60 N at a playing pressure of 2 kPa and 0.90 N at a peak of 3 kPa. In grams, since that is what a finger knows, 61 and 92 g. Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:pallet-force"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ gives it for the other holes considered.
 \end_layout
 
 \begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:pallet-force"
+
+\end_inset
+
+Force of the bellows pressure on a closed pallet, 
+\begin_inset Formula $\Delta$
+\end_inset
+p × A (1 N = 102 g). The critical lift A/P is the lift at which the curtain around the pallet equals the hole.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
 \begin_inset ERT
 status open
 
 \begin_layout Plain Layout
 
-\[\frac{dp}{dt}=\frac{\gamma\,(P_{atm}+p)}{V_{0}}\left(q_{in}-q_{out}(p,y)-q_{reed}\right)\]
+\backslash
+begin{tabular}{p{0.069
+\backslash
+linewidth}p{0.076
+\backslash
+linewidth}p{0.168
+\backslash
+linewidth}p{0.099
+\backslash
+linewidth}p{0.099
+\backslash
+linewidth}p{0.099
+\backslash
+linewidth}p{0.107
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright hole (mm) & 
+\backslash
+raggedright area (mm$^{2}$) & 
+\backslash
+raggedright critical lift A/P (mm) & 
+\backslash
+raggedright 1 kPa & 
+\backslash
+raggedright 2 kPa & 
+\backslash
+raggedright 3 kPa & 
+\backslash
+raggedright 5 kPa 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 20 $
+\backslash
+times$ 15 & 
+\backslash
+raggedright 300 & 
+\backslash
+raggedright 4.3 & 
+\backslash
+raggedright 0.30 N (31 g) & 
+\backslash
+raggedright 0.60 N (61 g) & 
+\backslash
+raggedright 0.90 N (92 g) & 
+\backslash
+raggedright 1.50 N (153 g) 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 18 $
+\backslash
+times$ 15 & 
+\backslash
+raggedright 270 & 
+\backslash
+raggedright 4.1 & 
+\backslash
+raggedright 0.27 N & 
+\backslash
+raggedright 0.54 N & 
+\backslash
+raggedright 0.81 N & 
+\backslash
+raggedright 1.35 N 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 15 $
+\backslash
+times$ 15 & 
+\backslash
+raggedright 225 & 
+\backslash
+raggedright 3.8 & 
+\backslash
+raggedright 0.23 N & 
+\backslash
+raggedright 0.45 N & 
+\backslash
+raggedright 0.68 N & 
+\backslash
+raggedright 1.12 N 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 11 $
+\backslash
+times$ 27 & 
+\backslash
+raggedright 297 & 
+\backslash
+raggedright 3.9 & 
+\backslash
+raggedright 0.30 N & 
+\backslash
+raggedright 0.59 N & 
+\backslash
+raggedright 0.89 N & 
+\backslash
+raggedright 1.49 N 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 12 $
+\backslash
+times$ 12 & 
+\backslash
+raggedright 144 & 
+\backslash
+raggedright 3.0 & 
+\backslash
+raggedright 0.14 N (15 g) & 
+\backslash
+raggedright 0.29 N (29 g) & 
+\backslash
+raggedright 0.43 N (44 g) & 
+\backslash
+raggedright 0.72 N 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
 \end_layout
 
 \end_inset
 
+
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
-where the last term is the volume swept by the tongue itself.
- That term deserves attention: for a tongue vibrating at 100 Hz with an
- amplitude of one millimetre it reaches about 1.2e-4 cubic metres per
- second, roughly twelve times the supply flow.
- The stability of the whole model is governed by it, not by the supply.
+Which way does it push? It depends on which side of the board the door is. On an accordion the pallet sits on the outer face, the side of the atmosphere: on the push the air of the bellows lifts it, on the draw the outside air clamps it down. An organ puts its pallet on the other side, inside the wind chest, and the signs swap. There is no free side. Where the pressure helps to open, a spring must be strong enough to keep the door shut against the strongest push of the player; where the pressure resists, the finger pays it at the opening. The sum of the two burdens is the same either way. Only a door that is pushed equally in both senses escapes the bargain, and we shall meet it below.
+\end_layout
+
+\begin_layout Standard
+On the Lib RT the burden falls on the spring. It must hold the pallet shut against the peak of the push, with a margin for the jolts of the bellows, and it must also press the leather hard enough to seal:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+F_{0} = 1.2 \, \Delta p_{\mathrm{peak}} \, A + F_{\mathrm{seal}}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+With a peak of 3 kPa and a sealing force of 0.3 N, this is 1.38 N (141 g) at the pallet. A weaker spring leaks at the forte push: the note speaks without being pressed, the old fault of accordions with tired springs.
+\end_layout
+
+\begin_layout Standard
+What does the finger feel while the door opens? Three things are added: the preload, the stiffness of the spring, and the pressure. The last one does not stay. As soon as the pallet lifts, the air runs through two orifices in series, the curtain between pallet and seat (perimeter times lift) and the tongue itself, and the pressure left on the pallet falls as 
+\begin_inset Formula $1/(1+(P x / A_{\mathrm{reed}})^{2})$
+\end_inset
+. For a grave tongue with an effective section of about 20 mm², a quarter of the pressure force is left at 0.5 mm of lift, 8 % at 1 mm, almost nothing at 2 mm. Here is the step of the first paragraph: on the draw the finger first pays 1.38 + 0.60 = 1.98 N at the lift-off, then 1.50 N at one millimetre, then only the spring, 1.56 N at mid-stroke. Organ builders call it the pluck. On the push the pressure helps at the start (0.78 N) and the two directions meet again after a millimetre. The inequality between push and draw lives in the first millimetre and nowhere else.
 \end_layout
 
 \begin_layout Section
-Predicting the threshold instead of searching for it
+The price of lift
 \end_layout
 
 \begin_layout Standard
-Simulating for half a second and watching whether the amplitude decays is a
- slow and treacherous way to decide whether a reed starts.
- Linearising around the static equilibrium and reading the eigenvalues of
- the Jacobian answers the same question in about a millisecond, and answers
- it exactly: the sign of the largest real part decides stability, and its
- imaginary part gives the starting frequency.
+Why should the lift of the pallet matter to the finger? Because energy has nowhere to hide. If the button goes down by a travel 
+\begin_inset Formula $c$
+\end_inset
+ and the pallet goes up by a lift 
+\begin_inset Formula $x$
+\end_inset
+, then without losses 
+\begin_inset Formula $F_{b} c = F_{s} x$
+\end_inset
+, and
 \end_layout
 
 \begin_layout Standard
-Carrying the linearisation through by hand on a single mode gives the
- condition for self-oscillation:
+\begin_inset Formula \[
+F_{b} = F_{s} \, \frac{x}{c} \, \frac{1}{\eta} = F_{s} \, \frac{r}{\eta}
+\]
+\end_inset
 \end_layout
 
 \begin_layout Standard
+with 
+\begin_inset Formula $\eta$
+\end_inset
+ the efficiency of the chain, about 0.9 with steel pivots. The ratio 
+\begin_inset Formula $r$
+\end_inset
+ of lift to travel is not a detail of the drawing: it multiplies everything. A lift of 10 mm for a travel of 5 mm doubles the force at the button.
+\end_layout
+
+\begin_layout Standard
+And how much lift does the air need? The air does not go through the pallet: it leaves sideways, through the thin slit that opens between the edge of the hole and the leather. That slit runs all the way round the hole, like a curtain hung from the pallet; its height is the lift 
+\begin_inset Formula $x$
+\end_inset
+, its length is the perimeter 
+\begin_inset Formula $P$
+\end_inset
+ of the hole, the length of its edge, so its area is 
+\begin_inset Formula $P x$
+\end_inset
+ (Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:lift"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+). As long as the curtain is smaller than the hole, it is the curtain that throttles the air, and lifting more helps. The pallet stops limiting the flow when the curtain equals the area 
+\begin_inset Formula $A$
+\end_inset
+ of the hole, at 
+\begin_inset Formula $x = A/P$
+\end_inset
+; for a round hole of diameter 
+\begin_inset Formula $d$
+\end_inset
+ this is simply 
+\begin_inset Formula $d/4$
+\end_inset
+. For 20 by 15 mm, 
+\begin_inset Formula $A/P$
+\end_inset
+ = 300 / 70 = 4.3 mm; with a margin of 20 %, 5.1 mm. Above that, a pallet that opens further gives no more air, and the pressure on it has already vanished after the first millimetre. A centimetre of lift buys nothing for the sound and costs 60 to 100 % more at the finger. Whether the sound of the tongue is more open beyond 
+\begin_inset Formula $A/P$
+\end_inset
+ is a question for the ear, and the bench can answer it (experiment E-hole below); nothing in the physics expects it.
+\end_layout
+
+\begin_layout Standard
+Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:button-force"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ puts the two together for the large hole: the best that any mechanism can do, 
+\begin_inset Formula $r$
+\end_inset
+ close to 1, gives 160 to 180 g at mid-stroke and 200 to 225 g at the lift-off on the draw. The aim of 80 to 100 g is out of reach with this hole and this peak, whatever the mechanism.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:button-force"
+
+\end_inset
+
+Force at the button for the 20 × 15 mm hole (play 2 kPa, peak 3 kPa, 
+\begin_inset Formula $\eta$
+\end_inset
+ = 0.9). The last column is the force that brings the button back at the worst moment, a 3 kPa push with the pallet closed.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
 \begin_inset ERT
 status open
 
 \begin_layout Plain Layout
 
-\[\frac{\partial q_{out}}{\partial y}\;>\;\gamma_{m}\,\frac{\gamma\,P_{atm}}{V_{0}}\,\frac{\partial q_{out}}{\partial p}\]
+\backslash
+begin{tabular}{p{0.092
+\backslash
+linewidth}p{0.075
+\backslash
+linewidth}p{0.067
+\backslash
+linewidth}p{0.125
+\backslash
+linewidth}p{0.083
+\backslash
+linewidth}p{0.108
+\backslash
+linewidth}p{0.167
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright travel (mm) & 
+\backslash
+raggedright lift (mm) & 
+\backslash
+raggedright r & 
+\backslash
+raggedright lift-off (draw) & 
+\backslash
+raggedright mid-stroke & 
+\backslash
+raggedright end of stroke & 
+\backslash
+raggedright return at 3 kPa push 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 5 & 
+\backslash
+raggedright 4.5 & 
+\backslash
+raggedright 0.90 & 
+\backslash
+raggedright 202 g & 
+\backslash
+raggedright 159 g & 
+\backslash
+raggedright 176 g & 
+\backslash
+raggedright 40 g 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 5 & 
+\backslash
+raggedright 5.0 & 
+\backslash
+raggedright 1.00 & 
+\backslash
+raggedright 224 g & 
+\backslash
+raggedright 177 g & 
+\backslash
+raggedright 196 g & 
+\backslash
+raggedright 44 g 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 5 & 
+\backslash
+raggedright 6.0 & 
+\backslash
+raggedright 1.20 & 
+\backslash
+raggedright 269 g & 
+\backslash
+raggedright 212 g & 
+\backslash
+raggedright 235 g & 
+\backslash
+raggedright 53 g 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 5 & 
+\backslash
+raggedright 8.0 & 
+\backslash
+raggedright 1.60 & 
+\backslash
+raggedright 359 g & 
+\backslash
+raggedright 282 g & 
+\backslash
+raggedright 313 g & 
+\backslash
+raggedright 70 g 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 5 & 
+\backslash
+raggedright 10.0 & 
+\backslash
+raggedright 2.00 & 
+\backslash
+raggedright 449 g & 
+\backslash
+raggedright 352 g & 
+\backslash
+raggedright 391 g & 
+\backslash
+raggedright 88 g 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 4 & 
+\backslash
+raggedright 5.0 & 
+\backslash
+raggedright 1.25 & 
+\backslash
+raggedright 280 g & 
+\backslash
+raggedright 221 g & 
+\backslash
+raggedright 245 g & 
+\backslash
+raggedright 55 g 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
 \end_layout
 
 \end_inset
 
+
+\end_layout
+
+\end_inset
+
+
 \end_layout
 
 \begin_layout Standard
-On the left, what sustains: the modulation of the flow by the motion of the
- tongue.
- On the right, what dissipates: the reaction of the air spring to the volume
- swept by the tongue.
- Written in terms of the chamber volume this becomes a lower bound on the
- effective acoustic volume, which is an order of magnitude rather than an
- equality -- the scalar estimate calls for 78 cubic centimetres where the
- full model already starts at 40.
-\end_layout
-
-\begin_layout Section
-The saturation trap
+The last column deserves a moment. At the forte push, the pressure lifts the closed pallet and eats the preload of the spring; what is left to raise the button is the margin, 44 g. Below 35 to 40 g, a key that rubs a little stays down. It is very probably the fault of the player's present instrument: springs that are just strong enough, and some friction.
 \end_layout
 
 \begin_layout Standard
-This criterion carries a consequence that no amount of simulation had made
- visible.
- If the opening saturates -- the tongue blown clear of the slot -- then the
- derivative of the opening with respect to the tongue position vanishes,
- the left-hand side of the criterion goes to zero, and the sustaining term
- disappears whatever the pressure.
+Where, then, is the force? Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:levers"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ ranks the levers, and the first two are not in the mechanism at all.
 \end_layout
 
 \begin_layout Standard
-That was exactly the situation: the tip settled at 0.649 mm against a
- saturation set at 0.4 mm.
- The tongue sat outside its own working range and no longer modulated
- anything.
- The same mechanism bounds the oscillation from above and produces, without
- being asked for it, the choking that every player knows when pushing too
- hard on the bellows.
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:levers"
+
+\end_inset
+
+Force at mid-stroke on the draw (lift-off in brackets), for r = 1.2.
 \end_layout
 
-\begin_layout Section
-Limit cycle and the impedance of the source
+\end_inset
+
+
 \end_layout
 
-\begin_layout Standard
-An ideal flow source imposes its flow even when the tongue closes the slot.
- The pressure then spikes without bound -- 8550 Pa were measured -- and that
- spike drives the tongue harder still, so the amplitude grows indefinitely.
- A real turbine, like a real bellows, delivers less as the pressure rises,
- following a droop law q = q0 - p/R.
- It is this droop that bounds the amplitude.
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.073
+\backslash
+linewidth}p{0.091
+\backslash
+linewidth}p{0.218
+\backslash
+linewidth}p{0.200
+\backslash
+linewidth}p{0.200
+\backslash
+linewidth}}
 \end_layout
 
-\begin_layout Standard
-With a finite source impedance the limit cycle converges: the peak-to-peak
- excursion of the tip settles at 1.1364 mm and stays there, an amplitude
- typical of a real accordion reed.
- The convergence takes about 1.5 s of simulated signal, which is worth
- stating: shorter runs wrongly suggest an unbounded amplitude.
+\begin_layout Plain Layout
+
+\backslash
+hline
 \end_layout
 
-\begin_layout Standard
-The resistance R is not a quantity to be guessed.
- It is the slope of the pressure-flow characteristic of the source, and the
- existing sweep of the Section factor already produces the data needed to
- measure it.
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright hole & 
+\backslash
+raggedright area (mm$^{2}$) & 
+\backslash
+raggedright play 1 kPa, peak 1.5 kPa & 
+\backslash
+raggedright play 2 kPa, peak 3 kPa & 
+\backslash
+raggedright play 3 kPa, peak 5 kPa 
+\backslash
+tabularnewline
 \end_layout
 
-\begin_layout Section
-A subcritical bifurcation
+\begin_layout Plain Layout
+
+\backslash
+hline
 \end_layout
 
-\begin_layout Standard
-Starting from an established limit cycle and lowering the command, the
- oscillation persists below the starting threshold.
- The bifurcation is therefore subcritical, with a starting threshold of
- 25.8 Pa, an extinction threshold of 19.4 Pa and a hysteresis ratio of about
- 1.33.
- This is the behaviour of real reeds, and the two thresholds are exactly
- what an ascending then descending pressure ramp measures on the bench.
- Model and measurement now speak of the same quantity.
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 20 $
+\backslash
+times$ 15 & 
+\backslash
+raggedright 300 & 
+\backslash
+raggedright 129 g (155 g) & 
+\backslash
+raggedright 212 g (269 g) & 
+\backslash
+raggedright 322 g (408 g) 
+\backslash
+tabularnewline
 \end_layout
 
-\begin_layout Standard
-Reaching that conclusion required care, and two wrong answers were obtained
- first.
- Restarting from an established cycle demands the exact state:
- reconstructing the modal state from the tip displacement alone is
- underdetermined and produced a systematic extinction, hence a spurious
- supercritical verdict.
- And the amplitude law in the square root of the distance to threshold,
- which was correctly measured, is the expected signature of a supercritical
- bifurcation but is necessary rather than sufficient: a weakly subcritical
- one shows the same law above threshold.
- Only the descent decides -- which is precisely why the bench ramp is run in
- both directions.
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 15 $
+\backslash
+times$ 15 & 
+\backslash
+raggedright 225 & 
+\backslash
+raggedright 108 g (126 g) & 
+\backslash
+raggedright 170 g (212 g) & 
+\backslash
+raggedright 253 g (316 g) 
+\backslash
+tabularnewline
 \end_layout
 
-\begin_layout Section
-What the model now predicts
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 12 $
+\backslash
+times$ 12 & 
+\backslash
+raggedright 144 & 
+\backslash
+raggedright 86 g (96 g) & 
+\backslash
+raggedright 126 g (150 g) & 
+\backslash
+raggedright 179 g (217 g) 
+\backslash
+tabularnewline
 \end_layout
 
-\begin_layout Standard
-For the weighted bass tongue of the reference geometry, whose first mode
- falls at 102.1 Hz:
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright d 10 & 
+\backslash
+raggedright 79 & 
+\backslash
+raggedright 68 g (71 g) & 
+\backslash
+raggedright 90 g (101 g) & 
+\backslash
+raggedright 119 g (137 g) 
+\backslash
+tabularnewline
 \end_layout
 
-\begin_layout Itemize
-starting threshold 25.8 Pa, at 119 Hz;
+\begin_layout Plain Layout
+
+\backslash
+hline
 \end_layout
 
-\begin_layout Itemize
-choking threshold 379.8 Pa;
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
 \end_layout
 
-\begin_layout Itemize
-extinction threshold 19.4 Pa, hysteresis ratio 1.33;
+\end_inset
+
+
 \end_layout
 
-\begin_layout Itemize
-limit-cycle excursion of 0.96 mm at 1.5 times the threshold, growing as the
- square root of the distance to threshold;
-\end_layout
+\end_inset
 
-\begin_layout Itemize
-playing frequency constant at 118 Hz across the band, about 16 per cent
- above the first mode of the tongue -- the stiffening due to the air spring.
-\end_layout
 
-\begin_layout Standard
-That last figure is directly useful: the ratio between the playing frequency
- and the free tongue frequency depends on the effective acoustic volume, so
- measuring the shift measures the volume.
-\end_layout
-
-\begin_layout Section
-A note on method
-\end_layout
-
-\begin_layout Standard
-Three mistakes made during this work are worth recording, because each was
- caught by a measurement rather than by reasoning.
 \end_layout
 
 \begin_layout Enumerate
-A spectrum judged poor -- two harmonics -- was in fact rich, with six to
- twelve.
- Two errors compounded: the chamber pressure was examined where a free reed
- radiates through the modulated flow (and, in the far field, through its
- derivative), and the fundamental was detected by taking the strongest
- partial, which differentiation had moved to the fourth harmonic.
+
+\series bold
+The hole.
+\series default
+ A tongue needs three to five times its effective section to breathe, 60 to 100 mm². The rest of the hole serves the acoustics of the chamber and the way out of the sound. A hole of 12 by 12 mm halves the pressure force; with 
+\begin_inset Formula $r$
+\end_inset
+ = 1 and a peak of 1.5 kPa it gives 72 g at mid-stroke and 80 g at the lift-off.
 \end_layout
 
 \begin_layout Enumerate
-Slot inertance, the most natural candidate for the missing phase lag, was
- eliminated by measurement: it changed the growth rate from -46.8 to -47.5
- per second, that is, not at all.
+
+\series bold
+The real peak pressure.
+\series default
+ Between 1.5 and 3 kPa the preload goes from 0.84 to 1.38 N. A jazz player who plays softly may never pass 1.5 kPa; a U-tube manometer says so in an afternoon.
 \end_layout
 
 \begin_layout Enumerate
-A parameter sweep appeared to show self-oscillation until it was noticed
- that reversing the sign of the reed coupling changed the result by less
- than one part in a thousand -- proof that the coupling was not driving
- anything, and that what was being measured was a decaying transient.
+
+\series bold
+r at most 1.
+\series default
+ Travel 5 mm, lift 5 to 5.5 mm.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+A long, soft spring
+\series default
+, rising by 15 to 25 % over the lift, not 100 %.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+The efficiency
+\series default
+: turning, not sliding (below).
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+The seat
+\series default
+: a flat seat and a supple leather seal with 0.3 N; a warped seat asks for 0.6 N, which the finger pays.
+\end_layout
+
+\begin_layout Section
+Four ways to cheat the wind, and why three of them fail
 \end_layout
 
 \begin_layout Standard
-The common thread is that a model which merely looks plausible is worth
- nothing, and that the cheapest instrument against self-deception is a test
- whose outcome would be different if the hypothesis were false.
+Can the pressure force be compensated, the way a sash window is balanced by its counterweight? Four ideas come naturally. Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:compensations"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ draws them in section beside the plain pallet, and its last panel compares what each one leaves at the button, computed with the same assumptions as table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:button-force"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/mecanique_compensations_en.png
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:compensations"
+
+\end_inset
+
+The compensations, in section and in grams at the button (hole 20 × 15 mm, r = 1). Reference: on the draw, pressure clamps the pallet. (a) A small pilot pallet opened first. (b) Two pallets side by side. (c) A balanced pallet: two seats on one stem. (d) A helper spring at the button. (e) Lift-off, mid-stroke and return at the button.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+The pilot (a).
+\series default
+ A small pallet of 6 by 6 mm sits on a hole cut through the large one. The lever lifts it first, through a hook with a little free play; air rushes through the small hole, the chamber behind comes to the outside pressure, and only then does the hook take the large pallet. The pluck of the draw is gone: the lift-off falls from 224 to 165 g, a gain of about a quarter. But look at the mid-stroke: 176 g in both cases. The pilot removes the pressure, which only lived in the first millimetre, and leaves the spring, which must still hold the peak of the push. It costs two pallets per note.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Two pallets side by side (b).
+\series default
+ Two holes of 150 mm² have the same area as one of 300; the pressure force is the same and so is the total spring. Nothing is gained, and the parts are doubled. It is worth drawing only because it is the first idea everyone has.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+The balanced pallet (c).
+\series default
+ Here the bargain of the first section is broken. Two discs of equal area are fixed on one stem, and the air of the bellows lies between two plates: the upper disc rests on the upper plate, outside, and the pressure under it pushes it open; the lower disc rests on the lower plate, inside, and the same pressure pushes it shut. Both open by moving the same way. The two thrusts cancel, whatever the sign of the pressure, push or draw, and the spring no longer has to hold the peak: only to seal, 0.3 to 0.5 N. At the button this is 45 g at the lift-off and 51 g at mid-stroke. It is the only solution that reaches 80 g on a hole of 300 mm². The engineers of steam knew it as the double-beat valve. Its price is real: a seat on the side of the bellows or a sealed passage for the stem, two holes per note, and a design that has never been tried on an accordion and must be proved on the bench. It is kept here as a research path, not as the base of the Lib RT.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+The helper spring (d).
+\series default
+ A spring that pulls the button down with a constant force subtracts from the effort, and subtracts just as much from the return. With 44 g of return at the forte push, it can be given 5 to 10 g at most; the panel shows 168 g at mid-stroke and 36 g of return, at the edge of a key that stays down. It does nothing useful here.
+\end_layout
+
+\begin_layout Standard
+The lesson of the figure is the lesson of the whole chapter. The force is in the hole and in the pressure, the two quantities the mechanism does not touch; the balanced pallet is the one idea that reaches into them, and it does so by changing the door, not the lever.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): the lift-off of one pallet on the draw, measured with a spring balance hooked to the pallet and pulled slowly, then the force at 1, 2, 3 and 5 mm of lift (shims under its edge). Does the step of the first millimetre have the size the curve predicts?
+\end_layout
+
+\begin_layout Section
+Returns, one spring, and the space before the force
+\end_layout
+
+\begin_layout Standard
+On a chromatic accordion the same note appears on several rows, and the second button, the return, drives the same pallet through a longer chain. Two buttons, one door: will the finger feel the same force on both? It will, if the two chains have the same ratio 
+\begin_inset Formula $r$
+\end_inset
+ and if a single spring, the spring of the pallet, brings everything back. Each extra steel pivot of the return costs 0.2 to 1 % of the force; three of them, 1 to 3 %, 2 to 5 g on 180 g. The finger does not notice differences below 7 to 10 %. A second spring on the return, on the other hand, would add all of its force to that button alone; it is the one thing to avoid.
+\end_layout
+
+\begin_layout Standard
+Lost motion is subtler. A chain that a spring keeps loaded, the spring at one end and the button at the other, every joint attached, has no dead travel from its clearances: on the way down and on the way up each joint stays pressed against the same side. The clearances show up instead as sideways float and noise. A button merely resting on a lever with a gap between them has a dead travel equal to the gap. At the button, 0.1 to 0.2 mm is tolerable, 2 to 4 % of the travel; above it the finger feels a void before the resistance. And the lift has its own budget: the lift beyond the useful 
+\begin_inset Formula $1.2\,A/P$
+\end_inset
+ must cover the bending of the lever under the playing force and the crushing of leather and felt. For a lift of 6 mm on the large hole the budget is 0.9 mm, for 5.5 mm it is 0.4 mm, for 5 mm nothing at all.
+\end_layout
+
+\begin_layout Section
+Sliding against turning
+\end_layout
+
+\begin_layout Standard
+The v5 grinds. Why does a steel rod sliding in a printed hole grind, when the same rod turning in the same hole does not?
+\end_layout
+
+\begin_layout Standard
+Friction, first. Steel on printed PLA has a coefficient of 0.35 to 0.45 at rest and 0.25 to 0.35 in motion. That difference is enough for stick-slip: the rod sticks, the elastic chain that pushes it loads up, the rod jumps, and the cycle repeats in the kilohertz. That is the grinding. PTFE (0.08 at rest, 0.05 moving) or oiled sintered bronze have almost no difference between the two, and do not grind. Then the layers: a hole printed vertically has steps of 0.18 to 0.24 mm across the motion, and the rod climbs one at every layer.
+\end_layout
+
+\begin_layout Standard
+But the largest effect is geometric, and it is shown in figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:drawer"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+. When the force on the rod is offset from its axis by 
+\begin_inset Formula $e$
+\end_inset
+, through a pin for instance, the rod tilts in its guide of length 
+\begin_inset Formula $L$
+\end_inset
+ and bears at both ends with a force 
+\begin_inset Formula $N = F e / L$
+\end_inset
+. Friction acts at both ends, 
+\begin_inset Formula $2 \mu N$
+\end_inset
+, against the motion, so that
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+F_{\mathrm{push}} = \frac{F_{\mathrm{useful}}}{1 - 2 \mu e / L}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+and the rod jams when 
+\begin_inset Formula $2 \mu e / L$
+\end_inset
+ reaches 1. The v5 has its pin 5 mm off a guide 8 mm long, in PLA: the factor is 2.0, the finger pays double. If the real bearing of the guide is only 4 mm, with chamfers and layer steps, the rod jams now and then. The rule that follows is short: guide length at least 
+\begin_inset Formula $10 \mu e$
+\end_inset
+, 20 mm for PLA and 5 mm for PTFE, or better, push along the axis.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/mecanique_tiroir_en.png
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:drawer"
+
+\end_inset
+
+The drawer effect. A force offset by e makes the rod bear at both ends of its guide; the force needed rises as 1/(1 − 2
+\begin_inset Formula $\mu$
+\end_inset
+e/L) and the rod jams at 2
+\begin_inset Formula $\mu$
+\end_inset
+e/L = 1. The dotted line is the v5.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Now turn the rod into a pivot. In a pivot, friction acts only at the radius of the axle, so the loss is 
+\begin_inset Formula $\mu (d/2) / \ell$
+\end_inset
+ for an arm 
+\begin_inset Formula $\ell$
+\end_inset
+. With a steel axle of 2 mm in raw PLA (
+\begin_inset Formula $\mu$
+\end_inset
+ = 0.4) and an arm of 60 mm, the loss is 0.7 %. A pivot loses 30 to 100 times less than a slide (table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:remedies"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+). This is the whole argument for a mechanism where each key is one rotation, and against a guided rod.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:remedies"
+
+\end_inset
+
+Remedies for a sliding rod (useful force 1, offset 5 mm), against a rotation.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.441
+\backslash
+linewidth}p{0.080
+\backslash
+linewidth}p{0.080
+\backslash
+linewidth}p{0.211
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright guide & 
+\backslash
+raggedright $
+\backslash
+mu$ & 
+\backslash
+raggedright L (mm) & 
+\backslash
+raggedright force factor 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright PLA as printed & 
+\backslash
+raggedright 0.40 & 
+\backslash
+raggedright 8 & 
+\backslash
+raggedright $
+\backslash
+times$ 2.0, stick-slip 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright PLA, lengthened & 
+\backslash
+raggedright 0.40 & 
+\backslash
+raggedright 20 & 
+\backslash
+raggedright $
+\backslash
+times$ 1.25 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright PA printed, drilled and reamed & 
+\backslash
+raggedright 0.30 & 
+\backslash
+raggedright 12 & 
+\backslash
+raggedright $
+\backslash
+times$ 1.33 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright brass tube 3 $
+\backslash
+times$ 2, oiled & 
+\backslash
+raggedright 0.19 & 
+\backslash
+raggedright 10 & 
+\backslash
+raggedright $
+\backslash
+times$ 1.23 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright PTFE sleeve (Bowden liner 2 $
+\backslash
+times$ 4) & 
+\backslash
+raggedright 0.08 & 
+\backslash
+raggedright 8 & 
+\backslash
+raggedright $
+\backslash
+times$ 1.11, no stick-slip 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright rotation on a 2 mm steel axle, arm 60 mm & 
+\backslash
+raggedright 0.40 & 
+\backslash
+raggedright - & 
+\backslash
+raggedright $
+\backslash
+times$ 1.007 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The v5 also has thin steel rods running at an angle between a printed bracket and the aluminium lever. Ewen's correction is worth recording here, because it corrected the analysis: in practice these rods do not buckle, and the computation agrees (the Euler load stays above the force carried). Their real cost is the angle. A rod at 30° to the useful motion carries 15 % more force and pushes the pivot sideways with 58 % of the useful force; if a guide takes that sideways load, a quarter of the effort goes into friction. A rod in tension does not suffer from any of this: it cannot buckle, it aligns itself on its two attachments, it can be a thin cable that passes between the others, and the chain loaded by the spring stays taut, with no dead travel. Attaching the rod on the other side of the bracket's pivot is enough to make the finger pull it instead of pushing it.
+\end_layout
+
+\begin_layout Section
+Pivots that do not wobble
+\end_layout
+
+\begin_layout Standard
+A printed hole is never what was drawn: 0.1 to 0.3 mm too small, round if printed vertically, oval by as much if printed lying down. The contact pressure is not the problem, 0.5 MPa for 3 N on an axle of 2 mm over 3 mm, against 10 MPa admissible. The problem is tilt. A lever on a short hub swings on its own clearance: the end moves by the clearance divided by the hub length, times the lever length (table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:tilt"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+). 0.05 mm of clearance on a 3 mm hub moves the end of a 100 mm lever by 1.7 mm, and with 5 mm between levers, neighbours touch.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:tilt"
+
+\end_inset
+
+Sideways movement of the end of a 100 mm lever (mm), from the clearance of its hub.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.334
+\backslash
+linewidth}p{0.111
+\backslash
+linewidth}p{0.111
+\backslash
+linewidth}p{0.111
+\backslash
+linewidth}p{0.111
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright diametral clearance (mm) & 
+\backslash
+raggedright hub 2 mm & 
+\backslash
+raggedright hub 3 mm & 
+\backslash
+raggedright hub 6 mm & 
+\backslash
+raggedright hub 9 mm 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 0.02 & 
+\backslash
+raggedright 1.00 & 
+\backslash
+raggedright 0.67 & 
+\backslash
+raggedright 0.33 & 
+\backslash
+raggedright 0.22 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 0.05 & 
+\backslash
+raggedright 2.50 & 
+\backslash
+raggedright 1.67 & 
+\backslash
+raggedright 0.83 & 
+\backslash
+raggedright 0.56 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 0.10 & 
+\backslash
+raggedright 5.00 & 
+\backslash
+raggedright 3.33 & 
+\backslash
+raggedright 2.50 & 
+\backslash
+raggedright 1.11 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+No realistic hub holds the end of a long lever within half a millimetre. The accordion solved this long ago with a comb at the end of the levers, slots lined with felt: the clearance of the hub then matters only for noise. Two staggered axles, even levers on one and odd on the other, let each hub be twice as long. And a reamed hole or a pressed brass tube brings the clearance itself to 0.02 to 0.05 mm.
+\end_layout
+
+\begin_layout Standard
+There is a pivot with no clearance and no friction at all: a thin blade of spring steel, clamped on both sides, that bends instead of turning. A lever turns by about 0.1 rad (6 mm of lift on a 60 mm arm); a blade 0.15 mm thick and 5 mm long then carries 309 MPa, below the 600 to 700 MPa of fatigue of spring steel, and lives forever. Its own return torque is small, 0.1 N at the 60 mm arm, a help but not the spring. The printed living hinge is its plastic cousin: only polyamide, 0.4 to 0.6 mm over 3 to 5 mm, survives a million bends (a heavily played key sees 100 000 a year); PLA cracks after a few hundred. And a hinge creeps under the permanent load of the spring, so its rest position drifts: good for small brackets, not for the main pivot.
+\end_layout
+
+\begin_layout Section
+Stiffness, not strength
+\end_layout
+
+\begin_layout Standard
+What should a lever be made of? Not what one would first think. The stresses in a lever are everywhere small, below 15 MPa; nothing breaks. What matters is how much it bends, because every tenth of a millimetre of bending is taken from the lift or added to the dead travel. The admissible bending at the button is 0.2 to 0.3 mm. A rocking lever, button on one side of the axle and pallet on the other, bends as a cantilever from the axle:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+\delta = \frac{F L_{b}^{2} (L_{b} + L_{s})}{3 E I}, \qquad I = \frac{b h^{3}}{12}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+and the width 
+\begin_inset Formula $b$
+\end_inset
+ is fixed by the spacing of the keys: 3.5 mm when three rows share a 15 mm band, 6 mm with two rows. Under the playing force of the large hole, 1.5 N, PLA 3 by 7 mm bends 0.93 mm on 60 + 60 mm arms: four times too much, and it creeps, so the buttons sink with the months. ASA 3 by 12 mm holds to 60 + 60 mm (0.23 mm); carbon-filled polyamide 2.5 times better; beyond 80 mm only metal on edge holds: aluminium alloy 2 by 8 mm bends 0.16 mm on 100 + 100 mm.
+\end_layout
+
+\begin_layout Standard
+On edge is the important phrase. The stiffness goes with the cube of the height. The same strip of aluminium, 8 by 2 mm, is 16 times softer laid flat than standing on its edge: 2.6 mm against 0.16 mm under 1.5 N on 100 + 100 mm. The photographs of the v5 suggest flat levers; if the button pushes vertically, that is the soft way, and it is the first thing to check (100 g at the end, a dial gauge).
+\end_layout
+
+\begin_layout Section
+Springs: steel or nothing
+\end_layout
+
+\begin_layout Standard
+Why not print the springs too? Because a plastic under a permanent stress forgets its shape. At 23 °C PLA is only 35 K below its glass transition; under a few megapascals its chains slide slowly, and the imposed deformation becomes permanent. A printed spring loses 20 to 40 % of its force in a few weeks, and almost all of it in an afternoon at 50 °C, in a car in summer. Spring steel works at a fraction of a percent of strain with no flow at all, and stores 20 to 80 times more energy per volume. One steel spring per pallet, none at the button. For a preload of 1.38 N at a 60 mm arm and a rise of at most 25 % over the lift, a torsion spring on the axle of wire 1.0 to 1.2 mm, 7 to 10 mm in diameter, 8 to 12 coils, preloaded by 45 to 100°; or a tension spring of wire 0.5 mm, 5 mm in diameter, 15 coils, hooked 25 mm from the axle. The springs Ewen already has are usable once their stiffness is measured with a few coins: the rule is that a stiff spring hooks near the axle and a soft one further out.
+\end_layout
+
+\begin_layout Section
+What the models leave out
+\end_layout
+
+\begin_layout Standard
+The pressure on the opening pallet is a quasi-static model of two orifices in series; the transient at the lift-off, where the air running under the seat may briefly push on the whole pallet (up to 1.09 N instead of 0.60 at 2 kPa), is bounded, not computed. The effective section of the tongue, 20 mm², is estimated from the flow of a grave bass and should be measured by timing the emptying of the bellows on one note. The efficiency of 0.9 is for steel pivots; 0.95 with a PTFE comb, 0.8 with raw PLA pivots. The levers are beams of constant section with a point load; a lightened lever is softer. The data of printed materials are good to 20 %, and their fatigue is an order of magnitude: one endurance test is worth more than the table.
+\end_layout
+
+\begin_layout Standard
+Underneath these limits there is something worth saying plainly. The first question was where the force goes, and the answer came before any part was cut: in the hole and in the breath of the player, not in the cleverness of the levers. The mechanism can only add to that floor, a little (2 to 4 % for one rotation per key) or a lot (10 to 100 % for a guided rod). A good mechanism is one that adds almost nothing, and lets the finger feel the air.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): the peak pressure of the jazz player, on a U-tube connected to the bellows, pianissimo to sforzando, push and draw. It is the number that weighs most on everything above. And, if you wish, the sensation itself: what the step of the first millimetre feels like under the finger, before and after you know what it is.
+\end_layout
+
+\begin_layout Chapter
+Building the mechanism
+\end_layout
+
+\begin_layout Standard
+The previous chapter said where the force at the button comes from, and why the hole and the pressure weigh more than the levers. The next three chapters are the workshop side of it: what to make each piece of, how to print it, how to place the pallets when the buttons are closer together than the pallets can be, how to spring and adjust seventy keys, what to measure with almost nothing, and how to decide whether the fifth version is worth repairing. The figures come from the calculator of the Lib RT engineering report (calcul_mecanique.py).
+\end_layout
+
+\begin_layout Section
+The geometry to start from
+\end_layout
+
+\begin_layout Standard
+A rocking lever with equal arms, button side and pallet side (
+\begin_inset Formula $r$
+\end_inset
+ = 1), for instance 60 + 60 mm or 80 + 80 mm, its axle halfway between the button plate and the soundboard. Travel 5 mm, lift 5 to 5.5 mm. The upper stop is the pallet on its seat: the button rests on the lever, the lever on the pallet, and there is no dead travel. One steel spring per lever, none at the button. This is "idea 1": one rotation per key, against the four to six joints of the v5.
+\end_layout
+
+\begin_layout Section
+Materials from the stock, and what a purchase would change
+\end_layout
+
+\begin_layout Standard
+The rule with what is already in the workshop is short: 
+\series bold
+ASA for everything printed and loaded, PETG for buttons and hinges, PLA for nothing mechanical.
+\series default
+ The purchase that changes most is carbon-filled polyamide (PA-CF): short levers and brackets 2.5 times stiffer and little creep.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:materials"
+
+\end_inset
+
+Choice of material for each piece, from the stock (PLA, PETG, ASA), then with a purchase.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.152
+\backslash
+linewidth}p{0.222
+\backslash
+linewidth}p{0.172
+\backslash
+linewidth}p{0.062
+\backslash
+linewidth}p{0.172
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright piece & 
+\backslash
+raggedright best from stock & 
+\backslash
+raggedright why & 
+\backslash
+raggedright to buy & 
+\backslash
+raggedright gain 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright levers up to 60 + 60 mm, 5 mm spacing & 
+\backslash
+raggedright ASA 3 $
+\backslash
+times$ 12 on edge, 6 walls & 
+\backslash
+raggedright 0.23 mm under 1.5 N, 98 $^{
+\backslash
+circ}$C, moderate creep & 
+\backslash
+raggedright PA-CF 3 $
+\backslash
+times$ 12 & 
+\backslash
+raggedright 0.09 mm, allows 80 + 80 mm 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright levers up to 80 + 80 mm, 7.5 mm spacing & 
+\backslash
+raggedright ASA 5 $
+\backslash
+times$ 12 & 
+\backslash
+raggedright 0.32 mm (limit) & 
+\backslash
+raggedright PA-CF 5 $
+\backslash
+times$ 12 & 
+\backslash
+raggedright 0.13 mm 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright levers above 80 mm, long return bars & 
+\backslash
+raggedright metal on edge (aluminium 2 $
+\backslash
+times$ 8, steel 1.5 $
+\backslash
+times$ 8, water-jet) & 
+\backslash
+raggedright no plastic of the stock holds 0.3 mm & 
+\backslash
+raggedright - & 
+\backslash
+raggedright metal stays 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright pivots, hubs, brackets & 
+\backslash
+raggedright ASA, drilled and reamed 2 H7, or brass tube 3 $
+\backslash
+times$ 2 & 
+\backslash
+raggedright 98 $^{
+\backslash
+circ}$C under the permanent preload & 
+\backslash
+raggedright PC or PA-CF & 
+\backslash
+raggedright button height drift $
+\backslash
+div$ 2 to 3 in a year 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright button guides (sliding) & 
+\backslash
+raggedright ASA + PTFE sleeve or brass tube & 
+\backslash
+raggedright all three plastics rub hard on steel & 
+\backslash
+raggedright PA or POM & 
+\backslash
+raggedright with a PTFE sleeve the gain vanishes ($
+\backslash
+times$ 1.1) 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright frame, button plate & 
+\backslash
+raggedright ASA (PETG if ASA warps) & 
+\backslash
+raggedright a PLA plate under 70 springs warps in summer & 
+\backslash
+raggedright PC & 
+\backslash
+raggedright heat resistance only 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright buttons & 
+\backslash
+raggedright PETG or ASA & 
+\backslash
+raggedright no load & 
+\backslash
+raggedright - & 
+\backslash
+raggedright - 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright living hinges & 
+\backslash
+raggedright PETG 0.4 mm over 5 mm (~10 000 cycles) & 
+\backslash
+raggedright PLA cracks in 10 to 100 & 
+\backslash
+raggedright PA 0.4 to 0.6 mm & 
+\backslash
+raggedright over 10$^{6}$ cycles 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright springs & 
+\backslash
+raggedright steel coil springs of the stock & 
+\backslash
+raggedright no creep & 
+\backslash
+raggedright - & 
+\backslash
+raggedright - 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Printing
+\end_layout
+
+\begin_layout Itemize
+Print a lever 
+\series bold
+lying in its plane of rotation
+\series default
+: the axle hole vertical (round, not oval), the strands along the lever, so that bending pulls on the strands and not on the layer interfaces (which keep only 50 to 70 % of the stiffness).
+\end_layout
+
+\begin_layout Itemize
+Nozzle 0.6: a 3 mm lever is five walls, solid; set six walls or 100 % infill, layers 0.2 mm. Thirty per cent infill is for large unloaded supports only.
+\end_layout
+
+\begin_layout Itemize
+Frames and supports: PETG at least (68 °C), ASA or PC if the instrument may stay in a car (60 to 70 °C in summer); PA-CF for what carries an axle or a spring.
+\end_layout
+
+\begin_layout Itemize
+PA and PA-CF: dry the filament, anneal 2 h at 80 °C to stabilise the dimensions before reaming.
+\end_layout
+
+\begin_layout Section
+When to use metal (rods of the stock: 1, 1.5, 2, 3 mm)
+\end_layout
+
+\begin_layout Itemize
+Levers longer than 60 mm and long return bars: aluminium 2 mm or steel 1.5 mm on edge, water-jet cut like the present mechanism rods.
+\end_layout
+
+\begin_layout Itemize
+Everything under the permanent load of the spring: axles, hubs (brass tube), spring anchors.
+\end_layout
+
+\begin_layout Itemize
+Individual lever axles: 2 mm. A common axle through all levers of a band, and the axles of the return bars: 3 mm, supported every 40 mm (0.02 mm of deflection under 2 N per lever at 5 mm spacing).
+\end_layout
+
+\begin_layout Itemize
+Link rods: 1.5 mm in compression, 1 mm in tension. Better in tension: attach the rod on the other side of the bracket pivot so that the finger pulls it.
+\end_layout
+
+\begin_layout Section
+Buttons at 15 mm, pallets at 17.5 mm
+\end_layout
+
+\begin_layout Standard
+The buttons are 15 mm apart, a pallet with its seat needs 17.5 mm. Three layouts hold.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:pitch"
+
+\end_inset
+
+Placing pallets at 17.5 mm under buttons at 15 mm.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.275
+\backslash
+linewidth}p{0.116
+\backslash
+linewidth}p{0.098
+\backslash
+linewidth}p{0.324
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright layout & 
+\backslash
+raggedright force & 
+\backslash
+raggedright room & 
+\backslash
+raggedright complexity 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright fan of levers (angle at most 7 to 10$^{
+\backslash
+circ}$) & 
+\backslash
+raggedright + 2 to 5 
+\backslash
+% friction & 
+\backslash
+raggedright none & 
+\backslash
+raggedright 43 different levers, one parameter in the CAD 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright pallets on two staggered rows (30 mm per row) & 
+\backslash
+raggedright + 0 
+\backslash
+% & 
+\backslash
+raggedright + 25 mm of depth & 
+\backslash
+raggedright two lever lengths, equal r through the arms 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright pallets at 15 mm with a hole 11 $
+\backslash
+times$ 27 mm & 
+\backslash
+raggedright + 0 
+\backslash
+% & 
+\backslash
+raggedright none & 
+\backslash
+raggedright new soundboard and chambers; same area, A/P 3.9 mm 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright cranked arms & 
+\backslash
+raggedright + 0 
+\backslash
+% in metal & 
+\backslash
+raggedright none & 
+\backslash
+raggedright in plastic, torsion adds 0.15 mm and a tilting moment 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Proposed: a 
+\series bold
+fan
+\series default
+ if the levers are metal and at least 100 mm long (angle 7° or less, 5 % of friction at most); 
+\series bold
+two rows
+\series default
+ if they are short (60 mm). Both combine (a fan of 3°).
+\end_layout
+
+\begin_layout Section
+Springs, and seventy keys alike
+\end_layout
+
+\begin_layout Itemize
+One steel spring per pallet, on the lever: preload 1.0 to 1.4 N at the pallet for a hole of 300 mm² and peaks of 2 to 3 kPa, stiffness 0.06 to 0.07 N/mm (25 % rise over the lift).
+\end_layout
+
+\begin_layout Itemize
+Torsion spring on the axle: wire 1.0 to 1.2 mm, diameter 7 to 10 mm, 8 to 12 coils, preload 45 to 100°. Wire 0.8 mm is overstressed.
+\end_layout
+
+\begin_layout Itemize
+Tension spring (as on the v5): wire 0.5 mm, diameter 5 mm, 15 coils, hooked 25 mm from the axle, 10 mm of preload stretch. A stiff spring (1 N/mm) hooks near the axle (15 mm) and pulls 5.5 N, so the rail must hold 70 × 5.5 N = 385 N; a soft one (0.15 to 0.25 N/mm) hooks 25 to 30 mm out and pulls 3 N.
+\end_layout
+
+\begin_layout Itemize
+Commercial springs vary by 10 %; for 5 g of spread at the button, each key needs an adjustment: the anchor on an M3 screw (a quarter turn is about 2 g at the button) or a torsion leg that is bent.
+\end_layout
+
+\begin_layout Itemize
+Every button is set to the same force, and the largest hole sets the level: the small notes get a stronger spring than they need.
+\end_layout
+
+\begin_layout Chapter
+Measuring with almost nothing
+\end_layout
+
+\begin_layout Standard
+Equipment: a kitchen scale (1 g), coins (1 c = 2.3 g, 5 c = 3.9 g, 10 c = 4.1 g, 20 c = 5.7 g, 50 c = 7.8 g, 1 € = 7.5 g, 2 € = 8.5 g), a 0 to 500 g spring balance, a dial gauge on a stand, feeler shims, a clear tube of 1 m and a ruler, a telephone (sound level, recorder, slow motion), a drill for the endurance bench.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Bellows pressure (U-tube).
+\series default
+ Half-filled tube, one side connected to the inside of the bellows; play a grave bass from pianissimo to sforzando, push and draw, and film the tube. 
+\begin_inset Formula $\Delta$
+\end_inset
+p = h × 0.098 kPa per centimetre. It is the number that sets the spring and the force.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Pallet on the bench.
+\series default
+ One pallet on a block with the hole, connected to the bellows or a vacuum cleaner with an adjustable leak. Sealing: coins on the pallet without spring, the least mass without whistle at 3 kPa (soapy water around the seat). Lift-off on the draw: a spring balance on the pallet, pulled slowly; then the force at 1, 2, 3 and 5 mm of lift.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Smallest hole for a BB95 tongue.
+\series default
+ Plates with holes of 300, 225, 144 and 100 mm², lifts of 1 to 8 mm; level at 50 cm, recording, pitch. The smallest hole and lift with no audible loss: every square millimetre less is force less at the button.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Force at the button, hysteresis, return.
+\series default
+ A light cup on the button, coins until it goes down, then remove until it comes back up. Hysteresis = down − up = twice the friction; aim below 25 g. Again bellows inflated (push) and deflated (draw). Ten grave keys, five returns, five high ones. The same on the reference Maugein: it is the number to beat.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Dead travel and float.
+\series default
+ Dial gauge on the button, a second one on the pallet edge; lower the button in steps of 0.05 mm: travel before the pallet moves is the dead travel, aim below 0.2 mm. Push the button sideways with 50 g: aim below 0.3 mm.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Stiffness of a lever.
+\series default
+ Lever clamped at its axle, 100 g at the button point, dial gauge; then turned by 90°: the ratio must be (h/b)².
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Sliding rod (v5).
+\series default
+ Spring balance along the axis, then through the offset pin: the ratio is the drawer factor. Record 20 presses at 10 cm, count the squeaks. Again with a PTFE sleeve, then a brass tube.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Creep and heat.
+\series default
+ Three identical pieces: at rest, under load for a week, under load 2 h at 50 °C. Expected: PLA − 20 to − 40 % in a week and collapsed at 50 °C, PETG − 10 %, PA-CF − 5 %, steel 0.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Endurance.
+\series default
+ A cam on a drill pressing a key at 2 to 3 Hz: 10 000 cycles in an hour; force, dead travel and noise before and after.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Repetition.
+\series default
+ Metronome; repeat the gravest note and a return, faster and faster until a note is missed. Aim: 8 notes per second, no difference between key and return.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Springs of the stock.
+\series default
+ Length at rest, then with 100 g and 200 g: k = 0.98 N / (L2 − L1). Leave 24 h under 300 g: if it has grown, it was stretched past its elastic limit.
+\end_layout
+
+\begin_layout Chapter
+Saving the v5?
+\end_layout
+
+\begin_layout Standard
+The v5 (a button sliding in the plate, a pin, a printed bracket, a link rod, an aluminium lever with a tension spring) can be repaired in four light gestures: PTFE or brass sleeves in the plate; 2 mm steel axles in reamed holes or brass tubes in the brackets; brackets and supports reprinted in ASA; link rods put in tension. This brings the lost force from + 100 % to + 10 to 15 % and the clearance from 0.2 to 0.05 mm per pivot. What stays, by principle: four to six joints per key against one or two for idea 1, rods at an angle that load the pivots sideways, the routing of the 27 returns under the plate, and a remaining slide at the button.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:v5"
+
+\end_inset
+
+The defects of the v5, their cause, and the lightest correction that keeps its principle.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.117
+\backslash
+linewidth}p{0.229
+\backslash
+linewidth}p{0.308
+\backslash
+linewidth}p{0.158
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright defect & 
+\backslash
+raggedright cause & 
+\backslash
+raggedright lightest correction & 
+\backslash
+raggedright gain 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright button rod grinds and is hard & 
+\backslash
+raggedright $
+\backslash
+mu$ 0.4, stick-slip; pin 5 mm off a guide of 8 mm: force $
+\backslash
+times$ 2 & 
+\backslash
+raggedright PTFE sleeve 2 $
+\backslash
+times$ 4 in the plate, bearing 10 to 12 mm; or oiled brass tube & 
+\backslash
+raggedright $
+\backslash
+times$ 1.1 (PTFE), $
+\backslash
+times$ 1.2 (brass), no stick-slip 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright button wobbles & 
+\backslash
+raggedright hole printed on its side: oval by 0.1 to 0.3 mm & 
+\backslash
+raggedright the same sleeve; an entry chamfer & 
+\backslash
+raggedright float 0.3 to 0.1 mm 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright clearance of the printed pivots & 
+\backslash
+raggedright raw hole, short hub & 
+\backslash
+raggedright drill and ream 2 H7 or pressed brass tube, 2 mm music-wire axle & 
+\backslash
+raggedright 0.02 to 0.05 mm per pivot 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright creep of PLA & 
+\backslash
+raggedright 57 $^{
+\backslash
+circ}$C, strong creep under the permanent preload & 
+\backslash
+raggedright reprint the same files in ASA, PETG for buttons & 
+\backslash
+raggedright button drift $
+\backslash
+div$ 3 to 5 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright rods at an angle & 
+\backslash
+raggedright at 30$^{
+\backslash
+circ}$: 58 
+\backslash
+% of the force sideways, + 23 
+\backslash
+% friction if guided & 
+\backslash
+raggedright turn the brackets so the rod runs in the plane of the lever; or a cable in tension & 
+\backslash
+raggedright friction + 23 
+\backslash
+% to + 7 
+\backslash
+% 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright no room for the return rods & 
+\backslash
+raggedright rigid rods in compression must be straight and must not touch & 
+\backslash
+raggedright returns by two brackets and a link, or cables in tension on two levels & 
+\backslash
+raggedright crossings without contact 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright aluminium levers soft & 
+\backslash
+raggedright if laid flat (8 $
+\backslash
+times$ 2): 2.6 mm under 1.5 N on 100 + 100 mm & 
+\backslash
+raggedright check (test 6); turn on edge or add a rib & 
+\backslash
+raggedright 2.6 to 0.16 mm 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright tension springs on the rail & 
+\backslash
+raggedright 25 to 60 
+\backslash
+% rise depending on the anchor & 
+\backslash
+raggedright anchor 20 to 25 mm from the axle, adjusting screw & 
+\backslash
+raggedright 20 to 25 
+\backslash
+% rise, 2 g per quarter turn 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+What the repair does not change is the floor of the force. It is in the hole and the pressure: repairing the v5 or building idea 1 gives the same 177 g for a hole of 300 mm² at a 3 kPa peak. What differs is what is added to it: + 10 to 15 % and 0.1 to 0.25 mm of float for the repaired v5, + 2 to 4 % and 0.05 mm for idea 1.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:decision"
+
+\end_inset
+
+Criteria to decide, measured on the repaired v5 (10 grave keys, 5 returns, 5 high).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.149
+\backslash
+linewidth}p{0.050
+\backslash
+linewidth}p{0.254
+\backslash
+linewidth}p{0.173
+\backslash
+linewidth}p{0.155
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright criterion & 
+\backslash
+raggedright test & 
+\backslash
+raggedright threshold to keep the v5 & 
+\backslash
+raggedright expected repaired v5 & 
+\backslash
+raggedright idea 1 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright force at mid-stroke & 
+\backslash
+raggedright 4 & 
+\backslash
+raggedright floor + 15 
+\backslash
+% (177 to 204 g for 300 mm$^{2}$) & 
+\backslash
+raggedright floor + 10 to 15 
+\backslash
+% & 
+\backslash
+raggedright floor + 2 to 4 
+\backslash
+% 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright key / return equality & 
+\backslash
+raggedright 4 & 
+\backslash
+raggedright difference 10 g or less & 
+\backslash
+raggedright 5 to 15 g & 
+\backslash
+raggedright 2 to 5 g 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright hysteresis & 
+\backslash
+raggedright 4 & 
+\backslash
+raggedright 25 g or less & 
+\backslash
+raggedright 15 to 30 g & 
+\backslash
+raggedright 5 to 10 g 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright return at the 3 kPa push & 
+\backslash
+raggedright 4 and 10 & 
+\backslash
+raggedright all keys return, 8 notes/s & 
+\backslash
+raggedright tight if return < 40 g & 
+\backslash
+raggedright same floor 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright dead travel & 
+\backslash
+raggedright 5 & 
+\backslash
+raggedright 0.2 mm or less & 
+\backslash
+raggedright 0.1 to 0.25 mm & 
+\backslash
+raggedright under 0.1 mm 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright side float & 
+\backslash
+raggedright 5 & 
+\backslash
+raggedright 0.3 mm or less & 
+\backslash
+raggedright 0.1 to 0.2 mm & 
+\backslash
+raggedright 0.2 mm 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright noise & 
+\backslash
+raggedright 7 & 
+\backslash
+raggedright no squeak, no click audible at 50 cm & 
+\backslash
+raggedright clicks possible at rod ends & 
+\backslash
+raggedright silent with a felted comb 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright after 10 000 presses & 
+\backslash
+raggedright 9 & 
+\backslash
+raggedright force + 10 
+\backslash
+%, clearance + 0.05 mm at most & 
+\backslash
+raggedright ASA with brass: holds & 
+\backslash
+raggedright holds 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 2 h at 50 $^{
+\backslash
+circ}$C & 
+\backslash
+raggedright 8 & 
+\backslash
+raggedright button height drift under 0.3 mm & 
+\backslash
+raggedright ASA good, PETG limit, PLA no & 
+\backslash
+raggedright same materials 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright working time & 
+\backslash
+raggedright estimate & 
+\backslash
+raggedright repair a third of idea 1 or less & 
+\backslash
+raggedright 3 to 6 days & 
+\backslash
+raggedright 10 to 20 days 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Decision rule: if two criteria or more remain out after the repair (most likely hysteresis, dead travel and noise), build idea 1. If everything passes except the working time, keep the v5 as the instrument that validates the hole, the pressure and the springs (all of that knowledge carries over to idea 1), and build idea 1 afterwards, losing nothing of the two months.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): the results of tests 1, 2, 4 and 5 on the v5 and on the Maugein, in the decision table, and the choice that follows.
 \end_layout
 
 \begin_layout Part
-Reed blocks
+Valves and leaks
+\end_layout
+
+\begin_layout Chapter
+The air that does not sing
+\end_layout
+
+\begin_layout Standard
+A leak is air that escapes without making music. It is invisible and almost silent, and yet a player knows it at once without being able to name it: the instrument is tiring, the soft notes start badly, the attack is woolly, and sometimes a note sounds faintly that nobody played. This chapter asks what a leak is, physically, why it does exactly these things and not others, how big it must be before it matters, and how to find it with almost nothing.
 \end_layout
 
 \begin_layout Section
-Dissipation
+Why a leak spoils the playing
 \end_layout
 
-\begin_layout Subsection
-modal
+\begin_layout Standard
+Three things are certain, and two are probable.
 \end_layout
 
-\begin_layout Part
-Box
+\begin_layout Standard
+Every leak eats air. The bellows must move more for the same sound, so it reverses more often and the arm tires sooner. That much is plain arithmetic.
+\end_layout
+
+\begin_layout Standard
+A tight instrument can be put under pressure before the note. The player squeezes the bellows, nothing moves, and the pressure waits behind the closed pallets; when a pallet opens, the reed receives the whole pressure at once and the attack is clean. With a leak, the pressure falls as soon as the arm stops pushing, and at the attack it starts again from almost nothing: the transient is soft.
+\end_layout
+
+\begin_layout Standard
+The physics of the reed adds the third certainty. A reed starts at a pressure 
+\begin_inset Formula $p_{\mathrm{on}}$
+\end_inset
+ but, once sounding, holds down to a lower pressure 
+\begin_inset Formula $p_{\mathrm{off}}$
+\end_inset
+: the hysteresis studied in the thesis. The softest pianissimo is obtained by attacking just above 
+\begin_inset Formula $p_{\mathrm{on}}$
+\end_inset
+. If the pressure at the attack is uncertain, because air leaks away, the reed either does not start or starts too loud. A leak is felt first at the threshold, which is where the musician asks for the most precision.
+\end_layout
+
+\begin_layout Standard
+Two more things are probable. A leak close to a reed, in the wax around its plate or under a valve that does not close, is in parallel with the reed, behind the pallet and the channel: it lowers the pressure that the reed actually sees. And a pallet or a valve that leaks feeds a chamber that should be silent; if a reed of that chamber is close to its threshold, it sounds faintly. That is the ghost note.
 \end_layout
 
 \begin_layout Section
-Dissipation
+Two laws for one leak
 \end_layout
 
-\begin_layout Subsection
-modal
+\begin_layout Standard
+How does air go through a gap? It depends on the shape of the gap, and there are only two shapes worth knowing.
+\end_layout
+
+\begin_layout Standard
+The first is the hole: a short opening in a thin wall, a crack in a corner, a pin-hole in a leather. The air rushes through it as a jet, and its flow follows the law of an orifice,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+q = C_d\,S\,\sqrt{2\Delta p/\rho}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+where 
+\begin_inset Formula $S$
+\end_inset
+ is the area of the hole, 
+\begin_inset Formula $\Delta p$
+\end_inset
+ the pressure difference, 
+\begin_inset Formula $\rho$
+\end_inset
+ the density of air and 
+\begin_inset Formula $C_d \approx 0.6$
+\end_inset
+ the contraction of the jet. The flow grows with the area, so with the square of the diameter, and only with the square root of the pressure. Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:leak-hole"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ gives a few values, and gives the habit of this book: a leak is said in litres per minute at 500 Pa, about 5 cm of water, a mezzo-forte, and pictured as the round hole that would leak as much.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:leak-hole"
+
+\end_inset
+
+Leak of a round hole, orifice law with 
+\begin_inset Formula $C_d$
+\end_inset
+ = 0.6 (outils_atelier.py trou).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.209
+\backslash
+linewidth}p{0.197
+\backslash
+linewidth}p{0.197
+\backslash
+linewidth}p{0.209
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright hole diameter (mm) & 
+\backslash
+raggedright at 100 Pa (L/min) & 
+\backslash
+raggedright at 500 Pa (L/min) & 
+\backslash
+raggedright at 1500 Pa (L/min) 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 0.3 & 
+\backslash
+raggedright 0.03 & 
+\backslash
+raggedright 0.07 & 
+\backslash
+raggedright 0.13 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 0.5 & 
+\backslash
+raggedright 0.09 & 
+\backslash
+raggedright 0.20 & 
+\backslash
+raggedright 0.35 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 1 & 
+\backslash
+raggedright 0.37 & 
+\backslash
+raggedright 0.82 & 
+\backslash
+raggedright 1.4 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 2 & 
+\backslash
+raggedright 1.5 & 
+\backslash
+raggedright 3.3 & 
+\backslash
+raggedright 5.7 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+A hole of one millimetre already lets almost a litre per minute through.
+\end_layout
+
+\begin_layout Standard
+The second shape is the flat joint: two surfaces that should touch and do not quite, a plate on its wax, a reed block on its gasket, a frame on a frame, a register slide on its bed. Here the air does not jet; it creeps through a gap far thinner than it is long, and viscosity rules. Between two plane faces a distance 
+\begin_inset Formula $h$
+\end_inset
+ apart, over a length 
+\begin_inset Formula $w$
+\end_inset
+ of joint and across a land of width 
+\begin_inset Formula $L$
+\end_inset
+, the flow follows the law of Poiseuille,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+q = \frac{w\,h^{3}\,\Delta p}{12\,\mu\,L}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+with 
+\begin_inset Formula $\mu$
+\end_inset
+ the viscosity of air. Two features make this law the most useful one of the whole book. The flow is proportional to the pressure, not to its square root, so a joint and a hole can be told apart by measuring at two pressures: a leak that doubles when the pressure doubles is a joint; one that grows by only 1.4 times is a hole. And the flow grows as the cube of the gap. Halve the gap, divide the leak by eight. A joint is not a little worse when it is a little open; it is enormously worse.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/pratique_joint_en.png
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:joint"
+
+\end_inset
+
+Leak of a flat joint of 100 mm around and 5 mm of land, at 500 Pa, against its gap (Poiseuille law). The points mark the gap that gives each proposed workshop figure. Doubling the gap multiplies the leak by eight.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:joint"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ puts numbers on it for a joint the size of a plate or a small block: 100 mm around, 5 mm of wood to cross. To stay under 0.05 L/min, the gap must be under 0.026 mm, the thickness of a thin sheet of paper. At 0.05 mm, the thickness of a hair, the same joint leaks 0.35 L/min, seven times the target. This is why a block must be flat and a plate must be bedded, and why wax works: it fills a gap that no plane could close. The law holds while the flow in the gap stays slow and orderly, which outils_atelier.py checks by the Reynolds number: under 4 up to a gap of 0.05 mm, about 30 at 0.1 mm. The flow is laminar over the whole figure; only at the largest gaps do the losses at the entrance of the gap, which the law ignores, start to count, and there the law slightly overestimates the leak.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): two or three real joints measured at 250 and 500 Pa (a plate, a block, a frame), to see whether they behave as joints (flow doubled) or as holes (flow times 1.4). The protocol of the next chapter does it with the same gasometer.
+\end_layout
+
+\begin_layout Section
+How big is too big
+\end_layout
+
+\begin_layout Standard
+The workshop figures, from the booklet of the training course, are proposals, not yet measured on Ewen's instruments. They are given with that status in Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:leak-budget"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+, step by step, in the order the instrument is built.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:leak-budget"
+
+\end_inset
+
+Proposed leak figures at 500 Pa, by step of construction (booklet of the training course; to be calibrated).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.096
+\backslash
+linewidth}p{0.281
+\backslash
+linewidth}p{0.467
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright step & 
+\backslash
+raggedright piece under test & 
+\backslash
+raggedright proposed figure 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright soundboard & 
+\backslash
+raggedright each pallet, by the bell & 
+\backslash
+raggedright under 0.02 L/min; no pallet lifts below 1.5 times the highest playing pressure 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright bellows & 
+\backslash
+raggedright the bellows alone, between two boards & 
+\backslash
+raggedright under 1 L/min 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright reed block & 
+\backslash
+raggedright glued, bare, then with its plates (slots taped) & 
+\backslash
+raggedright under 0.05 L/min 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright case & 
+\backslash
+raggedright closed case with mechanism and register slides & 
+\backslash
+raggedright under 0.5 L/min 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright whole instrument & 
+\backslash
+raggedright drop test, push and draw & 
+\backslash
+raggedright time to be set by Ewen 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Where do these figures come from, and what should the last one be? Here a little arithmetic is worth more than a tradition. A high reed played pianissimo probably consumes of the order of 1 to 2 L/min (an effective opening of 1 to 3 mm² under 100 Pa; to be measured, the next chapter says how). The drop test that the workshop calls good, a bellows of 10 litres that takes a minute to fall, is a leak of 10 L/min: more than the reed itself. Such an instrument plays, but its pianissimo is spent on the leak. Two levels follow, to be confirmed on two or three instruments Ewen knows, one he finds excellent and one mediocre: a workshop level, under about 10 L/min (the 10 litres fall in more than a minute), and a pianissimo level, under 2 to 3 L/min (the fall takes three to five minutes).
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): the drop time and the softest pianissimo of a high note, on an instrument you find excellent and one you find mediocre. The threshold of the whole instrument lies between the two.
+\end_layout
+
+\begin_layout Chapter
+Measuring a leak with almost nothing
+\end_layout
+
+\begin_layout Section
+The tools of the bench
+\end_layout
+
+\begin_layout Standard
+Four tools do nearly everything, and three of them cost nothing.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+The U-tube.
+\series default
+ A transparent hose bent in a U, half filled with water with a drop of washing-up liquid, on a board with a ruler. The difference of the two levels, in millimetres, times 9.81, is the pressure in pascals; roughly, 1 mm is 10 Pa. It is the reference against which every other gauge is checked.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+The kitchen gasometer.
+\series default
+ A plastic box turned upside down, floating in a bucket of water, guided by two rods and weighted. Its weight sets the pressure, 
+\begin_inset Formula $p = mg/S$
+\end_inset
+: for a box of 150 cm² and 500 Pa, about 0.77 kg, box included. A hose passes under the water and joins the air of the box to the piece under test. If the piece leaks, the box sinks, and the flow is the area times the speed of descent: with 150 cm², 1 L/min is 6.7 cm per minute, and 0.1 L/min is 6.7 mm per minute. It gives a constant pressure and an absolute flow, without any electronics.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+The bell.
+\series default
+ A small pot of about 0.4 L with a foam rim, placed on the outside of one closed pallet while the instrument is under pressure inside. The leak fills the bell and its pressure rises; a hose takes it to the U-tube. For a leak of the orifice type, the time to reach half the pressure is about 
+\begin_inset Formula $0.59\,V\,P/(p_{\mathrm{atm}}\,Q)$
+\end_inset
+: with 0.4 L and 500 Pa, 3.5 s for 0.02 L/min and 35 s for 0.002 L/min. A pallet that brings the bell to half pressure in less than 3 s leaks more than the target. One pallet at a time, without taking anything apart.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+The pressure decay.
+\series default
+ The piece is closed with a known buffer volume, a 1.5 L bottle for instance, inflated to about 600 Pa, closed, and the pressure is recorded as it falls (command LEAKTEST of the bench, analysis by banc_recherche/leak.py). The buffer is needed because air in a small volume is a very stiff spring: a small piece empties in a fraction of a second. A rule of thumb: with a 1.5 L bottle, if the pressure takes more than 2 s to fall from 500 to 400 Pa, the piece leaks less than 0.05 L/min, to within 30 per cent; check it on a reference leak. For a whole instrument the decay is far too fast, and the gasometer, or the bellows itself, takes over.
+\end_layout
+
+\begin_layout Standard
+Before believing any of them, test the bench itself: a blanking plate on a sheet of glass must not leak; then the bench must read correctly the reference leaks of a plate drilled with holes of 0.3, 0.5 and 1 mm, whose flows are in Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:leak-hole"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+.
+\end_layout
+
+\begin_layout Standard
+Two rules of safety go with every leak test: never a flame to look for a leak (celluloid, wood, glue and leather burn), and no soapy water on wood, leather or card; soap only on metal, plastic and rubber.
+\end_layout
+
+\begin_layout Section
+The order of the checks
+\end_layout
+
+\begin_layout Standard
+A leak is found far more easily on a piece alone than in the finished instrument. The checks therefore follow the construction, each one on a piece that is still open to the eye: bench first, then the bare glued block, the block with its plates and their slots taped (in both directions, pressure and suction), then the flow of each reed with its tape removed (a measurement, not an examination: the air consumed by that reed at 100, 300 and 500 Pa), then the soundboard with its pallets under the bell, raising the pressure until a pallet lifts, then the closed case, the bellows alone, and the whole instrument by the drop test. Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:leak-budget"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ gives the proposed figure of each.
+\end_layout
+
+\begin_layout Section
+The drop test, in figures
+\end_layout
+
+\begin_layout Standard
+The drop test is already done in every workshop; it only needs to be counted. The instrument hangs, a known weight pulls the bellows open, the air valve is shut and no key is pressed. The pressure is read on the U-tube through the air valve, and the opening of the bellows against time with a ruler and the video of a phone. Two numbers come out. The effective area of the bellows, 
+\begin_inset Formula $S = mg/p$
+\end_inset
+. And the leak, 
+\begin_inset Formula $Q = S \times$
+\end_inset
+ speed. Two different weights give two pressures, and so tell a joint from a hole.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:drop"
+
+\end_inset
+
+Drop test of a bellows that sweeps about 10 litres under 600 Pa: leak and equivalent hole (outils_atelier.py chute).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{lll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+full drop in & leak (L/min) & equivalent hole (mm) 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+30 s & 20 & 4.7 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+1 min & 10 & 3.3 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+2 min & 5 & 2.4 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+5 min & 2 & 1.5 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+What practitioners say, in repair guides and forums rather than in studies, fits Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:drop"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+: under 20 to 30 seconds there is a frank leak to find; a good instrument holds at least 30 seconds; a very good one a minute or more. The arithmetic of the previous chapter says that a minute is still a leak larger than a pianissimo reed.
+\end_layout
+
+\begin_layout Chapter
+Finding a leak
+\end_layout
+
+\begin_layout Standard
+Once a piece is known to leak, where? The gestures go from the cheapest to the cleverest.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Smoke.
+\series default
+ A stick of incense moved slowly along the joints, piece under pressure: the smoke is blown away where the air leaves. Or piece under suction: the smoke is drawn in. 
+\series bold
+A tube to the ear
+\series default
+, a mechanic's stethoscope made from a hose, moved at 5 mm from the joints with the piece at 1500 Pa or more: the noise of a turbulent jet grows very fast with its speed, so tripling the pressure makes the hiss 14 to 19 dB louder.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Making a leak sing.
+\series default
+ A jet through a small hole is turbulent and hisses, with a noise that rises high, up to the ultrasound, where the voice of the reeds and the noise of the room are weak. The hiss is still lost in the room. The method proposed in this work makes it stand out by giving it a rhythm: the bellows modulates the pressure slowly, as a sine at a known frequency of 2 to 10 Hz, and every leak then hisses louder and softer at that frequency. A cheap microphone moved over the surface records; the program keeps the band of the hiss, about 4 to 20 kHz, takes its envelope, and keeps only what beats exactly at the frequency of the bellows, with the right phase. This is synchronous detection, the lock-in amplifier of the physics laboratory: everything that does not beat at our rhythm is rejected, and the leak appears on a map (banc_recherche/leak.py: lockin, acoustic_leak_strength, leak_map). Two fixed microphones can also locate a leak without moving: its hiss reaches them with a small delay that depends on its position, and the cross-correlation of the two signals gives that delay.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Making a leak visible.
+\series default
+ Two further methods are proposed and not built. Background-oriented schlieren films a printed speckled background through the jet: air of a different density bends the light a little, and a program comparing the images reveals the invisible jet, all the more if the air is warm and moist like a breath. Or the bellows is filled with carbon dioxide and the surface scanned with a small gas sensor of a few euros: the concentration rises at the leaks.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Letting each reed sign its leak.
+\series default
+ A leak near a reed steals part of its air: the reed starts later, sounds softer, and goes out of tune in its own way. The tuner of this work already measures the deviation, the level and the response time of each reed; a local leak leaves its trace there, without any scanning microphone.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): which of these you already use, and the two you would like to try first. And the area of the box of your gasometer.
+\end_layout
+
+\begin_layout Chapter
+At the repair bench
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Every note soft at the attack, the instrument tiring.
+\series default
+ A global leak. Count the drop test, push and draw; if it is under a minute, close the instrument piece by piece (bellows between boards, then each half-case) and find where the air goes before looking for the spot.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+A ghost note at the fortissimo.
+\series default
+ Either a pallet that lifts (the right-hand part gives the force its spring needs) or a valve of the silent tongue that does not close. The bell on the suspect pallet answers the first; the second is found by the reed itself: a reed that sounds faintly in the wrong direction has a valve to replace.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+One note late and soft, the others fine.
+\series default
+ A leak near that reed: the wax around its plate, its valve, its chamber. Tape the slot of its tongue and test the block on the gasometer; flow that disappears when the plate is pressed down is a plate to rewax.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Wax and gaskets.
+\series default
+ A joint that leaks is not cured by more pressure on it but by a smaller gap: rewax the plate with a continuous bead, flatten the face of a block on abrasive paper laid on glass, replace a crushed gasket. The cube law says why a gap halved is a leak divided by eight.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): the gestures you use to repair a leaking valve, a leaking pallet and a leaking plate, with their materials, so that this list is the one of your bench.
 \end_layout
 
 \begin_layout Part
 Bellows
 \end_layout
 
-\begin_layout Section
-Dissipation
-\end_layout
-
-\begin_layout Subsection
-modal
-\end_layout
-
-\begin_layout Part
-Timbral elements
-\end_layout
-
-\begin_layout Section
-Dissipation
-\end_layout
-
-\begin_layout Subsection
-modal
-\end_layout
-
-\begin_layout Section
-Acoustic analysis of a reduced electro-traditional duo (OSSO)
+\begin_layout Chapter
+The lung of the instrument
 \end_layout
 
 \begin_layout Standard
-An accordion playing in a reduced ensemble has to carry melody, harmony,
- a possible drone and the rhythmic drive of the dance with two sources only.
- The Breton duo OSSO transposes the traditional biniou/bombarde couple to
- analogue synthesisers, which makes it a useful control case for the sharing
- of roles discussed in this part: the functions are the same, the sound
- production is not.
+Everything upstream of the reed is in the bellows: the pressure, its rise, its fall, its reversal. A framed bellows is folds of card and cloth, leather at the corners, and a wooden frame at each end that takes the two halves of the case. On the instruments of the training courses it is bought ready made, and the trainee glues its frames, drills and fits the pins, and checks it alone before mounting it. This chapter asks three questions a maker meets before any of those gestures: what kind of source of air is a bellows, how large should it be, and where does it leak.
+\end_layout
+
+\begin_layout Section
+A source of flow, held by an arm
 \end_layout
 
 \begin_layout Standard
-Two pieces were analysed (Ordre etant, hanter-dro, 296.9 s; Duderc'h,
- scottish, 240.4 s), through mid/side decomposition, spectral descriptors,
- a per-band envelope modulation spectrum and Praat measurements, computed
- with librosa 
-\begin_inset CommandInset citation
-LatexCommand cite
-after ""
-before ""
-key "mcfee2015librosa"
-literal "true"
+What does the arm actually set, the pressure or the flow? Every player has the answer in the hands. Keep the bellows moving at a steady speed and open a chord: the pressure drops, because the same flow is now shared by more reeds. A source of pressure, like the large weighted reservoir of an organ, would hold the pressure and send twice the flow through two reeds. A bellows behaves rather like a source of flow, and the truth lies between the two ideals: a real source gives less flow when the pressure rises. The simplest law is a straight line,
+\end_layout
 
+\begin_layout Standard
+\begin_inset Formula \[
+q = q_0 - p/R
+\]
 \end_inset
+\end_layout
 
- and parselmouth 
-\begin_inset CommandInset citation
-LatexCommand cite
-after ""
-before ""
-key "jadoul2018parselmouth"
-literal "true"
-
+\begin_layout Standard
+where 
+\begin_inset Formula $q_0$
 \end_inset
-
-; key estimation follows the Krumhansl-Schmuckler profiles 
-\begin_inset CommandInset citation
-LatexCommand cite
-after ""
-before ""
-key "krumhansl1990"
-literal "true"
-
+ is the flow at zero pressure and 
+\begin_inset Formula $R$
 \end_inset
+ the internal resistance of the source. The thesis shows what 
+\begin_inset Formula $R$
+\end_inset
+ does to the reed: it changes the amplitude of the note and moves its threshold. Here it matters for a simpler reason. A drone, a chord, a second voice, all draw on the same source, and the pressure each note receives depends on what the others are taking.
+\end_layout
 
+\begin_layout Standard
+The arm itself is the other half of the source. A force 
+\begin_inset Formula $F$
+\end_inset
+ on a bellows of effective area 
+\begin_inset Formula $S$
+\end_inset
+ makes a pressure
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+p = F/S
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+and a stroke of length 
+\begin_inset Formula $c$
+\end_inset
+ sweeps a volume 
+\begin_inset Formula $S\,c$
+\end_inset
+. The effective area is not the area of the frame: the folds give a little under pressure, and the force spreads over less than the full section. It is measured, not computed, by the drop test of the leak chapter: a known weight 
+\begin_inset Formula $m$
+\end_inset
+ on the bellows, the pressure read on the U-tube, and 
+\begin_inset Formula $S = mg/p$
+\end_inset
 .
- Three results are relevant to accordion design.
 \end_layout
 
-\begin_layout Itemize
-Stereophony encodes the functional split rather than a mere widening: the
- mid/side energy ratio reaches 9.2 below 60 Hz (a strictly centred monophonic
- bass) and drops to 0.76 in the 1-2 kHz band (a spatialised mid-range).
- The traditional couple separated the same roles by register and timbre.
-\end_layout
-
-\begin_layout Itemize
-Amplitude modulations are locked to the metric grid within 0.1 to 0.3 percent
- over four distinct subdivisions (0.52, 1.57, 3.13 and 6.27 Hz against a
- 94.0 BPM beat): tremolo and filter movements act as rhythmic agents.
- The modulation spectrum also gives an independent check on the metric level,
- and corrects a metric octave error of the beat tracker 
-\begin_inset CommandInset citation
-LatexCommand cite
-after ""
-before ""
-key "ellis2007beat"
-literal "true"
-
-\end_inset
-
- on the second piece: 120.2 BPM estimated, 90.0 BPM confirmed.
-\end_layout
-
-\begin_layout Itemize
-A progressive filter opening structures one piece only: spectral centroid
- slope +5.17 Hz/s, coefficient of determination 0.298, p below 0.001, against
- -0.33 Hz/s (not significant) for the other.
- Timbre alone carries a directional dramaturgy over a cyclic dance form,
- without touching the melodic material or the metre.
+\begin_layout Section
+How large a bellows
 \end_layout
 
 \begin_layout Standard
-The measured continuity of the texture (crest factor 10.8 and 13.2 dB,
- dynamic range 10.5 and 7.9 dB) is obtained here by compression, where the
- traditional instruments obtain it from the air reserve of the bag and the
- accordion from its bellows.
- The parallel suggests two transposable controls for the accordion player:
- locking any periodic modulation (alternating basses, bellows effects) to a
- subdivision of the beat, and using registers, bellows pressure and
- accompaniment density as a trajectory rather than as an alternation.
+Ewen answered the question of the size of the bellows in one sentence: a minimal section by number of voices; too small, not enough air; too large, not enough pressure; an optimum, perhaps to be computed. Here is the computation, and it is short.
 \end_layout
 
 \begin_layout Standard
-The complete study, with all tables, statistics and methodological limits,
- is kept in French in research/docs/analyse_acoustique_osso.md; the
- reproducible script is research/scripts/analyse_osso.py.
- The recordings themselves are not distributed with this work (copyright);
- only derived acoustic descriptors are reported.
+Too large first. The arm has a force it can give comfortably for a phrase, 
+\begin_inset Formula $F$
+\end_inset
+. To reach the pressure 
+\begin_inset Formula $p$
+\end_inset
+ that the reeds need for a forte, the area must not exceed
 \end_layout
 
-\begin_layout Part
-Instrumented accordion for 
-\begin_inset Quotes eld
+\begin_layout Standard
+\begin_inset Formula \[
+S_{\max} = F/p.
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+Too small next. A phrase lasts a time 
+\begin_inset Formula $t$
+\end_inset
+ between two reversals; the reeds that sound during it consume a flow 
+\begin_inset Formula $Q$
+\end_inset
+, plus the leak; one stroke of length 
+\begin_inset Formula $c$
+\end_inset
+ must hold it all:
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+S_{\min} = Q\,t/c.
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+Between the two lies the window, and Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:bellows-window"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ draws it with round numbers chosen only to make the arithmetic visible: an arm of 40 N, a stroke of 0.4 m, a phrase of 4 s, and a forte chord of nine reeds (three notes of three voices) at 10 L/min each. At 1000 Pa the window runs from 150 to 400 cm². At 2000 Pa it shrinks to 150 to 200 cm². Above about 2700 Pa it closes: a bellows large enough to hold the chord for four seconds can no longer be pushed to that pressure by that arm. The optimum that Ewen guessed is real, and it is the point where the two limits meet.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/pratique_soufflet_en.png
+	width 100text%
+
 \end_inset
 
-In-vivo
-\begin_inset Quotes erd
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:bellows-window"
+
 \end_inset
 
- measurements
+The window of the section of a bellows, with round example numbers to be replaced by measurements (outils_atelier.py soufflet). Above 
+\begin_inset Formula $F/p$
+\end_inset
+ the arm no longer makes the pressure; below 
+\begin_inset Formula $Qt/c$
+\end_inset
+ the air runs out before the end of the phrase. For a pianissimo of two reeds (dashed line) the air limit is negligible; it is the forte that closes the window.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Two lessons hold whatever the true numbers. At the pianissimo, two reeds at 2 L/min ask for a section of 7 cm² only: the air side never binds, and the section is set by the forte. And the number of voices enters the minimum directly, which is Ewen's rule in algebra: a third voice is a third more air for the same phrase, and a bellows sized for two voices runs out sooner with three. But none of the inputs of Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:bellows-window"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ has been measured. The flow of a reed at forte is the least known: the network models of the thesis give 6 to 24 L/min per tongue at 1000 Pa and are known to be too generous.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): the five numbers of the window, on one of your instruments. The force of your arm for a held forte, with a luggage scale hooked to the strap; the useful stroke of the bellows; the length of a typical phrase between two reversals; the flow of one reed at mezzo-forte and forte, by the descent of the gasometer with the tape removed; and the effective area of the bellows by the drop test. Then outils_atelier.py soufflet draws the true window.
 \end_layout
 
 \begin_layout Section
-Dissipation
+Where a bellows leaks
 \end_layout
 
-\begin_layout Subsection
-modal
+\begin_layout Standard
+The workshop knows where: at the corners and at the frames. The physics adds why the frames are so demanding. A frame is a flat joint, and a long one: about a metre around for a small instrument. By the cube law of the leak chapter, a frame joint 1000 mm long with 10 mm of land and a gap of 0.05 mm, the thickness of a hair, leaks 1.7 L/min at 500 Pa on its own, more than the whole budget of the bellows (under 1 L/min, Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:leak-budget"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+). At 0.02 mm it leaks 0.11 L/min; at 0.1 mm, 14 L/min. No pair of wooden frames is flat to two hundredths of a millimetre over a metre after a season of humidity, and that is why the frame needs its gasket: the gasket does not close the gap, it fills it.
+\end_layout
+
+\begin_layout Standard
+The corners are the other weak point: leather folded and glued at the place where the card bends most, and where it wears first. A hole there is a hole, not a joint, and Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:leak-hole"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ gives its weight: one millimetre is almost a litre per minute.
+\end_layout
+
+\begin_layout Chapter
+Making and checking the bellows
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Frames glued, holes drilled, pins fitted.
+\series default
+ The bellows must go onto the case without forcing and with no light through. A frame that has to be forced will spring back and open its joint; one with light through it is already a leak of the size of Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:joint"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+The bellows alone, between two boards.
+\series default
+ Close it between two boards with gaskets, hang a known weight, film the descent with a ruler beside it, and pass incense smoke along the corners. The proposed figure is under 1 L/min at 500 Pa. The same measurement gives the effective area of the bellows, 
+\begin_inset Formula $mg/p$
+\end_inset
+, which the window above needs.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): the bellows is bought, with a lead time of two months. What do you check on arrival, and what makes you send one back?
+\end_layout
+
+\begin_layout Chapter
+At the repair bench
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+The instrument tires the player, the drop test is short.
+\series default
+ Close the bellows alone between two boards: if the leak stays, it is in the bellows; if it goes, it is in the cases or the frames. Then the smoke, corner by corner.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Pin-holes in the folds.
+\series default
+ A small lamp put inside the bellows in a dark room shows every pin-hole as a point of light; a worn corner shows as a glow.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Leak at a frame.
+\series default
+ Look at the gasket first: crushed, hardened, or torn, it no longer fills the gap, and the cube law says that a few hundredths of a millimetre are enough to lose the budget. Replace it before touching the wood.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+A bellows that has become soft, or stiff.
+\series default
+ Card that has lost its spring, or glue that has gone hard at the folds. It changes the feel more than the air, and its measure is the effective area: compare 
+\begin_inset Formula $mg/p$
+\end_inset
+ with that of a bellows the player likes.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): the repairs of a bellows that you do yourself and those you send away, and how long each takes.
 \end_layout
 
 \begin_layout Part
-Experiment table for 
-\begin_inset Quotes eld
-\end_inset
+Reed blocks and plates
+\end_layout
 
-In-vitro
-\begin_inset Quotes erd
-\end_inset
+\begin_layout Chapter
+A wooden comb under the reeds
+\end_layout
 
- measurement
+\begin_layout Standard
+A reed block is a wooden comb. Each tooth is a wall, and between two walls lies a chamber; a reed plate with its two tongues closes the chamber on one side, the soundboard with its hole on the other. On the instruments of the training courses the blocks are milled two by two from one blank, with their heels, and deburred before the course; the trainee checks that they fall in front of the holes of the soundboard, counter-drills the fixings, glues each block on its heels, waxes the plates into their places, checks the furnished block for leaks, and screws it onto the soundboard with M3 screws into threaded inserts.
+\end_layout
+
+\begin_layout Standard
+What the shape of the chamber does to the sound, the volume of its cells, the hole, the coupling of the two voices of a note, is acoustics, and the thesis treats it. This chapter keeps what decides whether a block is right in the hands of the maker: that it is tight, that every reed has its room, and that what is screwed can be taken apart without changing the note.
 \end_layout
 
 \begin_layout Section
-Dissipation
+Flat, or not tight
 \end_layout
 
-\begin_layout Subsection
-modal
+\begin_layout Standard
+Every face of a block is a flat joint: plate on wax, block on heel, block on soundboard. The cube law of the leak chapter applies to all of them, and it is severe. A joint of 100 mm around with 5 mm of wood to cross leaks 0.05 L/min at 500 Pa, the proposed figure for a whole block, with a gap of only 0.026 mm (Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:joint"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+). A block has several such joints, so each must do better. No milling machine and no hand plane leave two faces that close; something must fill the gap. That is the job of the wax under and around a plate, of the glue between block and heel, and of the gasket or the mastic between block and soundboard. Seen from the cube law, the choice between them is a choice of how a gap is filled, and of whether it can be filled again.
+\end_layout
+
+\begin_layout Standard
+A glued block is tight by nature and does not come off. A screwed block comes off for tuning and repair, and then everything rests on its gasket: crushed once too often, the gasket no longer fills the gap, and the leak comes back with the cube of the lost hundredths. Wax around a plate seals and can be redone with a spoon; it softens with heat and hardens with age. Nails through a strip of leather hold the plate mechanically and leave the sealing to the leather. What these choices do to the tongue itself, its damping and its pitch, is a question of the thesis (the chapter on reed coupling), and it has no answer yet beyond the protocol that would give one.
+\end_layout
+
+\begin_layout Section
+A leak between two chambers
+\end_layout
+
+\begin_layout Standard
+There is a leak that the gasometer does not see, because it does not go outside. If the face of a block does not seal against the soundboard between two chambers, air goes from one chamber to its neighbour. When the pallet of one note opens, a little air reaches the next chamber, whose pallet is shut; if a reed there is close to its threshold, it sounds faintly. A ghost note on a neighbour, not on the note itself, points to this leak under the block rather than to a pallet.
+\end_layout
+
+\begin_layout Section
+Each reed in its room
+\end_layout
+
+\begin_layout Standard
+The booklet asks that no reed touch the bottom of its cell or the partition. The reason is plain: a tongue that grazes wood in its swing does not speak, or buzzes. The milling program checks the room of each reed on the model before cutting (a reed laid in its case does not touch the partition); the trainee checks it again after waxing, because a bead of wax can push a plate off its line.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): the clearance you leave between a reed and its partition and bottom, and whether it changes from the treble to the bass, where the tongues swing wider.
+\end_layout
+
+\begin_layout Chapter
+Making and checking the blocks
+\end_layout
+
+\begin_layout Standard
+Each step of the course, with its reason.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Sort the reeds by block, then by row, then by note,
+\series default
+ each in front of its case marked A or B. A plate in the wrong case is a note in the wrong place, and once waxed it is a repair.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Wax each plate,
+\series default
+ the wax warmed in a bottle warmer and poured with a spoon all round the plate, the bead continuous. The bead is the filler of the cube law: a gap in it is a hole, and a hole of one millimetre is almost a litre per minute.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Check the furnished block,
+\series default
+ its slots closed with tape, on the gasometer, in pressure then in suction, because a plate can be pressed onto its wax in one direction and pulled away from it in the other. Smoke to find a leak. Proposed figure: under 0.05 L/min at 500 Pa.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Measure the flow of each reed,
+\series default
+ tape removed one at a time, by the descent of the gasometer at 100, 300 and 500 Pa. This is not an examination but a measurement: the air that reed consumes, which the bellows chapter needs and which nobody has yet.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Screw the blocks onto the soundboard,
+\series default
+ M3 screws into the inserts, then a lamp: no light between block and soundboard.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): the gasket or mastic between block and soundboard on your instruments, and how many times a screwed block can be taken off before its gasket must be changed.
+\end_layout
+
+\begin_layout Chapter
+At the repair bench
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+One note late and soft.
+\series default
+ Tape its slot and test the block: if the leak goes when you press the plate, rewax it; if it stays, look at the chamber and its face on the soundboard.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+A neighbour that whispers.
+\series default
+ A leak between two chambers under the block. Take the block off, look at the face against the soundboard and at the gasket; flatten the face on abrasive paper laid on glass if it is no longer plane.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+A note that changed after the blocks were taken off and put back.
+\series default
+ The thesis asks whether remounting a block moves the pitch of its tongues by more than the few cents that the chamber itself moves them; the bench is where the answer will come from. Note the deviation of each note with the tuner before and after.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+A reed that buzzes.
+\series default
+ It touches its cell, or its plate has moved in the wax. Look along the slot against a light, and rewax straight.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): when a screwed block is taken off and put back, does any tongue change pitch by more than a few cents? Three notes, with the tuner, before and after.
 \end_layout
 
 \begin_layout Part
-Study : Influent parameters on accordion sound
+Reeds at the bench
+\end_layout
+
+\begin_layout Chapter
+A spring that sings
+\end_layout
+
+\begin_layout Standard
+A reed is a tongue of spring steel riveted at its heel onto a plate, over a slot a few hundredths of a millimetre wider than itself. On the other face of the plate, a second tongue lies over a second slot, the other way round, and each slot has a valve, a flap of leather or plastic, on the side from which its air does not come. The thesis spends a whole part on what makes such a tongue sound. This chapter asks what the maker and the repairer do with it: how to tune it, how to set it, what to measure, and what to do when it will not speak.
 \end_layout
 
 \begin_layout Section
-Dissipation
+Where to scrape
 \end_layout
 
-\begin_layout Subsection
-modal
+\begin_layout Standard
+A tongue is a spring with a mass, and its frequency goes as the square root of stiffness over mass. A file or a scraper can take away either, depending on where it bites. Near the tip, the steel moves the most and bends the least: scraping there removes mass where it counts and stiffness where it does not, and the note rises. Near the heel, the steel bends the most and moves the least: scraping there removes stiffness, and the note falls. Hence the rule printed on the strobe of the tuner of this work: too high, scrape towards the heel; too low, scrape towards the tip.
+\end_layout
+
+\begin_layout Standard
+How sensitive is it? For a blade of even thickness, the frequency is proportional to the thickness: thin the whole tongue by one per cent and the note falls by one per cent, 17 cents, a sixth of a semitone. A local scrape does far less than an even thinning, which is precisely why scraping can be done at all, a stroke at a time with the tuner watching. The same proportion explains why handbook values of the steel will not do for tuning: the stiffness of spring steel varies by about 3 per cent with its grade, which is 26 cents on the note. The thesis gives the way to measure it on a strip of the same steel.
+\end_layout
+
+\begin_layout Section
+At which pressure to tune
+\end_layout
+
+\begin_layout Standard
+Every version of the models of the thesis says that the note of a free reed goes down when the player pushes harder. A reed tuned at one pressure is therefore slightly out of tune at the others, and the question "at which pressure do you tune?" is not a detail. On Ewen's own instrument the tuner found differences of 15 to 25 cents between push and draw on the same notes, which is the other face of the same question: the two tongues of a plate are two different blades, tuned separately, and they must agree at the pressure the music uses.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): at which pressure, or with which bellows gesture, you tune; whether it is the same for bass and treble; and your tolerance in cents for a training-course instrument.
+\end_layout
+
+\begin_layout Section
+Two voices and their beat
+\end_layout
+
+\begin_layout Standard
+A note in the musette tuning is two or three tongues, slightly detuned, whose beat makes the tremolo. The beat is the difference of their frequencies, and Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:beats"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ gives it at the A of 440 Hz for the detunings a tuner uses.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:beats"
+
+\end_inset
+
+Beat of two voices around A 440 Hz (outils_atelier.py battement).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{lll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+detuning (cents) & beat (Hz) & beats per minute 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+2 & 0.51 & 31 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+3 & 0.76 & 46 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+5 & 1.27 & 76 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+10 & 2.55 & 153 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+15 & 3.83 & 230 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+20 & 5.11 & 307 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+The thesis adds a warning that the tuner should know. Two tongues that share the air of one pallet are coupled, and the network model predicts that close to the unison they pull each other into step: below about 2 cents, at A4 and 1000 Pa, the two voices lock onto one frequency and the beat disappears; at 5 cents the beat is still 12 per cent slower than the difference of the blades; at 20 cents it is free. Near the lock the beat heard is not the difference of the blades but 
+\begin_inset Formula $\sqrt{\Delta^2-\Delta_L^2}$
+\end_inset
+, the law of two coupled oscillators. If the model is right, a voice tuned at 2 cents of its partner will not beat at all once both are free, and a slow tremolo must be tuned a little wider than its target. Experiment E3 of the thesis tests it with the tuner: tune one tongue with the other blocked by a strip of paper, free it, and read whether the beat survives.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): experiment E3 on one musette note: the beat read with the other voice blocked and free, at 1, 2, 3 and 5 cents. Does the beat vanish below about 2 cents?
+\end_layout
+
+\begin_layout Section
+The set of the tongue, and the four pressures
+\end_layout
+
+\begin_layout Standard
+The tip of a tongue does not lie flat in its slot; it stands a little above it, the set or lift. The lift decides how the reed starts and how far it can be pushed. Four pressures describe it, all measurable with the bench: the pressure at which it starts, 
+\begin_inset Formula $p_{\mathrm{on}}$
+\end_inset
+, the softest pianissimo one can attack; the pressure at which it chokes and falls silent although the pressure is still rising, the loudest fortissimo; and, coming back down, the pressure at which it speaks again and the one at which it goes out, 
+\begin_inset Formula $p_{\mathrm{off}}$
+\end_inset
+, the softest pianissimo one can hold. Ewen's aim for a block, the widest range of play with the lowest threshold, is written in these four numbers.
+\end_layout
+
+\begin_layout Standard
+The working hypothesis, from the classic work of St Hilaire and colleagues extended in this project, is that at equal geometry the starting pressure grows as the square of frequency times lift, while the choking pressure grows as stiffness times lift over area. A low lift would then start easily and choke early; a high lift would hold a fortissimo and refuse a pianissimo. Experiment E19 measures the four pressures for three reeds at three lifts, and would contradict the hypothesis if the starting pressure did not move with the lift.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): how you set the lift today (by eye, by gauge), and the reeds you would choose for E19, one bass, one middle, one treble.
+\end_layout
+
+\begin_layout Section
+The valve
+\end_layout
+
+\begin_layout Standard
+The valve makes the flow through a slot one-way. Without it, the air of the bellows would leak through the slot of the silent tongue of each plate, and that tongue, if close to its threshold, would whisper: a ghost note. The models of the thesis take the valve as perfect; a real one has a mass, leaks a little, and slaps against the plate at each reversal of the bellows, which is where the tuner of this work sees the reversal. The thesis has a protocol for comparing leather and plastic valves; at the bench, the valve is a part that wears, curls, sticks or comes unglued.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): your valves are put on before the course or by the trainee? With which glue, and how?
+\end_layout
+
+\begin_layout Chapter
+Tools at the bench
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+The tuner of this work
+\series default
+ shows each reed at once in the manner of a strobe and says what to do with the tongue; four lights come on as the reed approaches its target, at 5, 1, 0.3 and 0.1 cent. The register mode measures two to five voices together without blocking any, shows the beat of each detuned voice, and a list of beats, the target tremolo, can be copied from one instrument to another. Push and draw are measured and kept apart.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+The U-tube
+\series default
+ gives the pressure at which a reed is tuned or its thresholds read; 
+\series bold
+the gasometer
+\series default
+ gives the air a reed consumes; 
+\series bold
+feeler gauges and a lamp
+\series default
+ give the lift and the gaps; 
+\series bold
+a phone filming at 240 frames per second
+\series default
+ shows a bass tongue swing, and whether its tip leaves the slot.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+A plucked tongue
+\series default
+ says a great deal before any air: pluck it with a fingernail, record it with a phone, and the frequency and the damping come out of the recording (pince.py in the thesis). A tongue that rings much shorter than its neighbours has a loose rivet, a crack, or something touching it.
+\end_layout
+
+\begin_layout Chapter
+At the repair bench
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+A reed that does not speak.
+\series default
+ In order of likelihood: it touches the slot or the cell (look against a light), its lift is lost (the tip lies in the slot), the valve of its partner is missing so its air leaks away, the wax around its plate leaks, or dirt sits in the slot. A thin feeler passed round the tongue finds a grain.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+A reed that speaks late or only loud.
+\series default
+ Its threshold is high: lift too great, or a leak that takes its pressure (the leak part of this book). Compare its starting pressure with a neighbour on the U-tube.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+A buzz or a rattle.
+\series default
+ A tongue grazing, a rivet loose (the pluck rings short), a valve slapping or half unglued.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+A note out of tune after years.
+\series default
+ Retune it, but look first: rust adds mass where it forms, and a pitted tongue may crack later. A cracked or broken tongue is replaced, not tuned.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): your list of reed repairs, from the most frequent, and the supplier delay for a replacement reed.
+\end_layout
+
+\begin_layout Part
+Registers
+\end_layout
+
+\begin_layout Chapter
+A door for a whole row of reeds
+\end_layout
+
+\begin_layout Standard
+A register closes or opens a whole set of reeds at once: a slide pierced with a row of holes moves under the reed blocks, and its holes either face the holes of the chambers or not. It is a pallet for a row instead of a note, and it shares the troubles of both pallets and joints. This chapter is short, because nothing has been measured on a register in this work; it says what the physics of the previous parts predicts, so that the first measurements know what to look for.
+\end_layout
+
+\begin_layout Section
+Tight and free at once
+\end_layout
+
+\begin_layout Standard
+A slide must do two things that pull against each other. It must seal, so that a closed register stays silent; and it must move, so that the player can change registers in a breath. Sealing asks for a small gap, and the cube law of the leak part is merciless: a slide of 200 mm with a land of 5 mm on each side of its holes, a gap of 0.05 mm, leaks of the order of a litre per minute at 500 Pa. Moving asks for little friction, and friction grows with the force that presses the slide onto its bed: 
+\begin_inset Formula $F_{\mathrm{move}} = \mu N$
+\end_inset
+.
+\end_layout
+
+\begin_layout Standard
+The cube law also says where the compromise lies. Because the leak goes as the cube of the gap, a modest reduction of the gap buys a large reduction of the leak: a gap smaller by a fifth halves the leak. A slide does not need to be crushed onto its bed to seal; it needs a bed that is flat and a light, even pressure, from a spring or a felt, that keeps it there.
+\end_layout
+
+\begin_layout Section
+Push and draw are not the same
+\end_layout
+
+\begin_layout Standard
+The slide sits between the air of the bellows and the chambers, and the bellows pushes on it in one direction and pulls on it in the other, exactly as it does on a pallet. On one side of the bellows the pressure presses the slide onto its bed and helps it seal; on the other it lifts it and opens the gap. A register can therefore be tight on the push and whisper on the draw, and must be tested in both directions, like a furnished reed block.
+\end_layout
+
+\begin_layout Section
+A closed register that whispers
+\end_layout
+
+\begin_layout Standard
+A closed register that leaks feeds the chambers of its row. Their reeds receive a little air, and those close to their threshold sound faintly behind the others: a ghost voice rather than a ghost note, heard most on the soft notes of the row.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): which of your instruments have registers, how their slides are pressed onto their beds (spring, felt, leather), and the force needed to move one, read with a luggage scale or a gram gauge on the knob.
+\end_layout
+
+\begin_layout Chapter
+Making and checking
+\end_layout
+
+\begin_layout Standard
+Check a register the way a block is checked: the case closed, the register shut, the slots of its reeds open, on the gasometer, in pressure and in suction. The flow that disappears when the register is opened and its pallets kept shut is the leak of the slide. The proposed figure for the whole closed case, slides included, is under 0.5 L/min at 500 Pa.
+\end_layout
+
+\begin_layout Chapter
+At the repair bench
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+A register that is hard to move.
+\series default
+ Swollen wood or a hardened felt: the friction has grown. Look at the season first; a slide that binds in a damp winter may be free in summer, and planing it then makes it leak in the next dry spell.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+A closed register that can be heard.
+\series default
+ A leak of the slide: a bed no longer flat, a felt crushed. The cube law again: restore the flatness and the even pressure before adding force.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): the register troubles you meet most, and how you repair them.
+\end_layout
+
+\begin_layout Part
+Case, grille and straps
+\end_layout
+
+\begin_layout Chapter
+The box that holds it all
+\end_layout
+
+\begin_layout Standard
+The case carries everything: the soundboard, the blocks, the mechanism, the bellows frame, the straps, and the hands. On the instruments of the training courses its sides are milled before the course and glued by the trainee in a gluing jig, dry-assembled first; the button board, its cap and the stiffeners follow, then levelling and sanding, varnish or oil. What the box and the grille do to the sound, a filter for the grille, a cavity for a resonance box, is acoustics and belongs to the thesis (chapter on timbral elements). This chapter keeps what decides whether the box is right for the maker: that it is tight, that it stays true through the seasons, and that the hands are well held.
+\end_layout
+
+\begin_layout Section
+Wood moves, joints open
+\end_layout
+
+\begin_layout Standard
+Wood is not a stable material, and the accordion is a box of joints. Between green and dry, wood shrinks of the order of 5 to 10 per cent across the grain and of the order of 0.1 to 0.2 per cent along it (Wood Handbook of the Forest Products Laboratory, orders of magnitude): across the grain it moves a few tens of times more than along it. A case is glued from pieces whose grains cross, so every change of humidity makes some joints work. A joint that worked last winter is a gap this summer, and the cube law of the leak part says what a gap of a few hundredths of a millimetre costs. This is the physical reason behind the advice of the booklet: keep the instrument in a dry place at a steady temperature, away from the damp cellar and the attic, and avoid sudden changes, a hot car then a cold room.
+\end_layout
+
+\begin_layout Standard
+It is also the reason for two habits of the workshop: no filler on a gluing surface, so that the glue holds wood to wood; and stiffeners glued flat with no light under them, so that the face they hold stays plane.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): the species you use for the cases (the process sheets and the website do not agree, maple or lime), and the drying times of stiffeners, hard base and oil.
+\end_layout
+
+\begin_layout Section
+The grille
+\end_layout
+
+\begin_layout Standard
+The grille is the perforated screen in front of the right-hand pallets. For the maker it has one rule: it must touch neither the mechanism nor a button pressed down, otherwise it rubs, clicks, or holds a key down. Check it by pressing every button with the grille in place. For the sound, the grille is a filter whose cut-off depends on its open area and its depth; the thesis says how to measure it, by recording one note with and without the grille.
+\end_layout
+
+\begin_layout Section
+Straps
+\end_layout
+
+\begin_layout Standard
+The straps hold the instrument; the left-hand strap holds the hand against the bellows. On the training courses they are fixed on a support milled in the right-hand case and adjusted to the player, sitting and then standing. The booklet's check is the right one, and it is ergonomic, not acoustic: the instrument is stable sitting and standing, and the left thumb touches no screw.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): straps bought or made at the workshop? And the adjustment of the left-hand strap: how much play does the hand need to reverse the bellows freely?
+\end_layout
+
+\begin_layout Chapter
+Making and checking
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Case glued dry first.
+\series default
+ Assemble in the jig without glue; anything that does not close dry will not close glued. Then glue the four sides, check square and flat.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Closed case, leak checked.
+\series default
+ Close the case with a board in place of the bellows, on the gasometer, and pass the smoke along the joints, the frame, the mechanism and the register knobs. Proposed figure: under 0.5 L/min at 500 Pa.
+\end_layout
+
+\begin_layout Chapter
+At the repair bench
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+A case that leaks after a change of season.
+\series default
+ A joint that has opened. Smoke finds it; a seam of glue or, on a frame, a new gasket closes it. Plane only when the wood has settled to the humidity it will live in.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+A grille that clicks or holds a button.
+\series default
+ It touches. Look for the shine of a rub on its inner face.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): the case repairs you meet most, and how you do them.
+\end_layout
+
+\begin_layout Part
+The repairer's diagnosis
+\end_layout
+
+\begin_layout Chapter
+From the symptom to the piece
+\end_layout
+
+\begin_layout Standard
+An instrument arrives at the bench with a sentence, not with a diagnosis: "it's tiring", "this note doesn't come", "there's a sound when I push hard". Each part of this book ended with the repair of its own piece. This last part goes the other way round, from what the player says to the piece that says it, so that the first quarter of an hour with an open instrument is spent checking, not guessing.
+\end_layout
+
+\begin_layout Section
+Listen, then count
+\end_layout
+
+\begin_layout Standard
+Three gestures come before any screwdriver, and none takes more than a few minutes.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Play it with the player.
+\series default
+ Ask which notes, which direction, which nuance. Most faults of an accordion depend on the direction of the bellows and on the pressure, because pallets, valves, slides and joints all see the bellows push in one direction and pull in the other.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Count the drop test.
+\series default
+ A known weight on the bellows, air valve shut, no key: the time of the full drop, push and draw. Under 20 to 30 seconds, there is a frank leak and nothing else should be judged before it is found (the leak part, Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:drop"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+).
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Pass the tuner over the keyboard.
+\series default
+ Deviation, push and draw, and beat of each voice. A single note off among tuned ones points to that reed or to its air; a whole region off points to pressure, leaks or a block.
+\end_layout
+
+\begin_layout Section
+The table
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:diagnosis"
+
+\end_inset
+
+From what the player says to the piece to check.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.208
+\backslash
+linewidth}p{0.302
+\backslash
+linewidth}p{0.203
+\backslash
+linewidth}p{0.099
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright what the player says & 
+\backslash
+raggedright likely cause & 
+\backslash
+raggedright check & 
+\backslash
+raggedright part 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright it is tiring, the soft notes start badly & 
+\backslash
+raggedright global leak & 
+\backslash
+raggedright drop test, then each half closed & 
+\backslash
+raggedright valves and leaks 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright a note sounds faintly when pushing hard & 
+\backslash
+raggedright a pallet lifts: spring too weak for its hole & 
+\backslash
+raggedright gram gauge, half a gram per mm$^{2}$ of hole & 
+\backslash
+raggedright right-hand keyboard 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright a note sounds faintly, always & 
+\backslash
+raggedright pallet leaking, off-centre or hardened leather & 
+\backslash
+raggedright lamp, bell & 
+\backslash
+raggedright right-hand keyboard 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright a neighbouring note whispers & 
+\backslash
+raggedright leak between two chambers under the block & 
+\backslash
+raggedright take the block off, look at its face & 
+\backslash
+raggedright reed blocks 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright a voice is heard with its register shut & 
+\backslash
+raggedright register slide leaking & 
+\backslash
+raggedright gasometer, register shut & 
+\backslash
+raggedright registers 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright one note late and soft & 
+\backslash
+raggedright leak near its reed (wax, valve) & 
+\backslash
+raggedright tape the slot, test the block & 
+\backslash
+raggedright reed blocks 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright one note silent & 
+\backslash
+raggedright reed touching, lift lost, partner's valve missing & 
+\backslash
+raggedright lamp, feeler & 
+\backslash
+raggedright reeds 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright one note sounds in one direction only & 
+\backslash
+raggedright valve missing or stuck & 
+\backslash
+raggedright look at the plate & 
+\backslash
+raggedright reeds 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright a buzz or a rattle & 
+\backslash
+raggedright reed grazing, loose rivet, valve slapping, grille touching & 
+\backslash
+raggedright pluck, lamp & 
+\backslash
+raggedright reeds, case 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright a heavy button at the start of a draw & 
+\backslash
+raggedright the pressure on the closed pallet (normal) & 
+\backslash
+raggedright compare with neighbours & 
+\backslash
+raggedright right-hand keyboard 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright a button stays down or returns slowly & 
+\backslash
+raggedright friction or spring unhooked & 
+\backslash
+raggedright key alone, spring off & 
+\backslash
+raggedright right-hand keyboard 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright a heavy, grinding bass button & 
+\backslash
+raggedright sliding rods, wedging & 
+\backslash
+raggedright the left-hand chapters & 
+\backslash
+raggedright left-hand mechanism 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright musette tremolo gone on a note & 
+\backslash
+raggedright voices too close, locked & 
+\backslash
+raggedright tuner, one voice blocked & 
+\backslash
+raggedright reeds 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright out of tune between push and draw & 
+\backslash
+raggedright the two tongues of the plate disagree & 
+\backslash
+raggedright tuner, push and draw apart & 
+\backslash
+raggedright reeds 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+What the table does not know
+\end_layout
+
+\begin_layout Standard
+The table is built from the physics of this book and from the booklet of the training courses. It does not yet know the most important thing, which is how often each line happens on a real bench. A diagnosis starts with the likeliest cause, and only experience says which that is.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be completed (Ewen): for each line of Table 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:diagnosis"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+, how often you meet it (often, sometimes, rarely), and the lines that are missing. The table will then be reordered by your bench, not by the book.
 \end_layout
 
 \begin_layout Part
 Appendix
-\end_layout
-
-\begin_layout Chapter
-Leaks detection
-\end_layout
-
-\begin_layout Chapter
-Leaks detection
 \end_layout
 
 \begin_layout Chapter
