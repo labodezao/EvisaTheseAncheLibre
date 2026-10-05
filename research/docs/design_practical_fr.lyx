@@ -1,0 +1,6212 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass book
+\begin_preamble
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% The Legrand Orange Book
+% LaTeX Template
+% Version 2.1.1 (14/2/16)
+%
+% This template has been downloaded from:
+% http://www.LaTeXTemplates.com
+%
+% Original author:
+% Mathias Legrand (legrand.mathias@gmail.com) with modifications by:
+% Vel (vel@latextemplates.com)
+%
+% License:
+% CC BY-NC-SA 3.0 (http://creativecommons.org/licenses/by-nc-sa/3.0/)
+%
+% Compiling this template:
+% This template uses biber for its bibliography and makeindex for its index.
+% When you first open the template, compile it from the command line with the 
+% commands below to make sure your LaTeX distribution is configured correctly:
+%
+% 1) pdflatex main
+% 2) makeindex main.idx -s StyleInd.ist
+% 3) biber main
+% 4) pdflatex main x 2
+%
+% After this, when you wish to update the bibliography/index use the appropriate
+% command above and make sure to compile with pdflatex several times 
+% afterwards to propagate your changes to the document.
+%
+% This template also uses a number of packages which may need to be
+% updated to the newest versions for the template to compile. It is strongly
+% recommended you update your LaTeX distribution if you have any
+% compilation errors.
+%
+% Important note:
+% Chapter heading images should have a 2:1 width:height ratio,
+% e.g. 920px width and 460px height.
+%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
+%----------------------------------------------------------------------------------------
+
+% Default font size and left-justified equations
+
+%----------------------------------------------------------------------------------------
+
+\input{structure} % Insert the commands.tex file which contains the majority of the structure behind the template
+\addbibresource{references.bib} % bibliographie de la thèse (biber)
+\end_preamble
+\use_default_options false
+\maintain_unincluded_children false
+\language french
+\language_package none
+\inputencoding utf8
+\fontencoding default
+\font_roman "default" "default"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command biber
+\index_command default
+\paperfontsize 11
+\spacing single
+\use_hyperref false
+\papersize default
+\use_geometry false
+\use_package amsmath 2
+\use_package amssymb 0
+\use_package cancel 0
+\use_package esint 1
+\use_package mathdots 0
+\use_package mathtools 0
+\use_package mhchem 0
+\use_package stackrel 0
+\use_package stmaryrd 0
+\use_package undertilde 0
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 0
+\use_minted 0
+\branch Music
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\branch Lutherie
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\branch Sciences
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\branch Biomeca
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\branch Articles
+\selected 0
+\filename_suffix 0
+\color #faf0e6
+\end_branch
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 1
+\math_indentation default
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 2
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begingroup
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+thispagestyle{empty}
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+begin{tikzpicture}[remember picture,overlay]
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+coordinate [below=12cm] (midpoint) at (current page.north);
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+node at (current page.north west)
+\end_layout
+
+\begin_layout Plain Layout
+
+{
+\backslash
+begin{tikzpicture}[remember picture,overlay]
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+node[anchor=north west,inner sep=0pt] at (0,0) {
+\backslash
+includegraphics[width=
+\backslash
+paperwidth]{background}}; % Background image
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+draw[anchor=north] (midpoint) node [fill=ocre!30!white,fill opacity=0.6,text
+ opacity=1,inner sep=1cm]{
+\backslash
+Huge
+\backslash
+centering
+\backslash
+bfseries
+\backslash
+sffamily
+\backslash
+parbox[c][][t]{
+\backslash
+paperwidth}{
+\backslash
+centering Conception d'accordéons : la pratique
+\backslash
+
+\backslash
+[15pt] % Book title
+\end_layout
+
+\begin_layout Plain Layout
+
+{
+\backslash
+Large An engineering approch}
+\backslash
+
+\backslash
+[20pt] % Subtitle
+\end_layout
+
+\begin_layout Plain Layout
+
+{
+\backslash
+huge Ewen d'Aviau de Ternay}}}; % Author name
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{tikzpicture}};
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+end{tikzpicture}
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset VSpace vfill
+\end_inset
+
+ 
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+
+\backslash
+endgroup
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage newpage
+\end_inset
+
+
+\begin_inset space ~
+\end_inset
+
+
+\begin_inset VSpace vfill
+\end_inset
+
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+thispagestyle{empty}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Copyright 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+copyright
+\end_layout
+
+\end_inset
+
+
+\begin_inset space \space{}
+\end_inset
+
+2020 Ewen d'Aviau de Ternay de Piolant
+\begin_inset Newline newline
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+
+\shape smallcaps
+Published by ewen d'aviau
+\shape default
+
+\begin_inset Newline newline
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+
+\shape smallcaps
+www.ewendaviau.com
+\shape default
+
+\begin_inset Newline newline
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+Licensed under the Creative Commons Attribution-NonCommercial 3.0 Unported
+ License (the 
+\begin_inset Quotes eld
+\end_inset
+
+License
+\begin_inset Quotes erd
+\end_inset
+
+).
+ You may not use this file except in compliance with the License.
+ You may obtain a copy of the License at 
+\begin_inset Flex URL
+status open
+
+\begin_layout Plain Layout
+
+http://creativecommons.org/licenses/by-nc/3.0
+\end_layout
+
+\end_inset
+
+.
+ Unless required by applicable law or agreed to in writing, software distributed
+ under the License is distributed on an 
+\shape smallcaps
+
+\begin_inset Quotes eld
+\end_inset
+
+as is
+\begin_inset Quotes erd
+\end_inset
+
+ basis, without warranties or conditions of any kind
+\shape default
+, either express or implied.
+ See the License for the specific language governing permissions and limitations
+ under the License.
+\begin_inset Newline newline
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\noindent
+
+\shape italic
+First printing, 
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+usechapterimagefalse
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+% If you don't want to include a chapter image, use this to toggle images
+ off - it can be enabled later with 
+\backslash
+usechapterimagetrue
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+chapterimage
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+chapter_head_1.pdf
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+pagestyle
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+empty
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset CommandInset toc
+LatexCommand tableofcontents
+
+\end_inset
+
+
+\begin_inset Newpage cleardoublepage
+\end_inset
+
+
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+
+\backslash
+pagestyle
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+fancy
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Part
+Comment lire ce livre
+\end_layout
+
+\begin_layout Chapter
+De la pièce à l'instrument
+\end_layout
+
+\begin_layout Standard
+La thèse qui accompagne ce livre demande comment une anche libre fait son son, et ce que l'air autour d'elle fait à ce son. Ce livre pose une question plus modeste, celle que pose le facteur à l'établi et le réparateur devant un instrument ouvert : que fait cette pièce, pourquoi est-elle faite ainsi, comment savoir qu'elle est juste, et que faire quand elle ne l'est pas ?
+\end_layout
+
+\begin_layout Standard
+Un accordéon est une boîte sous pression percée de portes. Le soufflet fait la pression, les anches en changent un peu en son, les soupapes décident quelles anches la reçoivent, le clavier ouvre les soupapes, et chaque joint entre deux pièces de bois, de carton, de peau ou de cire est un endroit par où l'air peut partir sans chanter. Chaque partie de ce livre prend l'une de ces pièces et suit les mêmes quatre pas. D'abord, ce que la physique en dit, réduit aux quelques lois qui décident vraiment de son comportement. Puis l'analyse d'un vrai instrument avec ces lois : quels chiffres comptent, lesquels ne comptent pas. Puis les outils du facteur, des règles simples qui sortent de ces lois, avec le calcul derrière. Enfin l'établi du réparateur : les symptômes qu'apporte le musicien, ce qu'ils désignent, et le geste qui le vérifie.
+\end_layout
+
+\begin_layout Standard
+L'acoustique proprement dite, la languette, sa chambre, le couplage de deux voix et le son rayonné, appartient à la thèse et n'est ici que citée. Ce livre garde la physique de la fabrication : forces, débits, fuites, raideurs, frottements, bois qui bouge.
+\end_layout
+
+\begin_layout Standard
+Deux habitudes traversent toutes les parties. La première est de dire, à chaque fois, d'où vient un chiffre : mesuré, calculé, tiré de la pratique d'atelier d'Ewen et de ses gammes de fabrication, ou proposé et encore à vérifier. Beaucoup de chiffres de ces pages sont de la dernière sorte, et ils le disent. La seconde est que tout calcul peut être refait avec les vraies cotes de l'instrument sur l'établi. Le petit programme outils_atelier.py (research/scripts) fait toute l'arithmétique de ce livre, de la fuite d'un trou au ressort d'une soupape, et ses tests vérifient qu'il donne les tableaux imprimés ici.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : les instruments dont tu veux que ce livre parle d'abord, avec leurs modèles (21/8, 33/12, 33/18, 33/24 des stages, le Lib RT, d'autres), pour que les exemples prennent leurs vraies cotes.
+\end_layout
+
+\begin_layout Part
+Clavier main droite
+\end_layout
+
+\begin_layout Chapter
+Un levier, un ressort et une porte
+\end_layout
+
+\begin_layout Standard
+Sortez une touche de main droite d'un instrument et regardez-la. C'est un levier qui tourne sur un axe commun à toutes les autres. À un bout, un bouton que le doigt enfonce. À l'autre, une soupape, une petite planchette garnie de peau, couchée sur un trou de la table d'harmonie. Entre les deux, un ressort qui tient la soupape fermée quand personne ne joue. C'est tout. Trois pièces et un axe, répétés trente-trois fois sur les instruments des stages, et presque tout ce que le musicien sent sous la main droite vient de la façon dont ces trois pièces se partagent un seul travail : tenir une porte fermée contre le vent, et l'ouvrir aussitôt qu'on le demande.
+\end_layout
+
+\begin_layout Standard
+À l'atelier d'Ewen, les touches sont découpées à la fraiseuse numérique et les leviers sont pliés et percés à la main : c'est la plus longue tâche de tout l'instrument (douze heures pour une main droite dans les gammes de 2026, une estimation). Le stagiaire les enfile sur l'axe dans l'ordre, graisse l'axe, ajoute des entretoises où il faut, règle chaque ressort à 90 grammes sur un gabarit, colle les soupapes avec leur gabarit et les contrôle à la lampe, puis met les boutons d'une rangée à la même hauteur avec un réglet. Chacun de ces gestes a une raison dans la physique, et ce chapitre la donne.
+\end_layout
+
+\begin_layout Section
+La porte contre le vent
+\end_layout
+
+\begin_layout Standard
+Une soupape fermée sur son trou porte la pression du soufflet sur toute sa surface : une force 
+\begin_inset Formula $\Delta p\,A$
+\end_inset
+. Sur un accordéon, la soupape est posée sur la face extérieure de la table d'harmonie, si bien que les deux sens du soufflet font des choses opposées. Au poussé, l'air de dedans est au-dessus de l'atmosphère et il soulève la soupape : le ressort doit la tenir. Au tiré, l'air du dehors plaque la soupape sur sa portée : le doigt paie cette force en ouvrant la note. Le chapitre sur la mécanique main gauche suit ce second fardeau en détail ; la main droite rencontre les deux mêmes, seulement plus petits, parce que ses trous sont plus petits.
+\end_layout
+
+\begin_layout Standard
+Quelle force doit avoir le ressort ? Assez pour qu'aucune soupape ne se soulève au plus fort poussé. Le critère d'atelier, une proposition encore à étalonner sur de vrais instruments, est qu'aucune soupape ne décolle sous 1,5 fois la pression de jeu la plus forte. Avec une pression de jeu de 3 kPa au plus, la force à la soupape doit valoir
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+F \ge 1{,}5\,p_{\max}\,A = 4500\,\mathrm{Pa}\times A
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+ce qui, dit dans les unités de l'établi, est une règle à retenir : environ un demi-gramme à la soupape par millimètre carré de trou (0,46 g par mm² exactement, pour 3 kPa). Le tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-ressort"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ la donne pour les trois trous d'Ewen.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-ressort"
+
+\end_inset
+
+Les trois trous de soupape des instruments d'Ewen : levée utile, pression à laquelle décolle une soupape tenue par 90 g, et force qui la tient jusqu'à 1,5 fois 3 kPa (force à la soupape ; outils_atelier.py ressort et levee).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.086
+\backslash
+linewidth}p{0.095
+\backslash
+linewidth}p{0.190
+\backslash
+linewidth}p{0.200
+\backslash
+linewidth}p{0.209
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright trou (mm) & 
+\backslash
+raggedright aire (mm$^{2}$) & 
+\backslash
+raggedright levée utile A/P (mm) & 
+\backslash
+raggedright 90 g décollent à (Pa) & 
+\backslash
+raggedright force pour 4,5 kPa (g) 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 8 $
+\backslash
+times$ 12 & 
+\backslash
+raggedright 96 & 
+\backslash
+raggedright 2,4 & 
+\backslash
+raggedright 9 200 & 
+\backslash
+raggedright 44 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 15 $
+\backslash
+times$ 15 & 
+\backslash
+raggedright 225 & 
+\backslash
+raggedright 3,75 & 
+\backslash
+raggedright 3 900 & 
+\backslash
+raggedright 103 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 20 $
+\backslash
+times$ 15 & 
+\backslash
+raggedright 300 & 
+\backslash
+raggedright 4,3 & 
+\backslash
+raggedright 2 900 & 
+\backslash
+raggedright 138 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Le tableau cache une petite surprise. Les 90 grammes de l'atelier n'ont jamais été calculés ; la main les a trouvés, comme la force qui donne un bouton agréable, et ils sont les mêmes pour toutes les touches. L'air ne voit pas les choses ainsi. Sur le petit trou, 8 sur 12 mm, 90 g tiennent la soupape fermée jusqu'à 9,2 kPa, deux fois ce que demande le critère : là, c'est le doigt qui règle le ressort, pas le vent. Sur le trou de 15 sur 15 mm, les mêmes 90 g tiennent jusqu'à 3,9 kPa, un peu en dessous des 4,5 kPa du critère. Sur le trou de 20 sur 15 mm, ils ne tiennent que jusqu'à 2,9 kPa, sous la plus forte pression de jeu elle-même. Une seule force pour tous les trous est trop pour les petits ou trop peu pour les grands ; la physique demande un ressort qui suit le trou, environ un demi-gramme par millimètre carré. Le livret du stage connaît déjà la conséquence : un ressort réglé plus faible que les autres donne un bouton mou, et sa soupape peut se soulever au fortissimo. Une note qui sonne faiblement toute seule quand on pousse fort, c'est très souvent cela.
+\end_layout
+
+\begin_layout Standard
+Au tiré, le trou coûte au doigt 
+\begin_inset Formula $\Delta p\,A$
+\end_inset
+ au moment d'ouvrir, en plus du ressort : à 2 et 3 kPa, 20 et 29 g pour le trou de 8 sur 12 mm, 46 et 69 g pour le 15 sur 15, 61 et 92 g pour le 20 sur 15. Un bouton de 90 g au poussé devient un bouton de 110 à 180 g tout au début d'un tiré fort, et la marche disparaît dès que la soupape a décollé et que la pression est passée dans l'anche. Les musiciens le sentent, et savent rarement pourquoi.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : où exactement se lisent les 90 g sur le gabarit, au bouton ou à la soupape, et les deux bras du levier de main droite (axe-bouton, axe-soupape). Si les bras sont inégaux, la force à la soupape est la force au bouton multipliée par leur rapport, et le tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-ressort"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ se lit avec. Et lequel des trois trous va où (main droite, basses, accords), modèle par modèle. Si les soupapes de 20 sur 15 mm sont tenues par un ressort de 90 g à bras égaux, chuchotent-elles sur un poussé fort ?
+\end_layout
+
+\begin_layout Section
+De combien lever
+\end_layout
+
+\begin_layout Standard
+De combien la soupape doit-elle monter ? Moins qu'on ne croit. L'air ne traverse pas la soupape ; il sort par les côtés, par la fente mince qui s'ouvre entre le bord du trou et la peau. Cette fente fait tout le tour du trou, comme un rideau pendu à la soupape : sa hauteur est la levée 
+\begin_inset Formula $h$
+\end_inset
+, sa longueur est le périmètre 
+\begin_inset Formula $P$
+\end_inset
+ du trou, et son aire vaut 
+\begin_inset Formula $P\,h$
+\end_inset
+. Tant que le rideau est plus petit que le trou, c'est lui qui étrangle l'air, et lever davantage aide. Quand le rideau égale le trou, à
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+h = A/P
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+le trou lui-même devient le passage le plus étroit, et lever plus ne donne plus d'air (Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:fr-levee"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+). Pour le trou de 8 sur 12 mm, 
+\begin_inset Formula $A$
+\end_inset
+ = 96 mm² et 
+\begin_inset Formula $P$
+\end_inset
+ = 40 mm : 2,4 mm. Pour 15 sur 15 mm, 3,75 mm ; pour 20 sur 15 mm, 4,3 mm. Pour un trou rond de diamètre 
+\begin_inset Formula $d$
+\end_inset
+, c'est simplement 
+\begin_inset Formula $d/4$
+\end_inset
+. Le modèle de la thèse supposait 4 mm pour toutes les soupapes : deux tiers de plus que ce dont le petit trou a besoin.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/pratique_levee_fr.png
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:fr-levee"
+
+\end_inset
+
+La levée utile d'une soupape. (a) L'air sort par le rideau qui fait le tour du trou, périmètre fois levée. (b) Le passage d'air est le plus petit du rideau et du trou ; il cesse de croître à la levée utile A/P : 2,4 mm pour le trou de 8 sur 12 mm, 3,75 mm pour 15 sur 15 mm, 4,3 mm pour 20 sur 15 mm.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Chaque millimètre au-dessus de la levée utile est une course de bouton payée pour rien : un trajet plus long du doigt, une répétition plus lente, et sur un levier court plus d'angle et plus de frottement. Un peu de marge reste sage, 10 à 20 %, parce que la peau est molle et que le rideau n'est pas une fente parfaite. Une règle de conception en sort : dessiner le trou d'abord, calculer 
+\begin_inset Formula $A/P$
+\end_inset
+, ajouter un cinquième, et c'est la levée ; la course du bouton est la levée multipliée par le rapport des bras.
+\end_layout
+
+\begin_layout Section
+Ce que fait la vitesse de la touche
+\end_layout
+
+\begin_layout Standard
+Une touche n'est pas seulement ouverte ou fermée ; elle s'ouvre en un temps, et la note répond à ce temps. Les simulations de la thèse font monter la pression sous l'anche en ligne droite en 20 ms, une hypothèse sans mesure derrière. Une touche lente donne à la languette une montée lente et une attaque douce, une touche rapide une marche. Le temps de réponse de la note, de l'ouverture au son établi, est déjà mesuré par la chaîne d'analyse du banc de recherche ; ce qui manque, c'est la position de la touche en fonction du temps à côté.
+\end_layout
+
+\begin_layout Standard
+Il y a un point plus fin, et c'est une prédiction du réseau à deux anches de la thèse. La masse d'air du chemin au-dessus de la languette, trou et soupape ensemble, participe au démarrage de la note : avec cette masse divisée par dix la languette ne démarre pas, multipliée par trois elle démarre moins bien, et entre les deux il y a un optimum. Une soupape à peine ouverte est un passage long et mince, une grosse masse d'air ; une soupape grande ouverte, une petite. Si la prédiction tient, la profondeur à laquelle le musicien enfonce la touche change la facilité du démarrage, et pas seulement la nuance. L'expérience E2 de la thèse est faite pour le voir : la pression de démarrage d'une languette, lue au tube en U, pour cinq levées de sa soupape réglées avec des cales.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : la force et la course d'une touche en fonction du temps, avec un petit capteur de force et un capteur d'angle magnétique au banc ; et l'expérience E2. Y a-t-il une levée optimale pour le démarrage, comme le dit le modèle, et où tombe-t-elle par rapport à 
+\begin_inset Formula $A/P$
+\end_inset
+ ?
+\end_layout
+
+\begin_layout Section
+Deux touches qui en font plus
+\end_layout
+
+\begin_layout Standard
+Deux dispositifs d'Ewen demandent davantage à une touche, et la physique ci-dessus dit ce que chacun coûte.
+\end_layout
+
+\begin_layout Standard
+Le premier tient une note ouverte comme le bouton d'un stylo à bille tient sa pointe sortie : un appui pour enclencher, un pour relâcher, pour qu'un bourdon continue de sonner pendant que les doigts sont libres. Une soupape enclenchée est une ouverture constante, et la languette derrière elle ne dépend plus que d'une chose, la pression du soufflet, qu'elle partage avec toutes les autres notes jouées. Le soufflet se comporte plutôt comme une source de débit avec une résistance interne que comme une source de pression (la partie soufflet de ce livre y revient) : à vitesse de soufflet constante, ouvrir une note de plus fait baisser la pression. Un bourdon coûte donc de la pression à la mélodie, son propre débit multiplié par la résistance de la source. Et une note enclenchée sur une plaque à deux languettes fait sonner l'une au poussé et l'autre au tiré ; sur l'instrument d'Ewen, l'accordeur a trouvé 15 à 25 cents entre poussé et tiré sur les mêmes notes. Un bourdon qui doit rester juste à travers le changement de sens demande que les deux languettes de sa plaque soient accordées ensemble plus soigneusement que la mélodie.
+\end_layout
+
+\begin_layout Standard
+Le second est une touche à course prolongée : enfoncée au-delà du fond de sa course ordinaire, elle fait plier la note. Sur quoi peut agir cette course en plus ? Pas sur la pression, qui appartient au bras. Elle peut refermer en partie la soupape, ou ouvrir un second petit passage, ce qui change la masse d'air au-dessus de la languette ; l'effet sur la hauteur n'est pas connu et pourrait être sous ce que l'oreille remarque. Ou elle peut ouvrir une cellule à côté de la chambre et changer son volume. La thèse montre que la chambre n'est un levier fort que si sa résonance est proche de la note, à un rapport d'environ 1,1, et qu'une telle chambre est dure à faire parler (1322 Pa de seuil contre 208 Pa à un rapport de 1,3, pour la même lame, dans le modèle). Un bend en fin de course est donc un compromis entre la profondeur du bend et la facilité de la note.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : les deux mécanismes tels que tu les vois, et une mesure avant de construire le second : réduire le volume d'une chambre à la pâte à modeler en deux ou trois pas, et lire la hauteur de sa languette à l'accordeur à pression fixe. Si la hauteur bouge de moins de quelques cents, la chambre n'est pas le levier pour cette note, et c'est la soupape qu'il faut essayer.
+\end_layout
+
+\begin_layout Chapter
+Construire et régler la main droite
+\end_layout
+
+\begin_layout Standard
+Chaque pas de la gamme a sa raison. Les voici dans l'ordre du stage, la raison à côté du geste.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Les ressorts à 90 g, sur le gabarit.
+\series default
+ Le gabarit met chaque levier dans la même position, pour que les 90 g veuillent dire la même précharge pour tous. Le ressort décide de deux choses à la fois, le toucher du bouton et la pression à laquelle la soupape décolle (tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-ressort"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+) ; un ressort réglé « à peu près » donne un bouton plus mou que ses voisins et une soupape qui peut chuchoter au fortissimo. Contrôle : chaque ressort fait 90 g sur le gabarit.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Les touches sur l'axe, graissé, avec des entretoises où il faut.
+\series default
+ Une touche doit tourner librement et ne pas glisser de côté. Tourner librement garde le bouton léger et le retour sûr ; un flottement latéral fait poser la soupape décentrée sur son trou. La graisse change un frottement sec en frottement lubrifié, et un levier qui tourne sur un axe perd bien moins au frottement qu'une tige qui coulisse dans un guide (le chapitre main gauche chiffre cette différence). Contrôle : chaque touche tourne librement, sans jeu sur le côté.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : ta gamme demande « entretoises de 6,33 ou 5,833 mm si nécessaire : quand est-ce nécessaire ? » Qu'est-ce qui te dit qu'il faut une entretoise, et laquelle choisis-tu ?
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Les soupapes avec leur gabarit, collées côté peau, contrôlées à la lampe.
+\series default
+ Une soupape décentrée laisse un croissant du trou découvert : une fuite à chaque note, et le trou vu contre la lampe la montre tout de suite. La mousse silicone sous les soupapes les rend silencieuses quand elles retombent. Contrôle : chaque soupape est centrée et ferme sans jour.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Les boutons d'une rangée à la même hauteur, une course régulière, rien qui frotte.
+\series default
+ La hauteur d'un bouton est le départ de sa course ; une rangée de boutons à la même hauteur est une rangée de notes qui s'ouvrent à la même profondeur du doigt. Contrôle au réglet posé le long de la rangée, puis appuyer sur chaque bouton en écoutant.
+\end_layout
+
+\begin_layout Chapter
+À l'établi du réparateur
+\end_layout
+
+\begin_layout Standard
+Ce qu'apporte le musicien, ce que cela veut dire le plus souvent, et comment le vérifier.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Une note qui sonne toute seule, faiblement, quand on pousse fort.
+\series default
+ Sa soupape décolle sous la pression de jeu : un ressort plus faible que la règle du tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-ressort"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+, une peau tassée ou durcie, ou une soupape qui ne porte plus à plat. Contrôle : le ressort au gramme-mètre contre ses voisins ; la soupape à la lampe. Une soupape qui laisse passer la lumière fuit à toute pression ; une soupape sombre mais qui se soulève au poussé a un ressort faible.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Un bouton lourd au début du tiré, léger au poussé.
+\series default
+ C'est la physique de la porte, pas un défaut : la pression plaque la soupape au tiré. Cela ne devient un défaut que si un bouton est bien plus lourd que ses voisins pour le même trou, ce qui désigne un frottement sur l'axe ou un levier qui touche son voisin.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Un bouton qui reste enfoncé, ou qui revient lentement.
+\series default
+ Un frottement (axe sec, bois gonflé, levier qui frotte sur le voisin ou sur la grille) ou un ressort décroché. Contrôle : la touche seule, ressort ôté, doit retomber par son propre poids quand on retourne l'instrument ; si elle ne le fait pas, le coupable est le frottement, pas le ressort.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Des boutons inégaux, ou une touche qui claque.
+\series default
+ Des hauteurs perdues par une butée déplacée ou un feutre écrasé ; un claquement est un atterrissage sans mousse ni feutre. Contrôle au réglet, et remplacer le feutre ou la mousse.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : ta propre liste de ce que les musiciens apportent pour la main droite, de la plus fréquente à la plus rare, pour que cette liste suive le vrai établi et non la théorie.
+\end_layout
+
+\begin_layout Part
+Mécanique main gauche
+\end_layout
+
+\begin_layout Chapter
+La mécanique main gauche : ce que le doigt paie pour une soupape
+\end_layout
+
+\begin_layout Standard
+Appuyez sur un bouton de basse d'accordéon pendant qu'on tire le soufflet, et le doigt rencontre quelque chose avant le ressort : une petite résistance tout au début, une marche, puis une course plus douce jusqu'en bas. Appuyez sur le même bouton au poussé, et la marche a disparu. Rien n'a changé dans la mécanique entre les deux gestes. Ce qui a changé, c'est l'air, et le doigt est en train de le lire. Ce chapitre remonte cette petite marche jusqu'à sa cause, et de là jusqu'à chaque gramme que le musicien paie au bouton de la main gauche : la soupape, le ressort qui la tient, le levier qui la soulève, la façon dont les pièces glissent ou tournent, et le plastique ou le métal dont elles sont faites.
+\end_layout
+
+\begin_layout Standard
+L'occasion était pratique. Ewen construit la mécanique main gauche du Lib RT, un basses chromatiques à grosses basses, pour un jazzman dont l'instrument actuel demande trop à ses doigts ; le but donné est 80 à 100 grammes au bouton. Quatre versions imprimées ont été faites, la cinquième (v5) joue mais grince, et la question est devenue : l'effort est-il dans la mécanique, ou ailleurs ? La réponse de ce chapitre est qu'il est surtout ailleurs, et qu'on peut le calculer avant de fabriquer quoi que ce soit. Les chiffres viennent d'un petit calculateur écrit pour l'occasion (calcul_mecanique.py, rangé avec le rapport d'ingénierie du Lib RT) ; chacun se recalcule avec les vraies cotes, une fois mesurées.
+\end_layout
+
+\begin_layout Section
+Une porte contre le vent
+\end_layout
+
+\begin_layout Standard
+Une soupape est une porte. Elle couvre un trou de la table d'harmonie, côté mécanique, et derrière le trou il y a l'air du soufflet. Porte fermée, l'air pousse dessus, et il ne pousse que là où est le trou : autour, sur la portée, la peau voit la même pression sur ses deux faces. La force est donc la plus simple de la physique, une pression fois une surface,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+F = \Delta p \, A_{\mathrm{trou}}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+et pour les grosses basses du Lib RT, un trou de 20 sur 15 mm (300 mm²), elle vaut 0,60 N à 2 kPa de jeu et 0,90 N à 3 kPa de pointe. En grammes, puisque c'est ce que le doigt connaît, 61 et 92 g. Le tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-force"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ la donne pour les autres trous envisagés.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-force"
+
+\end_inset
+
+Force de la pression du soufflet sur une soupape fermée, 
+\begin_inset Formula $\Delta$
+\end_inset
+p × A (1 N = 102 g). La levée critique A/P est la levée à laquelle le rideau autour de la soupape égale le trou.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.068
+\backslash
+linewidth}p{0.075
+\backslash
+linewidth}p{0.173
+\backslash
+linewidth}p{0.098
+\backslash
+linewidth}p{0.098
+\backslash
+linewidth}p{0.098
+\backslash
+linewidth}p{0.106
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright trou (mm) & 
+\backslash
+raggedright aire (mm$^{2}$) & 
+\backslash
+raggedright levée critique A/P (mm) & 
+\backslash
+raggedright 1 kPa & 
+\backslash
+raggedright 2 kPa & 
+\backslash
+raggedright 3 kPa & 
+\backslash
+raggedright 5 kPa 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 20 $
+\backslash
+times$ 15 & 
+\backslash
+raggedright 300 & 
+\backslash
+raggedright 4,3 & 
+\backslash
+raggedright 0,30 N (31 g) & 
+\backslash
+raggedright 0,60 N (61 g) & 
+\backslash
+raggedright 0,90 N (92 g) & 
+\backslash
+raggedright 1,50 N (153 g) 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 18 $
+\backslash
+times$ 15 & 
+\backslash
+raggedright 270 & 
+\backslash
+raggedright 4,1 & 
+\backslash
+raggedright 0,27 N & 
+\backslash
+raggedright 0,54 N & 
+\backslash
+raggedright 0,81 N & 
+\backslash
+raggedright 1,35 N 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 15 $
+\backslash
+times$ 15 & 
+\backslash
+raggedright 225 & 
+\backslash
+raggedright 3,8 & 
+\backslash
+raggedright 0,23 N & 
+\backslash
+raggedright 0,45 N & 
+\backslash
+raggedright 0,68 N & 
+\backslash
+raggedright 1,12 N 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 11 $
+\backslash
+times$ 27 & 
+\backslash
+raggedright 297 & 
+\backslash
+raggedright 3,9 & 
+\backslash
+raggedright 0,30 N & 
+\backslash
+raggedright 0,59 N & 
+\backslash
+raggedright 0,89 N & 
+\backslash
+raggedright 1,49 N 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 12 $
+\backslash
+times$ 12 & 
+\backslash
+raggedright 144 & 
+\backslash
+raggedright 3,0 & 
+\backslash
+raggedright 0,14 N (15 g) & 
+\backslash
+raggedright 0,29 N (29 g) & 
+\backslash
+raggedright 0,43 N (44 g) & 
+\backslash
+raggedright 0,72 N 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Dans quel sens pousse-t-elle ? Cela dépend du côté de la table où est la porte. Sur un accordéon, la soupape est sur la face extérieure, côté atmosphère : au poussé, l'air du soufflet la soulève ; au tiré, l'air extérieur la plaque. L'orgue met sa soupape de l'autre côté, dans la laye, et les signes s'inversent. Il n'y a pas de côté gratuit. Là où la pression aide à ouvrir, il faut un ressort assez fort pour tenir la porte fermée contre le plus fort poussé du musicien ; là où elle résiste, le doigt la paie à l'ouverture. La somme des deux charges est la même des deux côtés. Seule une porte poussée également dans les deux sens échappe au marché, et nous la rencontrerons plus bas.
+\end_layout
+
+\begin_layout Standard
+Sur le Lib RT, la charge tombe sur le ressort. Il doit tenir la soupape fermée contre la pointe du poussé, avec une marge pour les à-coups du soufflet, et aussi appuyer assez la peau pour qu'elle étanche :
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+F_{0} = 1{,}2 \, \Delta p_{\mathrm{pointe}} \, A + F_{\mathrm{\acute{e}tanch}}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+Avec 3 kPa de pointe et 0,3 N d'étanchéité, cela fait 1,38 N (141 g) à la soupape. Un ressort plus faible fuit au forte poussé : la note parle sans qu'on appuie, vieux défaut des accordéons aux ressorts fatigués.
+\end_layout
+
+\begin_layout Standard
+Que sent le doigt pendant que la porte s'ouvre ? Trois choses s'ajoutent : la précharge, la raideur du ressort, et la pression. La dernière ne reste pas. Dès que la soupape décolle, l'air passe par deux orifices en série, le rideau entre soupape et portée (périmètre fois levée) et l'anche elle-même, et la part de pression qui reste sur la soupape tombe comme 
+\begin_inset Formula $1/(1+(P x / A_{\mathrm{anche}})^{2})$
+\end_inset
+. Pour une anche grave de section efficace 20 mm² environ, il reste un quart de la poussée à 0,5 mm de levée, 8 % à 1 mm, presque rien à 2 mm. Voilà la marche du premier paragraphe : au tiré, le doigt paie d'abord 1,38 + 0,60 = 1,98 N au décollement, puis 1,50 N à un millimètre, puis le ressort seul, 1,56 N à mi-course. Les facteurs d'orgue appellent cela le « pluck ». Au poussé, la pression aide au départ (0,78 N) et les deux sens se rejoignent après un millimètre. L'inégalité entre poussé et tiré vit dans le premier millimètre, et nulle part ailleurs.
+\end_layout
+
+\begin_layout Section
+Le prix de la levée
+\end_layout
+
+\begin_layout Standard
+Pourquoi la levée de la soupape regarderait-elle le doigt ? Parce que l'énergie n'a nulle part où se cacher. Si le bouton descend d'une course 
+\begin_inset Formula $c$
+\end_inset
+ et que la soupape monte d'une levée 
+\begin_inset Formula $x$
+\end_inset
+, alors sans pertes 
+\begin_inset Formula $F_{b} c = F_{s} x$
+\end_inset
+, et
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+F_{b} = F_{s} \, \frac{x}{c} \, \frac{1}{\eta} = F_{s} \, \frac{r}{\eta}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+avec 
+\begin_inset Formula $\eta$
+\end_inset
+ le rendement de la chaîne, 0,9 environ avec des pivots acier. Le rapport 
+\begin_inset Formula $r$
+\end_inset
+ de la levée à la course n'est pas un détail du dessin : il multiplie tout. Une levée de 10 mm pour une course de 5 mm double l'effort au bouton.
+\end_layout
+
+\begin_layout Standard
+Et de combien de levée l'air a-t-il besoin ? L'air ne traverse pas la soupape : il sort par les côtés, par la fente mince qui s'ouvre entre le bord du trou et le cuir. Cette fente fait tout le tour du trou, comme un rideau pendu à la soupape ; sa hauteur est la levée 
+\begin_inset Formula $x$
+\end_inset
+, sa longueur est le périmètre 
+\begin_inset Formula $P$
+\end_inset
+ du trou, la longueur de son bord, et son aire vaut donc 
+\begin_inset Formula $P x$
+\end_inset
+ (Figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:fr-levee"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+). Tant que le rideau est plus petit que le trou, c'est lui qui étrangle l'air, et lever davantage aide. La soupape cesse de brider le débit quand le rideau égale l'aire 
+\begin_inset Formula $A$
+\end_inset
+ du trou, à 
+\begin_inset Formula $x = A/P$
+\end_inset
+ ; pour un trou rond de diamètre 
+\begin_inset Formula $d$
+\end_inset
+, c'est simplement 
+\begin_inset Formula $d/4$
+\end_inset
+. Pour 20 sur 15 mm, 
+\begin_inset Formula $A/P$
+\end_inset
+ = 300 / 70 = 4,3 mm ; avec 20 % de marge, 5,1 mm. Au-delà, une soupape qui s'ouvre davantage ne donne pas plus d'air, et la pression sur elle a déjà disparu après le premier millimètre. Un centimètre de levée n'achète rien au son et coûte 60 à 100 % d'effort en plus au doigt. Savoir si le son de l'anche est plus ouvert au-delà de 
+\begin_inset Formula $A/P$
+\end_inset
+ est une question pour l'oreille, et le banc peut y répondre (essai du trou, plus bas) ; rien dans la physique ne l'attend.
+\end_layout
+
+\begin_layout Standard
+Le tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-bouton"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ réunit les deux pour le grand trou : le mieux que puisse faire une mécanique, 
+\begin_inset Formula $r$
+\end_inset
+ proche de 1, donne 160 à 180 g à mi-course et 200 à 225 g au décollement au tiré. Le but de 80 à 100 g est hors d'atteinte avec ce trou et cette pointe, quelle que soit la mécanique.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-bouton"
+
+\end_inset
+
+Effort au bouton pour le trou 20 × 15 mm (jeu 2 kPa, pointe 3 kPa, 
+\begin_inset Formula $\eta$
+\end_inset
+ = 0,9). La dernière colonne est la force qui ramène le bouton au pire moment, poussé à 3 kPa, soupape fermée.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.087
+\backslash
+linewidth}p{0.079
+\backslash
+linewidth}p{0.063
+\backslash
+linewidth}p{0.142
+\backslash
+linewidth}p{0.071
+\backslash
+linewidth}p{0.102
+\backslash
+linewidth}p{0.173
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright course (mm) & 
+\backslash
+raggedright levée (mm) & 
+\backslash
+raggedright r & 
+\backslash
+raggedright décollement (tiré) & 
+\backslash
+raggedright mi-course & 
+\backslash
+raggedright fin de course & 
+\backslash
+raggedright retour au poussé 3 kPa 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 5 & 
+\backslash
+raggedright 4,5 & 
+\backslash
+raggedright 0,90 & 
+\backslash
+raggedright 202 g & 
+\backslash
+raggedright 159 g & 
+\backslash
+raggedright 176 g & 
+\backslash
+raggedright 40 g 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 5 & 
+\backslash
+raggedright 5,0 & 
+\backslash
+raggedright 1,00 & 
+\backslash
+raggedright 224 g & 
+\backslash
+raggedright 177 g & 
+\backslash
+raggedright 196 g & 
+\backslash
+raggedright 44 g 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 5 & 
+\backslash
+raggedright 6,0 & 
+\backslash
+raggedright 1,20 & 
+\backslash
+raggedright 269 g & 
+\backslash
+raggedright 212 g & 
+\backslash
+raggedright 235 g & 
+\backslash
+raggedright 53 g 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 5 & 
+\backslash
+raggedright 8,0 & 
+\backslash
+raggedright 1,60 & 
+\backslash
+raggedright 359 g & 
+\backslash
+raggedright 282 g & 
+\backslash
+raggedright 313 g & 
+\backslash
+raggedright 70 g 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 5 & 
+\backslash
+raggedright 10,0 & 
+\backslash
+raggedright 2,00 & 
+\backslash
+raggedright 449 g & 
+\backslash
+raggedright 352 g & 
+\backslash
+raggedright 391 g & 
+\backslash
+raggedright 88 g 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 4 & 
+\backslash
+raggedright 5,0 & 
+\backslash
+raggedright 1,25 & 
+\backslash
+raggedright 280 g & 
+\backslash
+raggedright 221 g & 
+\backslash
+raggedright 245 g & 
+\backslash
+raggedright 55 g 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+La dernière colonne mérite un instant. Au forte poussé, la pression soulève la soupape fermée et mange la précharge du ressort ; ce qui reste pour remonter le bouton, c'est la marge, 44 g. Sous 35 à 40 g, une touche qui frotte un peu reste en bas. C'est très probablement le défaut de l'instrument actuel du musicien : des ressorts tout juste assez forts, et un peu de frottement.
+\end_layout
+
+\begin_layout Standard
+Où est donc l'effort ? Le tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-leviers"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ classe les leviers d'action, et les deux premiers ne sont pas du tout dans la mécanique.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-leviers"
+
+\end_inset
+
+Effort à mi-course au tiré (décollement entre parenthèses), pour r = 1,2.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.070
+\backslash
+linewidth}p{0.088
+\backslash
+linewidth}p{0.219
+\backslash
+linewidth}p{0.202
+\backslash
+linewidth}p{0.202
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright trou & 
+\backslash
+raggedright aire (mm$^{2}$) & 
+\backslash
+raggedright jeu 1 kPa, pointe 1,5 kPa & 
+\backslash
+raggedright jeu 2 kPa, pointe 3 kPa & 
+\backslash
+raggedright jeu 3 kPa, pointe 5 kPa 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 20 $
+\backslash
+times$ 15 & 
+\backslash
+raggedright 300 & 
+\backslash
+raggedright 129 g (155 g) & 
+\backslash
+raggedright 212 g (269 g) & 
+\backslash
+raggedright 322 g (408 g) 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 15 $
+\backslash
+times$ 15 & 
+\backslash
+raggedright 225 & 
+\backslash
+raggedright 108 g (126 g) & 
+\backslash
+raggedright 170 g (212 g) & 
+\backslash
+raggedright 253 g (316 g) 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 12 $
+\backslash
+times$ 12 & 
+\backslash
+raggedright 144 & 
+\backslash
+raggedright 86 g (96 g) & 
+\backslash
+raggedright 126 g (150 g) & 
+\backslash
+raggedright 179 g (217 g) 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright d 10 & 
+\backslash
+raggedright 79 & 
+\backslash
+raggedright 68 g (71 g) & 
+\backslash
+raggedright 90 g (101 g) & 
+\backslash
+raggedright 119 g (137 g) 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Le trou.
+\series default
+ Une anche a besoin de trois à cinq fois sa section efficace pour respirer, 60 à 100 mm². Le reste du trou sert à l'acoustique de la chambre et à la sortie du son. Un trou de 12 sur 12 mm divise par deux la poussée de la pression ; avec 
+\begin_inset Formula $r$
+\end_inset
+ = 1 et 1,5 kPa de pointe, il donne 72 g à mi-course et 80 g au décollement.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+La vraie pointe de pression.
+\series default
+ Entre 1,5 et 3 kPa, la précharge passe de 0,84 à 1,38 N. Un jazzman qui joue doux ne dépasse peut-être jamais 1,5 kPa ; un manomètre en U le dit en un après-midi.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+r au plus 1.
+\series default
+ Course 5 mm, levée 5 à 5,5 mm.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Un ressort long et souple
+\series default
+, qui monte de 15 à 25 % sur la levée, pas de 100 %.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Le rendement
+\series default
+ : tourner, pas glisser (plus bas).
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+La portée
+\series default
+ : une portée plane et une peau souple étanchent avec 0,3 N ; une portée gauche demande 0,6 N, que le doigt paie.
+\end_layout
+
+\begin_layout Section
+Quatre façons de tricher avec le vent, et pourquoi trois échouent
+\end_layout
+
+\begin_layout Standard
+Peut-on compenser la poussée de la pression, comme on équilibre une fenêtre à guillotine par son contrepoids ? Quatre idées viennent naturellement. La figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:fr-compensations"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ les dessine en coupe à côté de la soupape simple, et son dernier panneau compare ce que chacune laisse au bouton, avec les mêmes hypothèses que le tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-bouton"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/mecanique_compensations_fr.png
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:fr-compensations"
+
+\end_inset
+
+Les compensations, en coupe et en grammes au bouton (trou 20 × 15 mm, r = 1). Référence : au tiré, la pression plaque la soupape. (a) Une petite soupape pilote ouverte d'abord. (b) Deux soupapes côte à côte. (c) Une soupape équilibrée : deux portées sur une même tige. (d) Un ressort d'aide au bouton. (e) Décollement, mi-course et retour au bouton.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+La pilote (a).
+\series default
+ Une petite soupape de 6 sur 6 mm couvre un trou percé dans la grande. Le levier la soulève d'abord, par un crochet qui a un peu de jeu ; l'air file par le petit trou, la chambre derrière se met à la pression extérieure, et alors seulement le crochet prend la grande soupape. Le « pluck » du tiré a disparu : le décollement tombe de 224 à 165 g, un gain d'environ un quart. Mais regardez la mi-course : 176 g dans les deux cas. La pilote enlève la pression, qui ne vivait que dans le premier millimètre, et laisse le ressort, qui doit toujours tenir la pointe du poussé. Elle coûte deux soupapes par note.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Deux soupapes côte à côte (b).
+\series default
+ Deux trous de 150 mm² ont la même aire qu'un trou de 300 ; la poussée est la même, le ressort total aussi. Rien n'est gagné, et les pièces sont doublées. On la dessine seulement parce que c'est la première idée que tout le monde a.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+La soupape équilibrée (c).
+\series default
+ Ici le marché de la première section est rompu. Deux disques d'aires égales sont fixés sur une même tige, et l'air du soufflet est entre deux plaques : le disque du haut repose sur la plaque du haut, dehors, et la pression sous lui le pousse à s'ouvrir ; le disque du bas repose sur la plaque du bas, dedans, et la même pression le pousse à se fermer. Les deux s'ouvrent en bougeant dans le même sens. Les deux poussées s'annulent, quel que soit le signe de la pression, poussé ou tiré, et le ressort n'a plus à tenir la pointe : seulement à étancher, 0,3 à 0,5 N. Au bouton, cela fait 45 g au décollement et 51 g à mi-course. C'est la seule solution qui atteint 80 g sur un trou de 300 mm². Les ingénieurs de la vapeur la connaissaient sous le nom de soupape à double siège. Son prix est réel : une portée côté soufflet ou un passage étanche pour la tige, deux trous par note, et une conception jamais essayée sur un accordéon, à prouver au banc. Elle est gardée ici comme piste de recherche, pas comme base du Lib RT.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Le ressort d'aide (d).
+\series default
+ Un ressort qui tire le bouton vers le bas avec une force constante se retranche de l'effort, et se retranche tout autant du retour. Avec 44 g de retour au forte poussé, on ne peut lui donner que 5 à 10 g ; le panneau montre 168 g à mi-course et 36 g de retour, au bord d'une touche qui reste en bas. Il n'apporte rien ici.
+\end_layout
+
+\begin_layout Standard
+La leçon de la figure est celle de tout le chapitre. L'effort est dans le trou et dans la pression, les deux grandeurs que la mécanique ne touche pas ; la soupape équilibrée est la seule idée qui y entre, et elle le fait en changeant la porte, pas le levier.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : le décollement d'une soupape au tiré, mesuré avec un peson accroché à la soupape et tiré lentement, puis la force à 1, 2, 3 et 5 mm de levée (cales sous son bord). La marche du premier millimètre a-t-elle la taille que prédit la courbe ?
+\end_layout
+
+\begin_layout Section
+Les rappels, un seul ressort, et l'espace avant la force
+\end_layout
+
+\begin_layout Standard
+Sur un chromatique, la même note revient sur plusieurs rangées, et le second bouton, le rappel, mène la même soupape par une chaîne plus longue. Deux boutons, une porte : le doigt sentira-t-il la même force sur les deux ? Oui, si les deux chaînes ont le même rapport 
+\begin_inset Formula $r$
+\end_inset
+ et si un seul ressort, celui de la soupape, ramène tout. Chaque pivot acier de plus sur le rappel coûte 0,2 à 1 % d'effort ; trois de plus, 1 à 3 %, soit 2 à 5 g sur 180. Le doigt ne distingue pas une différence de force sous 7 à 10 %. Un second ressort sur le rappel, en revanche, ajouterait toute sa force à ce seul bouton : c'est la seule chose à éviter.
+\end_layout
+
+\begin_layout Standard
+Le temps mort est plus subtil. Une chaîne qu'un ressort tient chargée, le ressort à un bout et le bouton à l'autre, toutes les articulations attachées, n'a aucun temps mort dû à ses jeux : à la descente comme à la remontée, chaque articulation reste appuyée du même côté. Les jeux se montrent plutôt en flottement latéral et en bruit. Un bouton simplement posé sur un levier, avec un espace, a un temps mort égal à cet espace. Au bouton, 0,1 à 0,2 mm se tolèrent, 2 à 4 % de la course ; au-dessus, le doigt sent un vide avant la résistance. Et la levée a son propre budget : la levée au-delà du 
+\begin_inset Formula $1{,}2\,A/P$
+\end_inset
+ utile doit couvrir la flèche du levier sous l'effort de jeu et l'écrasement de la peau et du feutre. Pour 6 mm de levée sur le grand trou, le budget est 0,9 mm ; pour 5,5 mm, 0,4 mm ; pour 5 mm, rien du tout.
+\end_layout
+
+\begin_layout Section
+Glisser contre tourner
+\end_layout
+
+\begin_layout Standard
+La v5 grince. Pourquoi une tige d'acier qui coulisse dans un trou imprimé grince-t-elle, quand la même tige qui tourne dans le même trou ne grince pas ?
+\end_layout
+
+\begin_layout Standard
+Le frottement, d'abord. L'acier sur le PLA imprimé a un coefficient de 0,35 à 0,45 au repos et de 0,25 à 0,35 en mouvement. Cet écart suffit au broutage : la tige colle, la chaîne élastique qui la pousse se charge, la tige saute, et le cycle recommence dans le kilohertz. C'est le grincement. Le PTFE (0,08 au repos, 0,05 en mouvement) ou le bronze fritté huilé n'ont presque pas d'écart, et ne broutent pas. Puis les couches : un trou imprimé à la verticale a des marches de 0,18 à 0,24 mm en travers du mouvement, et la tige en franchit une à chaque couche.
+\end_layout
+
+\begin_layout Standard
+Mais le plus grand effet est géométrique, et la figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:fr-tiroir"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ le montre. Quand la force sur la tige est décalée de son axe d'une distance 
+\begin_inset Formula $e$
+\end_inset
+, par un pion par exemple, la tige se met en biais dans son guide de longueur 
+\begin_inset Formula $L$
+\end_inset
+ et s'appuie aux deux bouts avec une force 
+\begin_inset Formula $N = F e / L$
+\end_inset
+. Le frottement agit aux deux bouts, 
+\begin_inset Formula $2 \mu N$
+\end_inset
+, contre le mouvement, si bien que
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+F_{\mathrm{pouss\acute{e}e}} = \frac{F_{\mathrm{utile}}}{1 - 2 \mu e / L}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+et la tige coince quand 
+\begin_inset Formula $2 \mu e / L$
+\end_inset
+ atteint 1. La v5 a son pion à 5 mm d'un guide de 8 mm, en PLA : le facteur vaut 2,0, le doigt paie double. Si la portée réelle du guide n'est que de 4 mm, avec les chanfreins et les marches de couches, la tige coince par moments. La règle qui en sort est courte : longueur guidée au moins 
+\begin_inset Formula $10 \mu e$
+\end_inset
+, 20 mm pour le PLA et 5 mm pour le PTFE, ou mieux, pousser dans l'axe.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/mecanique_tiroir_fr.png
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:fr-tiroir"
+
+\end_inset
+
+L'effet tiroir. Une force décalée de e fait porter la tige aux deux bouts de son guide ; l'effort monte comme 1/(1 − 2
+\begin_inset Formula $\mu$
+\end_inset
+e/L) et la tige coince à 2
+\begin_inset Formula $\mu$
+\end_inset
+e/L = 1. Le pointillé est la v5.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Faisons maintenant tourner la tige. Dans un pivot, le frottement n'agit qu'au rayon de l'axe, la perte est donc 
+\begin_inset Formula $\mu (d/2) / \ell$
+\end_inset
+ pour un bras 
+\begin_inset Formula $\ell$
+\end_inset
+. Avec un axe acier de 2 mm dans du PLA brut (
+\begin_inset Formula $\mu$
+\end_inset
+ = 0,4) et un bras de 60 mm, la perte est de 0,7 %. Un pivot perd 30 à 100 fois moins qu'un coulissement (tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-remedes"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+). C'est tout l'argument pour une mécanique où chaque touche est une rotation, contre une tige guidée.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-remedes"
+
+\end_inset
+
+Remèdes pour une tige qui coulisse (effort utile 1, excentrement 5 mm), face à une rotation.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.436
+\backslash
+linewidth}p{0.081
+\backslash
+linewidth}p{0.081
+\backslash
+linewidth}p{0.213
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright guide & 
+\backslash
+raggedright $
+\backslash
+mu$ & 
+\backslash
+raggedright L (mm) & 
+\backslash
+raggedright facteur d'effort 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright PLA tel qu'imprimé & 
+\backslash
+raggedright 0,40 & 
+\backslash
+raggedright 8 & 
+\backslash
+raggedright $
+\backslash
+times$ 2,0, broutage 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright PLA allongé & 
+\backslash
+raggedright 0,40 & 
+\backslash
+raggedright 20 & 
+\backslash
+raggedright $
+\backslash
+times$ 1,25 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright PA imprimé, percé et alésé & 
+\backslash
+raggedright 0,30 & 
+\backslash
+raggedright 12 & 
+\backslash
+raggedright $
+\backslash
+times$ 1,33 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright tube laiton 3 $
+\backslash
+times$ 2, huilé & 
+\backslash
+raggedright 0,19 & 
+\backslash
+raggedright 10 & 
+\backslash
+raggedright $
+\backslash
+times$ 1,23 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright gaine PTFE (gaine Bowden 2 $
+\backslash
+times$ 4) & 
+\backslash
+raggedright 0,08 & 
+\backslash
+raggedright 8 & 
+\backslash
+raggedright $
+\backslash
+times$ 1,11, sans broutage 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright rotation sur axe acier 2 mm, bras 60 mm & 
+\backslash
+raggedright 0,40 & 
+\backslash
+raggedright - & 
+\backslash
+raggedright $
+\backslash
+times$ 1,007 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+La v5 a aussi de fines tiges d'acier qui courent en biais entre une équerre imprimée et le levier en aluminium. La correction d'Ewen mérite d'être notée ici, parce qu'elle a corrigé l'analyse : en pratique ces tiges ne flambent pas, et le calcul est d'accord (la charge d'Euler reste au-dessus de l'effort transmis). Leur vrai coût est l'angle. Une tige à 30° du mouvement utile porte 15 % de force en plus et pousse le pivot de côté avec 58 % de l'effort utile ; si un guide reprend cette poussée latérale, un quart de l'effort part en frottement. Une tige en traction n'a aucun de ces soucis : elle ne peut pas flamber, elle s'aligne d'elle-même sur ses deux attaches, elle peut être un fin câble qui passe entre les autres, et la chaîne chargée par le ressort reste tendue, sans temps mort. Il suffit d'attacher la tige de l'autre côté du pivot de l'équerre pour que le doigt la tire au lieu de la pousser.
+\end_layout
+
+\begin_layout Section
+Des pivots qui ne branlent pas
+\end_layout
+
+\begin_layout Standard
+Un trou imprimé n'est jamais ce qu'on a dessiné : 0,1 à 0,3 mm trop petit, rond s'il est imprimé à la verticale, ovale d'autant s'il est imprimé couché. La pression de contact n'est pas le problème, 0,5 MPa pour 3 N sur un axe de 2 mm et 3 mm de long, contre 10 MPa admissibles. Le problème est le basculement. Un levier sur un moyeu court balance sur son propre jeu : le bout se déplace du jeu divisé par la longueur du moyeu, fois la longueur du levier (tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-bascule"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+). 0,05 mm de jeu sur un moyeu de 3 mm déplace le bout d'un levier de 100 mm de 1,7 mm, et avec 5 mm entre leviers, les voisins se touchent.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-bascule"
+
+\end_inset
+
+Déplacement latéral du bout d'un levier de 100 mm (mm), dû au jeu de son moyeu.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.242
+\backslash
+linewidth}p{0.134
+\backslash
+linewidth}p{0.134
+\backslash
+linewidth}p{0.134
+\backslash
+linewidth}p{0.134
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright jeu diamétral (mm) & 
+\backslash
+raggedright moyeu 2 mm & 
+\backslash
+raggedright moyeu 3 mm & 
+\backslash
+raggedright moyeu 6 mm & 
+\backslash
+raggedright moyeu 9 mm 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 0,02 & 
+\backslash
+raggedright 1,00 & 
+\backslash
+raggedright 0,67 & 
+\backslash
+raggedright 0,33 & 
+\backslash
+raggedright 0,22 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 0,05 & 
+\backslash
+raggedright 2,50 & 
+\backslash
+raggedright 1,67 & 
+\backslash
+raggedright 0,83 & 
+\backslash
+raggedright 0,56 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 0,10 & 
+\backslash
+raggedright 5,00 & 
+\backslash
+raggedright 3,33 & 
+\backslash
+raggedright 2,50 & 
+\backslash
+raggedright 1,11 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Aucun moyeu réaliste ne tient le bout d'un long levier à moins d'un demi-millimètre. L'accordéon a résolu cela depuis longtemps avec un peigne au bout des leviers, des fentes garnies de feutre : le jeu du moyeu ne compte alors plus que pour le bruit. Deux axes alternés, leviers pairs sur l'un et impairs sur l'autre, permettent des moyeux deux fois plus longs. Et un trou alésé ou un tube laiton pressé ramène le jeu lui-même à 0,02 à 0,05 mm.
+\end_layout
+
+\begin_layout Standard
+Il existe un pivot sans jeu et sans frottement : une fine lame d'acier à ressort, pincée des deux côtés, qui fléchit au lieu de tourner. Un levier tourne d'environ 0,1 rad (6 mm de levée sur un bras de 60 mm) ; une lame de 0,15 mm d'épaisseur et 5 mm de long porte alors 309 MPa, sous les 600 à 700 MPa de fatigue de l'acier à ressort, et vit indéfiniment. Son propre couple de rappel est petit, 0,1 N au bras de 60 mm : une aide, pas le ressort. La charnière souple imprimée est sa cousine en plastique : seul le polyamide, 0,4 à 0,6 mm sur 3 à 5 mm, survit à un million de flexions (une touche très jouée en voit 100 000 par an) ; le PLA craquèle après quelques centaines. Et une charnière flue sous la charge permanente du ressort, si bien que sa position de repos dérive : bonne pour de petites équerres, pas pour le pivot principal.
+\end_layout
+
+\begin_layout Section
+La raideur, pas la résistance
+\end_layout
+
+\begin_layout Standard
+En quoi faire un levier ? Pas en ce qu'on penserait d'abord. Les contraintes dans un levier sont partout faibles, sous 15 MPa ; rien ne casse. Ce qui compte, c'est combien il fléchit, parce que chaque dixième de millimètre de flèche est pris sur la levée ou ajouté au temps mort. La flèche admissible au bouton est de 0,2 à 0,3 mm. Un levier bascule, bouton d'un côté de l'axe et soupape de l'autre, fléchit comme une console depuis l'axe :
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+\delta = \frac{F L_{b}^{2} (L_{b} + L_{s})}{3 E I}, \qquad I = \frac{b h^{3}}{12}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+et la largeur 
+\begin_inset Formula $b$
+\end_inset
+ est fixée par l'entraxe des touches : 3,5 mm quand trois rangées se partagent une bande de 15 mm, 6 mm avec deux rangées. Sous l'effort de jeu du grand trou, 1,5 N, un PLA de 3 sur 7 mm fléchit de 0,93 mm sur des bras de 60 + 60 mm : quatre fois trop, et il flue, si bien que les boutons s'enfoncent au fil des mois. L'ASA 3 sur 12 mm tient jusqu'à 60 + 60 mm (0,23 mm) ; le polyamide chargé carbone 2,5 fois mieux ; au-delà de 80 mm, seul le métal à chant tient : l'aluminium 2 sur 8 mm fléchit de 0,16 mm sur 100 + 100 mm.
+\end_layout
+
+\begin_layout Standard
+À chant est l'expression importante. La raideur va comme le cube de la hauteur. La même bande d'aluminium, 8 sur 2 mm, est 16 fois plus souple posée à plat que dressée sur sa tranche : 2,6 mm contre 0,16 mm sous 1,5 N sur 100 + 100 mm. Les photos de la v5 suggèrent des leviers à plat ; si le bouton pousse à la verticale, c'est la pose souple, et c'est la première chose à vérifier (100 g au bout, un comparateur).
+\end_layout
+
+\begin_layout Section
+Les ressorts : l'acier ou rien
+\end_layout
+
+\begin_layout Standard
+Pourquoi ne pas imprimer aussi les ressorts ? Parce qu'un plastique sous contrainte permanente oublie sa forme. À 23 °C, le PLA n'est qu'à 35 K sous sa transition vitreuse ; sous quelques mégapascals, ses chaînes glissent lentement, et la déformation imposée devient permanente. Un ressort imprimé perd 20 à 40 % de sa force en quelques semaines, et presque tout en un après-midi à 50 °C, dans une voiture l'été. L'acier à ressort travaille à une fraction de pour cent de déformation sans aucun écoulement, et stocke 20 à 80 fois plus d'énergie par volume. Un ressort acier par soupape, aucun au bouton. Pour une précharge de 1,38 N à un bras de 60 mm et une montée d'au plus 25 % sur la levée : un ressort de torsion sur l'axe en fil de 1,0 à 1,2 mm, de 7 à 10 mm de diamètre, 8 à 12 spires, préchargé de 45 à 100° ; ou un ressort de traction en fil de 0,5 mm, de 5 mm de diamètre, 15 spires, accroché à 25 mm de l'axe. Les ressorts qu'Ewen a déjà servent, une fois leur raideur mesurée avec quelques pièces de monnaie : un ressort raide s'accroche près de l'axe, un souple plus loin.
+\end_layout
+
+\begin_layout Section
+Ce que les modèles laissent de côté
+\end_layout
+
+\begin_layout Standard
+La pression sur la soupape qui s'ouvre est un modèle quasi statique de deux orifices en série ; le transitoire au décollement, où l'air qui file sous la portée peut un instant pousser sur toute la soupape (jusqu'à 1,09 N au lieu de 0,60 à 2 kPa), est borné, pas calculé. La section efficace de l'anche, 20 mm², est estimée d'après le débit d'une grosse basse, et devrait être mesurée en chronométrant la vidange du soufflet sur une seule note. Le rendement de 0,9 vaut pour des pivots acier ; 0,95 avec un peigne PTFE, 0,8 avec des pivots PLA bruts. Les leviers sont des poutres de section constante chargées en un point ; un levier évidé est plus souple. Les données des matières imprimées valent à 20 % près, et leur fatigue est un ordre de grandeur : un essai d'endurance vaut mieux que le tableau.
+\end_layout
+
+\begin_layout Standard
+Sous ces limites, il y a une chose qui mérite d'être dite simplement. La première question était : où va l'effort ? La réponse est venue avant qu'aucune pièce ne soit coupée : dans le trou et dans le souffle du musicien, pas dans l'ingéniosité des leviers. La mécanique ne peut qu'ajouter à ce plancher, un peu (2 à 4 % pour une rotation par touche) ou beaucoup (10 à 100 % pour une tige guidée). Une bonne mécanique est celle qui n'ajoute presque rien, et laisse le doigt sentir l'air.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : la pointe de pression du jazzman, sur un tube en U relié au soufflet, du pianissimo au sforzando, au poussé et au tiré. C'est le chiffre qui pèse le plus sur tout ce qui précède. Et, si tu le veux, la sensation elle-même : ce que fait la marche du premier millimètre sous le doigt, avant et après avoir su ce qu'elle est.
+\end_layout
+
+\begin_layout Chapter
+Construire la mécanique
+\end_layout
+
+\begin_layout Standard
+Le chapitre précédent a dit d'où vient l'effort au bouton, et pourquoi le trou et la pression pèsent plus que les leviers. Les trois chapitres qui suivent en sont le côté atelier : en quoi faire chaque pièce, comment l'imprimer, comment placer les soupapes quand les boutons sont plus serrés que les soupapes ne peuvent l'être, comment mettre en ressort et régler soixante-dix touches, quoi mesurer avec presque rien, et comment décider si la cinquième version vaut d'être réparée. Les chiffres viennent du calculateur du rapport d'ingénierie du Lib RT (calcul_mecanique.py).
+\end_layout
+
+\begin_layout Section
+La géométrie de départ
+\end_layout
+
+\begin_layout Standard
+Un levier bascule à bras égaux, côté bouton et côté soupape (
+\begin_inset Formula $r$
+\end_inset
+ = 1), par exemple 60 + 60 mm ou 80 + 80 mm, l'axe à mi-chemin entre la plaque de boutons et la table d'harmonie. Course 5 mm, levée 5 à 5,5 mm. La butée haute est la soupape sur sa portée : le bouton repose sur le levier, le levier sur la soupape, et il n'y a pas de temps mort. Un ressort acier par levier, aucun au bouton. C'est « l'idée 1 » : une rotation par touche, contre les quatre à six articulations de la v5.
+\end_layout
+
+\begin_layout Section
+Les matières du stock, et ce qu'un achat changerait
+\end_layout
+
+\begin_layout Standard
+Avec ce qu'il y a déjà à l'atelier, la règle est courte : 
+\series bold
+ASA pour tout ce qui est imprimé et chargé, PETG pour les boutons et les charnières, PLA pour rien de mécanique.
+\series default
+ L'achat qui change le plus de choses est le polyamide chargé carbone (PA-CF) : leviers courts et équerres 2,5 fois plus raides, et peu de fluage.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-matieres"
+
+\end_inset
+
+Choix de la matière pour chaque pièce, dans le stock (PLA, PETG, ASA), puis avec un achat.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.188
+\backslash
+linewidth}p{0.192
+\backslash
+linewidth}p{0.173
+\backslash
+linewidth}p{0.057
+\backslash
+linewidth}p{0.170
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright pièce & 
+\backslash
+raggedright meilleur choix du stock & 
+\backslash
+raggedright pourquoi & 
+\backslash
+raggedright à acheter & 
+\backslash
+raggedright gain 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright leviers jusqu'à 60 + 60 mm, entraxe 5 mm & 
+\backslash
+raggedright ASA 3 $
+\backslash
+times$ 12 à chant, 6 parois & 
+\backslash
+raggedright 0,23 mm sous 1,5 N, 98 $^{
+\backslash
+circ}$C, fluage moyen & 
+\backslash
+raggedright PA-CF 3 $
+\backslash
+times$ 12 & 
+\backslash
+raggedright 0,09 mm, permet 80 + 80 mm 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright leviers jusqu'à 80 + 80 mm, entraxe 7,5 mm & 
+\backslash
+raggedright ASA 5 $
+\backslash
+times$ 12 & 
+\backslash
+raggedright 0,32 mm (limite) & 
+\backslash
+raggedright PA-CF 5 $
+\backslash
+times$ 12 & 
+\backslash
+raggedright 0,13 mm 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright leviers au-delà de 80 mm, barres de rappel longues & 
+\backslash
+raggedright métal à chant (alu 2 $
+\backslash
+times$ 8, acier 1,5 $
+\backslash
+times$ 8, jet d'eau) & 
+\backslash
+raggedright aucun plastique du stock ne tient 0,3 mm & 
+\backslash
+raggedright - & 
+\backslash
+raggedright le métal reste 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright pivots, moyeux, équerres & 
+\backslash
+raggedright ASA, percé et alésé 2 H7, ou tube laiton 3 $
+\backslash
+times$ 2 & 
+\backslash
+raggedright 98 $^{
+\backslash
+circ}$C sous la précharge permanente & 
+\backslash
+raggedright PC ou PA-CF & 
+\backslash
+raggedright dérive des boutons $
+\backslash
+div$ 2 à 3 sur un an 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright guides de bouton (coulissement) & 
+\backslash
+raggedright ASA + gaine PTFE ou tube laiton & 
+\backslash
+raggedright les trois plastiques frottent fort sur l'acier & 
+\backslash
+raggedright PA ou POM & 
+\backslash
+raggedright avec une gaine PTFE le gain disparaît ($
+\backslash
+times$ 1,1) 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright châssis, plaque de boutons & 
+\backslash
+raggedright ASA (PETG si l'ASA se déforme) & 
+\backslash
+raggedright une plaque PLA sous 70 ressorts se voile l'été & 
+\backslash
+raggedright PC & 
+\backslash
+raggedright tenue en température seulement 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright boutons & 
+\backslash
+raggedright PETG ou ASA & 
+\backslash
+raggedright sans charge & 
+\backslash
+raggedright - & 
+\backslash
+raggedright - 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright charnières souples & 
+\backslash
+raggedright PETG 0,4 mm sur 5 mm (~10 000 cycles) & 
+\backslash
+raggedright le PLA craquèle en 10 à 100 & 
+\backslash
+raggedright PA 0,4 à 0,6 mm & 
+\backslash
+raggedright plus de 10$^{6}$ cycles 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright ressorts & 
+\backslash
+raggedright ressorts à boudin acier du stock & 
+\backslash
+raggedright pas de fluage & 
+\backslash
+raggedright - & 
+\backslash
+raggedright - 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+L'impression
+\end_layout
+
+\begin_layout Itemize
+Imprimer un levier 
+\series bold
+couché dans son plan de rotation
+\series default
+ : le trou d'axe vertical (rond, pas ovale), les cordons dans le sens du levier, pour que la flexion tire sur les cordons et non sur les interfaces de couches (qui ne gardent que 50 à 70 % de la raideur).
+\end_layout
+
+\begin_layout Itemize
+Buse 0,6 : un levier de 3 mm fait cinq parois, il est plein ; mettre six parois ou 100 % de remplissage, couches de 0,2 mm. Les 30 % de remplissage ne valent que pour les gros supports sans charge.
+\end_layout
+
+\begin_layout Itemize
+Châssis et supports : PETG au minimum (68 °C), ASA ou PC si l'instrument peut rester dans une voiture (60 à 70 °C l'été) ; PA-CF pour ce qui porte un axe ou un ressort.
+\end_layout
+
+\begin_layout Itemize
+PA et PA-CF : sécher le filament, recuire 2 h à 80 °C pour stabiliser les cotes avant d'aléser.
+\end_layout
+
+\begin_layout Section
+Quand mettre du métal (tiges du stock : 1 ; 1,5 ; 2 ; 3 mm)
+\end_layout
+
+\begin_layout Itemize
+Leviers de plus de 60 mm et barres de rappel longues : aluminium 2 mm ou acier 1,5 mm à chant, découpés au jet d'eau comme les tiges de mécanique actuelles.
+\end_layout
+
+\begin_layout Itemize
+Tout ce qui est sous la charge permanente du ressort : axes, moyeux (tube laiton), attaches de ressort.
+\end_layout
+
+\begin_layout Itemize
+Axes de levier individuels : 2 mm. Un axe commun traversant tous les leviers d'une bande, et les axes des barres de rappel : 3 mm, appuyé tous les 40 mm (0,02 mm de flèche sous 2 N par levier à 5 mm d'entraxe).
+\end_layout
+
+\begin_layout Itemize
+Tiges de liaison : 1,5 mm en compression, 1 mm en traction. Mieux vaut la traction : attacher la tige de l'autre côté du pivot de l'équerre pour que le doigt la tire.
+\end_layout
+
+\begin_layout Section
+Des boutons à 15 mm, des soupapes à 17,5 mm
+\end_layout
+
+\begin_layout Standard
+Les boutons sont à 15 mm les uns des autres, une soupape avec sa portée demande 17,5 mm. Trois dispositions tiennent.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-pas"
+
+\end_inset
+
+Placer des soupapes à 17,5 mm sous des boutons à 15 mm.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.256
+\backslash
+linewidth}p{0.115
+\backslash
+linewidth}p{0.105
+\backslash
+linewidth}p{0.336
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright disposition & 
+\backslash
+raggedright effort & 
+\backslash
+raggedright place & 
+\backslash
+raggedright complexité 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright leviers en éventail (angle au plus 7 à 10$^{
+\backslash
+circ}$) & 
+\backslash
+raggedright + 2 à 5 
+\backslash
+% de frottement & 
+\backslash
+raggedright aucune & 
+\backslash
+raggedright 43 leviers différents, un paramètre dans la CAO 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright soupapes sur deux rangs décalés (30 mm par rang) & 
+\backslash
+raggedright + 0 
+\backslash
+% & 
+\backslash
+raggedright + 25 mm de profondeur & 
+\backslash
+raggedright deux longueurs de leviers, r égal par les bras 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright soupapes au pas de 15 mm avec un trou de 11 $
+\backslash
+times$ 27 mm & 
+\backslash
+raggedright + 0 
+\backslash
+% & 
+\backslash
+raggedright aucune & 
+\backslash
+raggedright nouvelle table et nouvelles chambres ; même aire, A/P 3,9 mm 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright bras coudés & 
+\backslash
+raggedright + 0 
+\backslash
+% en métal & 
+\backslash
+raggedright aucune & 
+\backslash
+raggedright en plastique, la torsion ajoute 0,15 mm et un moment de basculement 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Proposé : l'
+\series bold
+éventail
+\series default
+ si les leviers sont en métal et font au moins 100 mm (angle de 7° ou moins, 5 % de frottement au plus) ; 
+\series bold
+deux rangs
+\series default
+ s'ils sont courts (60 mm). Les deux se combinent (un éventail de 3°).
+\end_layout
+
+\begin_layout Section
+Les ressorts, et soixante-dix touches pareilles
+\end_layout
+
+\begin_layout Itemize
+Un ressort acier par soupape, sur le levier : précharge de 1,0 à 1,4 N à la soupape pour un trou de 300 mm² et des pointes de 2 à 3 kPa, raideur 0,06 à 0,07 N/mm (montée de 25 % sur la levée).
+\end_layout
+
+\begin_layout Itemize
+Ressort de torsion sur l'axe : fil de 1,0 à 1,2 mm, diamètre 7 à 10 mm, 8 à 12 spires, précharge de 45 à 100°. Le fil de 0,8 mm est trop sollicité.
+\end_layout
+
+\begin_layout Itemize
+Ressort de traction (comme sur la v5) : fil de 0,5 mm, diamètre 5 mm, 15 spires, accroché à 25 mm de l'axe, 10 mm d'allongement de précharge. Un ressort raide (1 N/mm) s'accroche près de l'axe (15 mm) et tire 5,5 N, si bien que le rail doit tenir 70 × 5,5 N = 385 N ; un souple (0,15 à 0,25 N/mm) s'accroche à 25 à 30 mm et tire 3 N.
+\end_layout
+
+\begin_layout Itemize
+Les ressorts du commerce varient de 10 % ; pour 5 g d'écart au bouton, chaque touche a besoin d'un réglage : l'accroche sur une vis M3 (un quart de tour fait environ 2 g au bouton) ou une patte de torsion qu'on cambre.
+\end_layout
+
+\begin_layout Itemize
+Tous les boutons se règlent au même effort, et c'est le plus gros trou qui fixe le niveau : les petites notes ont un ressort plus fort que nécessaire.
+\end_layout
+
+\begin_layout Chapter
+Mesurer avec presque rien
+\end_layout
+
+\begin_layout Standard
+Matériel : une balance de cuisine (1 g), des pièces de monnaie (1 c = 2,3 g, 5 c = 3,9 g, 10 c = 4,1 g, 20 c = 5,7 g, 50 c = 7,8 g, 1 € = 7,5 g, 2 € = 8,5 g), un peson de 0 à 500 g, un comparateur sur pied, des cales, un tube transparent de 1 m et une règle, un téléphone (sonomètre, enregistreur, ralenti), une perceuse pour le banc d'endurance.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Pression du soufflet (tube en U).
+\series default
+ Tube rempli à moitié, un côté relié à l'intérieur du soufflet ; jouer une basse grave du pianissimo au sforzando, au poussé et au tiré, et filmer le tube. 
+\begin_inset Formula $\Delta$
+\end_inset
+p = h × 0,098 kPa par centimètre. C'est le chiffre qui fixe le ressort et l'effort.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Soupape au banc.
+\series default
+ Une soupape sur un bloc avec le trou, relié au soufflet ou à un aspirateur avec fuite réglable. Étanchéité : des pièces sur la soupape sans ressort, la plus petite masse sans sifflement à 3 kPa (eau savonneuse autour de la portée). Décollement au tiré : un peson sur la soupape, tiré lentement ; puis la force à 1, 2, 3 et 5 mm de levée.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Plus petit trou pour une anche BB95.
+\series default
+ Plaques percées de 300, 225, 144 et 100 mm², levées de 1 à 8 mm ; niveau à 50 cm, enregistrement, hauteur. Le plus petit trou et la plus petite levée sans perte audible : chaque millimètre carré en moins est de l'effort en moins au bouton.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Effort au bouton, hystérésis, retour.
+\series default
+ Un gobelet léger sur le bouton, des pièces jusqu'à ce qu'il descende, puis en retirer jusqu'à ce qu'il remonte. Hystérésis = descente − remontée = deux fois le frottement ; viser moins de 25 g. Refaire soufflet gonflé (poussé) et dégonflé (tiré). Dix touches graves, cinq rappels, cinq aiguës. La même chose sur la Maugein de référence : c'est le chiffre à battre.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Temps mort et flottement.
+\series default
+ Comparateur sur le bouton, un second sur le bord de la soupape ; descendre le bouton par pas de 0,05 mm : la course avant que la soupape ne bouge est le temps mort, viser moins de 0,2 mm. Pousser le bouton de côté avec 50 g : viser moins de 0,3 mm.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Raideur d'un levier.
+\series default
+ Levier serré à son axe, 100 g au point du bouton, comparateur ; puis tourné de 90° : le rapport doit être (h/b)².
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Tige qui coulisse (v5).
+\series default
+ Peson dans l'axe, puis par le pion excentré : le rapport est le facteur tiroir. Enregistrer 20 appuis à 10 cm, compter les grincements. Refaire avec une gaine PTFE, puis un tube laiton.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Fluage et chaleur.
+\series default
+ Trois pièces identiques : au repos, sous charge une semaine, sous charge 2 h à 50 °C. Attendu : PLA − 20 à − 40 % en une semaine et effondré à 50 °C, PETG − 10 %, PA-CF − 5 %, acier 0.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Endurance.
+\series default
+ Une came sur une perceuse qui appuie une touche à 2 ou 3 Hz : 10 000 cycles en une heure ; effort, temps mort et bruit avant et après.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Répétition.
+\series default
+ Métronome ; répéter la note la plus grave et un rappel, de plus en plus vite jusqu'à ce qu'une note manque. But : 8 notes par seconde, aucune différence entre touche et rappel.
+\end_layout
+
+\begin_layout Enumerate
+
+\series bold
+Ressorts du stock.
+\series default
+ Longueur au repos, puis avec 100 g et 200 g : k = 0,98 N / (L2 − L1). Laisser 24 h sous 300 g : s'il s'est allongé, il a été tendu au-delà de sa limite élastique.
+\end_layout
+
+\begin_layout Chapter
+Sauver la v5 ?
+\end_layout
+
+\begin_layout Standard
+La v5 (un bouton qui coulisse dans la plaque, un pion, une équerre imprimée, une tige de liaison, un levier en aluminium à ressort de traction) se répare en quatre gestes légers : des douilles PTFE ou laiton dans la plaque ; des axes acier de 2 mm dans des trous alésés ou des tubes laiton dans les équerres ; équerres et supports réimprimés en ASA ; tiges de liaison remises en traction. Cela ramène l'effort perdu de + 100 % à + 10 à 15 % et le jeu de 0,2 à 0,05 mm par pivot. Ce qui reste, par principe : quatre à six articulations par touche contre une ou deux pour l'idée 1, des tiges en biais qui chargent les pivots de côté, le passage des 27 rappels sous la plaque, et un coulissement résiduel au bouton.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-v5"
+
+\end_inset
+
+Les défauts de la v5, leur cause, et la correction la plus légère qui garde son principe.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.126
+\backslash
+linewidth}p{0.239
+\backslash
+linewidth}p{0.298
+\backslash
+linewidth}p{0.149
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright défaut & 
+\backslash
+raggedright cause & 
+\backslash
+raggedright correction la plus légère & 
+\backslash
+raggedright gain 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright la tige du bouton grince et force & 
+\backslash
+raggedright $
+\backslash
+mu$ 0,4, broutage ; pion à 5 mm d'un guide de 8 mm : effort $
+\backslash
+times$ 2 & 
+\backslash
+raggedright gaine PTFE 2 $
+\backslash
+times$ 4 dans la plaque, portée 10 à 12 mm ; ou tube laiton huilé & 
+\backslash
+raggedright $
+\backslash
+times$ 1,1 (PTFE), $
+\backslash
+times$ 1,2 (laiton), plus de broutage 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright le bouton branle & 
+\backslash
+raggedright trou imprimé sur chant : ovale de 0,1 à 0,3 mm & 
+\backslash
+raggedright la même douille ; un chanfrein d'entrée & 
+\backslash
+raggedright flottement de 0,3 à 0,1 mm 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright jeu des pivots imprimés & 
+\backslash
+raggedright trou brut, moyeu court & 
+\backslash
+raggedright percer et aléser 2 H7 ou tube laiton pressé, axe corde à piano 2 mm & 
+\backslash
+raggedright 0,02 à 0,05 mm par pivot 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright fluage du PLA & 
+\backslash
+raggedright 57 $^{
+\backslash
+circ}$C, fort fluage sous la précharge permanente & 
+\backslash
+raggedright réimprimer les mêmes fichiers en ASA, PETG pour les boutons & 
+\backslash
+raggedright dérive des boutons $
+\backslash
+div$ 3 à 5 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright tiges en biais & 
+\backslash
+raggedright à 30$^{
+\backslash
+circ}$ : 58 
+\backslash
+% de l'effort de côté, + 23 
+\backslash
+% de frottement si guidée & 
+\backslash
+raggedright tourner les équerres pour que la tige parte dans le plan du levier ; ou un câble en traction & 
+\backslash
+raggedright frottement de + 23 
+\backslash
+% à + 7 
+\backslash
+% 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright pas de place pour les tiges des rappels & 
+\backslash
+raggedright des tiges rigides en compression doivent être droites et ne pas se toucher & 
+\backslash
+raggedright rappels par deux équerres et une biellette, ou câbles en traction sur deux niveaux & 
+\backslash
+raggedright croisements sans contact 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright leviers alu souples & 
+\backslash
+raggedright s'ils sont à plat (8 $
+\backslash
+times$ 2) : 2,6 mm sous 1,5 N sur 100 + 100 mm & 
+\backslash
+raggedright vérifier (essai 6) ; les mettre à chant ou ajouter une nervure & 
+\backslash
+raggedright de 2,6 à 0,16 mm 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright ressorts de traction sur rail & 
+\backslash
+raggedright montée de 25 à 60 
+\backslash
+% selon l'accroche & 
+\backslash
+raggedright accrocher à 20 à 25 mm de l'axe, vis de réglage & 
+\backslash
+raggedright montée de 20 à 25 
+\backslash
+%, 2 g par quart de tour 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Ce que la réparation ne change pas, c'est le plancher de l'effort. Il est dans le trou et la pression : réparer la v5 ou construire l'idée 1 donne les mêmes 177 g pour un trou de 300 mm² à 3 kPa de pointe. Ce qui diffère, c'est ce qui s'y ajoute : + 10 à 15 % et 0,1 à 0,25 mm de flottement pour la v5 réparée, + 2 à 4 % et 0,05 mm pour l'idée 1.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-decision"
+
+\end_inset
+
+Critères pour décider, mesurés sur la v5 réparée (10 touches graves, 5 rappels, 5 aiguës).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.123
+\backslash
+linewidth}p{0.053
+\backslash
+linewidth}p{0.262
+\backslash
+linewidth}p{0.171
+\backslash
+linewidth}p{0.171
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright critère & 
+\backslash
+raggedright essai & 
+\backslash
+raggedright seuil pour garder la v5 & 
+\backslash
+raggedright attendu v5 réparée & 
+\backslash
+raggedright idée 1 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright effort à mi-course & 
+\backslash
+raggedright 4 & 
+\backslash
+raggedright plancher + 15 
+\backslash
+% (177 à 204 g pour 300 mm$^{2}$) & 
+\backslash
+raggedright plancher + 10 à 15 
+\backslash
+% & 
+\backslash
+raggedright plancher + 2 à 4 
+\backslash
+% 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright égalité touche / rappel & 
+\backslash
+raggedright 4 & 
+\backslash
+raggedright écart de 10 g au plus & 
+\backslash
+raggedright 5 à 15 g & 
+\backslash
+raggedright 2 à 5 g 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright hystérésis & 
+\backslash
+raggedright 4 & 
+\backslash
+raggedright 25 g au plus & 
+\backslash
+raggedright 15 à 30 g & 
+\backslash
+raggedright 5 à 10 g 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright retour au poussé 3 kPa & 
+\backslash
+raggedright 4 et 10 & 
+\backslash
+raggedright toutes les touches remontent, 8 notes/s & 
+\backslash
+raggedright juste si le retour < 40 g & 
+\backslash
+raggedright même plancher 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright temps mort & 
+\backslash
+raggedright 5 & 
+\backslash
+raggedright 0,2 mm au plus & 
+\backslash
+raggedright 0,1 à 0,25 mm & 
+\backslash
+raggedright sous 0,1 mm 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright flottement latéral & 
+\backslash
+raggedright 5 & 
+\backslash
+raggedright 0,3 mm au plus & 
+\backslash
+raggedright 0,1 à 0,2 mm & 
+\backslash
+raggedright 0,2 mm 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright bruit & 
+\backslash
+raggedright 7 & 
+\backslash
+raggedright aucun grincement, aucun cliquetis audible à 50 cm & 
+\backslash
+raggedright cliquetis possibles aux attaches & 
+\backslash
+raggedright silencieux avec un peigne feutré 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright après 10 000 appuis & 
+\backslash
+raggedright 9 & 
+\backslash
+raggedright effort + 10 
+\backslash
+%, jeu + 0,05 mm au plus & 
+\backslash
+raggedright ASA bagué laiton : tient & 
+\backslash
+raggedright tient 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 2 h à 50 $^{
+\backslash
+circ}$C & 
+\backslash
+raggedright 8 & 
+\backslash
+raggedright dérive des boutons sous 0,3 mm & 
+\backslash
+raggedright ASA bon, PETG limite, PLA non & 
+\backslash
+raggedright mêmes matières 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright temps de travail & 
+\backslash
+raggedright estimation & 
+\backslash
+raggedright réparation au plus un tiers de l'idée 1 & 
+\backslash
+raggedright 3 à 6 jours & 
+\backslash
+raggedright 10 à 20 jours 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Règle de décision : si deux critères ou plus restent hors seuil après la réparation (le plus probable : hystérésis, temps mort et bruit), construire l'idée 1. Si tout passe sauf le temps de travail, garder la v5 comme l'instrument qui valide le trou, la pression et les ressorts (tout ce savoir passe à l'idée 1), et construire l'idée 1 ensuite, sans rien perdre des deux mois.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : les résultats des essais 1, 2, 4 et 5 sur la v5 et sur la Maugein, dans le tableau de décision, et le choix qui en découle.
+\end_layout
+
+\begin_layout Part
+Soupapes et fuites
+\end_layout
+
+\begin_layout Chapter
+L'air qui ne chante pas
+\end_layout
+
+\begin_layout Standard
+Une fuite, c'est de l'air qui s'échappe sans faire de musique. Elle est invisible et presque silencieuse, et pourtant le musicien la reconnaît tout de suite sans savoir la nommer : l'instrument fatigue, les notes douces partent mal, l'attaque est molle, et parfois une note sonne faiblement sans que personne ne l'ait jouée. Ce chapitre demande ce qu'est une fuite, physiquement, pourquoi elle fait exactement ces choses-là et pas d'autres, à partir de quelle taille elle compte, et comment la trouver avec presque rien.
+\end_layout
+
+\begin_layout Section
+Pourquoi une fuite gâche le jeu
+\end_layout
+
+\begin_layout Standard
+Trois choses sont sûres, deux sont probables.
+\end_layout
+
+\begin_layout Standard
+Chaque fuite mange de l'air. Le soufflet doit bouger davantage pour le même son, il change donc de sens plus souvent et le bras se fatigue plus tôt. C'est de l'arithmétique.
+\end_layout
+
+\begin_layout Standard
+Un instrument étanche peut être mis en pression avant la note. Le musicien serre le soufflet, rien ne bouge, et la pression attend derrière les soupapes fermées ; quand une soupape s'ouvre, l'anche reçoit toute la pression d'un coup et l'attaque est franche. Avec une fuite, la pression retombe dès que le bras cesse de pousser, et à l'attaque elle repart de presque rien : le transitoire est mou.
+\end_layout
+
+\begin_layout Standard
+La physique de l'anche donne la troisième certitude. Une anche démarre à une pression 
+\begin_inset Formula $p_{\mathrm{on}}$
+\end_inset
+ mais, une fois partie, tient jusqu'à une pression plus basse 
+\begin_inset Formula $p_{\mathrm{off}}$
+\end_inset
+ : c'est l'hystérésis étudiée dans la thèse. Le pianissimo le plus doux s'obtient en attaquant juste au-dessus de 
+\begin_inset Formula $p_{\mathrm{on}}$
+\end_inset
+. Si la pression à l'attaque est incertaine, parce que l'air fuit, l'anche ne part pas ou part trop fort. Une fuite se sent d'abord au seuil, là où le musicien demande le plus de précision.
+\end_layout
+
+\begin_layout Standard
+Deux choses encore sont probables. Une fuite proche d'une anche, dans la cire autour de sa plaque ou sous une valve qui ne ferme pas, est en parallèle de l'anche, derrière la soupape et le canal : elle fait baisser la pression que l'anche voit vraiment. Et une soupape ou une valve qui fuit alimente une chambre qui devrait se taire ; si une anche de cette chambre est proche de son seuil, elle sonne faiblement. C'est la note fantôme.
+\end_layout
+
+\begin_layout Section
+Deux lois pour une fuite
+\end_layout
+
+\begin_layout Standard
+Comment l'air passe-t-il par un interstice ? Cela dépend de sa forme, et il n'y a que deux formes à connaître.
+\end_layout
+
+\begin_layout Standard
+La première est le trou : une ouverture courte dans une paroi mince, une fissure dans un coin, un trou d'épingle dans une peau. L'air s'y précipite en jet, et son débit suit la loi de l'orifice,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+q = C_d\,S\,\sqrt{2\Delta p/\rho}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+où 
+\begin_inset Formula $S$
+\end_inset
+ est l'aire du trou, 
+\begin_inset Formula $\Delta p$
+\end_inset
+ la différence de pression, 
+\begin_inset Formula $\rho$
+\end_inset
+ la masse volumique de l'air et 
+\begin_inset Formula $C_d \approx 0{,}6$
+\end_inset
+ la contraction du jet. Le débit croît avec l'aire, donc avec le carré du diamètre, et seulement avec la racine de la pression. Le tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-fuite-trou"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ en donne quelques valeurs, et donne l'habitude de ce livre : une fuite se dit en litres par minute à 500 Pa, environ 5 cm d'eau, un mezzo-forte, et se figure par le trou rond qui fuirait autant.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-fuite-trou"
+
+\end_inset
+
+Fuite d'un trou rond, loi de l'orifice avec 
+\begin_inset Formula $C_d$
+\end_inset
+ = 0,6 (outils_atelier.py trou).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.244
+\backslash
+linewidth}p{0.186
+\backslash
+linewidth}p{0.186
+\backslash
+linewidth}p{0.197
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright diamètre du trou (mm) & 
+\backslash
+raggedright à 100 Pa (L/min) & 
+\backslash
+raggedright à 500 Pa (L/min) & 
+\backslash
+raggedright à 1500 Pa (L/min) 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 0,3 & 
+\backslash
+raggedright 0,03 & 
+\backslash
+raggedright 0,07 & 
+\backslash
+raggedright 0,13 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 0,5 & 
+\backslash
+raggedright 0,09 & 
+\backslash
+raggedright 0,20 & 
+\backslash
+raggedright 0,35 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 1 & 
+\backslash
+raggedright 0,37 & 
+\backslash
+raggedright 0,82 & 
+\backslash
+raggedright 1,4 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright 2 & 
+\backslash
+raggedright 1,5 & 
+\backslash
+raggedright 3,3 & 
+\backslash
+raggedright 5,7 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Un trou d'un millimètre laisse déjà passer presque un litre par minute.
+\end_layout
+
+\begin_layout Standard
+La seconde forme est le joint plat : deux surfaces qui devraient se toucher et ne se touchent pas tout à fait, une plaque sur sa cire, un sommier sur son joint, un cadre sur un cadre, une tirette de registre sur son lit. Ici l'air ne jaillit pas ; il se faufile dans une fente bien plus mince que longue, et c'est la viscosité qui commande. Entre deux faces planes écartées de 
+\begin_inset Formula $h$
+\end_inset
+, sur une longueur de joint 
+\begin_inset Formula $w$
+\end_inset
+ et à travers une portée de largeur 
+\begin_inset Formula $L$
+\end_inset
+, le débit suit la loi de Poiseuille,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+q = \frac{w\,h^{3}\,\Delta p}{12\,\mu\,L}
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+avec 
+\begin_inset Formula $\mu$
+\end_inset
+ la viscosité de l'air. Deux traits font de cette loi la plus utile de tout le livre. Le débit est proportionnel à la pression, pas à sa racine, si bien qu'on distingue un joint d'un trou en mesurant à deux pressions : une fuite qui double quand la pression double est un joint ; une fuite qui ne croît que de 1,4 fois est un trou. Et le débit croît comme le cube du jeu. Divisez le jeu par deux, la fuite est divisée par huit. Un joint n'est pas un peu pire quand il est un peu ouvert ; il est énormément pire.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/pratique_joint_fr.png
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:fr-joint"
+
+\end_inset
+
+Fuite d'un joint plat de 100 mm de tour et 5 mm de portée, à 500 Pa, en fonction de son jeu (loi de Poiseuille). Les points marquent le jeu qui donne chaque chiffre d'atelier proposé. Doubler le jeu multiplie la fuite par huit.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+La figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:fr-joint"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ chiffre cela pour un joint de la taille d'une plaque ou d'un petit sommier : 100 mm de tour, 5 mm de bois à traverser. Pour rester sous 0,05 L/min, le jeu doit être sous 0,026 mm, l'épaisseur d'une feuille de papier fin. À 0,05 mm, l'épaisseur d'un cheveu, le même joint fuit 0,35 L/min, sept fois l'objectif. Voilà pourquoi un sommier doit être plan et une plaque bien assise, et pourquoi la cire marche : elle comble un jeu qu'aucun rabot ne fermerait. La loi tient tant que l'écoulement dans la fente reste lent et ordonné, ce que outils_atelier.py vérifie par le nombre de Reynolds : moins de 4 jusqu'à un jeu de 0,05 mm, environ 30 à 0,1 mm. L'écoulement reste laminaire sur toute la figure ; ce n'est qu'aux plus grands jeux que les pertes à l'entrée de la fente, que la loi ignore, commencent à compter, et là la loi surestime un peu la fuite.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : deux ou trois vrais joints mesurés à 250 et 500 Pa (une plaque, un sommier, un cadre), pour voir s'ils se comportent en joints (débit doublé) ou en trous (débit fois 1,4). Le protocole du chapitre suivant le fait avec le même gazomètre.
+\end_layout
+
+\begin_layout Section
+À partir de quelle taille
+\end_layout
+
+\begin_layout Standard
+Les chiffres d'atelier, tirés du livret du stage, sont des propositions, pas encore mesurées sur les instruments d'Ewen. Le tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-budget"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ les donne avec ce statut, étape par étape, dans l'ordre où l'instrument se construit.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-budget"
+
+\end_inset
+
+Chiffres de fuite proposés à 500 Pa, par étape de fabrication (livret du stage ; à étalonner).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.093
+\backslash
+linewidth}p{0.280
+\backslash
+linewidth}p{0.471
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright étape & 
+\backslash
+raggedright pièce testée & 
+\backslash
+raggedright chiffre proposé 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright table d'harmonie & 
+\backslash
+raggedright chaque soupape, à la cloche & 
+\backslash
+raggedright moins de 0,02 L/min ; aucune soupape ne décolle sous 1,5 fois la plus forte pression de jeu 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright soufflet & 
+\backslash
+raggedright le soufflet seul, entre deux planches & 
+\backslash
+raggedright moins de 1 L/min 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright sommier & 
+\backslash
+raggedright collé, nu, puis garni de ses plaques (fentes au ruban) & 
+\backslash
+raggedright moins de 0,05 L/min 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright caisse & 
+\backslash
+raggedright caisse fermée avec mécanique et tirettes de registres & 
+\backslash
+raggedright moins de 0,5 L/min 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright instrument complet & 
+\backslash
+raggedright test de chute, poussé et tiré & 
+\backslash
+raggedright temps à fixer par Ewen 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+D'où viennent ces chiffres, et que devrait valoir le dernier ? Ici un peu d'arithmétique vaut mieux qu'une tradition. Une anche aiguë jouée pianissimo consomme probablement de l'ordre de 1 à 2 L/min (une ouverture efficace de 1 à 3 mm² sous 100 Pa ; à mesurer, le chapitre suivant dit comment). Le test de chute que l'atelier trouve bon, un soufflet de 10 litres qui met une minute à tomber, est une fuite de 10 L/min : plus que l'anche elle-même. Un tel instrument joue, mais son pianissimo part dans la fuite. Deux niveaux en sortent, à confirmer sur deux ou trois instruments qu'Ewen connaît, un qu'il trouve excellent et un médiocre : un niveau atelier, sous environ 10 L/min (les 10 litres tombent en plus d'une minute), et un niveau pianissimo, sous 2 à 3 L/min (la chute prend trois à cinq minutes).
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : le temps de chute et le pianissimo le plus doux d'une note aiguë, sur un instrument que tu trouves excellent et un que tu trouves médiocre. Le seuil de l'instrument complet est entre les deux.
+\end_layout
+
+\begin_layout Chapter
+Mesurer une fuite avec presque rien
+\end_layout
+
+\begin_layout Section
+Les outils du banc
+\end_layout
+
+\begin_layout Standard
+Quatre outils font presque tout, et trois ne coûtent rien.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Le tube en U.
+\series default
+ Un tuyau transparent plié en U, à moitié rempli d'eau avec une goutte de liquide vaisselle, sur une planchette avec une règle. L'écart des deux niveaux, en millimètres, fois 9,81, donne la pression en pascals ; en gros, 1 mm fait 10 Pa. C'est la référence contre laquelle on vérifie tous les autres capteurs.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Le gazomètre de cuisine.
+\series default
+ Une boîte en plastique retournée qui flotte dans un seau d'eau, guidée par deux tiges et lestée. Son poids fixe la pression, 
+\begin_inset Formula $p = mg/S$
+\end_inset
+ : pour une boîte de 150 cm² et 500 Pa, environ 0,77 kg, boîte comprise. Un tuyau passe sous l'eau et relie l'air de la boîte à la pièce testée. Si la pièce fuit, la boîte descend, et le débit est la surface multipliée par la vitesse de descente : avec 150 cm², 1 L/min fait 6,7 cm par minute, et 0,1 L/min fait 6,7 mm par minute. Il donne une pression constante et un débit absolu, sans aucune électronique.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+La cloche.
+\series default
+ Un petit pot d'environ 0,4 L au bord garni de mousse, posé côté extérieur sur une soupape fermée pendant que l'instrument est sous pression dedans. La fuite remplit la cloche et sa pression monte ; un tuyau la mène au tube en U. Pour une fuite de type orifice, le temps pour atteindre la moitié de la pression vaut environ 
+\begin_inset Formula $0{,}59\,V\,P/(p_{\mathrm{atm}}\,Q)$
+\end_inset
+ : avec 0,4 L et 500 Pa, 3,5 s pour 0,02 L/min et 35 s pour 0,002 L/min. Une soupape qui amène la cloche à mi-pression en moins de 3 s fuit plus que l'objectif. Une soupape à la fois, sans rien démonter.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+La chute de pression.
+\series default
+ On ferme la pièce avec un volume tampon connu, une bouteille de 1,5 L par exemple, on gonfle vers 600 Pa, on ferme, et on enregistre la pression qui tombe (commande LEAKTEST du banc, analyse par banc_recherche/leak.py). Le tampon est nécessaire parce que l'air d'un petit volume est un ressort très raide : une petite pièce se vide en une fraction de seconde. Une règle simple : avec une bouteille de 1,5 L, si la pression met plus de 2 s pour passer de 500 à 400 Pa, la pièce fuit moins de 0,05 L/min, à 30 % près ; à vérifier sur une fuite étalon. Pour un instrument entier, la chute est bien trop rapide, et c'est le gazomètre, ou le soufflet lui-même, qui prend le relais.
+\end_layout
+
+\begin_layout Standard
+Avant de croire l'un d'eux, on teste le banc lui-même : une plaque d'obturation posée sur une vitre ne doit pas fuir ; puis le banc doit lire juste les fuites étalons d'une plaque percée de trous de 0,3, 0,5 et 1 mm, dont les débits sont au tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-fuite-trou"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+.
+\end_layout
+
+\begin_layout Standard
+Deux règles de sécurité vont avec tout test de fuite : jamais de flamme pour chercher une fuite (celluloïd, bois, colle et peau brûlent), et pas d'eau savonneuse sur le bois, la peau ou le carton ; le savon seulement sur le métal, le plastique et le caoutchouc.
+\end_layout
+
+\begin_layout Section
+L'ordre des contrôles
+\end_layout
+
+\begin_layout Standard
+Une fuite se trouve bien plus facilement sur une pièce seule que dans l'instrument fini. Les contrôles suivent donc la fabrication, chacun sur une pièce encore ouverte à l'œil : le banc d'abord, puis le sommier collé nu, le sommier garni de ses plaques avec leurs fentes au ruban (dans les deux sens, pression et aspiration), puis le débit de chaque anche, ruban retiré (une mesure, pas un examen : l'air que consomme cette anche à 100, 300 et 500 Pa), puis la table d'harmonie avec ses soupapes sous la cloche, en montant la pression jusqu'à ce qu'une soupape décolle, puis la caisse fermée, le soufflet seul, et l'instrument complet par le test de chute. Le tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-budget"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ donne le chiffre proposé de chacun.
+\end_layout
+
+\begin_layout Section
+Le test de chute, en chiffres
+\end_layout
+
+\begin_layout Standard
+Le test de chute se fait déjà dans tous les ateliers ; il suffit de le chiffrer. L'instrument est suspendu, une masse connue tire le soufflet, la soupape d'air est fermée et aucune touche n'est enfoncée. On lit la pression au tube en U par la soupape d'air, et l'ouverture du soufflet en fonction du temps avec une règle et la vidéo d'un téléphone. Deux nombres en sortent. La surface efficace du soufflet, 
+\begin_inset Formula $S = mg/p$
+\end_inset
+. Et la fuite, 
+\begin_inset Formula $Q = S \times$
+\end_inset
+ vitesse. Deux masses différentes donnent deux pressions, et disent donc si c'est un joint ou un trou.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-chute"
+
+\end_inset
+
+Test de chute d'un soufflet qui balaie environ 10 litres sous 600 Pa : fuite et trou équivalent (outils_atelier.py chute).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{lll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+chute complète en & fuite (L/min) & trou équivalent (mm) 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+30 s & 20 & 4,7 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+1 min & 10 & 3,3 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+2 min & 5 & 2,4 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+5 min & 2 & 1,5 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Ce que disent les praticiens, dans les guides de réparation et les forums plutôt que dans des études, va avec le tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-chute"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ : sous 20 à 30 secondes, il y a une fuite franche à chercher ; un bon instrument tient au moins 30 secondes ; un très bon, une minute ou plus. L'arithmétique du chapitre précédent dit qu'une minute est encore une fuite plus grosse qu'une anche au pianissimo.
+\end_layout
+
+\begin_layout Chapter
+Trouver une fuite
+\end_layout
+
+\begin_layout Standard
+Une fois qu'on sait qu'une pièce fuit, où ? Les gestes vont du moins cher au plus malin.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+La fumée.
+\series default
+ Un bâton d'encens promené lentement le long des joints, pièce sous pression : la fumée est chassée là où l'air sort. Ou pièce en aspiration : la fumée est aspirée. 
+\series bold
+Un tuyau à l'oreille
+\series default
+, un stéthoscope de mécanicien fait d'un tuyau, promené à 5 mm des joints avec la pièce à 1500 Pa ou plus : le bruit d'un jet turbulent croît très vite avec sa vitesse, si bien que tripler la pression rend le sifflement 14 à 19 dB plus fort.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Faire chanter une fuite.
+\series default
+ Un jet à travers un petit trou est turbulent et siffle, d'un bruit qui monte haut, jusqu'à l'ultrason, là où la voix des anches et le bruit de la pièce sont faibles. Le sifflement reste noyé dans la pièce. La méthode proposée dans ce travail le fait ressortir en lui donnant un rythme : le soufflet module lentement la pression, en sinus à une fréquence connue de 2 à 10 Hz, et chaque fuite siffle alors plus fort et plus doux à cette fréquence. Un micro bon marché promené sur la surface enregistre ; le programme garde la bande du sifflement, environ 4 à 20 kHz, prend son enveloppe, et ne garde que ce qui bat exactement à la fréquence du soufflet, avec la bonne phase. C'est la détection synchrone, l'amplificateur à verrouillage du laboratoire de physique : tout ce qui ne bat pas à notre rythme est rejeté, et la fuite apparaît sur une carte (banc_recherche/leak.py : lockin, acoustic_leak_strength, leak_map). Deux micros fixes peuvent aussi situer une fuite sans bouger : son sifflement leur arrive avec un petit retard qui dépend de sa position, et la corrélation des deux signaux donne ce retard.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Rendre une fuite visible.
+\series default
+ Deux autres méthodes sont proposées, non construites. La strioscopie sur fond (BOS) filme un fond moucheté imprimé à travers le jet : un air de densité différente dévie un peu la lumière, et un programme qui compare les images révèle le jet invisible, d'autant mieux que l'air est chaud et humide comme un souffle. Ou bien on remplit le soufflet de gaz carbonique et on balaie la surface avec un petit capteur de gaz de quelques euros : la concentration monte aux fuites.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Laisser chaque anche signer sa fuite.
+\series default
+ Une fuite près d'une anche lui vole une part de son air : l'anche démarre plus tard, sonne plus doux, et se désaccorde à sa façon. L'accordeur de ce travail mesure déjà l'écart, le niveau et le temps de réponse de chaque anche ; une fuite locale y laisse sa trace, sans aucun micro promené.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : celles de ces méthodes que tu utilises déjà, et les deux que tu voudrais essayer d'abord. Et la surface de la boîte de ton gazomètre.
+\end_layout
+
+\begin_layout Chapter
+À l'établi du réparateur
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Toutes les notes molles à l'attaque, l'instrument fatigant.
+\series default
+ Une fuite globale. Chiffrer le test de chute, poussé et tiré ; s'il est sous une minute, fermer l'instrument pièce par pièce (soufflet entre deux planches, puis chaque demi-caisse) et trouver où part l'air avant de chercher l'endroit.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Une note fantôme au fortissimo.
+\series default
+ Soit une soupape qui décolle (la partie main droite donne la force qu'il faut à son ressort), soit la valve de la languette muette qui ne ferme pas. La cloche sur la soupape suspecte répond à la première ; la seconde se trouve par l'anche elle-même : une anche qui sonne faiblement dans le mauvais sens a une valve à remplacer.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Une note en retard et faible, les autres bien.
+\series default
+ Une fuite près de cette anche : la cire autour de sa plaque, sa valve, sa chambre. Fermer la fente de sa languette au ruban et tester le sommier au gazomètre ; une fuite qui disparaît quand on appuie la plaque est une plaque à recirer.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+La cire et les joints.
+\series default
+ Un joint qui fuit ne se guérit pas en appuyant plus fort dessus mais en réduisant le jeu : recirer la plaque d'un cordon continu, dresser la face d'un sommier sur un papier abrasif posé sur une vitre, remplacer un joint écrasé. La loi du cube dit pourquoi un jeu divisé par deux est une fuite divisée par huit.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : les gestes que tu utilises pour réparer une valve qui fuit, une soupape qui fuit et une plaque qui fuit, avec leurs matériaux, pour que cette liste soit celle de ton établi.
+\end_layout
+
+\begin_layout Part
+Soufflet
+\end_layout
+
+\begin_layout Chapter
+Le poumon de l'instrument
+\end_layout
+
+\begin_layout Standard
+Tout ce qui est en amont de l'anche est dans le soufflet : la pression, sa montée, sa chute, son changement de sens. Un soufflet à cadres, ce sont des plis de carton et de toile, de la peau aux coins, et un cadre en bois à chaque bout qui reçoit les deux moitiés de la caisse. Sur les instruments des stages, il est acheté tout fait ; le stagiaire colle ses cadres, perce et pose les pions, et le contrôle seul avant de le monter. Ce chapitre pose trois questions qu'un facteur rencontre avant tous ces gestes : quelle sorte de source d'air est un soufflet, quelle taille doit-il avoir, et où fuit-il.
+\end_layout
+
+\begin_layout Section
+Une source de débit, tenue par un bras
+\end_layout
+
+\begin_layout Standard
+Que règle vraiment le bras, la pression ou le débit ? Chaque musicien a la réponse dans les mains. Gardez le soufflet à vitesse constante et ouvrez un accord : la pression baisse, parce que le même débit se partage maintenant entre plus d'anches. Une source de pression, comme le grand réservoir lesté d'un orgue, tiendrait la pression et enverrait deux fois le débit dans deux anches. Un soufflet se comporte plutôt comme une source de débit, et la vérité est entre les deux idéaux : une vraie source donne moins de débit quand la pression monte. La loi la plus simple est une droite,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+q = q_0 - p/R
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+où 
+\begin_inset Formula $q_0$
+\end_inset
+ est le débit à pression nulle et 
+\begin_inset Formula $R$
+\end_inset
+ la résistance interne de la source. La thèse montre ce que 
+\begin_inset Formula $R$
+\end_inset
+ fait à l'anche : il change l'amplitude de la note et déplace son seuil. Ici il compte pour une raison plus simple. Un bourdon, un accord, une seconde voix, tous puisent à la même source, et la pression que reçoit chaque note dépend de ce que prennent les autres.
+\end_layout
+
+\begin_layout Standard
+Le bras lui-même est l'autre moitié de la source. Une force 
+\begin_inset Formula $F$
+\end_inset
+ sur un soufflet de surface efficace 
+\begin_inset Formula $S$
+\end_inset
+ fait une pression
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+p = F/S
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+et une course de longueur 
+\begin_inset Formula $c$
+\end_inset
+ balaie un volume 
+\begin_inset Formula $S\,c$
+\end_inset
+. La surface efficace n'est pas la surface du cadre : les plis cèdent un peu sous la pression, et la force se répartit sur moins que toute la section. Elle se mesure, elle ne se calcule pas, par le test de chute de la partie fuites : une masse connue 
+\begin_inset Formula $m$
+\end_inset
+ sur le soufflet, la pression lue au tube en U, et 
+\begin_inset Formula $S = mg/p$
+\end_inset
+.
+\end_layout
+
+\begin_layout Section
+Quelle taille de soufflet
+\end_layout
+
+\begin_layout Standard
+Ewen a répondu à la question de la taille du soufflet en une phrase : une section minimale selon le nombre de voix ; trop petit, pas assez d'air ; trop grand, plus assez de pression ; un optimum, peut-être à calculer. Voici le calcul, et il est court.
+\end_layout
+
+\begin_layout Standard
+Trop grand d'abord. Le bras a une force qu'il donne sans peine le temps d'une phrase, 
+\begin_inset Formula $F$
+\end_inset
+. Pour atteindre la pression 
+\begin_inset Formula $p$
+\end_inset
+ dont les anches ont besoin pour un forte, la surface ne doit pas dépasser
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+S_{\max} = F/p.
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+Trop petit ensuite. Une phrase dure un temps 
+\begin_inset Formula $t$
+\end_inset
+ entre deux changements de sens ; les anches qui sonnent pendant ce temps consomment un débit 
+\begin_inset Formula $Q$
+\end_inset
+, plus la fuite ; une course de longueur 
+\begin_inset Formula $c$
+\end_inset
+ doit tout contenir :
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula \[
+S_{\min} = Q\,t/c.
+\]
+\end_inset
+\end_layout
+
+\begin_layout Standard
+Entre les deux, la fenêtre, que la figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:fr-soufflet-fenetre"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ dessine avec des chiffres ronds choisis seulement pour rendre l'arithmétique visible : un bras de 40 N, une course de 0,4 m, une phrase de 4 s, et un accord forte de neuf anches (trois notes de trois voix) à 10 L/min chacune. À 1000 Pa, la fenêtre va de 150 à 400 cm². À 2000 Pa, elle se resserre à 150 à 200 cm². Au-dessus d'environ 2700 Pa, elle se ferme : un soufflet assez grand pour tenir l'accord quatre secondes ne peut plus être poussé à cette pression par ce bras. L'optimum qu'Ewen devinait est réel, et c'est le point où les deux limites se rejoignent.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float figure
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\align center
+\begin_inset Graphics
+	filename figures/pratique_soufflet_fr.png
+	width 100text%
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "fig:fr-soufflet-fenetre"
+
+\end_inset
+
+La fenêtre de section d'un soufflet, avec des chiffres ronds d'exemple à remplacer par des mesures (outils_atelier.py soufflet). Au-dessus de 
+\begin_inset Formula $F/p$
+\end_inset
+, le bras ne fait plus la pression ; au-dessous de 
+\begin_inset Formula $Qt/c$
+\end_inset
+, l'air manque avant la fin de la phrase. Pour un pianissimo de deux anches (tirets), la limite d'air est négligeable ; c'est le forte qui ferme la fenêtre.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Deux leçons tiennent quels que soient les vrais chiffres. Au pianissimo, deux anches à 2 L/min ne demandent qu'une section de 7 cm² : le côté air ne contraint jamais, et la section est fixée par le forte. Et le nombre de voix entre directement dans le minimum, ce qui est la règle d'Ewen écrite en algèbre : une troisième voix, c'est un tiers d'air en plus pour la même phrase, et un soufflet taillé pour deux voix s'épuise plus tôt avec trois. Mais aucune des entrées de la figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:fr-soufflet-fenetre"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ n'a été mesurée. Le débit d'une anche au forte est la moins connue : les modèles de réseau de la thèse donnent 6 à 24 L/min par languette à 1000 Pa et sont connus pour être trop généreux.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : les cinq nombres de la fenêtre, sur un de tes instruments. La force de ton bras pour un forte tenu, avec un peson de bagage accroché à la courroie ; la course utile du soufflet ; la durée d'une phrase typique entre deux changements de sens ; le débit d'une anche au mezzo-forte et au forte, par la descente du gazomètre ruban retiré ; et la surface efficace du soufflet par le test de chute. Ensuite outils_atelier.py soufflet dessine la vraie fenêtre.
+\end_layout
+
+\begin_layout Section
+Où fuit un soufflet
+\end_layout
+
+\begin_layout Standard
+L'atelier le sait : aux coins et aux cadres. La physique ajoute pourquoi les cadres sont si exigeants. Un cadre est un joint plat, et un long : environ un mètre de tour pour un petit instrument. Par la loi du cube de la partie fuites, un joint de cadre de 1000 mm de long, 10 mm de portée et un jeu de 0,05 mm, l'épaisseur d'un cheveu, fuit à lui seul 1,7 L/min à 500 Pa, plus que tout le budget du soufflet (moins de 1 L/min, tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-budget"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+). À 0,02 mm il fuit 0,11 L/min ; à 0,1 mm, 14 L/min. Aucune paire de cadres en bois n'est plane à deux centièmes de millimètre sur un mètre après une saison d'humidité, et c'est pourquoi le cadre a besoin de son joint : le joint ne ferme pas le jeu, il le remplit.
+\end_layout
+
+\begin_layout Standard
+Les coins sont l'autre point faible : de la peau pliée et collée à l'endroit où le carton plie le plus, et où il s'use en premier. Un trou là est un trou, pas un joint, et le tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-fuite-trou"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ dit ce qu'il pèse : un millimètre, c'est presque un litre par minute.
+\end_layout
+
+\begin_layout Chapter
+Faire et contrôler le soufflet
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Cadres collés, trous percés, pions posés.
+\series default
+ Le soufflet doit entrer sur la caisse sans forcer et sans jour. Un cadre qu'il faut forcer revient en ressort et ouvre son joint ; un cadre qui laisse passer la lumière est déjà une fuite de la taille de la figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:fr-joint"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Le soufflet seul, entre deux planches.
+\series default
+ Le fermer entre deux planches à joint, accrocher une masse connue, filmer la descente avec une règle à côté, et passer la fumée d'encens le long des coins. Chiffre proposé : moins de 1 L/min à 500 Pa. La même mesure donne la surface efficace du soufflet, 
+\begin_inset Formula $mg/p$
+\end_inset
+, dont la fenêtre ci-dessus a besoin.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : le soufflet est acheté, avec deux mois de délai. Que contrôles-tu à l'arrivée, et qu'est-ce qui te fait en renvoyer un ?
+\end_layout
+
+\begin_layout Chapter
+À l'établi du réparateur
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+L'instrument fatigue le musicien, le test de chute est court.
+\series default
+ Fermer le soufflet seul entre deux planches : si la fuite reste, elle est dans le soufflet ; si elle part, elle est dans les caisses ou les cadres. Puis la fumée, coin par coin.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Des trous d'épingle dans les plis.
+\series default
+ Une petite lampe posée dans le soufflet, dans une pièce noire, montre chaque trou d'épingle comme un point de lumière ; un coin usé se voit comme une lueur.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Une fuite à un cadre.
+\series default
+ Regarder d'abord le joint : écrasé, durci ou déchiré, il ne remplit plus le jeu, et la loi du cube dit que quelques centièmes de millimètre suffisent à perdre le budget. Le remplacer avant de toucher au bois.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Un soufflet devenu mou, ou raide.
+\series default
+ Un carton qui a perdu son ressort, ou une colle durcie aux plis. Cela change le toucher plus que l'air, et sa mesure est la surface efficace : comparer 
+\begin_inset Formula $mg/p$
+\end_inset
+ avec celle d'un soufflet que le musicien aime.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : les réparations de soufflet que tu fais toi-même et celles que tu envoies ailleurs, et le temps de chacune.
+\end_layout
+
+\begin_layout Part
+Sommiers et plaques
+\end_layout
+
+\begin_layout Chapter
+Un peigne de bois sous les anches
+\end_layout
+
+\begin_layout Standard
+Un sommier est un peigne de bois. Chaque dent est une cloison, et entre deux cloisons se trouve une chambre ; une plaque d'anches avec ses deux languettes ferme la chambre d'un côté, la table d'harmonie avec son trou de l'autre. Sur les instruments des stages, les sommiers sont fraisés deux par deux dans un même brut, avec leurs talons, et ébavurés avant le stage ; le stagiaire vérifie qu'ils tombent en face des trous de la table, contre-perce les fixations, colle chaque sommier sur ses talons, coule la cire autour des plaques, contrôle les fuites du sommier garni, et le visse sur la table avec des vis M3 dans des inserts.
+\end_layout
+
+\begin_layout Standard
+Ce que la forme de la chambre fait au son, le volume de ses cellules, le trou, le couplage des deux voix d'une note, c'est de l'acoustique, et la thèse le traite. Ce chapitre garde ce qui décide si un sommier est juste entre les mains du facteur : qu'il soit étanche, que chaque anche ait sa place, et que ce qui est vissé puisse se démonter sans changer la note.
+\end_layout
+
+\begin_layout Section
+Plan, ou pas étanche
+\end_layout
+
+\begin_layout Standard
+Chaque face d'un sommier est un joint plat : plaque sur cire, sommier sur talon, sommier sur table. La loi du cube de la partie fuites s'applique à toutes, et elle est sévère. Un joint de 100 mm de tour avec 5 mm de bois à traverser fuit 0,05 L/min à 500 Pa, le chiffre proposé pour tout un sommier, avec un jeu de seulement 0,026 mm (figure 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "fig:fr-joint"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+). Un sommier a plusieurs joints de ce genre, chacun doit donc faire mieux. Aucune fraiseuse et aucun rabot ne laissent deux faces qui se ferment ; il faut quelque chose pour remplir le jeu. C'est le travail de la cire sous et autour d'une plaque, de la colle entre sommier et talon, et du joint ou du mastic entre sommier et table. Vu par la loi du cube, choisir entre eux, c'est choisir comment un jeu est rempli, et s'il peut être rempli à nouveau.
+\end_layout
+
+\begin_layout Standard
+Un sommier collé est étanche par nature et ne se démonte pas. Un sommier vissé se démonte pour l'accord et la réparation, et alors tout repose sur son joint : écrasé une fois de trop, le joint ne remplit plus le jeu, et la fuite revient avec le cube des centièmes perdus. La cire autour d'une plaque étanche et se refait à la cuillère ; elle ramollit à la chaleur et durcit en vieillissant. Des clous à travers une bande de peau tiennent la plaque mécaniquement et laissent l'étanchéité à la peau. Ce que ces choix font à la languette elle-même, son amortissement et sa hauteur, est une question de la thèse (le chapitre sur le couplage des anches), et elle n'a pas encore de réponse au-delà du protocole qui en donnerait une.
+\end_layout
+
+\begin_layout Section
+Une fuite entre deux chambres
+\end_layout
+
+\begin_layout Standard
+Il y a une fuite que le gazomètre ne voit pas, parce qu'elle ne sort pas. Si la face d'un sommier ne ferme pas contre la table entre deux chambres, l'air passe d'une chambre à sa voisine. Quand la soupape d'une note s'ouvre, un peu d'air atteint la chambre suivante, dont la soupape est fermée ; si une anche y est proche de son seuil, elle sonne faiblement. Une note fantôme sur une voisine, et non sur la note elle-même, désigne cette fuite sous le sommier plutôt qu'une soupape.
+\end_layout
+
+\begin_layout Section
+Chaque anche dans sa case
+\end_layout
+
+\begin_layout Standard
+Le livret demande qu'aucune anche ne touche le fond de sa case ni la cloison. La raison est simple : une languette qui frôle le bois dans son mouvement ne parle pas, ou grésille. Le programme de fraisage vérifie la place de chaque anche sur le modèle avant de couper (une anche posée dans sa case ne touche pas la cloison) ; le stagiaire la vérifie de nouveau après la cire, parce qu'un cordon de cire peut pousser une plaque hors de sa ligne.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : le jeu que tu laisses entre une anche et sa cloison et son fond, et s'il change de l'aigu au grave, où les languettes battent plus large.
+\end_layout
+
+\begin_layout Chapter
+Faire et contrôler les sommiers
+\end_layout
+
+\begin_layout Standard
+Chaque pas du stage, avec sa raison.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Trier les anches par sommier, puis par rang, puis par note,
+\series default
+ chacune en face de sa case marquée A ou B. Une plaque dans la mauvaise case est une note à la mauvaise place, et une fois cirée c'est une réparation.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Cirer chaque plaque,
+\series default
+ la cire chauffée au chauffe-biberon et coulée à la cuillère tout autour de la plaque, le cordon continu. Le cordon est le remplissage de la loi du cube : un trou dedans est un trou, et un trou d'un millimètre, c'est presque un litre par minute.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Contrôler le sommier garni,
+\series default
+ ses fentes fermées au ruban, au gazomètre, en pression puis en aspiration, parce qu'une plaque peut être appuyée sur sa cire dans un sens et tirée hors d'elle dans l'autre. La fumée pour trouver une fuite. Chiffre proposé : moins de 0,05 L/min à 500 Pa.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Mesurer le débit de chaque anche,
+\series default
+ un ruban retiré à la fois, par la descente du gazomètre à 100, 300 et 500 Pa. Ce n'est pas un examen mais une mesure : l'air que consomme cette anche, dont la partie soufflet a besoin et que personne n'a encore.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Visser les sommiers sur la table,
+\series default
+ vis M3 dans les inserts, puis une lampe : pas de jour entre sommier et table.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : le joint ou le mastic entre sommier et table sur tes instruments, et combien de fois un sommier vissé peut être démonté avant qu'il faille changer son joint.
+\end_layout
+
+\begin_layout Chapter
+À l'établi du réparateur
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Une note en retard et faible.
+\series default
+ Fermer sa fente au ruban et tester le sommier : si la fuite part quand on appuie la plaque, la recirer ; si elle reste, regarder la chambre et sa face sur la table.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Une voisine qui chuchote.
+\series default
+ Une fuite entre deux chambres sous le sommier. Démonter le sommier, regarder sa face contre la table et le joint ; dresser la face sur un papier abrasif posé sur une vitre si elle n'est plus plane.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Une note qui a changé après démontage et remontage des sommiers.
+\series default
+ La thèse demande si remonter un sommier déplace la hauteur de ses languettes de plus que les quelques cents dont la chambre elle-même les déplace ; c'est de l'établi que viendra la réponse. Noter l'écart de chaque note à l'accordeur avant et après.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Une anche qui grésille.
+\series default
+ Elle touche sa case, ou sa plaque a bougé dans la cire. Regarder le long de la fente contre une lumière, et recirer droit.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : quand un sommier vissé est démonté et remonté, une languette change-t-elle de plus de quelques cents ? Trois notes, à l'accordeur, avant et après.
+\end_layout
+
+\begin_layout Part
+Les anches à l'établi
+\end_layout
+
+\begin_layout Chapter
+Un ressort qui chante
+\end_layout
+
+\begin_layout Standard
+Une anche est une languette d'acier à ressort rivée par son talon sur une plaque, au-dessus d'une fente à peine plus large qu'elle de quelques centièmes de millimètre. Sur l'autre face de la plaque, une seconde languette couvre une seconde fente, dans l'autre sens, et chaque fente a sa valve, un rabat de peau ou de plastique, du côté d'où ne vient pas son air. La thèse consacre toute une partie à ce qui fait sonner une telle languette. Ce chapitre demande ce qu'en font le facteur et le réparateur : comment l'accorder, comment la régler, quoi mesurer, et que faire quand elle ne parle pas.
+\end_layout
+
+\begin_layout Section
+Où gratter
+\end_layout
+
+\begin_layout Standard
+Une languette est un ressort avec une masse, et sa fréquence va comme la racine de la raideur sur la masse. Une lime ou un grattoir peut ôter l'une ou l'autre, selon l'endroit où il mord. Près du bout, l'acier bouge le plus et plie le moins : gratter là enlève de la masse où elle compte et de la raideur où elle ne compte pas, et la note monte. Près du talon, l'acier plie le plus et bouge le moins : gratter là enlève de la raideur, et la note descend. D'où la règle imprimée sur le stroboscope de l'accordeur de ce travail : trop haut, gratter vers le talon ; trop bas, gratter vers le bout.
+\end_layout
+
+\begin_layout Standard
+Quelle sensibilité ? Pour une lame d'épaisseur régulière, la fréquence est proportionnelle à l'épaisseur : amincir toute la languette d'un pour cent fait baisser la note d'un pour cent, 17 cents, un sixième de demi-ton. Un grattage local fait bien moins qu'un amincissement régulier, et c'est justement pourquoi on peut gratter, un coup à la fois, sous l'œil de l'accordeur. La même proportion explique pourquoi les valeurs de manuel de l'acier ne suffisent pas pour accorder : la raideur de l'acier à ressort varie d'environ 3 % selon la nuance, soit 26 cents sur la note. La thèse donne la façon de la mesurer sur une bande du même acier.
+\end_layout
+
+\begin_layout Section
+À quelle pression accorder
+\end_layout
+
+\begin_layout Standard
+Toutes les versions des modèles de la thèse disent que la note d'une anche libre baisse quand le musicien pousse plus fort. Une anche accordée à une pression est donc un peu fausse aux autres, et la question « à quelle pression accordes-tu ? » n'est pas un détail. Sur l'instrument d'Ewen, l'accordeur a trouvé 15 à 25 cents d'écart entre poussé et tiré sur les mêmes notes, ce qui est l'autre face de la même question : les deux languettes d'une plaque sont deux lames différentes, accordées séparément, et elles doivent s'accorder à la pression dont la musique se sert.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : à quelle pression, ou avec quel geste de soufflet, tu accordes ; si c'est la même pour les basses et les aigus ; et ta tolérance en cents pour un instrument de stage.
+\end_layout
+
+\begin_layout Section
+Deux voix et leur battement
+\end_layout
+
+\begin_layout Standard
+Une note accordée en musette, ce sont deux ou trois languettes légèrement désaccordées, dont le battement fait le trémolo. Le battement est la différence de leurs fréquences, et le tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-battements"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+ le donne autour du la 440 Hz pour les écarts dont se sert un accordeur.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-battements"
+
+\end_inset
+
+Battement de deux voix autour du la 440 Hz (outils_atelier.py battement).
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{lll}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+écart (cents) & battement (Hz) & battements par minute 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+2 & 0,51 & 31 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+3 & 0,76 & 46 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+5 & 1,27 & 76 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+10 & 2,55 & 153 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+15 & 3,83 & 230 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+20 & 5,11 & 307 
+\backslash
+
+\backslash
+
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+La thèse ajoute un avertissement que l'accordeur devrait connaître. Deux languettes qui partagent l'air d'une soupape sont couplées, et le modèle de réseau prédit que près de l'unisson elles s'entraînent l'une l'autre : sous environ 2 cents, au la 4 et à 1000 Pa, les deux voix se verrouillent sur une seule fréquence et le battement disparaît ; à 5 cents, le battement est encore 12 % plus lent que la différence des lames ; à 20 cents, il est libre. Près du verrouillage, le battement entendu n'est pas la différence des lames mais 
+\begin_inset Formula $\sqrt{\Delta^2-\Delta_L^2}$
+\end_inset
+, la loi de deux oscillateurs couplés. Si le modèle a raison, une voix accordée à 2 cents de sa partenaire ne battra plus du tout une fois les deux libres, et un trémolo lent doit être accordé un peu plus large que sa cible. L'expérience E3 de la thèse le teste à l'accordeur : accorder une languette avec l'autre bloquée par une bande de papier, la libérer, et lire si le battement survit.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : l'expérience E3 sur une note musette : le battement lu avec l'autre voix bloquée puis libre, à 1, 2, 3 et 5 cents. Le battement disparaît-il sous environ 2 cents ?
+\end_layout
+
+\begin_layout Section
+La levée de la languette, et les quatre pressions
+\end_layout
+
+\begin_layout Standard
+Le bout d'une languette ne repose pas à plat dans sa fente ; il se tient un peu au-dessus, c'est la levée. La levée décide de la façon dont l'anche démarre et de jusqu'où on peut la pousser. Quatre pressions la décrivent, toutes mesurables au banc : la pression à laquelle elle démarre, 
+\begin_inset Formula $p_{\mathrm{on}}$
+\end_inset
+, le pianissimo le plus doux qu'on puisse attaquer ; la pression à laquelle elle se plaque et se tait alors que la pression monte encore, le fortissimo le plus fort ; et, en redescendant, la pression à laquelle elle repart et celle à laquelle elle s'éteint, 
+\begin_inset Formula $p_{\mathrm{off}}$
+\end_inset
+, le pianissimo le plus doux qu'on puisse tenir. Le but d'Ewen pour un sommier, la plus grande plage de jeu avec le seuil le plus bas, s'écrit dans ces quatre nombres.
+\end_layout
+
+\begin_layout Standard
+L'hypothèse de travail, tirée des travaux classiques de St Hilaire et de ses collègues et prolongée dans ce projet, est qu'à géométrie égale la pression de démarrage croît comme le carré de la fréquence fois la levée, tandis que la pression de plaquage croît comme la raideur fois la levée sur la surface. Une levée basse démarrerait alors facilement et se plaquerait tôt ; une levée haute tiendrait un fortissimo et refuserait un pianissimo. L'expérience E19 mesure les quatre pressions pour trois anches à trois levées, et contredirait l'hypothèse si la pression de démarrage ne bougeait pas avec la levée.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : comment tu règles la levée aujourd'hui (à l'œil, à la cale), et les anches que tu choisirais pour E19, une grave, une médium, une aiguë.
+\end_layout
+
+\begin_layout Section
+La valve
+\end_layout
+
+\begin_layout Standard
+La valve rend le passage d'air par une fente à sens unique. Sans elle, l'air du soufflet fuirait par la fente de la languette muette de chaque plaque, et cette languette, si elle est proche de son seuil, chuchoterait : une note fantôme. Les modèles de la thèse prennent la valve pour parfaite ; une vraie valve a une masse, fuit un peu, et claque contre la plaque à chaque changement de sens du soufflet, là où l'accordeur de ce travail voit le changement de sens. La thèse a un protocole pour comparer valves de peau et de plastique ; à l'établi, la valve est une pièce qui s'use, se recroqueville, colle ou se décolle.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : tes valves sont-elles posées avant le stage ou par le stagiaire ? Avec quelle colle, et comment ?
+\end_layout
+
+\begin_layout Chapter
+Les outils de l'établi
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+L'accordeur de ce travail
+\series default
+ montre chaque anche à la fois à la façon d'un stroboscope et dit quoi faire de la languette ; quatre voyants s'allument quand l'anche approche de sa cible, à 5, 1, 0,3 et 0,1 cent. Le mode registre mesure deux à cinq voix ensemble sans en bloquer aucune, montre le battement de chaque voix désaccordée, et une liste de battements, le trémolo cible, peut se copier d'un instrument à un autre. Poussé et tiré sont mesurés et gardés à part.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Le tube en U
+\series default
+ donne la pression à laquelle une anche est accordée ou ses seuils lus ; 
+\series bold
+le gazomètre
+\series default
+ donne l'air que consomme une anche ; 
+\series bold
+les cales d'épaisseur et une lampe
+\series default
+ donnent la levée et les jeux ; 
+\series bold
+un téléphone filmant à 240 images par seconde
+\series default
+ montre une languette grave battre, et si son bout sort de la fente.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Une languette pincée
+\series default
+ en dit long avant tout souffle : pincez-la d'un ongle, enregistrez-la au téléphone, et la fréquence et l'amortissement sortent de l'enregistrement (pince.py dans la thèse). Une languette qui sonne bien plus court que ses voisines a un rivet desserré, une fêlure, ou quelque chose qui la touche.
+\end_layout
+
+\begin_layout Chapter
+À l'établi du réparateur
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Une anche qui ne parle pas.
+\series default
+ Par ordre de probabilité : elle touche la fente ou la case (regarder contre une lumière), sa levée est perdue (le bout est couché dans la fente), la valve de sa partenaire manque et son air fuit, la cire autour de sa plaque fuit, ou une saleté est dans la fente. Une cale fine passée autour de la languette trouve un grain.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Une anche qui parle tard, ou seulement fort.
+\series default
+ Son seuil est haut : levée trop grande, ou une fuite qui lui prend sa pression (la partie fuites de ce livre). Comparer sa pression de démarrage avec une voisine au tube en U.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Un grésillement ou un cliquetis.
+\series default
+ Une languette qui frôle, un rivet desserré (le pincement sonne court), une valve qui claque ou à moitié décollée.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Une note fausse après des années.
+\series default
+ La réaccorder, mais regarder d'abord : la rouille ajoute de la masse là où elle se forme, et une languette piquée peut se fêler plus tard. Une languette fêlée ou cassée se remplace, elle ne s'accorde pas.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : ta liste des réparations d'anches, de la plus fréquente, et le délai du fournisseur pour une anche de rechange.
+\end_layout
+
+\begin_layout Part
+Registres
+\end_layout
+
+\begin_layout Chapter
+Une porte pour toute une rangée d'anches
+\end_layout
+
+\begin_layout Standard
+Un registre ferme ou ouvre d'un coup toute une série d'anches : une tirette percée d'une rangée de trous glisse sous les sommiers, et ses trous sont en face des trous des chambres ou non. C'est une soupape pour une rangée au lieu d'une note, et elle partage les ennuis des soupapes et des joints. Ce chapitre est court, parce que rien n'a été mesuré sur un registre dans ce travail ; il dit ce que la physique des parties précédentes prédit, pour que les premières mesures sachent quoi chercher.
+\end_layout
+
+\begin_layout Section
+Étanche et libre à la fois
+\end_layout
+
+\begin_layout Standard
+Une tirette doit faire deux choses qui tirent en sens contraire. Elle doit étancher, pour qu'un registre fermé reste muet ; et elle doit bouger, pour que le musicien change de registre le temps d'un souffle. Étancher demande un petit jeu, et la loi du cube de la partie fuites est sans pitié : une tirette de 200 mm avec une portée de 5 mm de chaque côté de ses trous et un jeu de 0,05 mm fuit de l'ordre d'un litre par minute à 500 Pa. Bouger demande peu de frottement, et le frottement croît avec la force qui appuie la tirette sur son lit : 
+\begin_inset Formula $F_{\mathrm{dépl}} = \mu N$
+\end_inset
+.
+\end_layout
+
+\begin_layout Standard
+La loi du cube dit aussi où est le compromis. Parce que la fuite va comme le cube du jeu, une réduction modeste du jeu achète une grosse réduction de la fuite : un jeu plus petit d'un cinquième divise la fuite par deux. Une tirette n'a pas besoin d'être écrasée sur son lit pour étancher ; elle a besoin d'un lit plan et d'une pression légère et régulière, d'un ressort ou d'un feutre, qui l'y maintient.
+\end_layout
+
+\begin_layout Section
+Poussé et tiré ne sont pas pareils
+\end_layout
+
+\begin_layout Standard
+La tirette est entre l'air du soufflet et les chambres, et le soufflet pousse sur elle dans un sens et tire dans l'autre, exactement comme sur une soupape. D'un côté du soufflet, la pression plaque la tirette sur son lit et l'aide à étancher ; de l'autre, elle la soulève et ouvre le jeu. Un registre peut donc être étanche au poussé et chuchoter au tiré, et doit se tester dans les deux sens, comme un sommier garni.
+\end_layout
+
+\begin_layout Section
+Un registre fermé qui chuchote
+\end_layout
+
+\begin_layout Standard
+Un registre fermé qui fuit alimente les chambres de sa rangée. Leurs anches reçoivent un peu d'air, et celles qui sont proches de leur seuil sonnent faiblement derrière les autres : une voix fantôme plutôt qu'une note fantôme, entendue surtout sur les notes douces de la rangée.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : lesquels de tes instruments ont des registres, comment leurs tirettes sont appuyées sur leur lit (ressort, feutre, peau), et la force qu'il faut pour en déplacer une, lue au peson de bagage ou au gramme-mètre sur le bouton.
+\end_layout
+
+\begin_layout Chapter
+Faire et contrôler
+\end_layout
+
+\begin_layout Standard
+Contrôler un registre comme un sommier : la caisse fermée, le registre fermé, les fentes de ses anches ouvertes, au gazomètre, en pression et en aspiration. Le débit qui disparaît quand on ouvre le registre en gardant ses soupapes fermées est la fuite de la tirette. Le chiffre proposé pour toute la caisse fermée, tirettes comprises, est de moins de 0,5 L/min à 500 Pa.
+\end_layout
+
+\begin_layout Chapter
+À l'établi du réparateur
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Un registre dur à bouger.
+\series default
+ Du bois gonflé ou un feutre durci : le frottement a grandi. Regarder d'abord la saison ; une tirette qui coince par un hiver humide peut être libre l'été, et la raboter alors la fait fuir à la prochaine saison sèche.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Un registre fermé qu'on entend.
+\series default
+ Une fuite de la tirette : un lit qui n'est plus plan, un feutre écrasé. Encore la loi du cube : rendre la planéité et la pression régulière avant d'ajouter de la force.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : les ennuis de registre que tu rencontres le plus, et comment tu les répares.
+\end_layout
+
+\begin_layout Part
+Caisse, grille et bretelles
+\end_layout
+
+\begin_layout Chapter
+La boîte qui tient tout
+\end_layout
+
+\begin_layout Standard
+La caisse porte tout : la table d'harmonie, les sommiers, la mécanique, le cadre du soufflet, les bretelles, et les mains. Sur les instruments des stages, ses côtés sont fraisés avant le stage et collés par le stagiaire dans un gabarit de collage, montés à blanc d'abord ; la tastière, son chapeau et les renforts suivent, puis l'arasage et le ponçage, le vernis ou l'huile. Ce que la boîte et la grille font au son, un filtre pour la grille, une cavité pour une boîte de résonance, c'est de l'acoustique et cela appartient à la thèse (chapitre sur les éléments de timbre). Ce chapitre garde ce qui décide si la boîte est juste pour le facteur : qu'elle soit étanche, qu'elle reste droite au fil des saisons, et que les mains soient bien tenues.
+\end_layout
+
+\begin_layout Section
+Le bois bouge, les joints s'ouvrent
+\end_layout
+
+\begin_layout Standard
+Le bois n'est pas un matériau stable, et l'accordéon est une boîte de joints. Entre vert et sec, le bois retrait de l'ordre de 5 à 10 % en travers du fil et de l'ordre de 0,1 à 0,2 % dans le fil (Wood Handbook du Forest Products Laboratory, ordres de grandeur) : en travers du fil, il bouge quelques dizaines de fois plus que dans le fil. Une caisse est collée de pièces dont les fils se croisent, si bien que chaque changement d'humidité fait travailler certains joints. Un joint qui travaillait l'hiver dernier est un jeu cet été, et la loi du cube de la partie fuites dit ce que coûte un jeu de quelques centièmes de millimètre. C'est la raison physique du conseil du livret : ranger l'instrument dans un endroit sec à température stable, loin de la cave humide et du grenier, et éviter les changements brusques, une voiture chaude puis une pièce froide.
+\end_layout
+
+\begin_layout Standard
+C'est aussi la raison de deux habitudes de l'atelier : pas de bouche-pores sur une surface de collage, pour que la colle tienne bois contre bois ; et des renforts collés à plat sans jour dessous, pour que la face qu'ils tiennent reste plane.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : les essences que tu utilises pour les caisses (les gammes et le site ne disent pas la même chose, érable ou tilleul), et les temps de séchage des barrages, du fond dur et de l'huile.
+\end_layout
+
+\begin_layout Section
+La grille
+\end_layout
+
+\begin_layout Standard
+La grille est l'écran percé devant les soupapes de main droite. Pour le facteur, elle a une règle : elle ne doit toucher ni la mécanique ni un bouton enfoncé, sinon elle frotte, claque, ou retient une touche. On la contrôle en appuyant sur chaque bouton, grille en place. Pour le son, la grille est un filtre dont la coupure dépend de sa surface ouverte et de sa profondeur ; la thèse dit comment la mesurer, en enregistrant une note avec et sans la grille.
+\end_layout
+
+\begin_layout Section
+Les bretelles
+\end_layout
+
+\begin_layout Standard
+Les bretelles tiennent l'instrument ; la courroie de main gauche tient la main contre le soufflet. Aux stages, elles sont fixées sur un support usiné dans la caisse de main droite et réglées au musicien, assis puis debout. Le contrôle du livret est le bon, et il est ergonomique, pas acoustique : l'instrument est stable assis et debout, et le pouce gauche ne touche aucune vis.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : bretelles achetées ou faites à l'atelier ? Et le réglage de la courroie de main gauche : combien de jeu faut-il à la main pour changer le sens du soufflet librement ?
+\end_layout
+
+\begin_layout Chapter
+Faire et contrôler
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+La caisse montée à blanc d'abord.
+\series default
+ Assembler dans le gabarit sans colle ; ce qui ne ferme pas à blanc ne fermera pas collé. Puis coller les quatre côtés, vérifier l'équerre et la planéité.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+La caisse fermée, fuite contrôlée.
+\series default
+ Fermer la caisse avec une planche à la place du soufflet, au gazomètre, et passer la fumée le long des joints, du cadre, de la mécanique et des boutons de registre. Chiffre proposé : moins de 0,5 L/min à 500 Pa.
+\end_layout
+
+\begin_layout Chapter
+À l'établi du réparateur
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Une caisse qui fuit après un changement de saison.
+\series default
+ Un joint qui s'est ouvert. La fumée le trouve ; un filet de colle ou, sur un cadre, un joint neuf le ferme. Ne raboter que quand le bois s'est posé à l'humidité où il va vivre.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Une grille qui claque ou retient un bouton.
+\series default
+ Elle touche. Chercher le brillant d'un frottement sur sa face intérieure.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : les réparations de caisse que tu rencontres le plus, et comment tu les fais.
+\end_layout
+
+\begin_layout Part
+Le diagnostic du réparateur
+\end_layout
+
+\begin_layout Chapter
+Du symptôme à la pièce
+\end_layout
+
+\begin_layout Standard
+Un instrument arrive à l'établi avec une phrase, pas avec un diagnostic : « il est fatigant », « cette note ne vient pas », « il y a un son quand je pousse fort ». Chaque partie de ce livre s'est terminée par la réparation de sa propre pièce. Cette dernière partie va dans l'autre sens, de ce que dit le musicien à la pièce qui le dit, pour que le premier quart d'heure devant un instrument ouvert serve à vérifier, pas à deviner.
+\end_layout
+
+\begin_layout Section
+Écouter, puis compter
+\end_layout
+
+\begin_layout Standard
+Trois gestes viennent avant tout tournevis, et aucun ne prend plus de quelques minutes.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Le jouer avec le musicien.
+\series default
+ Demander quelles notes, quel sens, quelle nuance. La plupart des défauts d'un accordéon dépendent du sens du soufflet et de la pression, parce que soupapes, valves, tirettes et joints voient tous le soufflet pousser dans un sens et tirer dans l'autre.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Chiffrer le test de chute.
+\series default
+ Une masse connue sur le soufflet, soupape d'air fermée, aucune touche : le temps de la chute complète, poussé et tiré. Sous 20 à 30 secondes, il y a une fuite franche et rien d'autre ne doit être jugé avant de l'avoir trouvée (la partie fuites, tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-chute"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+).
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Passer l'accordeur sur le clavier.
+\series default
+ L'écart, poussé et tiré, et le battement de chaque voix. Une seule note fausse parmi des notes justes désigne cette anche ou son air ; toute une région fausse désigne la pression, des fuites ou un sommier.
+\end_layout
+
+\begin_layout Section
+Le tableau
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:fr-diagnostic"
+
+\end_inset
+
+De ce que dit le musicien à la pièce à vérifier.
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.209
+\backslash
+linewidth}p{0.308
+\backslash
+linewidth}p{0.200
+\backslash
+linewidth}p{0.095
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright ce que dit le musicien & 
+\backslash
+raggedright cause probable & 
+\backslash
+raggedright contrôle & 
+\backslash
+raggedright partie 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright il est fatigant, les notes douces partent mal & 
+\backslash
+raggedright fuite globale & 
+\backslash
+raggedright test de chute, puis chaque moitié fermée & 
+\backslash
+raggedright soupapes et fuites 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright une note sonne faiblement quand on pousse fort & 
+\backslash
+raggedright une soupape décolle : ressort trop faible pour son trou & 
+\backslash
+raggedright gramme-mètre, un demi-gramme par mm$^{2}$ de trou & 
+\backslash
+raggedright clavier main droite 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright une note sonne faiblement, tout le temps & 
+\backslash
+raggedright soupape qui fuit, décentrée ou peau durcie & 
+\backslash
+raggedright lampe, cloche & 
+\backslash
+raggedright clavier main droite 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright une note voisine chuchote & 
+\backslash
+raggedright fuite entre deux chambres sous le sommier & 
+\backslash
+raggedright démonter le sommier, regarder sa face & 
+\backslash
+raggedright sommiers 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright une voix s'entend registre fermé & 
+\backslash
+raggedright tirette de registre qui fuit & 
+\backslash
+raggedright gazomètre, registre fermé & 
+\backslash
+raggedright registres 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright une note en retard et faible & 
+\backslash
+raggedright fuite près de son anche (cire, valve) & 
+\backslash
+raggedright fente au ruban, tester le sommier & 
+\backslash
+raggedright sommiers 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright une note muette & 
+\backslash
+raggedright anche qui touche, levée perdue, valve de la partenaire absente & 
+\backslash
+raggedright lampe, cale & 
+\backslash
+raggedright anches 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright une note ne sonne que dans un sens & 
+\backslash
+raggedright valve absente ou collée & 
+\backslash
+raggedright regarder la plaque & 
+\backslash
+raggedright anches 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright un grésillement ou un cliquetis & 
+\backslash
+raggedright anche qui frôle, rivet desserré, valve qui claque, grille qui touche & 
+\backslash
+raggedright pincer, lampe & 
+\backslash
+raggedright anches, caisse 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright un bouton lourd au début du tiré & 
+\backslash
+raggedright la pression sur la soupape fermée (normal) & 
+\backslash
+raggedright comparer aux voisins & 
+\backslash
+raggedright clavier main droite 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright un bouton reste enfoncé ou revient lentement & 
+\backslash
+raggedright frottement ou ressort décroché & 
+\backslash
+raggedright touche seule, ressort ôté & 
+\backslash
+raggedright clavier main droite 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright un bouton de basse lourd, qui broute & 
+\backslash
+raggedright tiges qui coulissent, effet tiroir & 
+\backslash
+raggedright les chapitres main gauche & 
+\backslash
+raggedright mécanique main gauche 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright plus de trémolo musette sur une note & 
+\backslash
+raggedright voix trop proches, verrouillées & 
+\backslash
+raggedright accordeur, une voix bloquée & 
+\backslash
+raggedright anches 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright faux entre poussé et tiré & 
+\backslash
+raggedright les deux languettes de la plaque ne s'accordent pas & 
+\backslash
+raggedright accordeur, poussé et tiré à part & 
+\backslash
+raggedright anches 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Section
+Ce que le tableau ne sait pas
+\end_layout
+
+\begin_layout Standard
+Le tableau est bâti sur la physique de ce livre et sur le livret des stages. Il ne sait pas encore la chose la plus importante : à quelle fréquence chaque ligne arrive sur un vrai établi. Un diagnostic commence par la cause la plus probable, et seule l'expérience dit laquelle c'est.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À compléter (Ewen) : pour chaque ligne du tableau 
+\begin_inset CommandInset ref
+LatexCommand ref
+reference "tab:fr-diagnostic"
+plural "false"
+caps "false"
+noprefix "false"
+
+\end_inset
+, à quelle fréquence tu la rencontres (souvent, parfois, rarement), et les lignes qui manquent. Le tableau sera alors rangé selon ton établi, pas selon le livre.
+\end_layout
+
+\begin_layout Chapter*
+Bibliography
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+addcontentsline{toc}{chapter}{
+\backslash
+textcolor{ocre}
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+Bibliography
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Section*
+Books
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+addcontentsline{toc}{section}{Books}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Section*
+Articles
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+addcontentsline{toc}{section}{Articles}
+\end_layout
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+printbibliography
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset Newpage cleardoublepage
+\end_inset
+
+
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+phantomsection
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+setlength{
+\backslash
+columnsep}{0.75cm}
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+
+\backslash
+addcontentsline{toc}{chapter}{
+\backslash
+textcolor{ocre}
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+{
+\end_layout
+
+\end_inset
+
+Index
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+
+\begin_inset ERT
+status collapsed
+
+\begin_layout Plain Layout
+
+}
+\end_layout
+
+\end_inset
+
+ 
+\begin_inset CommandInset index_print
+LatexCommand printindex
+type "idx"
+name "Index"
+literal "true"
+
+\end_inset
+
+
+\end_layout
+
+\end_body
+\end_document
