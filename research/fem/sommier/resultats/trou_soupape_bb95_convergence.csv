@@ -1,0 +1,4 @@
+trou;trou_mm;A_trou_mm2;levee_mm;noeuds;h_mm;h_fin_mm;h_dehors_mm;solveur;duree_maillage_s;duree_s;l_eff_elmer_mm;l_eff_note_mm;L_elmer_kg_m4;L_note_kg_m4;f_H_elmer_Hz;f_H_note_Hz;V_eff_cm3;V_geom_cm3;R_Pa_s_m3;L_fente_kg_m4;A_rideau_mm2;levee_critique_mm;ecart_ajust;elmer;maillage
+12x12;[12.0, 12.0];144;2;24123;6;1.5;9;iteratif;1.2;67.3;21.5718;15.8324;179.765;131.937;676.013;823.174;43.5306;40.608;31468.1;14.3798;96;3;0.00283401;26.2;grossier
+12x12;[12.0, 12.0];144;2;59550;4;1;6;iteratif;2.5;172.6;21.688;15.8324;180.733;131.937;674.317;823.174;43.5155;40.608;31439.8;14.4477;96;3;0.00259171;26.2;défaut
+12x12;[12.0, 12.0];144;2;205477;2.5;0.6;4;iteratif;11.2;771.5;21.8072;15.8324;181.727;131.937;672.593;823.174;43.4997;40.608;31414.1;14.5094;96;3;0.00236041;26.2;fin
