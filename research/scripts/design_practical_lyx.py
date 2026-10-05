@@ -1,21 +1,25 @@
 #!/usr/bin/env python3
-"""Chapitre « mécanique main gauche » : Markdown -> LyX 2.3 (format 544), en français et en anglais.
+"""design_practical : le livre de la fabrication, pièce par pièce, Markdown -> LyX 2.3 (format 544).
 
-    python research/scripts/mecanique_lyx.py
+    python research/scripts/design_practical_lyx.py
 
-Sources (seules à modifier) : research/docs/mecanique_main_gauche/{theorie,pratique}_{fr,en}.md
+Sources (seules à modifier) : research/docs/design_practical/NN_piece_{en,fr}.md, dans l'ordre
+des numéros (00 introduction, 01 clavier main droite, 02a/02b main gauche, 03 soupapes et fuites,
+04 soufflet, 05 sommiers, 06 anches, 07 registres, 08 caisse, 09 diagnostic). Chaque pièce :
+théorie, analyse, outils de conception, réparation (partage voulu par Ewen le 05/10/2026 :
+design_theory = l'acoustique, design_practical = la fabrication et la réparation).
 Produit :
-  - research/docs/mecanique_main_gauche_fr.lyx, ..._en.lyx : documents autonomes (théorie + pratique),
-    même gabarit que design_theory.lyx (Legrand Orange Book), langue française ou anglaise ;
-  - la partie anglaise « Left-hand mechanism » dans design_practical.lyx (avant « Appendix ») :
-    chapitre de théorie, puis chapitres pratiques. design_theory.lyx n'est pas touché.
-Relancer remplace les blocs déjà insérés (repérés par leur titre), sans les dupliquer.
+  - research/docs/design_practical.lyx (anglais, la thèse) : en-tête et annexe gardés, tout le
+    corps entre les deux reconstruit depuis les sources ;
+  - research/docs/design_practical_fr.lyx : la même chose en français, document autonome.
+Les deux .lyx restent en CRLF, comme dans le dépôt.
 
 Markdown accepté : # Partie, ## Chapitre, ### Section, #### Sous-section ; paragraphes ; listes
 « - » et « 1. » ; **gras**, *italique* ; $formule$ et $$formule$$ ; tableaux à barres précédés
 d'une ligne « Table: légende {#tab:nom} » ; figures « ![légende](figures/x.png){#fig:nom} » ;
 renvois « @tab:nom », « @fig:nom » ; paragraphe commençant par « > » = encart en italique.
-Les sources des chiffres : J:/zw3d_travail/librt/theorie (rapport.md, calcul_mecanique.py).
+Les chiffres se recalculent avec research/scripts/outils_atelier.py ; ceux de la main gauche
+viennent de J:/zw3d_travail/librt/theorie (rapport.md, calcul_mecanique.py).
 """
 import os
 import re
@@ -23,12 +27,11 @@ import sys
 
 ICI = os.path.dirname(os.path.abspath(__file__))
 DOCS = os.path.normpath(os.path.join(ICI, "..", "docs"))
-SRC = os.path.join(DOCS, "mecanique_main_gauche")
+SRC = os.path.join(DOCS, "design_practical")
 BS = "\\"
 
-TITRES = {  # titre du bloc inséré, pour le retrouver et le remplacer
-    "pratique": "Left-hand mechanism",
-}
+TITRE_THEORIE = "Conceptual accordion design : Theory"  # titre copié de design_theory
+TITRES = {"en": "Conceptual accordion design : Practice", "fr": "Conception d'accordéons : la pratique"}
 
 
 # ------------------------------------------------------------- en ligne ---
@@ -49,6 +52,18 @@ def echapper_ert(t):
 
 
 GRECQUES = {"Δ": "\\Delta", "η": "\\eta", "µ": "\\mu", "μ": "\\mu"}  # pdflatex : en formule
+
+LANGUE = "en"  # fixée par main() avant chaque document
+MOTS_REF = {"en": {"tab": "Table", "fig": "Figure"}, "fr": {"tab": "tableau", "fig": "figure"}}
+
+
+def mot_ref(avant, genre):
+    """Le mot à mettre devant un numéro de renvoi (« Table 2.1 »), ou rien s'il y est déjà."""
+    if re.search(r"(tables?|tableaux?|figures?|fig\.)\s*$", avant, re.I):
+        return ""
+    mot = MOTS_REF[LANGUE][genre]
+    debut_phrase = not avant.strip() or avant.rstrip().endswith((".", "(", ":", "?", "!"))
+    return (mot[0].upper() + mot[1:] if debut_phrase else mot) + " "
 
 
 def inline(texte):
@@ -71,6 +86,7 @@ def inline(texte):
         elif tok.startswith("*"):
             out.append(f"\n{BS}shape italic\n{tok[1:-1]}\n{BS}shape default\n")
         else:
+            out.append(mot_ref(texte[:m.start()], tok[1:4]))
             out.append(f"\n{BS}begin_inset CommandInset ref\nLatexCommand ref\nreference \"{tok[1:]}\"\n"
                        f"plural \"false\"\ncaps \"false\"\nnoprefix \"false\"\n\n{BS}end_inset\n")
         pos = m.end()
@@ -91,11 +107,26 @@ def tableau(lignes, legende, label):
     corps = []
     def ert(t):
         corps.append(f"{BS}begin_layout Plain Layout\n\n{t}\n{BS}end_layout\n\n")
-    ert(f"{BS}backslash\nbegin{{tabular}}{{{'l' * ncol}}}")
+    # Tableau de chiffres : colonnes « l ». Tableau de phrases : colonnes « p » sur la largeur
+    # de la page, chacune selon la longueur de son texte le plus long.
+    longueurs = [max(len(r[k]) if k < len(r) else 0 for r in rows) for k in range(ncol)]
+    phrases = sum(longueurs) > 55
+    if phrases:  # largeur utile moins les marges de colonnes (2 x 6 pt chacune)
+        poids = [max(n, 8) for n in longueurs]
+        total = 0.94 - 0.032 * ncol
+        spec = "".join(f"p{{{total * p / sum(poids):.3f}{BS}linewidth}}" for p in poids)
+    else:
+        spec = "l" * ncol
+    ert(f"{BS}backslash\nbegin{{tabular}}{{" + spec.replace(BS, f"\n{BS}backslash\n") + "}")
     ert(f"{BS}backslash\nhline")
     for i, r in enumerate(rows):
-        cells = " & ".join(echapper_ert(c.replace("**", "")) for c in r + [""] * (ncol - len(r)))
-        ert(cells.replace("\\", f"\n{BS}backslash\n") + f" \n{BS}backslash\n\n{BS}backslash\n")
+        cases = [echapper_ert(c.replace("**", "")) for c in r + [""] * (ncol - len(r))]
+        if phrases:  # texte en drapeau ; \tabularnewline, car \\ ne finit plus la ligne après \raggedright
+            cells = " & ".join(BS + "raggedright " + c for c in cases)
+            ert(cells.replace(BS, f"\n{BS}backslash\n") + f" \n{BS}backslash\ntabularnewline")
+        else:
+            cells = " & ".join(cases)
+            ert(cells.replace(BS, f"\n{BS}backslash\n") + f" \n{BS}backslash\n\n{BS}backslash\n")
         if i == 0:
             ert(f"{BS}backslash\nhline")
     ert(f"{BS}backslash\nhline")
@@ -123,7 +154,7 @@ def figure(fichier, legende, label):
 
 def convertir(md):
     """Markdown -> corps LyX."""
-    out, para, liste = [], [], None
+    out, para = [], []
     lignes = md.split("\n")
     i = 0
 
@@ -187,73 +218,60 @@ def convertir(md):
 
 # ------------------------------------------------------- documents ---
 
-def lire(nom):
-    with open(os.path.join(SRC, nom), encoding="utf-8") as f:
-        return f.read()
+def sources(langue):
+    """Les sources d'une langue, dans l'ordre des pièces (00_, 01_, 02a_, 02b_ ...)."""
+    noms = sorted(n for n in os.listdir(SRC) if re.match(rf"^\d\d[a-z]?_.+_{langue}\.md$", n))
+    textes = []
+    for n in noms:
+        with open(os.path.join(SRC, n), encoding="utf-8") as f:
+            textes.append(f.read().strip())
+    return noms, "\n\n".join(textes) + "\n"
 
 
-def entete(langue):
-    """En-tête de design_theory.lyx (même gabarit), langue adaptée, corps vidé."""
-    with open(os.path.join(DOCS, "design_theory.lyx"), encoding="utf-8") as f:
-        txt = f.read()
-    tete = txt[:txt.index(f"{BS}begin_body") + len(f"{BS}begin_body")]
-    langue_lyx = "french" if langue == "fr" else "english"
-    tete = re.sub(r"\n\\language \w+", lambda m: f"\n{BS}language {langue_lyx}", tete)
-    return tete
+def lire_lyx(nom):
+    with open(os.path.join(DOCS, nom), encoding="utf-8", newline="") as f:
+        return f.read().replace("\r\n", "\n")
 
 
-def autonome(langue):
-    corps = convertir(lire(f"theorie_{langue}.md")) + convertir(lire(f"pratique_{langue}.md"))
-    titre = ("Mécanique main gauche : ce que le doigt paie pour une soupape" if langue == "fr"
-             else "The left-hand mechanism: what a finger pays for a pallet")
-    # Le gabarit (Legrand Orange Book) exige une image de chapitre, posée comme dans la thèse.
-    image = layout("Standard", f"{BS}begin_inset ERT\nstatus collapsed\n\n{BS}begin_layout Plain Layout\n\n"
-                               f"{BS}backslash\nchapterimage{{chapter_head_2.pdf}}\n{BS}end_layout\n\n{BS}end_inset\n")
-    doc = (entete(langue) + "\n\n" + layout("Title", titre) + image + corps +
-           f"{BS}end_body\n{BS}end_document\n")
-    chemin = os.path.join(DOCS, f"mecanique_main_gauche_{langue}.lyx")
-    with open(chemin, "w", encoding="utf-8", newline="\n") as f:
-        f.write(doc)
-    return chemin
-
-
-def retirer_bloc(txt, niveau, titre, fins):
-    """Retire un bloc commençant par « \\begin_layout <niveau>\\n<titre> » jusqu'au prochain des fins."""
-    debut = txt.find(f"{BS}begin_layout {niveau}\n{titre}\n")
-    if debut < 0:
-        return txt, -1
-    suite = [txt.find(f"{BS}begin_layout {f}\n", debut + 10) for f in fins]
-    suite = [s for s in suite if s > 0]
-    fin = min(suite) if suite else txt.index(f"{BS}end_body")
-    return txt[:debut] + txt[fin:], debut
-
-
-def inserer(fichier, bloc, niveau, titre, fins, avant):
-    chemin = os.path.join(DOCS, fichier)
-    with open(chemin, "rb") as f:
-        fin_ligne = "\r\n" if b"\r\n" in f.read(4096) else "\n"  # garder celle du dépôt
-    with open(chemin, encoding="utf-8") as f:
-        txt = f.read()
-    txt, pos = retirer_bloc(txt, niveau, titre, fins)
-    if pos < 0:
-        pos = txt.index(avant)
-    txt = txt[:pos] + bloc + txt[pos:]
-    with open(chemin, "w", encoding="utf-8", newline=fin_ligne) as f:
+def ecrire_lyx(nom, txt):
+    """Le dépôt garde les .lyx en CRLF (sinon tout le fichier change)."""
+    with open(os.path.join(DOCS, nom), "w", encoding="utf-8", newline="\r\n") as f:
         f.write(txt)
 
 
+def decouper(txt):
+    """(en-tête jusqu'à la première partie, annexe et fin) de design_practical.lyx."""
+    debut = txt.index(f"{BS}begin_body")
+    tete = txt[:txt.index(f"{BS}begin_layout Part\n", debut)]
+    queue = txt[txt.index(f"{BS}begin_layout Part\nAppendix"):]
+    # Les chapitres vides « Leaks detection » de l'ancienne table : les fuites ont leur partie.
+    queue = queue.replace(f"{BS}begin_layout Chapter\nLeaks detection\n{BS}end_layout\n\n", "")
+    return tete, queue
+
+
+def langue_de(tete, langue):
+    langue_lyx = "french" if langue == "fr" else "english"
+    return re.sub(r"\n\\language \w+", lambda m: f"\n{BS}language {langue_lyx}", tete)
+
+
 def main():
+    global LANGUE
     sys.stdout.reconfigure(encoding="utf-8")
-    for langue in ("fr", "en"):
-        print("Écrit :", autonome(langue))
-    # Tout dans design_practical.lyx (choix d'Ewen, 05/10) : une partie « Left-hand mechanism »
-    # avant « Appendix », qui ouvre sur le chapitre de théorie puis les chapitres pratiques.
-    pratique = lire("pratique_en.md")
-    coupe = pratique.index("\n## ")
-    md = pratique[:coupe] + "\n\n" + lire("theorie_en.md") + "\n" + pratique[coupe:]
-    inserer("design_practical.lyx", convertir(md), "Part", TITRES["pratique"],
-            ["Part"], f"{BS}begin_layout Part\nAppendix")
-    print("Inséré : design_practical.lyx (partie : théorie + pratique)")
+    LANGUE = "en"
+    tete, queue = decouper(lire_lyx("design_practical.lyx"))
+    tete = tete.replace(TITRE_THEORIE, TITRES["en"])
+    noms, md = sources("en")
+    ecrire_lyx("design_practical.lyx", tete + convertir(md) + queue)
+    print("design_practical.lyx :", ", ".join(noms))
+    # Version française autonome : même en-tête, sans l'annexe (feuille de route de la thèse).
+    LANGUE = "fr"
+    noms, md = sources("fr")
+    if noms:
+        biblio = queue.find(f"{BS}begin_layout Chapter*\nBibliography")
+        fin = queue[biblio:] if biblio >= 0 else f"{BS}end_body\n{BS}end_document\n"
+        tete_fr = langue_de(tete, "fr").replace(TITRES["en"], TITRES["fr"])
+        ecrire_lyx("design_practical_fr.lyx", tete_fr + convertir(md) + fin)
+        print("design_practical_fr.lyx :", ", ".join(noms))
 
 
 if __name__ == "__main__":

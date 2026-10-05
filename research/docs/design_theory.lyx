@@ -3465,6 +3465,286 @@ Une habitude, une réaction, un pli du caractère obéissent à la même loi :
  d'entrer que d'y rester, ou plus dur d'en sortir que d'y demeurer.
 \end_layout
 
+\begin_layout Section
+A flow-driven formulation of the reed--chamber coupling
+\end_layout
+
+\begin_layout Standard
+The bench drives the reed with a turbine feeding a chamber, and the
+ accordion itself is driven by the bellows imposing a volume velocity.
+ Neither imposes a pressure: the pressure is what results once the flow
+ meets the impedance of the open reeds.
+ The everyday evidence is familiar to any player -- at a constant bellows
+ speed, opening a chord makes the pressure drop, whereas a pressure source
+ would hold the pressure and simply double the flow.
+ The model is therefore written with the flow as the input variable.
+\end_layout
+
+\begin_layout Standard
+Four choices of formulation turn out to be decisive, and each of them was
+ reached only after the corresponding mistake had been made and measured.
+\end_layout
+
+\begin_layout Enumerate
+The state variable of the chamber is the pressure, not the volume.
+ A rigid chamber has a fixed volume; what varies is the mass of air it
+ holds.
+ Using the volume as a state together with an adiabatic law made the
+ pressure fall when air was injected, so that the chamber went into
+ depression, the tongue was sucked against the plate and stayed closed
+ 99.2 per cent of the time.
+\end_layout
+
+\begin_layout Enumerate
+The opening is asymmetric.
+ A free reed feeds in one air direction only, the other half-swing being
+ closed by the leather valve -- which is precisely why blowing and drawing
+ use two distinct reeds.
+ A symmetric opening law modulates the slot twice per period and produces
+ a note one octave too high, measured here as 470 Hz for a 220 Hz tongue.
+ The asymmetry is not a refinement: it sets the pitch.
+\end_layout
+
+\begin_layout Enumerate
+The open area is bounded on both sides: a clean closure, with the residual
+ leak that every real plate has, and a saturation once the tongue has
+ cleared the slot.
+ A numerical floor of the kind used to keep a square root finite hides the
+ closure instead of modelling it, and lets the tongue pass through its own
+ plate.
+\end_layout
+
+\begin_layout Enumerate
+The modal damping matrix must be symmetric.
+ The projection basis (uniform cantilever modes) is not the eigenbasis of
+ a multi-section tongue, so the mass matrix carries about 43 per cent of
+ off-diagonal coupling; the natural-looking product of the mass matrix by a
+ diagonal of modal damping is then not symmetric, and such a matrix injects
+ energy depending on the direction of motion.
+\end_layout
+
+\begin_layout Standard
+The chamber equation finally reads
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\[\frac{dp}{dt}=\frac{\gamma\,(P_{atm}+p)}{V_{0}}\left(q_{in}-q_{out}(p,y)-q_{reed}\right)\]
+\end_layout
+
+\end_inset
+
+\end_layout
+
+\begin_layout Standard
+where the last term is the volume swept by the tongue itself.
+ That term deserves attention: for a tongue vibrating at 100 Hz with an
+ amplitude of one millimetre it reaches about 1.2e-4 cubic metres per
+ second, roughly twelve times the supply flow.
+ The stability of the whole model is governed by it, not by the supply.
+\end_layout
+
+\begin_layout Section
+Predicting the threshold instead of searching for it
+\end_layout
+
+\begin_layout Standard
+Simulating for half a second and watching whether the amplitude decays is a
+ slow and treacherous way to decide whether a reed starts.
+ Linearising around the static equilibrium and reading the eigenvalues of
+ the Jacobian answers the same question in about a millisecond, and answers
+ it exactly: the sign of the largest real part decides stability, and its
+ imaginary part gives the starting frequency.
+\end_layout
+
+\begin_layout Standard
+Carrying the linearisation through by hand on a single mode gives the
+ condition for self-oscillation:
+\end_layout
+
+\begin_layout Standard
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\[\frac{\partial q_{out}}{\partial y}\;>\;\gamma_{m}\,\frac{\gamma\,P_{atm}}{V_{0}}\,\frac{\partial q_{out}}{\partial p}\]
+\end_layout
+
+\end_inset
+
+\end_layout
+
+\begin_layout Standard
+On the left, what sustains: the modulation of the flow by the motion of the
+ tongue.
+ On the right, what dissipates: the reaction of the air spring to the volume
+ swept by the tongue.
+ Written in terms of the chamber volume this becomes a lower bound on the
+ effective acoustic volume, which is an order of magnitude rather than an
+ equality -- the scalar estimate calls for 78 cubic centimetres where the
+ full model already starts at 40.
+\end_layout
+
+\begin_layout Section
+The saturation trap
+\end_layout
+
+\begin_layout Standard
+This criterion carries a consequence that no amount of simulation had made
+ visible.
+ If the opening saturates -- the tongue blown clear of the slot -- then the
+ derivative of the opening with respect to the tongue position vanishes,
+ the left-hand side of the criterion goes to zero, and the sustaining term
+ disappears whatever the pressure.
+\end_layout
+
+\begin_layout Standard
+That was exactly the situation: the tip settled at 0.649 mm against a
+ saturation set at 0.4 mm.
+ The tongue sat outside its own working range and no longer modulated
+ anything.
+ The same mechanism bounds the oscillation from above and produces, without
+ being asked for it, the choking that every player knows when pushing too
+ hard on the bellows.
+\end_layout
+
+\begin_layout Section
+Limit cycle and the impedance of the source
+\end_layout
+
+\begin_layout Standard
+An ideal flow source imposes its flow even when the tongue closes the slot.
+ The pressure then spikes without bound -- 8550 Pa were measured -- and that
+ spike drives the tongue harder still, so the amplitude grows indefinitely.
+ A real turbine, like a real bellows, delivers less as the pressure rises,
+ following a droop law q = q0 - p/R.
+ It is this droop that bounds the amplitude.
+\end_layout
+
+\begin_layout Standard
+With a finite source impedance the limit cycle converges: the peak-to-peak
+ excursion of the tip settles at 1.1364 mm and stays there, an amplitude
+ typical of a real accordion reed.
+ The convergence takes about 1.5 s of simulated signal, which is worth
+ stating: shorter runs wrongly suggest an unbounded amplitude.
+\end_layout
+
+\begin_layout Standard
+The resistance R is not a quantity to be guessed.
+ It is the slope of the pressure-flow characteristic of the source, and the
+ existing sweep of the Section factor already produces the data needed to
+ measure it.
+\end_layout
+
+\begin_layout Section
+A subcritical bifurcation
+\end_layout
+
+\begin_layout Standard
+Starting from an established limit cycle and lowering the command, the
+ oscillation persists below the starting threshold.
+ The bifurcation is therefore subcritical, with a starting threshold of
+ 25.8 Pa, an extinction threshold of 19.4 Pa and a hysteresis ratio of about
+ 1.33.
+ This is the behaviour of real reeds, and the two thresholds are exactly
+ what an ascending then descending pressure ramp measures on the bench.
+ Model and measurement now speak of the same quantity.
+\end_layout
+
+\begin_layout Standard
+Reaching that conclusion required care, and two wrong answers were obtained
+ first.
+ Restarting from an established cycle demands the exact state:
+ reconstructing the modal state from the tip displacement alone is
+ underdetermined and produced a systematic extinction, hence a spurious
+ supercritical verdict.
+ And the amplitude law in the square root of the distance to threshold,
+ which was correctly measured, is the expected signature of a supercritical
+ bifurcation but is necessary rather than sufficient: a weakly subcritical
+ one shows the same law above threshold.
+ Only the descent decides -- which is precisely why the bench ramp is run in
+ both directions.
+\end_layout
+
+\begin_layout Section
+What the model now predicts
+\end_layout
+
+\begin_layout Standard
+For the weighted bass tongue of the reference geometry, whose first mode
+ falls at 102.1 Hz:
+\end_layout
+
+\begin_layout Itemize
+starting threshold 25.8 Pa, at 119 Hz;
+\end_layout
+
+\begin_layout Itemize
+choking threshold 379.8 Pa;
+\end_layout
+
+\begin_layout Itemize
+extinction threshold 19.4 Pa, hysteresis ratio 1.33;
+\end_layout
+
+\begin_layout Itemize
+limit-cycle excursion of 0.96 mm at 1.5 times the threshold, growing as the
+ square root of the distance to threshold;
+\end_layout
+
+\begin_layout Itemize
+playing frequency constant at 118 Hz across the band, about 16 per cent
+ above the first mode of the tongue -- the stiffening due to the air spring.
+\end_layout
+
+\begin_layout Standard
+That last figure is directly useful: the ratio between the playing frequency
+ and the free tongue frequency depends on the effective acoustic volume, so
+ measuring the shift measures the volume.
+\end_layout
+
+\begin_layout Section
+A note on method
+\end_layout
+
+\begin_layout Standard
+Three mistakes made during this work are worth recording, because each was
+ caught by a measurement rather than by reasoning.
+\end_layout
+
+\begin_layout Enumerate
+A spectrum judged poor -- two harmonics -- was in fact rich, with six to
+ twelve.
+ Two errors compounded: the chamber pressure was examined where a free reed
+ radiates through the modulated flow (and, in the far field, through its
+ derivative), and the fundamental was detected by taking the strongest
+ partial, which differentiation had moved to the fourth harmonic.
+\end_layout
+
+\begin_layout Enumerate
+Slot inertance, the most natural candidate for the missing phase lag, was
+ eliminated by measurement: it changed the growth rate from -46.8 to -47.5
+ per second, that is, not at all.
+\end_layout
+
+\begin_layout Enumerate
+A parameter sweep appeared to show self-oscillation until it was noticed
+ that reversing the sign of the reed coupling changed the result by less
+ than one part in a thousand -- proof that the coupling was not driving
+ anything, and that what was being measured was a decaying transient.
+\end_layout
+
+\begin_layout Standard
+The common thread is that a model which merely looks plausible is worth
+ nothing, and that the cheapest instrument against self-deception is a test
+ whose outcome would be different if the hypothesis were false.
+\end_layout
+
 \begin_layout Chapter
 Temporal and frequency of free reed
 \end_layout
@@ -4404,7 +4684,7 @@ The title keeps a French word: vis, screws. A block glued on the soundboard agai
 \end_layout
 
 \begin_layout Standard
-The test is the one Ewen already does at the tuning table, written here so that it can be repeated the same way. The block is on the table at a fixed pressure, always the same for a given type of block, 500 Pa for example; the flow meter reads the air that passes. Ten readings in five seconds give the free flow and its scatter. Then a finger or a weight presses the joint, always at the same place with the same force, and after three seconds ten readings give the pressed flow. The difference is the leak of that joint, in litres per minute. Three pairs are taken, and the joint leaks if the difference exceeds three times the scatter at rest in all three. What the test does not see is a leak elsewhere, which the finger does not close; for the whole block the pressure decay test of the bench gives the global leak, and the appendix on leak detection gives the ways to locate one.
+The test is the one Ewen already does at the tuning table, written here so that it can be repeated the same way. The block is on the table at a fixed pressure, always the same for a given type of block, 500 Pa for example; the flow meter reads the air that passes. Ten readings in five seconds give the free flow and its scatter. Then a finger or a weight presses the joint, always at the same place with the same force, and after three seconds ten readings give the pressed flow. The difference is the leak of that joint, in litres per minute. Three pairs are taken, and the joint leaks if the difference exceeds three times the scatter at rest in all three. What the test does not see is a leak elsewhere, which the finger does not close; for the whole block the pressure decay test of the bench gives the global leak, and the part on valves and leaks of the practical volume gives the ways to locate one.
 \end_layout
 
 \begin_layout Standard
@@ -4668,138 +4948,7 @@ A valve, in the language of the workshop, is the flap of leather or plastic glue
 \end_layout
 
 \begin_layout Standard
-The figures of this chapter come from the training booklet of Ewen and from his workshop practice. They are proposed criteria, not yet measured on his instruments, and they are given with that status. A valve should leak less than 0.02 litre per minute under 500 Pa, and no valve should lift under 1.5 times the maximum playing pressure. The bellows alone should leak less than 1 litre per minute at 500 Pa, a glued block bare or furnished less than 0.05, and the closed instrument less than 0.5. Table 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "tab:trou"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
- translates a leak into a hole: at 500 Pa, a round hole of 1 mm passes 0.8 litre per minute. These flows follow the law of an orifice with a contraction coefficient close to 0.6, the value 0.61 used in the models for a sharp-edged jet; the check was made here, the figures are the booklet's.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Float table
-wide false
-sideways false
-status open
-
-\begin_layout Plain Layout
-\begin_inset Caption Standard
-
-\begin_layout Plain Layout
-\begin_inset CommandInset label
-LatexCommand label
-name "tab:trou"
-
-\end_inset
-
-Equivalent hole of a leak at 500 Pa (workshop figures, proposed criteria).
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Plain Layout
-\align center
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-\backslash
-begin{tabular}{rr}
-\end_layout
-
-\begin_layout Plain Layout
-
-\backslash
-hline
-\end_layout
-
-\begin_layout Plain Layout
-
-hole diameter (mm) & leak (litre per minute) 
-\backslash
-
-\backslash
-
-\end_layout
-
-\begin_layout Plain Layout
-
-\backslash
-hline
-\end_layout
-
-\begin_layout Plain Layout
-
-0.3 & 0.07 
-\backslash
-
-\backslash
-
-\end_layout
-
-\begin_layout Plain Layout
-
-0.5 & 0.2 
-\backslash
-
-\backslash
-
-\end_layout
-
-\begin_layout Plain Layout
-
-1 & 0.8 
-\backslash
-
-\backslash
-
-\end_layout
-
-\begin_layout Plain Layout
-
-2 & 3.3 
-\backslash
-
-\backslash
-
-\end_layout
-
-\begin_layout Plain Layout
-
-\backslash
-hline
-\end_layout
-
-\begin_layout Plain Layout
-
-\backslash
-end{tabular}
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-Two instruments cost nothing. A gasometer is a box turned upside down and floating in a bucket of water: filled with air, it feeds the instrument and sinks as the air leaks out, and for the box of the workshop a descent of 6.7 cm per minute is 1 litre per minute. A U-tube of transparent hose half filled with water and a ruler is a manometer: 1 mm of water is about 10 Pa (9.81 Pa exactly). With these two, the criteria above can be checked on any instrument.
-\end_layout
-
-\begin_layout Standard
-What a leak does to the music is known in the workshop and explained by the network. A leak in parallel with the tongues takes flow from a source of finite resistance, so the pressure falls before the note: the attack is soft, and a pianissimo starts badly. A leaking valve lets air through the slot of the silent tongue of its plate, and if that tongue is close to its threshold it sounds faintly: the ghost note.
+The leak criteria of the workshop, the two laws of a leak (the orifice and the flat joint) and the ways to measure and to find a leak belong to the making of the instrument; they are in the practical volume, in the part on valves and leaks. What stays here is the valve as an acoustic element: what it lets through, and what it does to the note.
 \end_layout
 
 \begin_layout Section
@@ -4857,7 +5006,7 @@ Leather or plastic for the valves, felt or foam for the gaskets, wax or leather 
 \end_layout
 
 \begin_layout Standard
-The first kind is what the material lets through when it is meant to seal. A leak is a place where air escapes without making a note, and it is not silent: a jet through a small orifice under pressure becomes turbulent and radiates a broadband hiss that rises high in frequency, into the ultrasound. In a recording, the hiss of a leak is rich where the voice of the tongue and the noise of the room are poor, above a few kilohertz. This is the handle by which the appendix on leak detection catches it: filter high, take the envelope of the hiss, and, if the pressure of the bellows is modulated at a known slow frequency, keep only what blinks at that frequency. The bellows of the bench, which already makes controlled strokes at 2 to 10 Hz, is the modulator; the synchronous detection is a few lines of code (banc_recherche/leak.py, lockin and leak_map); a microphone walked over the surface gives a map. None of this has yet been run on a real instrument.
+The first kind is what the material lets through when it is meant to seal. A leak is a place where air escapes without making a note, and it is not silent: a jet through a small orifice under pressure becomes turbulent and radiates a broadband hiss that rises high in frequency, into the ultrasound. In a recording, the hiss of a leak is rich where the voice of the tongue and the noise of the room are poor, above a few kilohertz. This is the handle by which the leak detection of the practical volume (part on valves and leaks) catches it: filter high, take the envelope of the hiss, and, if the pressure of the bellows is modulated at a known slow frequency, keep only what blinks at that frequency. The bellows of the bench, which already makes controlled strokes at 2 to 10 Hz, is the modulator; the synchronous detection is a few lines of code (banc_recherche/leak.py, lockin and leak_map); a microphone walked over the surface gives a map. None of this has yet been run on a real instrument.
 \end_layout
 
 \begin_layout Standard
@@ -4870,101 +5019,8 @@ The second kind is what the material does when it moves. A valve lifts and falls
 To be completed (Ewen): the same note recorded with its leather valve, then with a plastic one, at the same bellows pressure, with the tuner exporting the WAV; compare the spectra above 4 kHz during the held note (the hiss) and the first 50 ms after a reversal (the slap). Which note, and which instrument?
 \end_layout
 
-\begin_layout Section
-Dynamics of keyboard
-\end_layout
-
 \begin_layout Standard
-A key lifts a pallet. The pallet is the last door of the air road, and in the network it is an orifice: a mass of air 
-\begin_inset Formula $\rho\ell/S$
-\end_inset
-
- and a loss, with guessed dimensions of 3 cm
-\begin_inset Formula $^{2}$
-\end_inset
-
- of area, 10 mm of effective length and a lift of about 4 mm. On the bench it is an axis in degrees, swept from 2 to 22 degrees in the 2020 plan with a lever of 20 mm, or replaced by a fixed pallet and a timed electrovalve when only the arrival of the pressure matters. The keyboard of the bench is a matrix of electromagnets on the buttons, 24 on the left hand and 47 on the right, held with a reduced current once pressed; the firmware that drives it is written for an ESP32-S3 and has not yet been tested on hardware.
-\end_layout
-
-\begin_layout Standard
-What the speed of the key does to the note is a question of pressure rise. In the simulations the pressure of the bellows rises linearly in 20 ms, a hypothesis with no measurement behind it; a slow key gives the tongue a slow rise and a soft attack, a fast key a step. The response time of the note, from the opening to the steady sound, is already measured by the analysis chain of the research bench (the quantity called Tresp, computed with Praat 
-\begin_inset CommandInset citation
-LatexCommand cite
-after ""
-before ""
-key "boersma_praat"
-literal "true"
-
-\end_inset
- through Parselmouth 
-\begin_inset CommandInset citation
-LatexCommand cite
-after ""
-before ""
-key "jadoul2018parselmouth"
-literal "true"
-
-\end_inset
-); what is missing is the position of the key against time next to it.
-\end_layout
-
-\begin_layout Standard
-There is a subtler point, and it is a prediction. In the version of the two-reed network with the closing section, the mass of air of the road above the tongue, hole and pallet together, is part of the mechanism of start-up: with that mass divided by ten the tongue does not start, with it multiplied by three it starts less well, and there is an optimum. A pallet barely open is a long thin passage and a large mass of air; a pallet wide open a small one. If the prediction holds, the depth of the key changes the ease of the start, not only the loudness. Experiment E2 of the audit is designed to see it: the starting pressure, read on the U-tube, against the lift of the pallet.
-\end_layout
-
-\begin_layout Standard
-
-\shape italic
-To be completed (Ewen): the force and travel of one key, with a load cell (HX711) and a small magnetic encoder (AS5600) on the bench, a new channel of the firmware proposed in the measurement map but not built. And experiment E2: the starting pressure of one tongue for five lifts of its pallet, set with shims. Is there an optimum, as the model says?
-\end_layout
-
-\begin_layout Section
-Pedale avec enclenchement manuel de notes type stylo bille
-\end_layout
-
-\begin_layout Standard
-The title describes a device in French: a pedal, or a latch worked by the hand, that holds a note open the way the button of a ballpoint pen holds its tip out, one press to engage and one to release. The musical purpose is a drone, a note that goes on sounding while the fingers are free. The design is Ewen's and is not in the repository; what is here is what the physics of the previous chapters says about such a note.
-\end_layout
-
-\begin_layout Standard
-A latched pallet is a constant opening. The tongue behind it then depends on one thing only, the pressure of the bellows, and that pressure is shared with every other note being played. The audit of the one-reed model takes as its working hypothesis that the bellows is a source of flow with a finite internal resistance, not a source of pressure, and gives the proof in the playing: at a constant speed of the bellows, opening a chord makes the pressure fall, where a source of pressure would hold it and double the flow. A drone therefore costs pressure for the melody, and the cost is the flow of the drone tongue times the resistance of the source. The flows that the models give per tongue (0.1 to 0.4 litre per second at 1000 Pa) are known to be too large; the real one is read on the flow meter of the bench in a minute.
-\end_layout
-
-\begin_layout Standard
-The second thing the physics says is about the two directions. A latched note on a plate with two tongues sounds one tongue on the push and the other on the draw, and the two tongues of a plate are two different blades: on Ewen's own instrument the tuner found differences of 15 to 25 cents between push and draw on the same notes. A drone that must stay in tune through the reversal of the bellows asks for the two tongues of its plate to be tuned together more carefully than the melody does.
-\end_layout
-
-\begin_layout Standard
-
-\shape italic
-To be completed (Ewen): the mechanism itself, and its question for the bench: how much flow the drone tongue takes at playing pressure, and by how much the pressure available to the other notes falls when it is latched, measured with the flow meter and the pressure sensor, or the U-tube.
-\end_layout
-
-\begin_layout Section
-Bend en bout de course du clavier
-\end_layout
-
-\begin_layout Standard
-The second French title names a key with extra travel: pressed to the bottom of its ordinary stroke the key opens the pallet, and pressed further it does something more, which bends the note. What can that something be? The models of this work name three levers, in the subsection on bend techniques above, and here they are weighed for a key.
-\end_layout
-
-\begin_layout Standard
-The key cannot change the pressure of the bellows; that lever belongs to the arm. It can change the opening of the pallet: beyond the ordinary stroke it may close the pallet partly again, or open a second, smaller passage. In the two-reed network this changes the mass of air of the road above the tongue, which the model places in the mechanism of start-up, and the pitch effect of it is not known: it may be below what the ear notices. The key can also change the chamber: a second pallet at the end of the stroke could open a cell beside the chamber, changing its volume and its resonance. Table 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "tab:fenetre"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
- says that this lever is strong only when the chamber resonance is close to the note, within a ratio of 1.1 or so, and that such a chamber is hard to blow: 1322 Pa of threshold against 208 Pa at a ratio of 1.3, for the same blade in the plan. A bend at the end of the stroke is therefore, in the model, a trade between the depth of the bend and the ease of the note, and only a measurement will say where the trade is worth it.
-\end_layout
-
-\begin_layout Standard
-
-\shape italic
-To be completed (Ewen): the mechanism you have in mind, and one measurement before building it: with modelling clay, reduce the volume of one chamber in two or three steps and read the pitch of its tongue with the tuner at a fixed pressure of the staircase. If the pitch moves by less than a few cents, the chamber is not the lever for that note, and the pallet is the one to try.
+The keyboard itself, the force of its springs, the useful lift of its pallets, what the speed of a key does to the start of a note, and two keys that do more (a latched drone and a bend at the end of the stroke), is in the practical volume, in the part on the right-hand keyboard.
 \end_layout
 
 \begin_layout Part
@@ -5012,73 +5068,6 @@ Other parts involved
 
 \begin_layout Standard
 The bellows that breathes, the grille that the sound crosses, the box that holds it all, the pallets and the mutes: the rest of the instrument. Each one appears in this work as an assumption of the models, and this part says which assumption, and what would replace it by a measurement.
-\end_layout
-
-\begin_layout Chapter
-Bellows
-\end_layout
-
-\begin_layout Standard
-The bellows is the lung. Everything upstream of the tongue is in it: the pressure, its rise, its fall, its reversal. The models of this work treat it in the simplest ways, and the bench replaces it by a motor.
-\end_layout
-
-\begin_layout Section
-Framed bellow
-\end_layout
-
-\begin_layout Standard
-A framed bellows is folds of cardboard and cloth, leather at the corners, and a wooden frame at each end that takes the block and the box. The workshop knows where it leaks: at the corners and at the frame. The proposed criterion of the booklet is less than 1 litre per minute at 500 Pa for the bellows alone, closed on a board, which by Table 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "tab:trou"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
- is the equivalent of a round hole a little over 1 mm across.
-\end_layout
-
-\begin_layout Standard
-What is the bellows to the tongue? In the two-reed network it is an ideal source of pressure rising in 20 ms, a hypothesis without a measurement. In the one-reed model it is a source of flow with an internal resistance, 
-\begin_inset Formula $q=q_{0}-p/R$
-\end_inset
-
-, and the audit argues from the playing that this is the right picture: a real bellows, like a real turbine, gives less flow when the pressure rises. The value of 
-\begin_inset Formula $R$
-\end_inset
-
- decides the amplitude of the note (section on the aperture) and moves the threshold: in one version of the one-reed model the starting pressure of the reference tongue was 23.0 Pa with an ideal source, 25.8 Pa with 
-\begin_inset Formula $R=2\times10^{8}$
-\end_inset
-
- and 35.9 Pa with 
-\begin_inset Formula $5\times10^{7}$
-\end_inset
-
- Pa s m
-\begin_inset Formula $^{-3}$
-\end_inset
-
-, a softer source helping the start less, while the choking pressure stayed at 379.8 Pa. These are numbers of a model version whose bass thresholds are known to be far too low; the direction of the effect is what to keep.
-\end_layout
-
-\begin_layout Standard
-The playing pressures of an accordion are of the order of 500 to 3000 Pa, in both signs; the thresholds of the tongues are far below, a few tens to a few hundreds of pascals in the models, where a real instrument asks for roughly a hundred to a thousand all over the keyboard. The bellows also has a compliance of its own and the hand behind it; the audit says both are measurable with a manometer and neither is in a model.
-\end_layout
-
-\begin_layout Standard
-On the bench the bellows is motorised: a stepper axis on a linear table, the only source of air, driven at a set speed or servoed to a pressure, reversing at the ends of its finite stroke so that a measurement is made within one pass, push and draw being the two signs of pressure. The bench does not work at present and has never been rebuilt; the firmware exists and is untested; the flow meter is still there. The same motorised bellows is the modulator of the leak imaging method of the appendix, at 2 to 10 Hz.
-\end_layout
-
-\begin_layout Standard
-
-\shape italic
-To be completed (Ewen): two measurements on one of your bellows, closed on a board with a pressure tap. The leak at 500 Pa, by the gasometer or the flow meter, against the 1 litre per minute of the booklet. And the characteristic of your own arm as a source: pressure against flow at a steady push, through a known orifice, read on the U-tube and the gasometer; its slope is the 
-\begin_inset Formula $R$
-\end_inset
-
- of the models. Which bellows, which day?
 \end_layout
 
 \begin_layout Chapter
@@ -5137,6 +5126,109 @@ What is said of valves in the chapter on leaks applies to both: their transmitta
 
 \shape italic
 To be completed (Ewen): the transmission loss of one register slide, closed, in the two-microphone tube, by the coarse method of transfer.py. And the lift of your pallets at full key, with a feeler gauge: the 4 mm of the model is a guess.
+\end_layout
+
+\begin_layout Section
+Acoustic analysis of a reduced electro-traditional duo (OSSO)
+\end_layout
+
+\begin_layout Standard
+An accordion playing in a reduced ensemble has to carry melody, harmony,
+ a possible drone and the rhythmic drive of the dance with two sources only.
+ The Breton duo OSSO transposes the traditional biniou/bombarde couple to
+ analogue synthesisers, which makes it a useful control case for the sharing
+ of roles discussed in this part: the functions are the same, the sound
+ production is not.
+\end_layout
+
+\begin_layout Standard
+Two pieces were analysed (Ordre etant, hanter-dro, 296.9 s; Duderc'h,
+ scottish, 240.4 s), through mid/side decomposition, spectral descriptors,
+ a per-band envelope modulation spectrum and Praat measurements, computed
+ with librosa 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "mcfee2015librosa"
+literal "true"
+
+\end_inset
+
+ and parselmouth 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "jadoul2018parselmouth"
+literal "true"
+
+\end_inset
+
+; key estimation follows the Krumhansl-Schmuckler profiles 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "krumhansl1990"
+literal "true"
+
+\end_inset
+
+.
+ Three results are relevant to accordion design.
+\end_layout
+
+\begin_layout Itemize
+Stereophony encodes the functional split rather than a mere widening: the
+ mid/side energy ratio reaches 9.2 below 60 Hz (a strictly centred monophonic
+ bass) and drops to 0.76 in the 1-2 kHz band (a spatialised mid-range).
+ The traditional couple separated the same roles by register and timbre.
+\end_layout
+
+\begin_layout Itemize
+Amplitude modulations are locked to the metric grid within 0.1 to 0.3 percent
+ over four distinct subdivisions (0.52, 1.57, 3.13 and 6.27 Hz against a
+ 94.0 BPM beat): tremolo and filter movements act as rhythmic agents.
+ The modulation spectrum also gives an independent check on the metric level,
+ and corrects a metric octave error of the beat tracker 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "ellis2007beat"
+literal "true"
+
+\end_inset
+
+ on the second piece: 120.2 BPM estimated, 90.0 BPM confirmed.
+\end_layout
+
+\begin_layout Itemize
+A progressive filter opening structures one piece only: spectral centroid
+ slope +5.17 Hz/s, coefficient of determination 0.298, p below 0.001, against
+ -0.33 Hz/s (not significant) for the other.
+ Timbre alone carries a directional dramaturgy over a cyclic dance form,
+ without touching the melodic material or the metre.
+\end_layout
+
+\begin_layout Standard
+The measured continuity of the texture (crest factor 10.8 and 13.2 dB,
+ dynamic range 10.5 and 7.9 dB) is obtained here by compression, where the
+ traditional instruments obtain it from the air reserve of the bag and the
+ accordion from its bellows.
+ The parallel suggests two transposable controls for the accordion player:
+ locking any periodic modulation (alternating basses, bellows effects) to a
+ subdivision of the beat, and using registers, bellows pressure and
+ accompaniment density as a trajectory rather than as an alternation.
+\end_layout
+
+\begin_layout Standard
+The complete study, with all tables, statistics and methodological limits,
+ is kept in French in research/docs/analyse_acoustique_osso.md; the
+ reproducible script is research/scripts/analyse_osso.py.
+ The recordings themselves are not distributed with this work (copyright);
+ only derived acoustic descriptors are reported.
 \end_layout
 
 \begin_layout Part
@@ -5199,7 +5291,7 @@ A few rules come from the experiments of this thesis. To measure a plucked tongu
 \end_layout
 
 \begin_layout Standard
-With two microphones in a tube, the electromagnetic exciter of the bench as source, the method of ISO 10534-2 gives the reflection coefficient, the normalised acoustic impedance and the absorption of what closes the tube: a chamber, a pallet, a mute (transfer.py). With four microphones, the same tool gives the transmission loss of a valve or a mute. Two microphones also locate a leak by the delay between them (Appendix Leaks detection).
+With two microphones in a tube, the electromagnetic exciter of the bench as source, the method of ISO 10534-2 gives the reflection coefficient, the normalised acoustic impedance and the absorption of what closes the tube: a chamber, a pallet, a mute (transfer.py). With four microphones, the same tool gives the transmission loss of a valve or a mute. Two microphones also locate a leak by the delay between them (practical volume, part on valves and leaks).
 \end_layout
 
 \begin_layout Standard
@@ -5404,7 +5496,7 @@ The table also checks the joints. The leak test of the tuning table, formalised 
 ), three times; the joint of this pallet leaks if 
 \begin_inset Formula $Q_{1}-Q_{2}$
 \end_inset
- is larger than three times the spread of the flow at rest (Appendix Leaks detection).
+ is larger than three times the spread of the flow at rest (practical volume, part on valves and leaks).
 \end_layout
 
 \begin_layout Standard
@@ -5457,421 +5549,6 @@ blanking plates and sealing jigs, which close a part during a leak test.
 
 \shape italic
 To be completed (Ewen): the list of these tools that you already own, so that the protocols ask for nothing new.
-\end_layout
-
-\begin_layout Part
-Appendix
-\end_layout
-
-\begin_layout Chapter
-Leaks detection
-\end_layout
-
-\begin_layout Standard
-A leak is air that escapes without making music. It is invisible and almost silent, and yet it changes everything. It steals pressure before the note: the attack is soft, and a pianissimo starts badly. Every leak eats air, so the bellows must move more for the same sound and the player tires faster. And a pallet that leaks can make a neighbouring note sound when nobody plays it: a ghost note. This appendix gathers the ways to measure a leak and to find it, from the gestures of the workshop to methods that make a leak sing and become visible.
-\end_layout
-
-\begin_layout Section
-How big is a leak?
-\end_layout
-
-\begin_layout Standard
-A leak is measured as a flow, in litres per minute, at a given pressure: 500 Pa, about 5 cm of water, the pressure of a medium nuance. A leak can also be given as an equivalent hole: the round hole that would let the same flow through. The law of a small sharp-edged hole links the two: 
-\begin_inset Formula $q=C_{d}\,S\,\sqrt{2\Delta p/\rho}$
-\end_inset
-, where 
-\begin_inset Formula $S$
-\end_inset
- is the area of the hole, 
-\begin_inset Formula $\Delta p$
-\end_inset
- the pressure difference, 
-\begin_inset Formula $\rho$
-\end_inset
- the density of air and 
-\begin_inset Formula $C_{d}\approx0.61$
-\end_inset
- the contraction of the jet. Table 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "tab:trou-equivalent"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
- gives a few values.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Float table
-wide false
-sideways false
-status open
-
-\begin_layout Plain Layout
-\begin_inset Caption Standard
-
-\begin_layout Plain Layout
-\begin_inset CommandInset label
-LatexCommand label
-name "tab:trou-equivalent"
-
-\end_inset
-
-Flow through a round hole at 500 Pa, from 
-\begin_inset Formula $q=C_{d}S\sqrt{2\Delta p/\rho}$
-\end_inset
- with 
-\begin_inset Formula $C_{d}=0.61$
-\end_inset
- and 
-\begin_inset Formula $\rho=1.2$
-\end_inset
- kg/m
-\begin_inset Formula $^{3}$
-\end_inset
-.
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Plain Layout
-\align center
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-\backslash
-begin{tabular}{rr}
-\end_layout
-
-\begin_layout Plain Layout
-
-\backslash
-hline
-\end_layout
-
-\begin_layout Plain Layout
-hole diameter (mm) & leak at 500 Pa (L/min) 
-\backslash
-
-\backslash
-
-\end_layout
-
-\begin_layout Plain Layout
-
-\backslash
-hline
-\end_layout
-
-\begin_layout Plain Layout
-0.3 & 0.075 
-\backslash
-
-\backslash
-
-\end_layout
-
-\begin_layout Plain Layout
-0.5 & 0.21 
-\backslash
-
-\backslash
-
-\end_layout
-
-\begin_layout Plain Layout
-1 & 0.83 
-\backslash
-
-\backslash
-
-\end_layout
-
-\begin_layout Plain Layout
-2 & 3.3 
-\backslash
-
-\backslash
-
-\end_layout
-
-\begin_layout Plain Layout
-
-\backslash
-hline
-\end_layout
-
-\begin_layout Plain Layout
-
-\backslash
-end{tabular}
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-A hole of one millimetre already lets almost one litre per minute through. The flow grows with the square of the diameter: it is the area that counts.
-\end_layout
-
-\begin_layout Section
-Measuring the whole instrument
-\end_layout
-
-\begin_layout Standard
-The simplest global test uses the bellows itself. Hang a known weight on the bellows, close the air valve, press no button, and let the weight pull the bellows open; read the pressure with a U-tube on the air valve, and film the bellows with a ruler next to it. The leak is the volume displaced by the bellows divided by the time of the full drop. For a bellows that moves about 10 litres, Table 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "tab:chute"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
- gives the equivalent hole at 500 Pa. The longer the drop, the tighter the instrument.
-\end_layout
-
-\begin_layout Standard
-\begin_inset Float table
-wide false
-sideways false
-status open
-
-\begin_layout Plain Layout
-\begin_inset Caption Standard
-
-\begin_layout Plain Layout
-\begin_inset CommandInset label
-LatexCommand label
-name "tab:chute"
-
-\end_inset
-
-Drop test of a bellows that moves about 10 litres: leak and equivalent hole at 500 Pa (same law as Table 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "tab:trou-equivalent"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-).
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Plain Layout
-\align center
-\begin_inset ERT
-status open
-
-\begin_layout Plain Layout
-
-\backslash
-begin{tabular}{rrr}
-\end_layout
-
-\begin_layout Plain Layout
-
-\backslash
-hline
-\end_layout
-
-\begin_layout Plain Layout
-full drop in & leak (L/min) & equivalent hole (mm) 
-\backslash
-
-\backslash
-
-\end_layout
-
-\begin_layout Plain Layout
-
-\backslash
-hline
-\end_layout
-
-\begin_layout Plain Layout
-30 s & 20 & 4.9 
-\backslash
-
-\backslash
-
-\end_layout
-
-\begin_layout Plain Layout
-1 min & 10 & 3.5 
-\backslash
-
-\backslash
-
-\end_layout
-
-\begin_layout Plain Layout
-2 min & 5 & 2.4 
-\backslash
-
-\backslash
-
-\end_layout
-
-\begin_layout Plain Layout
-5 min & 2 & 1.5 
-\backslash
-
-\backslash
-
-\end_layout
-
-\begin_layout Plain Layout
-
-\backslash
-hline
-\end_layout
-
-\begin_layout Plain Layout
-
-\backslash
-end{tabular}
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\end_inset
-
-
-\end_layout
-
-\begin_layout Standard
-The bench does the same with a sensor. With the valve closed and the bellows stopped, the pressure in a closed volume falls as the air leaks out. For a small leak it falls like 
-\begin_inset Formula $p(t)=p_{0}\,e^{-t/\tau}$
-\end_inset
-: the time constant 
-\begin_inset Formula $\tau$
-\end_inset
- measures the tightness, and the volume divided by 
-\begin_inset Formula $\tau$
-\end_inset
- gives the conductance of the leak (command LEAKTEST of the firmware, analysis by banc_recherche/leak.py).
-\end_layout
-
-\begin_layout Standard
-A third global method, proposed, listens to the resonances of the closed instrument: a leak damps the air cavity, so the quality factor 
-\begin_inset Formula $Q$
-\end_inset
- of its resonances drops. Compared with a sealed reference, a sine sweep and a ring-down measure the total leak and its spectral signature, without locating it.
-\end_layout
-
-\begin_layout Section
-Finding one leak: the gestures of the workshop
-\end_layout
-
-\begin_layout Standard
-The tuning-table test finds the leak of one pallet: the flow with the pallet free, then pressed shut (Section Practical for tuning). Other gestures need no sensor at all. A water gasometer, an upside-down box floating in a bucket and weighted, connected by a pipe to the part under test, sinks when the part leaks; its speed is the leak flow divided by the area of the box (1 L/min lowers a box of 150 cm
-\begin_inset Formula $^{2}$
-\end_inset
- by 6.7 cm per minute). A bell, a small pot with a foam rim, is placed over one closed pallet and tests it alone. Incense smoke, moved slowly along the joints, bends where the air escapes.
-\end_layout
-
-\begin_layout Standard
-Two safety rules go with these gestures: never a flame to look for a leak (celluloid, wood and glue burn), and no soapy water on wood, leather or card. And before trusting a measurement, test the bench itself: a plate laid on a sheet of glass must not leak; then check the bench on reference leaks, a plate drilled with holes of 0.3, 0.5 and 1 mm, whose flows are known from Table 
-\begin_inset CommandInset ref
-LatexCommand ref
-reference "tab:trou-equivalent"
-plural "false"
-caps "false"
-noprefix "false"
-
-\end_inset
-.
-\end_layout
-
-\begin_layout Section
-Making a leak sing
-\end_layout
-
-\begin_layout Standard
-A jet of air through a small hole becomes turbulent and hisses, with a noise that rises high, up to the ultrasound, where the voice of the reeds and the noise of the room are weak. The hiss is still lost in the noise of a room. The method proposed in this thesis makes it stand out by giving it a rhythm. The bellows modulates the pressure slowly, as a sine at a known frequency 
-\begin_inset Formula $f_{\mathrm{mod}}$
-\end_inset
- of 2 to 10 Hz. Every leak then hisses louder and softer at 
-\begin_inset Formula $f_{\mathrm{mod}}$
-\end_inset
-. A cheap microphone, moved over the surface, records; the program keeps the band of the hiss (about 4 to 20 kHz), takes its envelope, and keeps only what beats exactly at 
-\begin_inset Formula $f_{\mathrm{mod}}$
-\end_inset
-, with the right phase. This is synchronous detection, the lock-in of the physics laboratory: everything that does not beat at our rhythm is rejected, and the leak appears on a map (banc_recherche/leak.py: lockin, acoustic_leak_strength, leak_map).
-\end_layout
-
-\begin_layout Standard
-Two microphones can also locate a leak without moving: its hiss reaches them with a small delay that depends on its position, and the cross-correlation of the two signals gives this delay (leak.tdoa_delay).
-\end_layout
-
-\begin_layout Section
-Making a leak visible
-\end_layout
-
-\begin_layout Standard
-Two further methods are proposed and not built yet. The first, background-oriented schlieren, films a printed speckled background through the jet: air of a different density bends the light a little, and a program that compares the images reveals the invisible jet, all the more if the air is warm and humid, like a breath. The second fills the bellows with carbon dioxide and scans the surface with a small gas sensor of a few euros: the concentration rises at the leaks.
-\end_layout
-
-\begin_layout Standard
-Finally, each reed signs its own leak. A leak near a reed steals part of its air: the reed starts later, sounds softer and goes out of tune in a characteristic way. The tuner already measures the deviation, the level and the response time of each reed; a local leak leaves its trace there, without any scanning microphone.
-\end_layout
-
-\begin_layout Section
-Proposed acceptance figures
-\end_layout
-
-\begin_layout Standard
-The workshop handbook of Ewen's accordion-making course proposes the following targets, all at 500 Pa. They are proposals, not yet measured on his instruments, and they are to be calibrated on two of them:
-\end_layout
-
-\begin_layout Itemize
-soundboard and pallets: less than 0.02 L/min per pallet, and no pallet lifts below 1.5 times the highest playing pressure;
-\end_layout
-
-\begin_layout Itemize
-bellows alone: less than 1 L/min;
-\end_layout
-
-\begin_layout Itemize
-reed block glued, bare or with its reeds (slots taped): less than 0.05 L/min;
-\end_layout
-
-\begin_layout Itemize
-closed case: less than 0.5 L/min;
-\end_layout
-
-\begin_layout Itemize
-whole instrument: a drop time to be set by Ewen.
-\end_layout
-
-\begin_layout Standard
-
-\shape italic
-To be completed (Ewen): the leak and the drop time measured on two of your instruments, to turn these proposals into figures; and the area of the box of your gasometer.
 \end_layout
 
 \begin_layout Chapter*

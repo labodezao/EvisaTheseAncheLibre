@@ -1,8 +1,6 @@
-# Left-hand mechanism
-
-The theory of the left-hand mechanism is in the thesis, in the part on mechanics and valves: where the force at the button comes from, and why the hole and the pressure weigh more than the levers. This part is the workshop side of it: what to make each piece of, how to print it, how to place the pallets when the buttons are closer together than the pallets can be, how to spring and adjust seventy keys, what to measure with almost nothing, and how to decide whether the fifth version is worth repairing. The figures come from the calculator of the Lib RT engineering report (calcul_mecanique.py).
-
 ## Building the mechanism
+
+The previous chapter said where the force at the button comes from, and why the hole and the pressure weigh more than the levers. The next three chapters are the workshop side of it: what to make each piece of, how to print it, how to place the pallets when the buttons are closer together than the pallets can be, how to spring and adjust seventy keys, what to measure with almost nothing, and how to decide whether the fifth version is worth repairing. The figures come from the calculator of the Lib RT engineering report (calcul_mecanique.py).
 
 ### The geometry to start from
 

@@ -1,8 +1,6 @@
-# Mécanique main gauche : la pratique
-
-La théorie de la mécanique main gauche est dans la thèse, dans la partie mécanique et soupapes : d'où vient l'effort au bouton, et pourquoi le trou et la pression pèsent plus que les leviers. Cette partie en est le côté atelier : en quoi faire chaque pièce, comment l'imprimer, comment placer les soupapes quand les boutons sont plus serrés que les soupapes ne peuvent l'être, comment mettre en ressort et régler soixante-dix touches, quoi mesurer avec presque rien, et comment décider si la cinquième version vaut d'être réparée. Les chiffres viennent du calculateur du rapport d'ingénierie du Lib RT (calcul_mecanique.py).
-
 ## Construire la mécanique
+
+Le chapitre précédent a dit d'où vient l'effort au bouton, et pourquoi le trou et la pression pèsent plus que les leviers. Les trois chapitres qui suivent en sont le côté atelier : en quoi faire chaque pièce, comment l'imprimer, comment placer les soupapes quand les boutons sont plus serrés que les soupapes ne peuvent l'être, comment mettre en ressort et régler soixante-dix touches, quoi mesurer avec presque rien, et comment décider si la cinquième version vaut d'être réparée. Les chiffres viennent du calculateur du rapport d'ingénierie du Lib RT (calcul_mecanique.py).
 
 ### La géométrie de départ
 
