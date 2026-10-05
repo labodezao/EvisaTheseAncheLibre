@@ -292,10 +292,11 @@ l'anche ? Deux scripts dans `sommier/` :
   de 5 mm, soupape rigide 26 x 21 mm à `levee` mm, dehors absorbant (`Wave Impedance 1 = c` ;
   vérifié sur un conduit : Z = rho.c/S à 1e-6 ; avec rho.c l'erreur est de 20 %, le mot-clé
   d'Elmer est Z/rho). Impédance vue par la fente, ajustée sur Z = i.w.L_s + 1/(i.w.C + 1/(R + i.w.L)).
-- `trou_soupape_jeu.py` : l'anche qui joue derrière ce réseau (RK4, 3 s) : lame 74 x 8 x 1 mm
-  d'Ewen avec masse au bout accordée à mi0 (41,2 Hz ; 14,4 g, HYPOTHÈSE), jeu 0,05 mm, plaquette
-  2,5 mm, levée au repos 0,5 mm ; pertes d'orifice du trou et du rideau en série (Cd 0,65). Et un
-  profil gratté (hypothèse, 3 g au bout, levée 2 mm) pour voir une lame plus souple.
+- `trou_soupape_jeu.py` : l'anche qui joue derrière ce réseau (RK4, 4 s). Version du 05/10/2026
+  au soir (corrections d'Ewen, voir plus bas) : lame NUE 74 x 8 x 1 mm, ré# 155,56 Hz, levée de
+  l'anche au repos 1 mm, jeu 0,05 mm, plaquette 2,5 mm ; pertes d'orifice du trou et du rideau
+  en série (Cd 0,65) ; volume balayé par la lame ; ouverture de la soupape en 10 ms.
+- `couplage_lame_air.py` : le couplage vibro-acoustique lame + air dans Elmer (voir plus bas).
 
 Convergence (12x12, levée 2 mm) : 24 000 / 60 000 / 205 000 nœuds (67 / 173 / 772 s) : l_eff 21,57 /
 21,69 / 21,81 mm, V_eff 43,5 cm³, f_H 676 / 674 / 673 Hz. Le maillage par défaut (60 000 nœuds,
@@ -329,6 +330,93 @@ sa résonance, comme la note le disait. Le rayonnement R (3,2e4 Pa.s/m³) est 0,
 de l'anche : négligeable pour le fondamental. Le volume effectif (43 à 46 cm³) est celui de la
 chambre plus le trou et la lame d'air sous la soupape.
 
-Les résultats du modèle temporel sont dans `resultats/trou_soupape_jeu.csv` (lame d'Ewen, réseau
-d'Elmer, seuils), `trou_soupape_jeu_grattee.csv` (lame grattée), `trou_soupape_jeu_note.csv` et
-`_uniforme.csv` (mêmes lames, réseau de la note) ; la synthèse est dans la note du coffre.
+Le premier modèle temporel (PR #44 : lame de mi0 lestée de 14,4 g, levée 0,5 mm) est remplacé ;
+ses CSV (`trou_soupape_jeu_grattee/_note/_uniforme.csv`) sont retirés (historique git).
+
+### Correction du 05/10/2026 : lame nue de ré#, levée de l'anche 1 mm, couplage air-lame
+
+**La lame.** 74 x 8 x 1 mm, nue : 153,07 Hz en Euler-Bernoulli exact, 154,02 Hz dans Elmer 3D
+(+0,62 %, `anche/languette_modes.py`, `J:\claude\calculs\languette\BB95_lame_nue_74`). C'est
+ré# = 155,56 Hz à 28 cents près (ré#2 en notation française, la3 = 440 Hz ; D#3 en notation
+scientifique). Ré#1 (77,8 Hz) demanderait une lame deux fois plus mince ou 1,4 fois plus longue.
+Le modèle l'accorde sur 155,56 Hz par la longueur libre (73,4 mm). Mode 2 : 959 Hz (dans la zone
+des résonances du trou, 514 à 999 Hz : à surveiller), flexion dans le plan 1 235 Hz, torsion 2 700 Hz.
+
+**Le couplage air-lame (Elmer, `couplage_lame_air.py`).** Helmholtz dans tout l'air (soufflet en
+amont, lame levée de 1 mm au bout, jeux de 0,05 mm, fente, chambre, trou, rideau, dehors), la lame
+étant un creux dont les 37 bandes vibrent selon le mode 1 ; la force modale de l'air donne la masse
+entraînée m_a et l'amortissement R_a (projection modale, juste au premier ordre en m_a/m).
+
+| cas | nœuds | m_a (mg) | m_a/m | décalage | zeta de l'air |
+|---|---|---|---|---|---|
+| lame seule dans l'air libre | 164 000 | 1,145 | 0,099 % | -0,85 c | 2e-7 |
+| bande infinie (pi.rho.b²/4, Lamb ; Sader 1998) | théorie | 1,116 | 0,096 % | -0,83 c | |
+| en place, 12x12, soupape 3 mm (grossier) | 326 000 | 1,665 | 0,143 % | -1,24 c | 1,5e-6 |
+| en place, 12x12, soupape 3 mm (défaut, 1 fréquence) | 579 000 | 1,675 | 0,144 % | -1,25 c | 1,3e-6 |
+
+Lecture : l'air ne déplace la lame pincée en place que de 1,2 cent et ne l'amortit presque pas.
+À l'arrêt, l'air chassé par la lame fait le tour par les jeux (1 mm au bout) au lieu de passer
+par la chambre et le trou. En jeu, le jet rend ces jeux résistants (2.dp/q, environ 2e6 Pa.s/m³,
+5 fois le chemin du trou) : le volume balayé passe par la chambre ; le réseau L, C du trou le
+porte déjà (4 à 18 mg, soit -3 à -14 cents). La masse « locale » qui reste à ajouter au modèle
+temporel est donc nulle (`air_elmer`, `masse_reseau`). Pièges Elmer : ElmerGrid `-autoclean`
+renumérote les groupes physiques (donner des numéros suivis) ; `occ.fuse` fond les faces des
+bandes (utiliser `occ.fragment`).
+
+**Deux corrections au premier calcul.** (1) Le volume balayé par la lame (g.x') manquait dans le
+bilan de la chambre (il est dans `coupled_reeds`, sweep = 1) : c'est lui qui fait la pression à la
+crête (50 à 60 %) et qui amortit la lame à travers les pertes du trou. (2) Le R ajusté par Elmer
+(3,1 à 3,2e4 Pa.s/m³, le même pour tous les trous) est rho.c/S de la boîte absorbante
+(13 300 mm²), un artefact : remplacé par le rayonnement d'un monopôle, rho.omega²/(4.pi.c) = 266.
+
+**Le temps de réponse** (`resultats/trou_soupape_jeu.csv`, soufflet déjà en pression, soupape
+ouverte en 10 ms ; t50 / t90 = l'enveloppe atteint 50 / 90 % de l'amplitude établie) :
+
+| trou | soupape | 1 kPa : t50 / t90 (ms) | 2 kPa : t50 / t90 (ms) | 2 kPa : périodes à 90 % | 2 kPa : écart | seuil |
+|---|---|---|---|---|---|---|
+| 8x12 | 1 à 4 mm | ne parle pas | ne parle pas | | | > 2 kPa |
+| 12x12 | 1 à 2 mm | ne parle pas | ne parle pas | | | > 2 kPa |
+| 12x12 | 3 mm | 2 876 / 3 861 | 330 / 495 | 73 | -102 c | 1 066 Pa |
+| 12x12 | 6 mm | 484 / 768 | 148 / 371 | 55 | -70 c | 418 Pa |
+| 15x15 | 3 mm | 610 / 934 | 205 / 437 | 66 | -64 c | 418 Pa |
+| 15x15 | 6 mm | 390 / 741 | 186 / 457 | 69 | -44 c | 281 Pa |
+| 20x15 | 1 mm | ne parle pas | ne parle pas | | | > 2 kPa |
+| 20x15 | 3 mm | 559 / 910 | 212 / 477 | 72 | -51 c | 389 Pa |
+| 20x15 | 6 mm | 436 / 858 | 234 / 578 | 88 | -34 c | 314 Pa |
+
+La pression sur l'anche est établie (90 %) en 13 à 14 ms : la chambre n'est pas le frein, c'est
+la croissance de la lame (des dizaines de périodes). Ce qui raccourcit ou allonge (12x12, soupape
+3 mm, 2 kPa, t90 = 495 ms ; `resultats/trou_soupape_reponse_sensibilite.csv`) : ouverture de la
+soupape 0 / 5 / 20 / 40 ms -> 261 / 337 / 962 / 1 072 ms (un appui vif « pince » la lame) ; levée
+de l'anche 0,5 / 0,75 / 1,5 mm -> 290 / 284 ms / ne parle pas ; volume de chambre x0,5 / x2 ->
+432 ms / ne parle pas ; zeta 0,002 / 0,008 -> 479 / 935 ms ; montée du soufflet en 20 ms au lieu
+de la soupape -> 784 ms ; amplitude de départ x0,1 / x10 -> même résultat.
+
+**Ce qui n'est PAS encore validé (à lire avant tout chiffre du tableau).** (1) À pression
+imposée et sans chambre, la lame ne part pas dans ce modèle. C'est cohérent avec l'atelier : à
+pression imposée une anche a besoin d'une cavité, et l'essai d'Ewen (05/10/2026) montre que la lame
+de ré# grave ne part pas sans cavité, même en soufflant fort sans étanchéité (une lame de ré5, plus
+légère, part, avec un son tout petit). Ce test est donc passé. (2) Avec
+une SOURCE DE DÉBIT sans chambre (`--debit`, classe `SourceDebit` : débit q0 dans un petit volume
+amont, `resultats/trou_soupape_source_debit.csv`), la lame part dans le modèle : q0 = 1 L/s dans
+0,5 cm³ -> 0,38 mm, 90 % en 38 ms, mais 362 cents bas ; q0 = 2 L/s -> amplitudes de 7 à 13 mm et
+pressions moyennes négatives : hors du domaine physique (le modèle n'a pas de butée). Exploratoire :
+le souffle d'Ewen n'est sans doute pas une source d'aussi grande impédance que 0,5 cm³.
+(3) Les temps de réponse (0,4 à 4 s) et les baisses de hauteur (30 à 100 cents) à pression
+imposée paraissent grands pour un accordéon qui répond bien ; à confronter au banc. L'inertie de
+l'air dans l'écart (option `l_fente`) ne change presque rien (550 ms au lieu de 495 ms). Les
+TENDANCES (gros trou, grande levée de soupape, appui vif = réponse plus rapide) sont plus sûres que
+les chiffres. Un audit sur la crédibilité de ces temps est en cours ; le modèle d'écoulement n'est
+pas modifié avant son retour.
+
+**Faisabilité du couplage complet dans Elmer.** (a) Linéaire, fréquentiel : fait ici par projection
+modale (Helmholtz seul, 30 min par cas sur 326 000 nœuds) ; Elmer 26.2 a aussi le couplage fort
+Helmholtz + StressSolve (tests `ShoeboxFsiHarmonic`, `ShoeboxFsiEigen2D`), utile si m_a/m n'était
+pas petit, inutile ici (0,14 %). (b) Transitoire complet (FlowSolve + ElasticSolve + MeshSolve,
+ALE) : non. La lame traverse une plaquette de 2,5 mm à 0,05 mm des bords : le maillage mobile se
+cisaille de 3 mm sur 0,05 mm (il faudrait remailler à chaque période, ce que MeshSolve ne fait
+pas) ; jet à 58 m/s, Re 190 dans le jeu et 3 900 dans le passage : mailles de 0,01 mm, pas de
+temps de l'ordre de la microseconde, des centaines de périodes : des semaines de calcul sur un PC.
+(c) Raisonnable et utile : une section 2D en travers de la lame, à PETITE amplitude autour du
+repos (pas de traversée), FlowSolve + MeshSolve, pour mesurer la force instationnaire et en tirer
+l'amortissement aérodynamique au départ, celui qui fixe le temps de réponse.
