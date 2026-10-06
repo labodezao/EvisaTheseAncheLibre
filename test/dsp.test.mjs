@@ -6,6 +6,8 @@ import { NsdfTracker } from '../web/js/dsp/nsdf.js';
 import { matrixPencil } from '../web/js/dsp/subspace.js';
 import { CoarseAnalyzer } from '../web/js/dsp/coarse.js';
 import { midiToFreq, noteLabel, overlappingAllan } from '../web/js/music.js';
+import { anches as sonAnches, timbre as timbreAnche, hasard as hasardAnche, rejoue as rejoueAnches, voix as voixDe, vraie as vraieHauteur } from './synthese-anches.mjs';
+import { CONF_PRECISION } from '../web/js/dsp/confondu.js';
 
 const SR = 48000;
 let failures = 0;
@@ -1160,6 +1162,361 @@ console.log('\nTest 43 — quinte de basse : chaque note a son anche à l\'octav
     }
     assert(n > 40 && !bad, bad ?? `${noteLabel(root).full} (${c1}/${c1o} ¢) + ${noteLabel(root + 7).full} (${c5}/${c5o} ¢) : 1 et 5 justes (${n} mesures)`);
   }
+}
+
+console.log('\nTest 44 — 16\'+8\' : le 8\' parle avant le 16\', la note redescend quand le 16\' arrive (D4)');
+{
+  // Session d'Ewen, Ré#2 et Ré2 en 16'+8' (docs/POLYPHONIE-ESSAIS.md, P06,
+  // P08) : la petite anche du 8' parle la première (croissance plus rapide),
+  // la note se cale une octave trop haut et le 16' se pose sur le 8'. La
+  // garde d'octave du registre refusait ensuite la note juste toute la note :
+  // le vrai 16' n'était jamais affiché. Lâcher une anche ne fait jamais
+  // apparaître une fondamentale plus grave : une note proposée plus bas dont
+  // les partiels impairs ont une énergie à eux est acceptée.
+  const [m, c16, c8] = [39, -0.5, 16];
+  const x = sonAnches([{ f: at(m, c16), a: 1, debut: 0.7, montee: 0.5 }, { f: at(m + 12, c8), a: 0.35, montee: 0.05 }], 5, { graine: 5 });
+  const imgs = rejoueAnches({ mode: 'register', register: 'LM' }, x).filter((im) => im.t > 2.5);
+  let bon = 0;
+  for (const im of imgs) {
+    const v16 = voixDe(im, '16');
+    if (im.m === m + 12 && v16?.tracked && Math.abs(v16.dCents - c16) < 0.5) bon++;
+  }
+  const notes = [...new Set(imgs.map((im) => im.m))].map((q) => noteLabel(q).full).join(', ');
+  assert(bon >= 0.9 * imgs.length, `note attendue Ré#3 (16' = Ré#2) : note lue ${notes} ; 16' juste sur ${bon}/${imgs.length} images après 2,5 s`);
+}
+
+console.log('\nTest 45 — 16\'+8\' : le 8\' est lu là où sa raie est séparée de celle du 16\' (D1)');
+{
+  // Session d'Ewen, La#2 (8' à +7 c de l'octave) et Mi2 (8' à −1,5 c) en
+  // 16'+8' : le 8', mesuré sur sa fondamentale, se mêlait au partiel 2 du
+  // 16' (0,9 et 0,16 Hz d'écart) : lu à 0,2 à 3 c de sa hauteur. Le 16' est
+  // mesuré à part (partiel impair) : la raie du 16' est connue dans chaque
+  // bande du 8'. Le 8' est lu sur ceux de ses partiels où sa raie en est à
+  // 2 cases au moins, l'amas de phase coupé à mi-chemin de la raie du 16'.
+  // Limite physique : deux raies k δ Hz l'une de l'autre ne se séparent
+  // qu'avec une fenêtre de plus de 2 / (k δ) s. Pour Mi2 (δ = 0,16 Hz,
+  // k ≤ 8) il faut la fenêtre de 2,7 s, pleine 3,1 s après le début de la
+  // note. Avant, le 8' a le droit d'être « confondu avec l'octave » (drapeau
+  // M), mais alors son erreur ne dépasse pas son écart réel à l'octave.
+  // Timbres : celui des anches (−3,5 dB par partiel) et un 16' riche
+  // (−1,5 dB par partiel, comme les basses d'Ewen) : sur une basse réelle,
+  // le partiel 2k du 16' passe tantôt 28 dB sous le partiel k du 8', tantôt
+  // 8 dB au-dessus (mesuré par ESPRIT sur les passages P03, P04, P09).
+  for (const [m, c16, c8] of [[46, 5, 12], [40, 12.1, 10.4]]) {
+    for (const pente16 of [-3.5, -1.5]) {
+      const r16 = hasardAnche(3 + m);
+      const x = sonAnches([{ f: at(m, c16), a: 1, H: timbreAnche(20, r16, pente16) }, { f: at(m + 12, c8), a: 0.8 }], 6, { graine: m });
+      const imgs = rejoueAnches({ mode: 'register', register: 'LM' }, x).filter((im) => im.t > 2.5);
+      const oct = Math.abs(c8 - c16);
+      let pire = 0, pire16 = 0, borne = 0;
+      for (const im of imgs) {
+        const v8 = voixDe(im, '8'), v16 = voixDe(im, '16');
+        const e8 = v8?.tracked ? Math.abs(v8.dCents - c8) : 99;
+        if (im.t > 3.5) pire = Math.max(pire, e8);
+        else if (!(e8 < 0.1 || (v8.merged && e8 <= oct + 0.1))) borne = Math.max(borne, e8);
+        pire16 = Math.max(pire16, v16?.tracked ? Math.abs(v16.dCents - c16) : 99);
+      }
+      assert(pire < 0.1 && borne === 0 && pire16 < 0.1, `${noteLabel(m).full} ${c16} / ${noteLabel(m + 12).full} ${c8} ¢, 16' à ${pente16} dB par partiel : 8' à ${pire.toFixed(2)} ¢ au pire de 3,5 à 6 s ; de 2,5 à 3,5 s, ${borne ? `erreur non bornée ${borne.toFixed(2)} ¢` : 'juste, ou confondu à moins de son écart à l\'octave'} (16' : ${pire16.toFixed(2)} ¢)`);
+    }
+  }
+  // L'octave juste reste « confondue », à sa hauteur (cf. test 24).
+  const x = sonAnches([{ f: at(41, 12.5), a: 1, H: timbreAnche(20, hasardAnche(44), -1.5) }, { f: at(53, 12.5), a: 0.3 }], 6, { graine: 41 });
+  const fin = rejoueAnches({ mode: 'register', register: 'LM' }, x).filter((im) => im.t > 3.5);
+  const faux = fin.filter((im) => { const v = voixDe(im, '8'); return !v?.tracked || Math.abs(v.dCents - 12.5) > 0.1; }).length;
+  assert(fin.length > 20 && faux === 0, `octave juste (Fa2 + Fa3, 8' 10 dB plus faible) : 8' à 0,1 ¢ sur ${fin.length - faux}/${fin.length} images`);
+}
+
+console.log('\nTest 46 — 16\'+8\' après une inversion du soufflet : le 8\' juste en moins de 1,5 s (D7)');
+{
+  // Session d'Ewen, La#2 (345 et 370 s) : après une inversion, les traqueurs
+  // repartent d'une fenêtre courte ; le 8', mesuré sur sa fondamentale à
+  // 0,9 Hz du partiel 2 du 16', ne s'en séparait qu'au-delà de 1,4 s (absent
+  // puis faux de 2 ¢). Même mécanisme que le test 45 : sur ses partiels
+  // élevés, l'écart vaut k fois plus et se sépare k fois plus tôt.
+  const tinv = 3;
+  const x = sonAnches([{ f: at(46, 5), a: 1, saut: { t: tinv, c: -3 } }, { f: at(58, 12), a: 0.8, saut: { t: tinv, c: -3 } }], 7.5,
+    { graine: 9, creux: { t: tinv, db: 12, dur: 0.08 } });
+  const imgs = rejoueAnches({ mode: 'register', register: 'LM' }, x).filter((im) => im.t > tinv + 1.5);
+  let pire = 0, quand = null;
+  for (const im of imgs) {
+    const v8 = voixDe(im, '8');
+    const e = v8?.tracked ? Math.abs(v8.dCents - 9) : 99;
+    if (e > pire) { pire = e; quand = im.t - tinv; }
+  }
+  assert(imgs.length > 20 && pire < 1, `8' (9 ¢ après l'inversion) : écart jusqu'à ${pire.toFixed(2)} ¢, ${quand?.toFixed(2)} s après l'inversion (attendu : moins de 1 ¢ dès 1,5 s)`);
+}
+
+console.log('\nTest 47 — Auto-anches avec l\'octave : l\'anche d\'octave proche de l\'octave juste est affichée (D2)');
+{
+  // Session d'Ewen, basses La#2, Ré#2 (Auto-anches, octaves 8' et 4') :
+  // l'anche d'octave, 1,6 à 7 ¢ au-dessus de l'octave juste, n'était jamais
+  // affichée. Trois artefacts : le rejet harmonique à 8 ¢ (bien plus large
+  // que ce que la fenêtre sépare), la raie de l'anche grave qui prenait la
+  // case du 4' dans l'appariement, et l'amas de phase qui avalait cette
+  // raie, 7 dB plus forte, à 3,8 Hz de la vraie. Limite physique : Ré#3 à
+  // 1,6 ¢ de l'octave n'est séparable qu'avec la fenêtre de 2,7 s (pleine
+  // vers 3,1 s) ; avant, le 4' peut manquer, jamais être faux.
+  for (const [m, c0, c1] of [[46, 5, 12], [39, 9, 10.6]]) {
+    const x = sonAnches([{ f: at(m, c0), a: 1, H: timbreAnche(20, hasardAnche(3 + m), -1.5) }, { f: at(m + 12, c1), a: 0.8 }], 5, { graine: 3 + m });
+    const tout = rejoueAnches({ mode: 'reeds', reedOctaves: [0, 1] }, x).filter((im) => im.t > 1.5);
+    const imgs = tout.filter((im) => im.t > 3.3);
+    const vu = imgs.filter((im) => im.vs.some((v) => v.tracked && v.def.oct === 1 && Math.abs(v.dCents - c1) < 0.5)).length;
+    const faux = tout.filter((im) => im.vs.some((v) => v.tracked && v.def.oct === 1 && Math.abs(v.dCents - c1) >= 0.5)).length;
+    assert(imgs.length > 15 && vu >= 0.9 * imgs.length && faux === 0, `${noteLabel(m).full} ${c0} ¢ + ${noteLabel(m + 12).full} ${c1} ¢ : 4' juste (0,5 ¢) sur ${vu}/${imgs.length} images après 3,3 s, ${faux} image(s) avec un 4' faux`);
+  }
+}
+
+console.log('\nTest 48 — Auto-anches : une anche seule mesurée sur un partiel faible reste affichée (D6)');
+{
+  // Session d'Ewen, Fa#3 seul (90-93 s) : Auto-anches mesure l'anche sur son
+  // partiel 5, 27 dB sous ses partiels 3 et 4 ; après 2,4 s, plus rien. Le
+  // plancher de −25 dB comparait l'anche à la plus forte amplitude de la
+  // note, traqueurs cachés du stroboscope compris : l'anche était plus faible
+  // que ses propres partiels. Il compare maintenant des anches (chacune avec
+  // son partiel le plus fort).
+  const H = [0, -2, 2, -1, -25, -6, -8, -10, -12, -14].map((d) => 10 ** (d / 20));
+  const x = sonAnches([{ f: at(54, 2.5), a: 1, H }], 5, { graine: 23 });
+  const imgs = rejoueAnches({ mode: 'reeds', reedOctaves: [0], subspace: true }, x).filter((im) => im.t > 1.5);
+  const vu = imgs.filter((im) => im.vs.some((v) => v.tracked && Math.abs(v.dCents - 2.5) < 0.2)).length;
+  assert(imgs.length > 30 && vu >= 0.95 * imgs.length, `Fa#3 +2,5 ¢, partiel 5 27 dB sous le partiel 3 : affiché à 0,2 ¢ sur ${vu}/${imgs.length} images après 1,5 s`);
+}
+
+console.log('\nTest 49 — Auto-anches : une anche seule n\'est pas lue sur UN partiel faible qu\'une raie voisine fait dévier (D9)');
+{
+  // Session d'Ewen, Ré#4 seul (557-559 s) : Auto-anches lisait −0,25 ¢ là où
+  // l'anche est à +0,13 à +0,19 ¢ (Automatique : +0,18). Le partiel de
+  // mesure, choisi pour SÉPARER des anches supposées, était le partiel 3, à
+  // −17 dB, dévié par une raie faible voisine. Une anche seule est lue comme
+  // en Automatique : ses partiels fondus, poids (A k)². Synthèse : raie
+  // stable 0,3 Hz au-dessus du partiel 3, 8 dB sous lui.
+  const c = 0.15, f = at(63, c);
+  const H = [0, -6, -17, -12, -9, -14, -18, -20].map((d) => 10 ** (d / 20));
+  const x = sonAnches([{ f, a: 1, H }, { f: (3 * f + 0.3) / 3, a: 10 ** (-8 / 20), H: [0, 0, 10 ** (-17 / 20)], vib: 0 }], 5, { graine: 31 });
+  for (const cfg of [{ mode: 'auto' }, { mode: 'reeds', reedOctaves: [0], subspace: true }]) {
+    const imgs = rejoueAnches(cfg, x).filter((im) => im.t > 3);
+    let pire = 0;
+    for (const im of imgs) {
+      const v = im.vs.find((q) => q.tracked && Math.abs(q.dCents - c) < 5);
+      pire = Math.max(pire, v ? Math.abs(v.dCents - c) : 99);
+    }
+    assert(imgs.length > 15 && pire < 0.1, `${cfg.mode} : écart jusqu'à ${pire.toFixed(2)} ¢ de 3 à 5 s (anche à +0,15 ¢, partiel 3 à −17 dB, raie voisine à −25 dB)`);
+  }
+}
+
+console.log('\nTest 50 — Automatique sur une basse 16\'+8\' : la note grave lue sur ses partiels impairs, ou l\'alerte (D3)');
+{
+  // Session d'Ewen, Ré#2 en 16'+8' (196 s) : 16' à +8,9 ¢, 8' à +10,6 ¢ ;
+  // Automatique affichait +9,9 à +10,1 ¢ (leur mélange), presque sans alerte.
+  // La note grave était mesurée sur son partiel 2, qui EST la fondamentale
+  // du 8' ; la fusion mêlait encore les partiels 2 et 4. En Automatique, une
+  // note grave se mesure sur ses partiels impairs ; les pairs ne comptent que
+  // s'ils disent la même hauteur, sinon ils déclenchent l'alerte.
+  const [m, c16, c8] = [39, 9, 10.6];
+  const x = sonAnches([{ f: at(m, c16), a: 1 }, { f: at(m + 12, c8), a: 0.9 }], 5, { graine: 11 });
+  const imgs = rejoueAnches({ mode: 'auto' }, x).filter((im) => im.t > 2.5);
+  let bon = 0, alerte = 0;
+  for (const im of imgs) {
+    const v = im.vs[0];
+    if (im.r.partialsDisagree || im.r.unison) { alerte++; continue; }
+    if (v?.tracked && Math.abs(v.dCents - (im.m === m ? c16 : c8)) < 0.1) bon++;
+  }
+  assert(imgs.length > 20 && bon + alerte >= 0.9 * imgs.length, `Ré#2 +9 / Ré#3 +10,6 ¢ : ${bon} images justes à 0,1 ¢, ${alerte} alertes, sur ${imgs.length}`);
+}
+
+console.log('\nTest 51 — Note imposée qui ne sonne pas : un partiel d\'une autre note n\'est pas une anche (5/4)');
+{
+  // Vu le 06/10 avec le générateur (440 et 442 Hz, timbre reedWave d'audio.js) :
+  // cible Do#5, le moteur verrouillé lisait le partiel 5 du La4 (2200 et
+  // 2210 Hz) comme le partiel 4 du Do#5 : 550,00 et 552,50 Hz, fines. En
+  // mésotonique, ou en juste sur La, la tierce est pure : 0,00 ¢, et la case
+  // du Do#5 était validée sans que le Do#5 ait sonné.
+  const H = Array.from({ length: 16 }, (_, k) => 1 / (k + 1) ** 1.3);
+  const la4 = sonAnches([{ f: 440, H, vib: 0 }, { f: 442, H, vib: 0 }], 6, { graine: 5 });
+  for (const [temperament, tonique] of [['equal', 0], ['meantone4', 0], ['just', 9]]) {
+    const imgs = rejoueAnches({ mode: 'register', register: 'MM', lockNote: 73, response: 'fast', temperament, tonique }, la4);
+    const lues = imgs.filter((im) => im.vs.some((v) => v.tracked));
+    const ex = lues[0]?.vs.find((v) => v.tracked);
+    assert(imgs.length > 50 && lues.length === 0,
+      `La4 joué, cible Do#5 (${temperament}) : ${lues.length} images lues${ex ? ` (${ex.def.id} à ${ex.fMeas.toFixed(2)} Hz, ${ex.dTargetCents.toFixed(2)} ¢)` : ''}, attendu aucune`);
+  }
+  // Témoins : la bonne note se lit comme avant, sans attendre plus.
+  const imgs = rejoueAnches({ mode: 'register', register: 'MM', lockNote: 69, response: 'fast' }, la4);
+  const premiere = imgs.find((im) => im.vs.every((v) => v.tracked))?.t ?? 99;
+  const apres = imgs.filter((im) => im.t > 1.5);
+  const justes = apres.filter((im) => Math.abs(voixDe(im, '8')?.fMeas - 440) < 0.01 && Math.abs(voixDe(im, '8+')?.fMeas - 442) < 0.01);
+  assert(premiere < 0.6 && justes.length === apres.length,
+    `La4 joué, cible La4 : première lecture à ${premiere.toFixed(2)} s, ${justes.length} images justes sur ${apres.length} après 1,5 s`);
+  // Battement lent (0,15 Hz, deux anches égales) : les creux ne font pas
+  // disparaître la note ; basse 16'+8' : ses partiels graves sont là.
+  for (const [nom, cfg, liste] of [
+    ['musette à 0,15 Hz', { mode: 'register', register: 'MM', lockNote: 69 }, [{ f: 440 }, { f: 440.15 }]],
+    ['Ré2 16\'+8\'', { mode: 'register', register: 'LM', lockNote: 38 }, [{ f: midiToFreq(38) }, { f: midiToFreq(50), a: 0.8 }]],
+  ]) {
+    const x = sonAnches(liste, 12, { graine: 9 });
+    const im2 = rejoueAnches({ response: 'fast', ...cfg }, x).filter((im) => im.t > 1.5);
+    const vides = im2.filter((im) => im.vs.every((v) => v.absent));
+    assert(im2.length > 100 && vides.length === 0, `${nom} : ${vides.length} images sans anche sur ${im2.length}`);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Anche confondue avec l'octave : estimation honnête, avec sa marge
+// (confondu.js). Le 8' d'un 16'+8' trop près de l'octave pour être séparé
+// dans la fenêtre est « confondu » (limite physique, test 45) ; on donne
+// quand même sa justesse, par l'octave du 16' ou par le battement de la
+// raie commune, avec une marge qui doit contenir la vérité.
+// Son : 16' au timbre riche (−1,5 dB par partiel) ou d'anche (−3,5), 8' de
+// −10 à +6 dB, soufflet (vibrato commun ±0,2 ¢ à 0,8 Hz, dérive lente de la
+// pression 0,1 ¢/s), bruit à 40 dB. Vérité : la hauteur moyenne du 8' sur la
+// partie de la fenêtre que lit le moteur (vraieHauteur).
+function confondus(m, c16, c8, db, secondes, { pente16 = -1.5, derive = 0.1, vib = 0.2, graine = 1 } = {}) {
+  const liste = [{ f: at(m, c16), a: 1, H: timbreAnche(20, hasardAnche(graine + m), pente16), vib, derive },
+    { f: at(m + 12, c8), a: 10 ** (db / 20), vib, derive }];
+  const x = sonAnches(liste, secondes, { graine: graine + m + db });
+  const imgs = rejoueAnches({ mode: 'register', register: 'LM' }, x)
+    .filter((im) => im.m === m + 12 && voixDe(im, '8')?.tracked);
+  for (const im of imgs) {
+    const g8 = im.r.groups.find((g) => g.voices.some((v) => v.def.id === '8'));
+    im.vrai8 = vraieHauteur(x, liste, 1, im.t, g8.W / g8.srd);
+  }
+  return imgs;
+}
+
+console.log('\nTest 52 — 16\'+8\' : l\'anche confondue avec l\'octave a une estimation, et la vérité est dans sa marge (95 %)');
+{
+  let n = 0, dedans = 0, sans = 0, pire = null;
+  const cas = [];
+  for (const m of [39, 46]) for (const d of [0.3, 1, 3, -1]) for (const db of [-10, 0, 6]) cas.push([m, d, db, 3, -1.5]);
+  cas.push([39, 0.3, 0, 6, -3.5], [46, -1, -4, 6, -3.5], [39, 1, -4, 1.5, -3.5], [46, 0.3, 6, 1.5, -1.5]);
+  for (const [m, d, db, sec, pente16] of cas) {
+    for (const im of confondus(m, 7, 7 + d, db, sec, { pente16 })) {
+      const v = voixDe(im, '8');
+      if (!v.confondu) continue;
+      if (v.fEstimee == null) { sans++; continue; }
+      n++;
+      const e = cents(v.fEstimee, im.vrai8);
+      if (Math.abs(e) <= v.margeCents) dedans++;
+      else if (!pire || Math.abs(e) - v.margeCents > pire.ex) pire = { ex: Math.abs(e) - v.margeCents, txt: `${noteLabel(m + 12).full} ${d > 0 ? '+' : ''}${d} ¢ de l'octave, ${db} dB, ${im.t.toFixed(2)} s : ${e.toFixed(2)} ¢ pour ±${v.margeCents.toFixed(2)} (${v.methode})` };
+    }
+  }
+  assert(n > 500 && sans === 0 && dedans >= 0.95 * n,
+    `${dedans}/${n} images confondues dans la marge annoncée (${(100 * dedans / Math.max(1, n)).toFixed(1)} %), ${sans} sans estimation${pire ? ` ; pire : ${pire.txt}` : ''}`);
+}
+
+console.log('\nTest 53 — anche confondue : la marge se resserre avec la durée (en 1/T)');
+{
+  // 8' à 0,3 ¢ de l'octave : confondu toute la note, même à 6 s.
+  const imgs = confondus(39, 7, 7.3, 0, 6, { pente16: -3.5, derive: 0, vib: 0.1 });
+  const conf = (v) => Math.sqrt(Math.max(0, v.margeCents ** 2 - CONF_PRECISION ** 2));   // part de la confusion
+  const med = (a, b) => {
+    const xs = imgs.filter((im) => im.t >= a && im.t < b).map((im) => voixDe(im, '8'))
+      .filter((v) => v.confondu && v.methode === 'battement').map(conf).sort((p, q) => p - q);
+    return xs.length ? xs[xs.length >> 1] : NaN;
+  };
+  const [m15, m3, m6] = [med(1.3, 1.7), med(2.8, 3.2), med(5.6, 6)];
+  // Par l'octave (avant une seconde de son) : ±1/T de la fenêtre, exactement.
+  const oct = imgs.map((im) => [im, voixDe(im, '8')]).filter(([, v]) => v.methode === 'octave');
+  const okOct = oct.length > 0 && oct.every(([im, v]) => {
+    const g8 = im.r.groups.find((g) => g.voices.includes(v));
+    const attendu = Math.hypot(cents(v.fEstimee + g8.srd / g8.W, v.fEstimee), CONF_PRECISION);
+    return Math.abs(v.margeCents - attendu) < 1e-9;
+  });
+  assert(m15 > 1.6 * m3 && m3 > 1.6 * m6 && okOct,
+    `marge (part de la confusion) : ${m15.toFixed(3)} ¢ vers 1,5 s, ${m3.toFixed(3)} vers 3 s, ${m6.toFixed(3)} vers 6 s ; par l'octave, ±1/T exactement (${oct.length} images)`);
+}
+
+console.log('\nTest 54 — anche confondue puis séparée : pas de saut au passage à la mesure normale');
+{
+  let passages = 0, pire = null;
+  for (const [m, d, db] of [[39, 3, -4], [46, 1, 6], [46, 3, -10], [39, -1, 0], [46, -1, -4]]) {
+    const imgs = confondus(m, 7, 7 + d, db, 5, { pente16: -3.5 });
+    let av = null;
+    for (const im of imgs) {
+      const v = voixDe(im, '8');
+      const montre = v.confondu ? v.fEstimee : v.fMeas;
+      if (av && av.confondu && av.f != null && !v.confondu) {
+        passages++;
+        const saut = Math.abs(cents(montre, av.f));
+        if (saut > av.marge && (!pire || saut - av.marge > pire.ex)) pire = { ex: saut - av.marge, txt: `${noteLabel(m + 12).full} ${d} ¢, ${db} dB, ${im.t.toFixed(2)} s : saut de ${saut.toFixed(2)} ¢ pour une marge de ${av.marge.toFixed(2)}` };
+      }
+      av = { confondu: !!v.confondu, f: montre, marge: v.margeCents };
+    }
+  }
+  assert(passages >= 4 && !pire, pire ? pire.txt : `${passages} passages de « confondue » à la mesure normale, chacun dans la marge de l'estimation d'avant`);
+}
+
+console.log('\nTest 55 — anche confondue : le signe (8\' au-dessus ou au-dessous de l\'octave du 16\') se lit au battement, à tous les rapports d\'amplitude');
+{
+  const lignes = [];
+  let faux = 0;
+  for (const db of [-10, -4, 0, 6]) for (const d of [1, -1]) {
+    const imgs = confondus(46, 7, 7 + d, db, 3, { pente16: -3.5, graine: 5 }).filter((im) => im.t >= 2);
+    let n = 0, connu = 0;
+    for (const im of imgs) {
+      const v = voixDe(im, '8');
+      if (!v.confondu || v.methode !== 'battement') continue;
+      n++;
+      const v16 = voixDe(im, '16');
+      if (v.signeConnu) { connu++; if (Math.sign(v.fEstimee - 2 * v16.fMeas) !== Math.sign(d)) faux++; }
+    }
+    lignes.push({ db, d, n, connu });
+  }
+  const bas = lignes.filter((l) => l.connu < 0.9 * l.n);
+  assert(lignes.every((l) => l.n >= 5) && !bas.length && !faux,
+    `${lignes.map((l) => `${l.db} dB ${l.d > 0 ? '+' : ''}${l.d} ¢ : ${l.connu}/${l.n}`).join(' ; ')} ; signe connu et faux : ${faux}`);
+}
+
+console.log('\nTest 56 — 16\'+8\' : une raie à 2 cases de celle du 16\' n\'est le 8\' séparé que si un autre partiel le confirme');
+{
+  // Mesuré (synthèse et P09) : une raie parasite (repli de la décimation,
+  // −30 dB) ou une lecture de la raie commune que le battement pousse seule
+  // au-delà de 2 cases passait pour le 8' séparé : 8 à 26 ¢ d'erreur, parfois
+  // toute la note, et la tenue d'1 s ne faisait que retarder l'affichage.
+  // Une anche est périodique : la raie séparée d'un partiel doit être
+  // confirmée par un autre partiel du 8' (octaveFuse).
+  let sep = 0, pire = null;
+  for (const [m, d, db, sec] of [[46, -0.3, -10, 5], [46, -0.3, -4, 5], [46, -1, -10, 5], [46, -1, -4, 5], [39, -3, -10, 2]]) {
+    for (const im of confondus(m, 7, 7 + d, db, sec, { pente16: -3.5 })) {
+      const v = voixDe(im, '8');
+      if (v.merged) continue;
+      sep++;
+      const e = Math.abs(cents(v.fMeas, im.vrai8));
+      if (!pire || e > pire.e) pire = { e, txt: `${noteLabel(m + 12).full} ${d} ¢, ${db} dB, ${im.t.toFixed(2)} s` };
+    }
+  }
+  assert(sep >= 20 && pire.e < 0.5, `${sep} images où le 8' est dit séparé ; pire écart ${pire?.e.toFixed(2)} ¢ (${pire?.txt}), attendu sous 0,5 ¢`);
+}
+
+console.log('\nTest 57 — anche confondue, δ qui bouge (le 16\' monte sous le 8\') : la marge reste honnête ; le 8\' qui domine est lu sur la raie commune');
+{
+  // Session d'Ewen, P08 (Ré2) : 8' 9 à 13 dB au-dessus du 16', qui monte de
+  // 2,5 ¢ sous lui pendant la note ; l'écart à l'octave change de signe. Le
+  // battement suppose δ constant : sur synthèse, sa marge ne contenait la
+  // vérité que dans 85 % des images. Elle compte maintenant l'écart entre la
+  // note entière et ses moitiés ; et quand le 8' domine la raie commune, la
+  // raie se lit directement, son biais borné par ρ (le cercle des points).
+  let n = 0, dedans = 0, nr = 0, dedansR = 0;
+  const er = [];
+  for (const [d, d16, d8] of [[0.6, 0.5, 0], [-0.6, -0.5, 0], [0.5, 0, -0.4]]) {
+    for (const db of [-10, 0, 6, 13, 16]) {
+      const liste = [{ f: at(38, 7), a: 1, H: timbreAnche(20, hasardAnche(39), -1.5), vib: 0.2, derive: d16 },
+        { f: at(50, 7 + d), a: 10 ** (db / 20), vib: 0.2, derive: d8 }];
+      const x = sonAnches(liste, 3.5, { graine: 39 + db });
+      for (const im of rejoueAnches({ mode: 'register', register: 'LM' }, x)) {
+        const v = voixDe(im, '8');
+        if (im.m !== 50 || !v?.confondu || v.fEstimee == null) continue;
+        const g8 = im.r.groups.find((g) => g.voices.includes(v));
+        const e = Math.abs(cents(v.fEstimee, vraieHauteur(x, liste, 1, im.t, g8.W / g8.srd)));
+        n++;
+        if (e <= v.margeCents) dedans++;
+        if (v.methode === 'raie') { nr++; if (e <= v.margeCents) dedansR++; er.push(e); }
+      }
+    }
+  }
+  er.sort((a, b) => a - b);
+  const p95 = er.length ? er[Math.floor(0.95 * (er.length - 1))] : NaN;
+  assert(n > 300 && dedans >= 0.95 * n && nr >= 30 && dedansR === nr && p95 < 0.15,
+    `${dedans}/${n} images confondues dans leur marge (${(100 * dedans / Math.max(1, n)).toFixed(1)} %) ; par la raie commune : ${nr} images, ${dedansR} dans la marge, erreur au 95e centile ${p95.toFixed(3)} ¢`);
 }
 
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);

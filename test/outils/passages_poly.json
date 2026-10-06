@@ -1,0 +1,444 @@
+[
+ {
+  "id": "P01",
+  "wav": "session-2026-09-25-23-58-20.wav",
+  "t_on": 157.66,
+  "t1": 161.3,
+  "desc": "Fa2 basse : 16'+8'",
+  "creux_db": -24.1,
+  "modes": {
+   "auto": {
+    "mode": "auto"
+   },
+   "registre": {
+    "mode": "register",
+    "register": "LM"
+   },
+   "anches": {
+    "mode": "reeds",
+    "reedOctaves": [
+     0,
+     1
+    ],
+    "subspace": true
+   }
+  }
+ },
+ {
+  "id": "P02",
+  "wav": "session-2026-09-25-23-58-20.wav",
+  "t_on": 181.46,
+  "t1": 185.6,
+  "desc": "Fa2 basse : 8' haut de 2,6 c sur l'octave",
+  "creux_db": -9.6,
+  "modes": {
+   "auto": {
+    "mode": "auto"
+   },
+   "registre": {
+    "mode": "register",
+    "register": "LM"
+   },
+   "anches": {
+    "mode": "reeds",
+    "reedOctaves": [
+     0,
+     1
+    ],
+    "subspace": true
+   }
+  }
+ },
+ {
+  "id": "P03",
+  "wav": "session-2026-09-25-23-58-20.wav",
+  "t_on": 195.3,
+  "t1": 198.3,
+  "desc": "Ré#2 basse : 16'+8'",
+  "creux_db": -37.5,
+  "modes": {
+   "auto": {
+    "mode": "auto"
+   },
+   "registre": {
+    "mode": "register",
+    "register": "LM"
+   },
+   "anches": {
+    "mode": "reeds",
+    "reedOctaves": [
+     0,
+     1
+    ],
+    "subspace": true
+   }
+  }
+ },
+ {
+  "id": "P04",
+  "wav": "session-2026-09-25-23-58-20.wav",
+  "t_on": 345.02,
+  "t1": 350.4,
+  "desc": "La#2 basse : 8' haut de 7 c sur l'octave",
+  "creux_db": -17.9,
+  "modes": {
+   "auto": {
+    "mode": "auto"
+   },
+   "registre": {
+    "mode": "register",
+    "register": "LM"
+   },
+   "anches": {
+    "mode": "reeds",
+    "reedOctaves": [
+     0,
+     1
+    ],
+    "subspace": true
+   }
+  }
+ },
+ {
+  "id": "P05",
+  "wav": "session-2026-09-25-23-58-20.wav",
+  "t_on": 370.55,
+  "t1": 374.9,
+  "desc": "La#2 basse : 8' haut de 7 c (reprise)",
+  "creux_db": -7.5,
+  "modes": {
+   "auto": {
+    "mode": "auto"
+   },
+   "registre": {
+    "mode": "register",
+    "register": "LM"
+   },
+   "anches": {
+    "mode": "reeds",
+    "reedOctaves": [
+     0,
+     1
+    ],
+    "subspace": true
+   }
+  }
+ },
+ {
+  "id": "P06",
+  "wav": "session-2026-09-25-23-58-20.wav",
+  "t_on": 374.99,
+  "t1": 378.9,
+  "desc": "Ré#2 basse : 8' haut de 16 c sur l'octave",
+  "creux_db": -30.5,
+  "modes": {
+   "auto": {
+    "mode": "auto"
+   },
+   "registre": {
+    "mode": "register",
+    "register": "LM"
+   },
+   "anches": {
+    "mode": "reeds",
+    "reedOctaves": [
+     0,
+     1
+    ],
+    "subspace": true
+   }
+  }
+ },
+ {
+  "id": "P07",
+  "wav": "session-2026-09-25-23-58-20.wav",
+  "t_on": 385.91,
+  "t1": 389.8,
+  "desc": "Fa2 basse : octave presque juste",
+  "creux_db": -7.3,
+  "modes": {
+   "auto": {
+    "mode": "auto"
+   },
+   "registre": {
+    "mode": "register",
+    "register": "LM"
+   },
+   "anches": {
+    "mode": "reeds",
+    "reedOctaves": [
+     0,
+     1
+    ],
+    "subspace": true
+   }
+  }
+ },
+ {
+  "id": "P08",
+  "wav": "session-2026-09-25-23-58-20.wav",
+  "t_on": 414.31,
+  "t1": 417.7,
+  "desc": "Ré2 basse (grave)",
+  "creux_db": -52.2,
+  "modes": {
+   "auto": {
+    "mode": "auto"
+   },
+   "registre": {
+    "mode": "register",
+    "register": "LM"
+   },
+   "anches": {
+    "mode": "reeds",
+    "reedOctaves": [
+     0,
+     1
+    ],
+    "subspace": true
+   }
+  }
+ },
+ {
+  "id": "P09",
+  "wav": "session-2026-09-25-23-58-20.wav",
+  "t_on": 429.43,
+  "t1": 432.9,
+  "desc": "Mi2 basse (grave)",
+  "creux_db": -50.3,
+  "modes": {
+   "auto": {
+    "mode": "auto"
+   },
+   "registre": {
+    "mode": "register",
+    "register": "LM"
+   },
+   "anches": {
+    "mode": "reeds",
+    "reedOctaves": [
+     0,
+     1
+    ],
+    "subspace": true
+   }
+  }
+ },
+ {
+  "id": "P10",
+  "wav": "session-2026-09-25-23-58-20.wav",
+  "t_on": 468.29,
+  "t1": 470.8,
+  "desc": "Do#3 : deux anches a 24 c (unisson tres ouvert)",
+  "creux_db": -15.5,
+  "modes": {
+   "auto": {
+    "mode": "auto"
+   },
+   "registre": {
+    "mode": "register",
+    "register": "MM"
+   },
+   "anches": {
+    "mode": "reeds",
+    "reedOctaves": [
+     0
+    ],
+    "subspace": true
+   }
+  }
+ },
+ {
+  "id": "P11",
+  "wav": "session-2026-09-25-23-58-20.wav",
+  "t_on": 389.97,
+  "t1": 392.9,
+  "desc": "Do3 : deux anches a 25 c",
+  "creux_db": -46.7,
+  "modes": {
+   "auto": {
+    "mode": "auto"
+   },
+   "registre": {
+    "mode": "register",
+    "register": "MM"
+   },
+   "anches": {
+    "mode": "reeds",
+    "reedOctaves": [
+     0
+    ],
+    "subspace": true
+   }
+  }
+ },
+ {
+  "id": "P12",
+  "wav": "session-2026-09-25-23-58-20.wav",
+  "t_on": 255.4,
+  "t1": 258.4,
+  "desc": "quinte Ré#4 + La#4",
+  "creux_db": -30.2,
+  "modes": {
+   "auto": {
+    "mode": "auto"
+   },
+   "registre": {
+    "mode": "register",
+    "register": "Q"
+   },
+   "anches": {
+    "mode": "reeds",
+    "reedOctaves": [
+     0
+    ],
+    "subspace": true
+   }
+  }
+ },
+ {
+  "id": "P13",
+  "wav": "session-2026-09-25-23-58-20.wav",
+  "t_on": 258.45,
+  "t1": 262.8,
+  "desc": "quinte Ré#4 + La#4 (reprise, plus ouverte)",
+  "creux_db": -31.7,
+  "modes": {
+   "auto": {
+    "mode": "auto"
+   },
+   "registre": {
+    "mode": "register",
+    "register": "Q"
+   },
+   "anches": {
+    "mode": "reeds",
+    "reedOctaves": [
+     0
+    ],
+    "subspace": true
+   }
+  }
+ },
+ {
+  "id": "P14",
+  "wav": "session-2026-09-25-23-58-20.wav",
+  "t_on": 475.51,
+  "t1": 478.2,
+  "desc": "quinte La#3 + Fa4",
+  "creux_db": -57.9,
+  "modes": {
+   "auto": {
+    "mode": "auto"
+   },
+   "registre": {
+    "mode": "register",
+    "register": "Q"
+   },
+   "anches": {
+    "mode": "reeds",
+    "reedOctaves": [
+     0
+    ],
+    "subspace": true
+   }
+  }
+ },
+ {
+  "id": "P15",
+  "wav": "session-2026-09-25-23-58-20.wav",
+  "t_on": 89.54,
+  "t1": 93.5,
+  "desc": "Fa#3 anche seule (temoin)",
+  "creux_db": -55.4,
+  "modes": {
+   "auto": {
+    "mode": "auto"
+   },
+   "registre": {
+    "mode": "register",
+    "register": "M"
+   },
+   "anches": {
+    "mode": "reeds",
+    "reedOctaves": [
+     0
+    ],
+    "subspace": true
+   }
+  }
+ },
+ {
+  "id": "P16",
+  "wav": "session-2026-09-25-23-58-20.wav",
+  "t_on": 557.16,
+  "t1": 559.6,
+  "desc": "Ré#4 anche seule (temoin)",
+  "creux_db": -58.3,
+  "modes": {
+   "auto": {
+    "mode": "auto"
+   },
+   "registre": {
+    "mode": "register",
+    "register": "M"
+   },
+   "anches": {
+    "mode": "reeds",
+    "reedOctaves": [
+     0
+    ],
+    "subspace": true
+   }
+  }
+ },
+ {
+  "id": "P17",
+  "wav": "essai-basses-mi0.wav",
+  "t_on": 16.53,
+  "t1": 21.3,
+  "desc": "Mi1 tres grave (basse libre), 16'+8'",
+  "creux_db": -24.0,
+  "modes": {
+   "auto": {
+    "mode": "auto"
+   },
+   "registre": {
+    "mode": "register",
+    "register": "LM"
+   },
+   "anches": {
+    "mode": "reeds",
+    "reedOctaves": [
+     0,
+     1
+    ],
+    "subspace": true
+   }
+  }
+ },
+ {
+  "id": "P18",
+  "wav": "session-2026-09-25-23-58-20.wav",
+  "t_on": 177.9,
+  "t1": 181.5,
+  "desc": "Fa2 basse : instance du CSV v27 (8' +6,8 a +21,3)",
+  "modes": {
+   "auto": {
+    "mode": "auto"
+   },
+   "registre": {
+    "mode": "register",
+    "register": "LM"
+   },
+   "anches": {
+    "mode": "reeds",
+    "reedOctaves": [
+     0,
+     1
+    ],
+    "subspace": true
+   }
+  }
+ }
+]

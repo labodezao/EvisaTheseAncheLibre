@@ -19,7 +19,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '28';
+const APP_VERSION = '41';
 function versionMismatch(what, got) {
   const b = document.getElementById('versionBanner');
   if (!b) return;
@@ -119,6 +119,22 @@ function applyTheme(name) {
   if (typeof updateReadout === 'function' && $('readoutCards')) updateReadout(state.tick);
 }
 function toggleTheme() { applyTheme(currentTheme() === 'dark' ? 'light' : 'dark'); }
+
+// Anche confondue avec l'octave (moteur v37 et plus, dsp/confondu.js) : son
+// estimation et sa marge, à la place de la raie commune (v.dTargetCents).
+// { c (¢ face à la cible), m (±¢), f (Hz), texte } ou null.
+const METHODES_CONFONDU = { octave: "par l'octave", battement: 'par le battement', raie: 'par la raie commune' };
+function estimationConfondue(v) {
+  if (!v?.confondu || v.fEstimee == null || !Number.isFinite(v.margeCents) || !Number.isFinite(v.centsEstimesCible)) return null;
+  const morceaux = [`±${v.margeCents.toFixed(3)} ¢`, METHODES_CONFONDU[v.methode] ?? ''];
+  if (v.methode === 'battement' && !v.signeConnu) morceaux.push('signe inconnu');
+  return { c: v.centsEstimesCible, m: v.margeCents, f: v.fEstimee, texte: morceaux.filter(Boolean).join(' · ') };
+}
+// Juste seulement si toute la marge tient dans la tolérance (comme Accorder).
+function classeEstimation(e, tol) {
+  if (Math.abs(e.c) + e.m <= tol) return 'ok';
+  return Math.abs(e.c) <= tol ? 'warn' : centsClass(e.c, tol);
+}
 
 // Couleur stable par voix : indexée par ordre de première apparition, pour
 // que la courbe, les chips et les cartes de lecture partagent les couleurs.
@@ -677,6 +693,16 @@ function updateReadout(t) {
       return `<div class="rcard c-off"><div class="rc-head"><b>${lbl}</b><span>${note}</span></div>
         <div class="rc-cents">—</div><div class="rc-sub">non détecté</div></div>`;
     }
+    const estC = estimationConfondue(v);
+    if (estC) {
+      const cls = `c-${classeEstimation(estC, tol)}`;
+      return `<div class="rcard ${cls}" style="border-left-color:${colorFor(key)};border-left-style:dashed">
+      <div class="rc-head"><b>${lbl}</b><span>${note}</span></div>
+      <div class="rc-cents">≈ ${estC.c >= 0 ? '+' : ''}${estC.c.toFixed(3)} ¢</div>
+      <div class="rc-sub">${estC.texte} · ${estC.f.toFixed(3)} Hz</div>
+      <div class="rc-sub">confondue avec l'octave · raie commune ${v.dTargetCents >= 0 ? '+' : ''}${v.dTargetCents.toFixed(3)} ¢ (${v.fMeas.toFixed(3)} Hz)</div>
+    </div>`;
+    }
     const c = v.dTargetCents;
     const cls = `c-${centsClass(c, tol)}`;
     const arrow = Math.abs(c) <= tol ? '✔' : c < 0 ? '↑' : '↓';
@@ -1215,7 +1241,14 @@ function drawStrobe(id, big = false) {
       let yl = yc + 20;
       ctx.fillStyle = th.dim2; ctx.font = `13px ${MONO}`;
       if (v.tracked) ctx.fillText(`${v.fMeas.toFixed(3)} Hz · cible ${v.target.toFixed(3)}`, 6, yl);
-      const adv = reedAdvice(c, cfg.tolCents, v.merged);
+      const est = v.tracked ? estimationConfondue(v) : null;
+      if (est) {
+        yl += 16;
+        ctx.fillText(`≈ ${est.c >= 0 ? '+' : ''}${est.c.toFixed(3)} ¢ ${est.texte}`, 6, yl);
+      }
+      const adv = est && Math.abs(est.c) + est.m > cfg.tolCents && Math.abs(c) <= cfg.tolCents
+        ? { txt: `≈ juste à ±${est.m.toFixed(2)} ¢ près · confondue avec l'octave`, ok: false }
+        : reedAdvice(est ? est.c : c, cfg.tolCents, v.merged);
       if (adv && row >= 130) {
         yl += 18;
         ctx.fillStyle = adv.ok ? th.okStrong : th.dim;
@@ -2013,6 +2046,8 @@ function devCsv(ticks) {
     'k_suivi', 'cible_hz', 'f_hz', 'ecart_cents', 'amp_db', 'confondue_octave', 'estimation_rapide',
     'maintenue', 'fenetre_s', 'remplissage'];
   for (let k = 1; k <= P; k++) head.push(`p${k}_hz`);
+  // Anche confondue avec l'octave (moteur v37 et plus) : estimation, marge, méthode, signe connu.
+  head.push('estimee_hz', 'estimee_cents', 'marge_cents', 'methode', 'signe_connu');
   const lines = [head.join(sep)];
   for (const tk of ticks) {
     const note = tk.midi != null ? noteLabel(tk.midi + (cfg.transpose || 0)).full : '';
@@ -2023,6 +2058,7 @@ function devCsv(ticks) {
         num(20 * Math.log10((r.amp ?? 0) + 1e-9), 1), r.merged, r.coarse, r.held,
         num(r.srd ? r.W / r.srd : null, 3), num(r.fill, 3)];
       for (let k = 1; k <= P; k++) row.push(num(r.p?.[k], 5));
+      row.push(num(r.conf?.f, 5), num(r.conf?.c, 4), num(r.conf?.m, 4), r.conf?.methode ?? '', r.conf ? r.conf.signe : '');
       lines.push(row.join(sep));
     }
   }
@@ -2689,8 +2725,10 @@ function updateModeVisibility() {
 // ---- Démarrage -----------------------------------------------------------------
 // App installable (PWA) : fonctionne hors ligne une fois visitée, s'ajoute à
 // l'écran d'accueil. Chemin relatif : valide aussi si servi depuis un
-// sous-dossier (ex. GitHub Pages de projet).
-if ('serviceWorker' in navigator) {
+// sous-dossier (ex. GitHub Pages de projet). Pas dans l'application de bureau
+// (protocole app:, fichiers déjà locaux) : inutile, et l'enregistrement y échoue.
+// Ni sous Android (Capacitor) : fichiers du paquet.
+if ('serviceWorker' in navigator && location.protocol !== 'app:' && !window.Capacitor?.isNativePlatform?.()) {
   // Rechargement unique quand un nouveau service worker prend la main : la
   // mise à jour du code arrive sans manipulation, sans boucle de rechargement.
   let swReloaded = false;

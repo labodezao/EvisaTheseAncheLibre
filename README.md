@@ -5,6 +5,9 @@ anche libre similaires : harmonica diatonique, concertina, bandonéon,
 mélodica, orgue à anches. Conçu pour l'accordage de précision et pour l'étude
 scientifique de l'anche libre.
 
+Moteur repris de PolyReed v41 le 06/10/2026, publié en licence MIT par son
+auteur. Il se développe dans PolyReed et se reporte ici après chaque changement.
+
 ## Fonctionnalités
 
 - **Précision < 0,1 cent** en temps réel (vérifiée par les tests : < 0,001 Hz
@@ -29,9 +32,22 @@ scientifique de l'anche libre.
   battements d'un instrument existant vers la liste cible.
 - **Enregistrement & rapport** : mémorisation de chaque anche, tableau des
   écarts, rapport imprimable, export CSV / JSON.
-- La4 réglable **430–450 Hz**, **transposition**, **tempéraments** historiques
-  (égal, Pythagore, mésotonique 1/4 comma, Werckmeister III, Kirnberger III,
-  Vallotti), calibration de la carte son (ppm).
+- **Anches confondues avec l'octave** (16'+8' dont le 8' est à moins d'une
+  case de résolution de l'octave juste) : le moteur donne quand même la
+  justesse du 8', avec sa marge, par l'octave, par le battement (le sens de
+  rotation donne le signe) ou par la raie commune quand le 8' y domine. La
+  lecture numérique et le strobe montrent l'estimation (« ≈ ») avec sa marge
+  et sa méthode (« ±0,140 ¢ · par le battement ») ; jamais « juste » si la
+  marge déborde de la tolérance ; le CSV de session les garde.
+- **Mode recherche** : phase, déviation d'Allan, bifurcation f/2 et 3f/2,
+  sous-espaces (Matrix Pencil), harmoniques suivies, exports, banc d'essai,
+  session ZIP rejouable hors navigateur (`test/outils/rejoue.mjs`).
+- La4 réglable **340–540 Hz**, **transposition**, **20 tempéraments** ramenés
+  au La (égal, Pythagore, mésotoniques 1/3 à 1/6 comma, Werckmeister III à V,
+  Kirnberger I à III, Vallotti, Young, Kellner, Neidhardt, Rameau, Cordier à
+  quintes justes, intonation juste), calibration de la carte son (ppm).
+  `music.js` sait aussi la tonique, un décalage global en cents et un
+  décalage par note (pas encore réglables dans cette page).
 - **Lecture numérique** : sélection par cases d'une ou plusieurs anches/harmoniques,
   affichées en grands caractères (justesse en cents, fréquence et écart en Hz,
   battement) — la valeur exacte sans interpréter la courbe, couleurs cohérentes
@@ -113,10 +129,24 @@ npm run dist:mac   # image disque macOS (DMG) — à lancer depuis un Mac
 npm test
 ```
 
-Sept scénarios de synthèse vérifient : précision < 0,1 cent sur anche isolée,
-séparation d'un tremolo à 2,3 Hz d'écart, note grave à fondamentale faible,
-harmonique 2 dominante, registre 16'+8', accord Do-Mi-Sol, convergence
-< 0,02 cent.
+Plus de 55 scénarios de synthèse (`test/dsp.test.mjs`, 57 au 06/10/2026)
+vérifient entre autres : précision < 0,1 cent sur anche isolée, séparation
+d'un tremolo à 2,3 Hz d'écart, note grave à fondamentale faible, registre
+16'+8' (le 8' qui parle avant le 16', le 8' lu là où sa raie est séparée,
+après une inversion du soufflet), musette, quintes, accords, inversion du
+soufflet, note imposée qui ne sonne pas, et l'anche confondue avec l'octave
+(estimation, marge qui se resserre en 1/T, signe lu au battement, δ qui
+bouge). Chaque test est né d'un mécanisme physique vu sur un vrai
+instrument ; aucun réglage sur un fichier.
+
+```bash
+npm run test:poly
+```
+
+Les essais polyphoniques sur enregistrements réels (18 passages, vérité
+terrain ESPRIT hors moteur) : [`docs/POLYPHONIE-ESSAIS.md`](docs/POLYPHONIE-ESSAIS.md).
+`test/polyphonie.test.mjs` reproduit chaque défaut par un son de synthèse ;
+ceux qui restent (limites physiques ou défauts connus) y échouent exprès.
 
 ## Architecture du traitement du signal
 
@@ -166,9 +196,15 @@ oscillateurs internes remplacent le micro — utile pour valider l'installation.
 
 ```
 web/            application (HTML/CSS/JS, modules ES, sans dépendance)
-  js/dsp/       moteur : fft.js, coarse.js, zoom.js, engine.js, worker.js
-  js/music.js   notes, tempéraments, registres, listes de battements
+  js/dsp/       moteur : engine.js (API, process, tick), battement.js,
+                appariement.js, anches-mp.js (Matrix Pencil), stabilite.js,
+                plan.js (anches attendues, partiel de mesure), confondu.js
+                (anches confondues avec l'octave), coarse.js, zoom.js,
+                nsdf.js, subspace.js, fft.js, chord.js, worker.js
+  js/music.js   notes, 20 tempéraments, registres, listes de battements
   js/report.js  enregistrement & rapport
+  js/bench.js   banc d'accordage (ESP32-S3)
 electron/       enveloppe application de bureau
-test/           tests de précision du moteur (Node)
+test/           tests de précision du moteur (Node), outils d'analyse (test/outils)
+docs/           essais polyphoniques sur enregistrements réels
 ```

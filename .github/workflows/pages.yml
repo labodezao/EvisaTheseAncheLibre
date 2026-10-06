@@ -4,6 +4,8 @@ name: Déploiement GitHub Pages
 on:
   push:
     branches: [main]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -12,7 +14,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -24,10 +26,11 @@ jobs:
         with:
           node-version: 22
       - name: Tests de précision du moteur DSP
-        run: node test/dsp.test.mjs
+        run: npm test
 
   deploy:
     needs: test
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

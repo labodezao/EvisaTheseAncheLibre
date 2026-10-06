@@ -9,6 +9,7 @@
     "start": "electron .",
     "serve": "node server.mjs",
     "test": "node test/dsp.test.mjs && node test/seuils.test.mjs",
+    "test:poly": "node test/polyphonie.test.mjs",
     "dist": "electron-builder",
     "dist:win": "electron-builder --win",
     "dist:mac": "electron-builder --mac"
