@@ -91,8 +91,25 @@ n'a de sens que reliée à ce qui se passe dans le cadre du corps.
   pas de grec ni de symbole Unicode en texte (formule). Les sons d'Ewen arrivent dans `J:\multimedia à tier\INBOX` : les lire, ne
   jamais les déplacer. Le .lyx est en CRLF dans le dépôt : garder CRLF (sinon tout le fichier change).
 
-## Accordeur web (`web/`) — état et leçons (v27, 2026-09-26)
+## Accordeur web (`web/`) — état et leçons (v41, 2026-10-06)
 Déployé sur GitHub Pages depuis `main` (https://labodezao.github.io/EvisaTheseAncheLibre/).
+
+**Le moteur se développe dans PolyReed** (dépôt privé d'Ewen,
+`J:\claude\depots\polyreed`) **et se reporte ici après chaque changement.**
+Repris de PolyReed v41 le 06/10/2026 et publié en licence MIT par son auteur
+(Ewen : « Oui, je publie tout »). Ce qui se reporte : `web/js/dsp/*`,
+`web/js/music.js`, la page de recherche (`ancien.html` de PolyReed devient
+`web/index.html` ici, avec `app.js`, `report.js`, `bench.js`, `seuils.js`,
+`zip.js`, `capture-worklet.js`, `theme-init.js`, `css/style.css`), les tests du
+moteur (`dsp.test.mjs`, `synthese-anches.mjs`, `polyphonie.test.mjs`,
+`seuils.test.mjs`), les outils de `test/outils/` et `docs/POLYPHONIE-ESSAIS.md`.
+Ce qui ne vient jamais ici : la licence, la vente, l'interface v2 (`web/js/ui/`),
+Electron et Android de PolyReed, ses documents commerciaux, le nom et les visuels
+de la marque. Ici, l'application garde le nom « Accordeur Anche Libre » ; `APP_VERSION`
+est écrite dans `app.js` (PolyReed la lit dans `ui/version.js`) ; `SHELL` de
+`web/sw.js` est la liste de la thèse. Après un report :
+`grep -ri "polyreed\|licence\|stripe\|paddle" web test docs` ne doit rien
+trouver (hors README et ce fichier).
 Références d'Ewen : **Peterson** (strobe) et **Dirk's Accordion Tuner** (qu'il utilise).
 Ewen parle français, souvent en dictée vocale ; il teste en jouant sur SON
 accordéon et envoie des ZIP de session (WAV + CSV + JSON, bouton Exporter ;
@@ -113,29 +130,77 @@ corrige à la source.
 - `web/js/dsp/zoom.js` : traqueur par partiel (hétérodyne, décimation 512 en
   CIC : 32 puis **2×16**, l'ordre 2 évite qu'une raie forte hors bande — le 16'
   — se replie en fantôme dans la bande du 8').
-- `web/js/dsp/engine.js` : groupes d'anches, choix du partiel de mesure,
-  appariement voix↔raies (`assignOrdered`, mesure d'amas `clusterRefine`),
-  stabilisation (médiane 3, maintien 1 s), détection de marche, **Matrix
-  Pencil** (`subspace.js`, `mpReeds`) pour séparer les anches d'un même ton en
-  0,5 s, détection d'inversion du soufflet sans silence (`watchReversal` : creux
-  net et isolé), battement (bat/min).
+- `web/js/dsp/engine.js` : l'API (`Engine`, `ENGINE_VERSION`), `configure`,
+  `process`, `tick` ; ses autres méthodes vivent dans 6 modules posés sur
+  `Engine.prototype` : `battement.js` (battement, bat/min), `appariement.js`
+  (voix↔raies, `assignOrdered`, amas `clusterRefine`), `anches-mp.js` (**Matrix
+  Pencil**, `subspace.js`, anches d'un même ton en 0,5 s), `stabilite.js`
+  (médiane, maintien, marches, inversion du soufflet sans silence
+  `watchReversal`), `plan.js` (anches attendues, partiel de mesure, collisions),
+  `confondu.js` (anche confondue avec l'octave : estimation et marge).
 - `web/js/app.js` : UI (strobe par anche, courbe avec échelle Auto stable ou
   **Relatif**, barre Mode, vumètre + seuil auto, alertes, sélecteur de notes).
-- Versions : `ENGINE_VERSION`, `APP_VERSION`, `data-version` de `index.html` et
-  cache `aal-shell-vNN` de `sw.js` doivent être identiques (test 27) — les
-  monter ensemble à chaque changement, sinon le service worker garde l'ancien.
+- Versions : `ENGINE_VERSION`, `APP_VERSION` (`app.js`), `data-version` de
+  `index.html` et cache `aal-shell-vNN` de `sw.js` doivent être identiques
+  (test 27) — les monter ensemble à chaque report, à la valeur de PolyReed,
+  sinon le service worker garde l'ancien. Un nouveau fichier de `web/` entre
+  dans `SHELL` (`web/sw.js`), sinon le hors-ligne casse.
 
 ### Mécanismes appris (à ne pas réintroduire)
-- Partiels qui se superposent : une anche à l'octave d'une autre (16'+8', et
-  les basses de la main gauche qui ont des anches à l'octave) a tous ses
-  partiels sur des partiels PAIRS de l'anche grave → mesurer l'anche grave sur
-  un partiel **impair** ; ne jamais afficher la raie commune comme la hauteur
-  d'une anche qui vient d'avoir la sienne (c'est un mélange).
-- Contrôle des collisions sur TOUS les partiels jusqu'à la fréquence étudiée
-  (quinte à la douzième : Fa4 ×6 = La♯2 ×18).
-- Auto-anches : toutes les anches admises (±35 ¢) doivent tenir dans la bande
-  du partiel choisi ; cases rangées par ordre (une anche seule = 8').
-- Une valeur d'estimation rapide à plus d'un demi-ton lit la note suivante.
+Chacun a un test dans `test/dsp.test.mjs` ; essais réels et chiffres : `docs/POLYPHONIE-ESSAIS.md`.
+Liste tenue dans PolyReed, recopiée à chaque report.
+
+- Partiels pairs d'une anche qui a une voisine à l'octave au-dessus : partagés. Le 16' se mesure
+  sur un partiel impair (`avoidEven`) ; en Automatique, une note grave (k ≥ 2) aussi, et ses
+  partiels pairs n'entrent dans la fusion que s'ils concordent à 0,5 ¢ (sinon : alerte) (test 50).
+- Collisions de partiels : testées sur toutes les fréquences jusqu'au partiel étudié, pas
+  seulement les 16 premières. Quand TOUS les partiels d'une anche tombent sur ceux d'une autre (le
+  8' d'un 16'+8', `octaveClash`), le choix se fait sur les fréquences MESURÉES : `octaveFuse` lit
+  le 8' sur ses partiels séparés de la raie connue du 16' (tests 45, 46). Aucun partiel fixé
+  d'avance : sur une basse réelle, le rapport 16'/8' saute de ±20 dB d'un partiel au suivant.
+- L'amas de phase (`clusterRefine`, ±5 Hz) s'arrête à mi-chemin des raies CONNUES des autres
+  anches, sinon il avale la plus forte et la pente de phase la lit.
+- Filtres anti-fantôme bornés par la résolution de la fenêtre (`OCTAVE_SEP_BINS` = 2 cases de
+  1/T), jamais par une constante en cents (8 ¢ effaçait un 4' réel, test 47).
+- Auto-anches : une anche ajoutée à la main n'est déclarée que sur preuve ; une raie revendiquée
+  par une autre anche ne prouve rien et n'entre pas dans l'appariement. Anches limitées à ±35 ¢
+  dans la bande. Le plancher (−25 dB) compare des anches (leur partiel le plus fort), pas des
+  partiels (test 48). Une anche seule dans son groupe est lue sur ses partiels fondus (test 49).
+- Garde d'octave d'un registre : à sens unique. Une anche lâchée ne fait jamais apparaître une
+  fondamentale plus grave ; une note proposée plus bas dont les partiels impairs ont une énergie
+  à elle est acceptée (le 8' qui parle avant le 16', test 44).
+- Une limite physique n'est pas un défaut : deux raies δ Hz l'une de l'autre ne se séparent
+  qu'avec une fenêtre de plus de 2/(k δ) s. Avant, la valeur est « confondue » (M), d'erreur
+  bornée par l'écart réel ; un test le vérifie au lieu d'exiger l'impossible.
+- Note imposée (cible, verrou) : le moteur ne la cherche plus, il mesure ce qui tombe dans la
+  bande de son partiel. Elle n'est lue que si son partiel le plus grave mesurable (premier
+  au-dessus de 150 Hz) est dans le spectre large bande (`silentLock`, plan.js) : sinon le partiel 5
+  d'un La4 joué se lisait en Do#5 à 550 Hz (5/4), validé en mésotonique (test 51).
+- Anche confondue : sa justesse quand même, avec sa marge (`dsp/confondu.js`, tests 52 à 55 et
+  57, UI 18). Par l'octave : 2 f16 ± 1/T (jamais la raie commune comme centre : sa phase déborde
+  de [2 f16, f8]). Par le battement : chaque partiel k du 8', démodulé par la phase du 16'
+  (× 2k/m), est un cercle parcouru à k δ autour de la raie du 16' ; le sens de rotation donne le
+  signe, sur toute la note (≤ 8 s). Marge = √(A² + B² + S²) et 0,1 ¢ du 16' ; B compte l'écart
+  entre la note entière et ses DEUX moitiés (un δ qui bouge, qui passe par zéro sous le soufflet,
+  sort l'ajustement de la note de l'intervalle des moitiés : 85 % de vérités dans la marge, test
+  57). Par la raie commune, quand le 8' y domine (P08) : biais borné par min(|δ| ρ/(1−ρ),
+  3 asin ρ/(2π k L)), ρ lu sur le CERCLE des points (centre = 16', rayon = 8'), jamais par
+  l'ajustement à δ constant (qui le sous-estime quand δ bouge) ; il faut deux partiels au moins,
+  forts, et l'intersection de leurs intervalles. `merged`, `fMeas`, `dCents` ne changent pas ; tout
+  est dans des champs à part (`confondu`, `fEstimee`, `centsEstimes`, `centsEstimesCible`,
+  `margeCents`, `methode` octave | battement | raie, `signeConnu`). Interface : le chiffre est
+  l'estimation, plus fin, en pointillé, « ±0,14 ¢ · par le battement » ; jamais « juste » si la
+  marge déborde ; validée seulement si |estimation| + marge < tolérance ; le carnet et le CSV
+  gardent la marge.
+- Séparation du 8' (test 56) : une raie à 2 cases de celle du 16' n'est pas le 16', mais rien ne
+  dit qu'elle est le 8' (repli de la décimation à −30 dB, lecture de la raie commune poussée seule
+  au-delà du seuil) : 8 à 26 ¢ d'erreur, parfois toute la note. Elle n'est retenue que si un AUTRE
+  partiel du 8' distinct de la raie du 16' dit la même hauteur, à leurs biais près (1/(2kT) séparé,
+  1/(kT) sinon). La tenue d'1 s (l'anche reste dite confondue tant que la mesure séparée sort de la
+  marge) n'est plus qu'un garde-fou : reste un biais de 1 à 3 ¢ sur la toute première image quand
+  la fenêtre est courte.
+- Estimation rapide : à plus d'un demi-ton de la note, elle lit déjà la note suivante ; pas de
+  repli sur elle. Secteur (50 Hz et sous-multiples) : jamais pris pour une anche ni une vérité.
 - Le ronflement 50 Hz du micro USB d'Ewen (−88 dBFS) est là depuis toujours ;
   ne pas l'accuser à tort.
 
@@ -143,10 +208,17 @@ corrige à la source.
 `csv_resume.py` (ce qui a été affiché), `rejoue.mjs` (rejouer un WAV dans le
 moteur, `ENG=` pour comparer deux versions), `bande.py` (vérité terrain par
 raie), `esprit.py` (séparer 2–3 anches), `banc_musette.mjs`. Tests :
-`node test/dsp.test.mjs` (43 tests, doivent tous passer).
+`npm test` (57 scénarios du moteur au 06/10/2026 et les seuils, doivent tous
+passer) ; `npm run test:poly` : défauts polyphoniques reproduits en synthèse,
+au même état que dans PolyReed (ceux qui restent échouent exprès). Outils ajoutés
+le 06/10 : `images.mjs`, `verite_poly.py`, `compare_poly.py`, `resume_poly.py`,
+`avant_apres_poly.py`, `confondu_poly.py`, `confondu_grille.mjs`,
+`boucles_dirks.py` (voir `test/outils/LISEZMOI.md`).
 
 ### Ouvert / idées
-- 16'+8' : un 8' à quelques cents de l'octave n'est séparable qu'après ~2 s.
+- 16'+8' : un 8' à quelques cents de l'octave n'est séparable qu'après ~2 s
+  (limite physique, 2/(k δ) s) ; avant, il est « confondu » et sa justesse est
+  estimée avec sa marge (`confondu.js`).
 - Option d'affichage proposée à Ewen (pas faite) : estomper les attaques et
   fins de souffle (vrais mouvements de hauteur) pour lire les paliers.
 - Détection d'inversion : deux inversions à < 1,5 s → la 2e n'est pas vue.

@@ -24,7 +24,7 @@ jobs:
         with:
           node-version: 22
       - name: Tests de précision du moteur DSP
-        run: node test/dsp.test.mjs
+        run: npm test
 
   deploy:
     needs: test

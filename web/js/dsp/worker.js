@@ -49,6 +49,9 @@ function devTick(r) {
         c: v.tracked ? v.dTargetCents : null, amp: v.amp ?? 0,
         merged: v.merged ? 1 : 0, coarse: v.coarse ? 1 : 0, held: v.held ? 1 : 0,
         W: g.W, srd: g.srd, fill: g.fill, p,
+        // Anche confondue avec l'octave (confondu.js) : estimation et marge.
+        conf: v.confondu ? { f: v.fEstimee ?? null, c: v.centsEstimesCible ?? null, m: v.margeCents ?? null,
+          methode: v.methode ?? '', signe: v.signeConnu ? 1 : 0 } : null,
       });
     }
   }

@@ -12,6 +12,18 @@ spectre le confirme — la nature ne ment pas, la mesure si.
 | `bande.py session.wav t0 t1 f_bas f_haut [fenêtre pas]` | **vérité terrain** : les raies réelles d'une bande au cours du temps |
 | `esprit.py note.wav [f0] [t0 t1]` | sépare 2–3 anches d'un même ton (musette, trémolo) sous la limite de Fourier |
 | `banc_musette.mjs` | banc synthétique musette sur les trois modes (aucun enregistrement) |
+| `images.mjs son.wav '<réglages>' t0 t1 [bruit_dB]` | chaque image du moteur en JSON (anches, drapeaux, fenêtre du traqueur) ; bruit blanc optionnel |
+| `verite_poly.py son.wav t0 t1` | **vérité terrain polyphonique** hors moteur : ESPRIT par amas de raies, anches = partiels dont f/k concordent |
+| `compare_poly.py passages_poly.json dossier sortie.json [--bruit]` | moteur contre vérité, image par image, sur la même fenêtre de son ; `resume_poly.py sortie.json [--frise]` pour lire |
+| `avant_apres_poly.py avant.json apres.json` | deux sorties de `compare_poly.py` côte à côte (médiane, max, couverture par anche) et la liste de ce qui se dégrade : la mesure d'une correction |
+| `boucles_dirks.py passages_poly.json dossier_wav sortie P15 P16 …` | boucle de 28 s de la partie stable de chaque passage, à faire écouter à un autre accordeur ET à l'accordeur (même signal) ; `segments.json` pour la vérité |
+| `joue_cable.ps1 -wav boucle.wav` | joue un WAV vers « CABLE Input » (VB-Cable) sans toucher la sortie par défaut de Windows |
+| `cable_vb.ps1 -id <point> -visible 1\|0` | active ou désactive un point audio comme le panneau Son, sans droits administrateur |
+| `confondu_poly.py passages_poly.json dossier [P03 …]` | 8' confondu avec l'octave : estimation du moteur et sa marge face à la vérité ESPRIT de la même fenêtre, et l'erreur de l'ancienne valeur (la raie commune) |
+| `confondu_grille.mjs separation\|derive\|stable` | 16'+8' de synthèse : erreur des lectures que le moteur dit séparées (selon le temps depuis la séparation), ou part des images confondues dont la vérité est dans la marge, par rapport d'amplitude et par méthode (§ 4.3) |
+
+Essais polyphoniques du 06/10/2026 (18 passages réels, défauts et tests qui échouent) :
+`docs/POLYPHONIE-ESSAIS.md` et `test/polyphonie.test.mjs` (`npm run test:poly`, hors `npm test`).
 
 Comparer deux versions du moteur : `ENG=chemin/vers/engine.js node test/outils/rejoue.mjs …`
 (extraire l'ancienne avec `git show <commit>:web/js/dsp/engine.js`, dans un
