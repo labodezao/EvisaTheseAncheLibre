@@ -422,3 +422,81 @@ temps de l'ordre de la microseconde, des centaines de périodes : des semaines d
 (c) Raisonnable et utile : une section 2D en travers de la lame, à PETITE amplitude autour du
 repos (pas de traversée), FlowSolve + MeshSolve, pour mesurer la force instationnaire et en tirer
 l'amortissement aérodynamique au départ, celui qui fixe le temps de réponse.
+
+## Coupe 2D de la lame : l'air qui pousse et l'air qui freine (05-06/10/2026)
+
+Script `sommier/coupe_2d_lame.py` ; calculs bruts `J:\claude\calculs\coupe_2d\` ; résultats
+`sommier/resultats/coupe_2d_dynamique.csv` (par cas) et `coupe_2d_modal.csv` (ramenés à la lame).
+But (Ewen et l'audit Fable, § 7) : mesurer la part de la force de l'air en phase avec la vitesse de
+la lame, c'est-à-dire l'amortissement aéraulique, que le modèle réduit ne contient pas (sa force,
+gamma.part(x).dp, ne dépend que de la position).
+
+**Le calcul.** Coupe en travers de la lame (8 x 1 mm, rigide), fente de 8,1 mm (jeu 0,05 mm de
+chaque côté), plaquette de 2,5 mm ; air du soufflet au-dessus (P), dehors au-dessous (0) ; demi-
+domaine de 20 mm (40 mm pour un essai). Elmer 26.2 : FlowSolve (Navier-Stokes incompressible,
+laminaire, P1 stabilisé, Newton, UMFPack), MeshSolve (ALE), FluidicForce, SaveScalars. La lame,
+immobile 10 à 20 ms, oscille ensuite de 0,02 mm à 155 Hz ; trois dernières périodes analysées.
+Trois positions : « entrée » (lame 0,5 mm au-dessus de la plaquette), « plaquette » (dans la fente),
+« sortie » (0,5 mm sous la plaquette). Pas de temps T/50 (T/100 : même résultat à 2 %).
+
+**Trois pièges, à connaître avant de refaire.** (1) Dans FlowSolve, `External Pressure = P` donne
+une pression -P (l'air remontait) : écrire -P. (2) Le Newton stationnaire diverge (jets à Re
+1 000) et un pas de T/20 au démarrage aussi : démarrer en transitoire à T/50. (3) L'écoulement
+aval s'établit lentement : la force moyenne dérive de 0,1 N/m par période, trente fois le signal.
+Chaque cas est donc calculé avec un JUMEAU à lame immobile (même maillage, mêmes pas) et l'on
+analyse la différence.
+
+**Validation stationnaire (lame immobile, 2 kPa).** Lame dans la fente : débit 1,74e-3 m²/s par
+mètre ; Poiseuille seul 2,31e-3 (-25 %), Poiseuille + pertes d'entrée et de sortie K = 1,5 : 1,93e-3
+(-10 %), K = 2,2 : 1,81e-3 (-4 %). Le code (Bernoulli, alpha = 0,61 sur le jeu) donne 3,5e-3 : il
+surestime la fuite dans la fente d'un facteur 2. Lame au-dessus de la plaquette (écart 0,5 mm) :
+coefficient de contraction 0,686 / 0,667 / 0,657 (trois maillages, 5 400 / 9 600 / 17 700 nœuds)
+contre 0,611 pour une fente plane à jet libre (von Mises) ; 0,687 à 1 kPa.
+
+**Convergence** (entrée, 2 kPa ; 5 400 / 9 600 / 17 700 nœuds ; maille minimale 0,02 / 0,01 /
+0,005 mm) : face amont -0,2866 / -0,2779 / -0,2769 N.s/m par m (0,4 %) ; raideur -3 369 / -3 354 /
+-3 455 N/m par m. Face aval (sous la lame, entre les deux jets) : +0,433 / -0,005 ± 0,022 /
+-0,243 ± 0,051 : NON convergée (moins de diffusion numérique, jets à Re 1 200 instables, le jumeau
+ne s'annule plus). Domaine 20 / 40 mm : face amont -0,278 / -0,421, écart prévu par l'inertie d'un
+écoulement plan convergent -(rho.b.Q'/pi).ln 2 = -0,148 (3,5 %). Pas de temps T/50 / T/100 : 2 %.
+
+**Résultats** (maillage du plan, domaine 20 mm, par mètre de lame, x vers la plaquette) :
+
+| position | P | c amont | c aval | k | Q' (m/s) | Lambda_F' = -c amont/Q' |
+|---|---|---|---|---|---|---|
+| entrée | 300 Pa | -0,109 | +0,075 ± 0,001 | -459 | 27,6 | 3,93e-3 kg/m |
+| entrée | 1 kPa | -0,196 | +0,072 ± 0,010 | -1 556 | 49,3 | 3,98e-3 |
+| entrée | 2 kPa | -0,278 | -0,005 ± 0,022 | -3 354 | 69,8 | 3,98e-3 |
+| plaquette | 2 kPa | +0,002 | +0,011 | -122 | 0,2 | |
+| sortie | 2 kPa | +0,898 | +0,026 ± 0,013 | +1 549 | -86,2 | 1,04e-2 |
+
+Le moteur de l'audit (§ 3.1) existe : l'air qui converge vers l'écart ralentit quand la lame ferme
+et pousse sa face amont pendant qu'elle avance. Lambda_F' ne dépend pas de la pression (signature
+de l'inertie). La face aval ne sent pas l'inertie de l'aval (le jet décolle). En sortie, même
+mécanisme, de signe opposé : un frein. Raideur négative statique k = -1,6 x P par m en entrée (la
+force n'est que 87 à 92 % de P x largeur à 0,5 mm de la plaquette) : absente du code.
+
+**Vers la lame entière** (`synthese`, `correction_3d`) : pondération psi² le long des côtés, le bout
+comme un bord, et le loin côté soufflet en 3D (puits répartis comme psi le long de la fente, à la
+paroi : domaine 2D équivalent 44 à 57 mm). Moteur modal : -3,8 / -6,9 / -9,8e-3 N.s/m à 300 /
+1 000 / 2 000 Pa, contre c_struct = 9,0e-3 (zeta 0,004). Sans cavité, la ré# est au seuil à 2 kPa
+(N0 = 0,7 à 1,2) : cohérent avec l'atelier. Pour le code (F = -Lambda_F.dq/dt, q total) :
+**Lambda_F = 4,27e-3 kg/m** en phase d'entrée (audit : rho.b/2pi = 1,5e-3) ; sortie : frein
+c_jet.v_jet, c_jet = 4,3e-4 kg/m ; fente : négligeable.
+
+**Le modèle corrigé** (`trou_soupape_jeu.py`, options ; défaut inchangé) : `inertie=True` (débit
+en état, Lambda_a = rho(0,5 mm + h/2)/A), `lambda_f`, `c_jet`, `perte_mode="somme"|"max"`,
+`facteur_perte`, source `R_s`, `L_s`, `V_amont_cm3` ; `--corrige` refait le plan
+(`resultats/trou_soupape_jeu_corrige.csv`). 12x12, soupape 3 mm, 2 kPa : sigma 6,9 -> 9,5 s⁻¹
+(10,3 avec la perte « max ») ; t50 / t90 330 / 495 -> 250 / 418 ms (166 / 371 ms avec « max ») ;
+-102 -> -95 cents (-52 avec « max »). 1 kPa : t90 3,9 s -> 1,6 s (0,58 s). Avec la perte « max »,
+8x12 (soupape >= 3 mm) et 12x12 (soupape 2 mm) parlent. À 2 kPa les temps restent de 0,3 à 0,6 s :
+l'air près de la lame ne donne pas un facteur 3 à 5 ; restent zeta, la perte d'orifice et
+l'attaque de la soupape, à mesurer. Non mis dans le code (à décider après mesure) : la fuite
+visqueuse dans la fente (le code en compte deux fois trop), alpha = 0,68 au lieu de 0,61, la
+raideur négative statique (-49 cents en entrée à 2 kPa). Rapport complet :
+`J:\claude\calculs\coupe_2d\rapport.md`.
+
+**Couplage 3D, soufflet sous la table** (défaut trouvé par la maquette ZW3D) : la boîte du soufflet
+montait au-dessus de la table et touchait le dehors (8 610 mm³ sans paroi). Corrigé ; 12x12,
+soupape 3 mm, maillage grossier : m_a 1,665 -> 1,687 mg, -1,24 -> -1,26 cent. Sans effet notable.

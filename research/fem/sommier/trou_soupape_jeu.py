@@ -522,14 +522,16 @@ def pente_debit_code(P, lame_st=None):
     return -(q(x0 + dx) - q(x0 - dx)) / (2 * dx)
 
 
-def lambda_f_coupe(csv_path=None, cas=None):
+def lambda_f_coupe(csv_path=None, cas=None, avec_aval=False):
     """Les deux termes de la coupe 2D (resultats/coupe_2d_modal.csv, coupe_2d_lame.synthese), pour
     le modèle AVEC chambre :
     - Lambda_F (kg/m) en phase d'entrée = -c_dessus_modal / Q_code(P) : l'inertie de l'air qui
       converge, face amont, corrigée du loin 3D côté soufflet ; moyenne sur les pressions ;
     - c_jet (kg/m) par phase : le frein de l'air poussé sous la lame et emporté par les jets,
       divisé par v_jet ; en phase « plaquette » et « sortie » : tout l'amortissement de la coupe.
-    `cas` : liste des cas à retenir (par défaut ceux du maillage du plan, h_min = 0,01, R = 20)."""
+    `cas` : liste des cas à retenir (par défaut ceux du maillage du plan, h_min = 0,01, R = 20).
+    `avec_aval` : garder la face aval en phase d'entrée (c_jet) ; par défaut NON : elle ne converge
+    pas en maillage (+0,43 / -0,005 / -0,24 N.s/m par m sur trois maillages à 2 kPa)."""
     csv_path = csv_path or os.path.join(RESULTATS, "coupe_2d_modal.csv")
     if not os.path.exists(csv_path):
         return None, None
@@ -544,7 +546,8 @@ def lambda_f_coupe(csv_path=None, cas=None):
     ent = [r for r in lignes if r["position"] == "entree"]
     if ent:
         lam["entree"] = float(np.mean([-float(r["c_dessus_modal"]) / pente_debit_code(float(r["P_Pa"])) for r in ent]))
-        cj["entree"] = float(np.mean([float(r["c_jet_kg_m"]) for r in ent]))
+        if avec_aval:
+            cj["entree"] = float(np.mean([float(r["c_jet_kg_m"]) for r in ent]))
     for ph in ("plaquette", "sortie"):
         v = [(float(r["c_dessus_modal"]) + float(r["c_dessous_modal_chambre"]) + float(r["c_visqueux_modal"]))
              / math.sqrt(2 * float(r["P_Pa"]) / RHO) for r in lignes if r["position"] == ph]
