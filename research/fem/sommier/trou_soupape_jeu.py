@@ -78,6 +78,7 @@ P_JEU = 2000.0
 T_OUV = 0.010                            # durée d'ouverture de la soupape (hypothèse : appui vif)
 H_MIN = 0.02e-3                          # soupape « fermée » : fuite de 0,02 mm (évite 1/0)
 R_RAYONNEMENT = RHO * (2 * math.pi * F_NOTE) ** 2 / (4 * math.pi * C_SON)   # monopôle, Pa.s/m³
+L_APPROCHE = 0.5e-3                      # m, longueur d'approche de l'écart (audit Fable § 4.1)
 
 
 def lame_nue(f_note=F_NOTE, zeta=ZETA, levee_repos=LEVEE_REPOS):
@@ -166,7 +167,9 @@ class BasseTrouSoupape:
     """Une anche, sa chambre, son trou et le rideau de sa soupape (poussé)."""
 
     def __init__(self, lame, st, trou, levee_mm, reseau, cd=CD, sans_trou=False, facteur_volume=1.0,
-                 m_air=0.0, zeta_air=0.0, balayage=1.0, l_fente=None):
+                 m_air=0.0, zeta_air=0.0, balayage=1.0, l_fente=None, inertie=False, l_a=L_APPROCHE,
+                 lambda_f=None, c_jet=None, perte_mode="somme", facteur_perte=1.0,
+                 R_s=0.0, L_s=0.0, V_amont_cm3=None):
         self.cr = CoupledReedsModel(reeds=[lame, lame], settings=[st, st], voicing=Voicing(),
                                     muted=(False, True))
         self.m, self.k, self.c = self.cr.m[0], self.cr.k[0], self.cr.c_damp[0]
@@ -179,6 +182,29 @@ class BasseTrouSoupape:
         self.balayage = balayage
         # longueur du passage dans l'écart pour l'inertie du jet (None : débit quasi statique)
         self.l_fente = l_fente
+        # --- corrections de l'audit Fable (05/10/2026, § 4) et de la coupe 2D (coupe_2d_lame.py) ---
+        # 1. le débit dans l'écart est un état, avec l'inertance d'approche
+        #    Lambda_a = rho.(l_a + h/2)/A ; débit signé (il peut s'inverser)
+        self.inertie = inertie
+        self.l_a = l_a
+        # 2. la force reçoit -Lambda_F(phase).dq/dt (l'air qui converge vers l'écart ralentit quand
+        #    la lame ferme : surpression sur sa face amont, audit § 3.1, mesuré par la coupe 2D) et
+        #    -c_jet(phase).v_jet.x' (coupe 2D : l'air que la lame pousse sous elle doit être emporté
+        #    par les jets ; un frein proportionnel à v_jet = sqrt(2.dp/rho)) ; phases : "entree",
+        #    "plaquette", "sortie" ; Lambda_F en kg/m, c_jet en kg/m (c = c_jet . v_jet en N.s/m)
+        self.lambda_f = dict(lambda_f or {})
+        self.c_jet = dict(c_jet or {})
+        # 3. la perte d'orifice : trou et rideau de soupape « somme » (le code d'avant, borne haute)
+        #    ou « max » (le jet du trou n'a pas le temps de se rétablir avant le rideau : borne basse)
+        self.perte_mode = perte_mode
+        self.facteur_perte = facteur_perte
+        # 4. la source : p_u = P - R_s.q_s - L_s.dq_s/dt, avec un volume amont V_amont (cm³)
+        self.R_s, self.L_s = R_s, L_s
+        self.source_generale = (R_s > 0 or L_s > 0)
+        if self.source_generale:
+            if not V_amont_cm3:
+                raise ValueError("source générale : donner V_amont_cm3")
+            self.C_u = V_amont_cm3 * 1e-6 / (RHO * C_SON ** 2)
         a, b = elm.TROUS[trou]
         self.A_trou = a * b * 1e-6
         self.perimetre = 2 * (a + b) * 1e-3
@@ -197,7 +223,29 @@ class BasseTrouSoupape:
     def perte_de(self, h):
         if self.sans_trou:
             return 0.0
-        return RHO / 2 * (1 / (self.cd * self.A_trou) ** 2 + 1 / (self.cd * self.perimetre * h) ** 2)
+        t, r = 1 / (self.cd * self.A_trou) ** 2, 1 / (self.cd * self.perimetre * h) ** 2
+        k = (t + r) if self.perte_mode == "somme" else max(t, r)
+        return self.facteur_perte * RHO / 2 * k
+
+    def nsub_debit(self, P, dt0):
+        """Sous-pas pour l'état « débit » (inertie) : sa constante de temps Lambda_a/R_diff vaut
+        quelques µs quand l'écart est fermé (jeu seul) ; RK4 est stable si dt < 2,5 tau."""
+        if not self.inertie:
+            return 1
+        st = self.cr.settings[0]
+        A = self.cr.w_eff[0] * st.clearance_m
+        a_eff = 1.0 / math.sqrt(1.0 / A ** 2 + 1.0 / self.cr.a_slot[0] ** 2)
+        lam = RHO * (self.l_a + 0.5 * st.clearance_m) / A
+        R = RHO * math.sqrt(2 * max(P, 1.0) / RHO) / (st.alpha * a_eff)
+        return int(math.ceil(dt0 * R / lam / 2.5))
+
+    def phase(self, x):
+        """« entree » (bout au-dessus de la plaquette), « plaquette », « sortie »."""
+        st = self.cr.settings[0]
+        z_d = self.cr.phi[0] * x - st.lift_m
+        if z_d < 0.0:
+            return "entree"
+        return "sortie" if z_d - st.tongue_m > st.plate_m else "plaquette"
 
     def L_de(self, h):
         if h >= self.levee - 1e-12:
@@ -207,10 +255,18 @@ class BasseTrouSoupape:
     def deriv(self, s, P, perte=None, L=None):
         perte = self.perte if perte is None else perte
         L = self.L if L is None else L
-        x, xd, p_c, q_h, q_i = s
-        dp = P - p_c
+        x, xd, p_c, q_h, q_i = s[:5]
+        p_u = s[5] if self.source_generale else P
+        dp = p_u - p_c
         a_eff, part = self.cr._series(0, x)
-        if self.l_fente is None:
+        if self.inertie:
+            # audit § 4.1 : Lambda_a dq/dt = dp - rho.q|q|/(2 (alpha.a_eff)²), débit signé
+            alpha = self.cr.settings[0].alpha
+            A = self.cr._area(0, x)
+            h = A / self.cr.w_eff[0]
+            q_r = q_i
+            dq_r = (dp - RHO * q_r * abs(q_r) / (2 * (alpha * a_eff) ** 2)) / (RHO * (self.l_a + 0.5 * h) / A)
+        elif self.l_fente is None:
             q_r, dq_r = self.cr._reed_flow(0, dp, x)[0], 0.0
         else:
             # inertie de l'air qui passe dans l'écart (St Hilaire 1971 ; Millot & Baumann 2007) :
@@ -222,10 +278,19 @@ class BasseTrouSoupape:
             dq_r = (dp - RHO * q_r * q_r / (2 * (alpha * a_eff) ** 2)) / (RHO * (self.l_fente + 0.5 * h) / A)
             if q_i <= 0.0 and dq_r < 0.0:
                 dq_r = 0.0
-        xdd = (dp * part * self.g - self.k * x - self.c * xd) / self.m
+        f_in = 0.0
+        if self.lambda_f or self.c_jet:
+            ph = self.phase(x)
+            f_in = -self.lambda_f.get(ph, 0.0) * dq_r                 - self.c_jet.get(ph, 0.0) * math.sqrt(2 * abs(dp) / RHO) * xd
+        xdd = (dp * part * self.g + f_in - self.k * x - self.c * xd) / self.m
         dp_c = (q_r + self.balayage * self.g * xd - q_h) / self.C
         dq_h = (p_c - self.R * q_h - perte * q_h * abs(q_h)) / L
-        return (xd, xdd, dp_c, dq_h, dq_r), q_r
+        if not self.source_generale:
+            return (xd, xdd, dp_c, dq_h, dq_r), q_r
+        q_s = s[6]
+        dp_u = (q_s - q_r - self.balayage * self.g * xd) / self.C_u
+        dq_s = (P - self.R_s * q_s - p_u) / self.L_s if self.L_s > 0 else 0.0
+        return (xd, xdd, dp_c, dq_h, dq_r, dp_u, dq_s), q_r
 
     def simuler(self, dur=3.0, P=P_JEU, fs=8000.0, sur=4, scenario="soupape", t_ouv=T_OUV, rampe=0.02, x0=1e-6):
         """scenario « soupape » : P constant, chambre à P, soupape de H_MIN à sa levée en t_ouv.
@@ -234,6 +299,10 @@ class BasseTrouSoupape:
         dt0 = 1.0 / fs
         p0 = P if scenario == "soupape" else 0.0
         s = (x0, 0.0, p0, 0.0, 0.0)
+        if self.source_generale:
+            if self.L_s <= 0:
+                raise ValueError("source générale sans L_s : non traitée (q_s algébrique)")
+            s = s + (p0, 0.0)
         X = np.zeros(n); PC = np.zeros(n); QR = np.zeros(n); QH = np.zeros(n)
         t = 0.0
         Pt = P
@@ -245,7 +314,7 @@ class BasseTrouSoupape:
                 perte, L = self.perte, self.L
             # pas adapté à la raideur de la perte d'orifice (rideau presque fermé)
             taux = 2 * math.sqrt(max(P, 1.0) * perte) / L if perte > 0 else 0.0
-            nsub = max(sur, int(math.ceil(dt0 * taux)))
+            nsub = max(sur, int(math.ceil(dt0 * taux)), self.nsub_debit(P, dt0))
             dt = dt0 / nsub
             for _ in range(nsub):
                 if scenario != "soupape":
@@ -360,7 +429,9 @@ def la_lame(f_note=F_NOTE, zeta=ZETA, levee_repos=LEVEE_REPOS):
 
 def un_cas(trou, levee, P=P_JEU, scenario="soupape", t_ouv=T_OUV, f_note=F_NOTE, avec_seuil=False, source="auto",
            sans_trou=False, zeta=ZETA, levee_repos=LEVEE_REPOS, facteur_volume=1.0, x0=1e-6, dur=4.0,
-           avec_air=True, l_fente=None):
+           avec_air=True, l_fente=None, **corr):
+    """`corr` : les corrections de l'audit (inertie, l_a, lambda_f, c_jet, perte_mode,
+    facteur_perte, R_s, L_s, V_amont_cm3), voir BasseTrouSoupape."""
     lame, st, info = la_lame(f_note, zeta, levee_repos)
     r = (reseau_elmer(trou, levee) if source in ("auto", "elmer") else None) or reseau_note(trou, levee)
     m_air = zeta_air = 0.0
@@ -371,7 +442,7 @@ def un_cas(trou, levee, P=P_JEU, scenario="soupape", t_ouv=T_OUV, f_note=F_NOTE,
         m_air = max(0.0, air["m_a"] - m_res)
         zeta_air = max(0.0, air["R_a"] - R_res) / (2 * math.sqrt(info["k_eff_N_m"] * (info["m_eff_g"] * 1e-3 + m_air)))
     mod = BasseTrouSoupape(lame, st, trou, levee, r, sans_trou=sans_trou, facteur_volume=facteur_volume,
-                           m_air=m_air, zeta_air=zeta_air, l_fente=l_fente)
+                           m_air=m_air, zeta_air=zeta_air, l_fente=l_fente, **corr)
     f_air = info["f1_Hz"] / math.sqrt(1 + m_air / (info["m_eff_g"] * 1e-3))
     sim = mod.simuler(dur=dur, P=P, scenario=scenario, t_ouv=t_ouv, x0=x0)
     res = dict(trou="sans" if sans_trou else trou, levee_soupape_mm=levee, P_Pa=P, scenario=scenario,
@@ -431,6 +502,77 @@ def sensibilite(nom="trou_soupape_reponse_sensibilite.csv"):
         res.append(r)
         print(facteur, ligne(r), flush=True)
         ecrire(res, nom)
+    return res
+
+
+# --- Le modèle corrigé (audit Fable § 4 + coupe 2D Elmer, 05/10/2026) ----------------------------
+# Lambda_F par phase (kg/m), mesuré par la coupe 2D (coupe_2d_lame.py) et ramené au mode de la lame
+# et au débit TOTAL du code : F_modale = -Lambda_F . dq/dt. Voir resultats/coupe_2d_modal.csv.
+LAMBDA_F_COUPE = None                    # rempli par lambda_f_coupe() depuis le CSV
+
+
+def pente_debit_code(P, lame_st=None):
+    """Q = -dq/dx du code (m²/s) en phase d'entrée, à la position d'équilibre statique sous P,
+    débit quasi statique sans chambre (dp = P)."""
+    lame, st, info = lame_st or la_lame()
+    mod = BasseTrouSoupape(lame, st, "12x12", 3.0, reseau_note("12x12", 3.0), sans_trou=True)
+    x0 = info["gamma_m2"] * P / info["k_eff_N_m"]
+    dx = 1e-6
+    q = lambda x: mod.cr._reed_flow(0, P, x)[0]
+    return -(q(x0 + dx) - q(x0 - dx)) / (2 * dx)
+
+
+def lambda_f_coupe(csv_path=None, cas=None, avec_aval=False):
+    """Les deux termes de la coupe 2D (resultats/coupe_2d_modal.csv, coupe_2d_lame.synthese), pour
+    le modèle AVEC chambre :
+    - Lambda_F (kg/m) en phase d'entrée = -c_dessus_modal / Q_code(P) : l'inertie de l'air qui
+      converge, face amont, corrigée du loin 3D côté soufflet ; moyenne sur les pressions ;
+    - c_jet (kg/m) par phase : le frein de l'air poussé sous la lame et emporté par les jets,
+      divisé par v_jet ; en phase « plaquette » et « sortie » : tout l'amortissement de la coupe.
+    `cas` : liste des cas à retenir (par défaut ceux du maillage du plan, h_min = 0,01, R = 20).
+    `avec_aval` : garder la face aval en phase d'entrée (c_jet) ; par défaut NON : elle ne converge
+    pas en maillage (+0,43 / -0,005 / -0,24 N.s/m par m sur trois maillages à 2 kPa)."""
+    csv_path = csv_path or os.path.join(RESULTATS, "coupe_2d_modal.csv")
+    if not os.path.exists(csv_path):
+        return None, None
+    with open(csv_path, encoding="utf-8") as fh:
+        lignes = list(csv.DictReader(fh, delimiter=";"))
+    if cas:
+        lignes = [r for r in lignes if r["cas"] in cas]
+    else:
+        lignes = [r for r in lignes if abs(float(r["h_min"]) - 0.01) < 1e-9 and abs(float(r["k"]) - 0.2) < 1e-9
+                  and abs(float(r["R_mm"]) - 20) < 1e-9 and abs(float(r["X_mm"]) - 0.02) < 1e-9]
+    lam, cj = {}, {}
+    ent = [r for r in lignes if r["position"] == "entree"]
+    if ent:
+        lam["entree"] = float(np.mean([-float(r["c_dessus_modal"]) / pente_debit_code(float(r["P_Pa"])) for r in ent]))
+        if avec_aval:
+            cj["entree"] = float(np.mean([float(r["c_jet_kg_m"]) for r in ent]))
+    for ph in ("plaquette", "sortie"):
+        v = [(float(r["c_dessus_modal"]) + float(r["c_dessous_modal_chambre"]) + float(r["c_visqueux_modal"]))
+             / math.sqrt(2 * float(r["P_Pa"]) / RHO) for r in lignes if r["position"] == ph]
+        if v:
+            cj[ph] = float(np.mean(v))
+    return lam, cj
+
+
+def plan_corrige(nom="trou_soupape_jeu_corrige.csv", pressions=PRESSIONS, avec_coupe=True, modes=("somme", "max")):
+    """Le tableau des temps de réponse avec le modèle corrigé : débit inertiel (Lambda_a), force
+    inertielle (Lambda_F) et frein des jets (c_jet) de la coupe 2D, et la perte d'orifice entre
+    ses deux bornes (« somme » : le code d'avant ; « max » : la plus grande des deux)."""
+    lam, cj = lambda_f_coupe() if avec_coupe else (None, None)
+    res = []
+    for trou in elm.TROUS:
+        for lev in elm.LEVEES:
+            for P in pressions:
+                for mode in modes:
+                    r = un_cas(trou, lev, P, "soupape", inertie=True, lambda_f=lam, c_jet=cj, perte_mode=mode)
+                    r.update(perte_mode=mode, lambda_f_entree=(lam or {}).get("entree", 0.0),
+                             c_jet_entree=(cj or {}).get("entree", 0.0), c_jet_plaquette=(cj or {}).get("plaquette", 0.0),
+                             c_jet_sortie=(cj or {}).get("sortie", 0.0))
+                    res.append(r)
+                    print(mode, ligne(r), flush=True)
+                    ecrire(res, nom)
     return res
 
 
@@ -509,7 +651,11 @@ def main():
     ap.add_argument("--source", default="auto", choices=["auto", "elmer", "note"])
     ap.add_argument("--sortie", default="trou_soupape_jeu.csv")
     ap.add_argument("--debit", action="store_true", help="source de débit sans chambre")
+    ap.add_argument("--corrige", action="store_true", help="le plan avec le modèle corrigé (audit + coupe 2D)")
     a = ap.parse_args()
+    if a.corrige:
+        plan_corrige()
+        return
     if a.debit:
         res = []
         for V in (0.5, 5.0, 50.0):

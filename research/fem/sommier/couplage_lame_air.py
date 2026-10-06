@@ -175,7 +175,10 @@ def geometrie(fichier, trou=(12.0, 12.0), levee=3.0, levee_anche=LEVEE_ANCHE, n_
         sa, sb, se = elm.SOUPAPE
         soup = occ.addBox(x0 - sa / 2, y0 - sb / 2, z_t + levee, sa, sb, se)
         corps.append(occ.cut([(3, dehors)], [(3, soup)])[0][0][1])
-        amont = occ.addBox(xr - 12, y_pl - AMONT, zc - 20, Lb + 24, AMONT, 40)
+        # le soufflet : sous la table (z <= H). Avant le 05/10/2026 au soir il montait à zc + 20 = 29,
+        # au-dessus du dessus de table (23) : 8 610 mm³ communs avec le dehors, sans paroi, l'air
+        # du soufflet passait au dehors sans traverser la fente (maquette ZW3D, J:\zw3d_travail\anche_calcul).
+        amont = occ.addBox(xr - 12, y_pl - AMONT, zc - 20, Lb + 24, AMONT, ch["H"] - (zc - 20))
         corps.append(occ.cut([(3, amont)], [(3, t) for t in creux])[0][0][1])
         # fragment (pas fuse : fuse fond les faces des bandes en une seule)
         air = occ.fragment([(3, corps[0])], [(3, t) for t in corps[1:]])[0]
@@ -217,8 +220,9 @@ def geometrie(fichier, trou=(12.0, 12.0), levee=3.0, levee_anche=LEVEE_ANCHE, n_
                 or abs(cy - (y0 - dy / 2)) < tol or abs(cy - (y0 + dy / 2)) < tol):
             rayon.append(t)                                          # le dehors
         elif (abs(cy - (y_pl - AMONT)) < tol or abs(cx - (xr - 12)) < tol or abs(cx - (xr + Lb + 12)) < tol
-              or abs(cz - (zc - 20)) < tol or abs(cz - (zc + 20)) < tol):
-            rayon.append(t)                                          # le soufflet (grand volume)
+              or abs(cz - (zc - 20)) < tol):
+            rayon.append(t)                                          # le soufflet (grand volume) ; son
+            # dessus (z = H) est le dessous de la table : une paroi
         else:
             parois.append(t)
             if (abs(cz - (z_t + levee)) < tol or (abs(cz - z_t) < tol and abs(cx - x0) < elm.SOUPAPE[0]
