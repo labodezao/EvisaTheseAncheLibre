@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" data-version="42">
+<html lang="fr" data-version="45">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -90,6 +90,8 @@
   </span>
   <span id="qChordNow" class="chord-now hidden" aria-live="polite"></span>
   <span id="qBeat" class="beat-now hidden" aria-live="polite" title="Battement lu dans l'enveloppe du son : deux anches d'écart Δf battent Δf fois par seconde"></span>
+  <span id="qIntervals" class="beat-now hidden" aria-live="polite" title="Battement du partiel commun de chaque intervalle (quinte 3 f_b − 2 f_h, octave 2 f_b − f_h…) : mesuré, puis voulu selon le tempérament. + : rétréci ; − : élargi"></span>
+  <span id="qSens" class="beat-now hidden" aria-live="polite" title="Sens du soufflet suivi par le moteur : celui de la grille, puis il bascule à chaque inversion entendue (creux franc ou silence de moins de 1,5 s)"></span>
   <label class="q-a4" title="La de référence (diapason)">La <input type="number" id="qA4" min="340" max="540" step="0.1"> Hz</label>
   <span class="vu-wrap" title="Niveau d'entrée. Glissez le repère : sous ce seuil, le son est considéré comme un silence (la mesure se gèle).">
     <span class="vu"><span id="vuFill"></span><span id="vuGate"></span></span>

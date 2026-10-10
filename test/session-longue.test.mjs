@@ -122,7 +122,8 @@ let zipPrise = null;
   let o = 0;
   for (const m of morceaux) { pcm.set(m.pcm, o); o += m.pcm.length; }
   assert(pcm.every((s, i) => s === ref[i]), 'morceaux bout à bout = le son en Int16');
-  const csvRef = images(sig.subarray(0, n)).map((t) => lignesCsv({ t: t.time, midi: t.playedMidi, level: t.level, quiet: t.quiet ? 1 : 0, rows: rangeesTick(t) })).join('');
+  const csvRef = images(sig.subarray(0, n)).map((t) => lignesCsv({ t: t.time, midi: t.playedMidi, level: t.level, quiet: t.quiet ? 1 : 0, rows: rangeesTick(t),
+    sens: t.sens ?? null, sensSource: t.soufflet?.source ?? null, inversions: t.soufflet?.inversions ?? null })).join('');
   assert(morceaux.map((m) => m.csv).join('') === csvRef, 'CSV par morceaux = CSV du moteur');
   const st = stockageMemoire();
   const e = await brancher(w.messages, st);

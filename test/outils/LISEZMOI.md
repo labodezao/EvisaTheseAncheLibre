@@ -20,6 +20,8 @@ spectre le confirme — la nature ne ment pas, la mesure si.
 | `joue_cable.ps1 -wav boucle.wav` | joue un WAV vers « CABLE Input » (VB-Cable) sans toucher la sortie par défaut de Windows |
 | `cable_vb.ps1 -id <point> -visible 1\|0` | active ou désactive un point audio comme le panneau Son, sans droits administrateur |
 | `confondu_poly.py passages_poly.json dossier [P03 …]` | 8' confondu avec l'octave : estimation du moteur et sa marge face à la vérité ESPRIT de la même fenêtre, et l'erreur de l'ancienne valeur (la raie commune) |
+| `paliers.py session.wav images.jsonl sortie.csv` | paliers de soufflet d'une anche seule (creux, sauts), référence courte de 0,25 s, pente ¢/dB dans le palier, valeur du moteur à +1 s et à la fin (audit du 10/10/2026) |
+| `intervalles_reels.mjs son.wav '<réglages>' t0 t1 [t0 t1 …]` | battements d'intervalles (quinte, octave, tierces…) mesurés, voulus et par l'enveloppe, sur des passages réels (§ 4.4) |
 | `confondu_grille.mjs separation\|derive\|stable` | 16'+8' de synthèse : erreur des lectures que le moteur dit séparées (selon le temps depuis la séparation), ou part des images confondues dont la vérité est dans la marge, par rapport d'amplitude et par méthode (§ 4.3) |
 
 Essais polyphoniques du 06/10/2026 (18 passages réels, défauts et tests qui échouent) :

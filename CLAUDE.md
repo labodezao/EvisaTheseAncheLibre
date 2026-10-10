@@ -91,7 +91,7 @@ n'a de sens que reliée à ce qui se passe dans le cadre du corps.
   pas de grec ni de symbole Unicode en texte (formule). Les sons d'Ewen arrivent dans `J:\multimedia à tier\INBOX` : les lire, ne
   jamais les déplacer. Le .lyx est en CRLF dans le dépôt : garder CRLF (sinon tout le fichier change).
 
-## Accordeur web (`web/`) — état et leçons (v42, 2026-10-10)
+## Accordeur web (`web/`) — état et leçons (v45, 2026-10-10)
 Déployé sur GitHub Pages depuis `main` (https://labodezao.github.io/EvisaTheseAncheLibre/).
 
 **Le moteur se développe dans PolyReed** (dépôt privé d'Ewen,
@@ -116,6 +116,13 @@ morceau toutes les 10 s (son Int16 et lignes du CSV), `web/js/session-stockage.j
 l'OPFS (sinon IndexedDB), l'export assemble le ZIP sans tout charger (`zipPlan` de `zip.js`), une
 session coupée se récupère ; un WAV rejoué est lu par morceaux (`?vitesse=` pour aller plus vite).
 Formats communs : `web/js/session-format.js`. Test : `test/session-longue.test.mjs`.
+v45 (10/10/2026) : audit de répétabilité au soufflet (docs/POLYPHONIE-ESSAIS.md § 4.4). Le moteur
+suit le sens du soufflet (`tick.sens`, `tick.soufflet` : part du sens tiré / poussé de la page, bascule à
+chaque creux franc ou silence de moins de 1,5 s ; colonnes `sens`, `sens_source`, `inversions` de la
+session) et donne les battements d'intervalles (`tick.intervalles` : quinte 3:2, quarte, tierces, octave,
+douzième, double octave ; b = m f_b − n f_h mesuré et voulu selon le tempérament, enveloppe). La page les
+montre (`qSens`, `qIntervals`). Essayé et retiré : lire la pente de phase sur tout le son reçu (pire sur
+le réel). Ewen (10/10) : quintes à l'égal par défaut ; la session du 25/09 ne dit rien du sens.
 Références d'Ewen : **Peterson** (strobe) et **Dirk's Accordion Tuner** (qu'il utilise).
 Ewen parle français, souvent en dictée vocale ; il teste en jouant sur SON
 accordéon et envoie des ZIP de session (WAV + CSV + JSON, bouton Exporter ;

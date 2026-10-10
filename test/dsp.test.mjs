@@ -1519,5 +1519,111 @@ console.log('\nTest 57 — anche confondue, δ qui bouge (le 16\' monte sous le 
     `${dedans}/${n} images confondues dans leur marge (${(100 * dedans / Math.max(1, n)).toFixed(1)} %) ; par la raie commune : ${nr} images, ${dedansR} dans la marge, erreur au 95e centile ${p95.toFixed(3)} ¢`);
 }
 
+// ---------------------------------------------------------------------------
+console.log('\nTest 58 — sens du soufflet : il bascule à chaque inversion (creux franc ou silence court), pas au battement');
+{
+  // Audit du 10/10/2026 (docs/AUDIT-REPETABILITE.md) : le premier manque. Le
+  // tiré et le poussé sont deux anches ; sans le sens, deux paliers d'une même
+  // note ne se comparent pas. Le moteur ne SAIT pas le sens (le son ne le dit
+  // pas) ; il sait quand il change : la pression passe par zéro à
+  // l'inversion, le son plonge net (creux) ou s'éteint un instant. Il part du
+  // sens de la grille (cfg.sens) et bascule à chaque inversion.
+  const sensDe = (cfg, x) => rejoueAnches(cfg, x).map((im) => ({ t: im.t, s: im.r.sens, so: im.r.soufflet }));
+  // 1) Deux paliers séparés par un creux de 15 dB, 80 ms (inversion sans silence).
+  const x1 = sonAnches([{ f: 440, vib: 0.1 }], 6, { graine: 58, creux: { t: 3, db: 15, dur: 0.08 } });
+  const s1 = sensDe({ mode: 'auto', sens: 'tiré' }, x1);
+  const avant = s1.filter((e) => e.t > 1 && e.t < 2.9).map((e) => e.s);
+  const apres = s1.filter((e) => e.t > 3.4).map((e) => e.s);
+  assert(avant.length > 5 && avant.every((s) => s === 'tiré') && apres.length > 5 && apres.every((s) => s === 'poussé'),
+    `creux de 15 dB : tiré avant (${[...new Set(avant)].join(',')}), poussé après (${[...new Set(apres)].join(',')})`);
+  const fin = s1[s1.length - 1]?.so;
+  assert(fin?.inversions === 1 && fin?.source === 'creux', `une inversion, par le creux (${fin?.inversions}, ${fin?.source})`);
+  // 2) Silence court (0,3 s) : inversion ; silence long (3 s) : le musicien
+  //    s'est arrêté, le sens n'est plus connu : retour à celui de la grille.
+  const a = sonAnches([{ f: 440, vib: 0.1 }], 2.5, { graine: 59 });
+  const blanc = (s) => new Float32Array(Math.floor(48000 * s));
+  const colle = (...xs) => { const n = xs.reduce((m, y) => m + y.length, 0); const o = new Float32Array(n); let i = 0; for (const y of xs) { o.set(y, i); i += y.length; } return o; };
+  const x2 = colle(a, blanc(0.3), a, blanc(3), a);
+  const s2 = sensDe({ mode: 'auto', sens: 'poussé' }, x2);
+  const a1 = s2.filter((e) => e.t > 1 && e.t < 2.4).map((e) => e.s);
+  const a2 = s2.filter((e) => e.t > 3.8 && e.t < 5.2).map((e) => e.s);
+  const a3 = s2.filter((e) => e.t > 9.2).map((e) => e.s);
+  assert(a1.length > 5 && a1.every((s) => s === 'poussé') && a2.length > 5 && a2.every((s) => s === 'tiré') && a3.length > 5 && a3.every((s) => s === 'poussé'),
+    `silence de 0,3 s : bascule (${[...new Set(a2)].join(',')}) ; silence de 3 s : retour à la grille (${[...new Set(a3)].join(',')})`);
+  // 3) Battements (deux anches égales, 0,6 et 2 Hz) : leurs creux ne sont pas des inversions.
+  for (const d of [0.6, 2]) {
+    const x3 = sonAnches([{ f: 440, vib: 0.1 }, { f: 440 + d, vib: 0.1 }], 10, { graine: 60 });
+    const s3 = sensDe({ mode: 'auto', sens: 'tiré' }, x3);
+    const inv = s3[s3.length - 1]?.so?.inversions;
+    assert(inv === 0 && s3.every((e) => e.s === 'tiré'), `battement de ${d} Hz sur 10 s : aucune inversion (${inv})`);
+  }
+  // 4) Sans grille : le sens est inconnu (null), les inversions sont comptées.
+  const s4 = sensDe({ mode: 'auto' }, x1);
+  assert(s4.every((e) => e.s == null) && s4[s4.length - 1]?.so?.inversions === 1, 'sans grille : sens inconnu, une inversion comptée');
+  // 5) La grille passe au poussé pendant que le tiré sonne encore (le tiré
+  //    vient d'être validé) : elle vaut pour la prochaine inversion, sans
+  //    remettre la mesure à zéro. « Non » à « poussé ? » (cfg.sensN) : tout de suite.
+  const x5 = sonAnches([{ f: 440, vib: 0.1 }], 7, { graine: 61, creux: { t: 5, db: 15, dur: 0.08 } });
+  const e5 = new Engine(SR, { mode: 'auto', sens: 'tiré' });
+  const vu = [];
+  for (let i = 0; i + 512 <= x5.length; i += 512) {
+    if (i === 512 * 300) e5.configure({ sens: 'poussé' });
+    const r = e5.process(x5.subarray(i, i + 512));
+    if (r) vu.push({ t: r.time, s: r.sens, W: r.groups[0]?.W });
+  }
+  const entre = vu.filter((e) => e.t > 3.4 && e.t < 4.9);
+  const apres5 = vu.filter((e) => e.t > 5.4);
+  assert(entre.length > 5 && entre.every((e) => e.s === 'tiré') && entre[entre.length - 1].W === 256
+    && apres5.length > 5 && apres5.every((e) => e.s === 'poussé'),
+    `grille au poussé pendant le tiré : tiré jusqu'à l'inversion (${[...new Set(entre.map((e) => e.s))].join(',')}, W ${entre[entre.length - 1]?.W}), poussé après (${[...new Set(apres5.map((e) => e.s))].join(',')})`);
+  const e6 = new Engine(SR, { mode: 'auto', sens: 'tiré' });
+  let r6 = null;
+  for (let i = 0; i + 512 <= x1.length; i += 512) {
+    if (i === 512 * 400) e6.configure({ sensN: 1 });   // après le creux de 3 s : le moteur dit poussé, le luthier dit non
+    const r = e6.process(x1.subarray(i, i + 512));
+    if (r) r6 = r;
+  }
+  assert(r6?.sens === 'tiré' && r6.soufflet?.source === 'grille' && r6.soufflet?.inversions === 1,
+    `« non » à « poussé ? » : le sens de la grille, tout de suite (${r6?.sens}, ${r6?.soufflet?.source})`);
+}
+
+// ---------------------------------------------------------------------------
+console.log('\nTest 59 — battements d\'intervalles : la quinte bat à 3 f_b − 2 f_h, mesuré et voulu selon le tempérament');
+{
+  // Audit du 10/10/2026, étape 5. Sur l'accordéon d'Ewen, les quintes de main
+  // gauche étaient pures (701,9 ¢) : l'écran disait +5,0 et +7,0 ¢ sans dire
+  // que leur différence était le point. Le luthier accorde une quinte à son
+  // battement : 0,886 Hz à Do4 en tempérament égal, 0 en quinte pure.
+  const at = (m, ct) => midiToFreq(m) * 2 ** (ct / 1200);
+  const intervalle = (cfg, liste, nom, t0 = 2.5, secondes = 8, graine = 80) => {
+    const x = sonAnches(liste, secondes, { graine });
+    return rejoueAnches(cfg, x).filter((im) => im.t > t0).map((im) => im.r.intervalles?.find((q) => q.nom === nom)).filter(Boolean);
+  };
+  const egal = intervalle({ mode: 'register', register: 'Q' }, [{ f: at(60, 0), vib: 0.1 }, { f: at(67, 0), vib: 0.1, a: 0.8 }], 'quinte');
+  const em = egal.map((q) => q.mesure);
+  assert(egal.length > 50 && em.every((b) => Math.abs(b - 0.8858) < 0.02) && egal.every((q) => Math.abs(q.voulu - 0.8858) < 1e-3 && q.m === 3 && q.n === 2),
+    `Do4 + Sol4 égal : mesuré ${Math.min(...em).toFixed(3)} à ${Math.max(...em).toFixed(3)} Hz, voulu ${egal[0]?.voulu.toFixed(3)} (0,886)`);
+  const env = egal.filter((q) => q.enveloppe?.sure && q.t !== null).map((q) => q.enveloppe.hz);
+  assert(env.length > 20 && env.slice(-20).every((h) => Math.abs(h - 0.886) < 0.03),
+    `vérification par l'enveloppe du partiel commun (Do5 / Sol4×2) : ${env.slice(-1)[0]?.toFixed(3)} Hz`);
+  const pure = intervalle({ mode: 'register', register: 'Q' }, [{ f: at(60, 0), vib: 0.1 }, { f: at(60, 0) * 1.5, vib: 0.1, a: 0.8 }], 'quinte', 2.5, 6, 81);
+  assert(pure.length > 30 && pure.every((q) => Math.abs(q.mesure) < 0.02 && Math.abs(q.voulu - 0.8858) < 1e-3),
+    `quinte pure : mesuré ${pure[pure.length - 1]?.mesure.toFixed(3)} Hz, voulu ${pure[0]?.voulu.toFixed(3)} (égal)`);
+  const cordier = intervalle({ mode: 'register', register: 'Q', temperament: 'cordier' }, [{ f: at(60, 0), vib: 0.1 }, { f: at(60, 0) * 1.5, vib: 0.1, a: 0.8 }], 'quinte', 2.5, 6, 81);
+  assert(cordier.length > 30 && cordier.every((q) => Math.abs(q.voulu) < 0.02),
+    `Cordier : la quinte voulue bat à ${cordier[0]?.voulu.toFixed(3)} Hz (pure)`);
+  // Accord Do4-Mi4-Sol4 égal : la tierce 5:4 Do-Mi bat à −10,38 Hz (élargie), la tierce mineure 6:5 Mi-Sol
+  // à 6 f(Mi4) − 5 f(Sol4) = +17,79 Hz (rétrécie).
+  const accord = sonAnches([{ f: at(60, 0), vib: 0.1 }, { f: at(64, 0), vib: 0.1, a: 0.8 }, { f: at(67, 0), vib: 0.1, a: 0.7 }], 6, { graine: 82 });
+  const ims = rejoueAnches({ mode: 'chord', chordDegrees: [0, 4, 7] }, accord).filter((im) => im.t > 3);
+  const tierce = ims.map((im) => im.r.intervalles?.find((q) => q.nom === 'tierce')).filter((q) => q?.mesure != null);
+  const mineure = ims.map((im) => im.r.intervalles?.find((q) => q.nom === 'tierce mineure')).filter((q) => q?.mesure != null);
+  assert(tierce.length > 20 && tierce.every((q) => Math.abs(q.mesure + 10.38) < 0.1) && mineure.length > 20 && mineure.every((q) => Math.abs(q.mesure - (6 * at(64, 0) - 5 * at(67, 0))) < 0.1),
+    `Do-Mi-Sol : tierce ${tierce[tierce.length - 1]?.mesure.toFixed(2)} Hz (−10,38), tierce mineure ${mineure[mineure.length - 1]?.mesure.toFixed(2)} Hz (+17,79)`);
+  // Unisson (musette) : pas d'intervalle (son battement a sa ligne).
+  const mm = rejoueAnches({ mode: 'register', register: 'MM' }, sonAnches([{ f: 440, vib: 0.1 }, { f: 441.43, vib: 0.1 }], 3, { graine: 83 }));
+  assert(mm.every((im) => im.r.intervalles == null), 'musette MM : pas d\'intervalle');
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);

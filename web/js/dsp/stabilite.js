@@ -25,8 +25,54 @@ const STEP_QW = 16;
 // dernière valeur jusqu'à STAB_HOLD_S.
 const STAB_HOLD_S = 1.0;
 
+// Sens du soufflet (audit du 10/10/2026, docs/AUDIT-REPETABILITE.md : « le
+// premier manque »). Le tiré et le poussé d'une touche sont deux anches,
+// accordées à quelques cents l'une de l'autre : deux paliers d'une même note
+// ne se comparent qu'à sens connu. Le son ne dit pas le sens ; il dit quand
+// il CHANGE : à l'inversion, la pression passe par zéro, le son plonge net
+// (creux, watchReversal) ou s'éteint un instant. Le moteur part du sens de la
+// grille (cfg.sens, donné par l'interface) et bascule à chaque inversion.
+// Un silence de plus de SENS_SILENCE_S n'est plus une inversion : le
+// musicien s'est arrêté, il reprend dans le sens qu'il veut (mesuré, session
+// d'Ewen du 25/09 : les silences entre deux paliers alternés durent 0,09 à
+// 1,2 s ; après 9,9 s, le Fa#3 reprend sur la même anche). Le sens redevient
+// alors celui de la grille.
+export const SENS_SILENCE_S = 1.5;
+export const autreSens = (s) => (s === 'tiré' ? 'poussé' : s === 'poussé' ? 'tiré' : null); // donnée
+
 // Méthodes d'Engine (cf. engine.js, Object.assign).
 export const methodesStabilite = {
+  // Sens de la grille (cfg.sens), ou null.
+  sensGrille() {
+    return this.cfg.sens === 'tiré' || this.cfg.sens === 'poussé' ? this.cfg.sens : null; // donnée
+  },
+
+  // Le sens repart de celui de la grille (constructeur, silence long, « non »
+  // à « poussé ? » : cfg.sensN).
+  sensDeLaGrille(tNow) {
+    const s = this.sensGrille();
+    this.souffletEtat = { sens: s, source: s ? 'grille' : null, inversions: this.souffletEtat?.inversions ?? 0,
+      depuis: tNow, silenceS: null, grille: s, grilleT: tNow };
+  },
+
+  // La grille change de sens (cfg.sens). En silence, ou si le moteur n'en
+  // avait aucun, il la prend. Pendant que le son tient, elle vaut pour la
+  // PROCHAINE inversion : la séquence passe au poussé quand le tiré est
+  // validé, avant que le luthier n'inverse le soufflet ; prise tout de suite,
+  // l'inversion qui suit l'aurait remise au tiré.
+  grilleChange(tNow) {
+    const e = this.souffletEtat;
+    const s = this.sensGrille();
+    if (this.lastQuiet !== false || e.sens == null || s == null) { this.sensDeLaGrille(tNow); return; }
+    this.souffletEtat = { ...e, grille: s, grilleT: tNow };
+  },
+
+  // Une inversion vue (`source` : 'creux' ou 'silence') : le sens bascule.
+  basculerSens(source, tNow, silenceS = null) {
+    const e = this.souffletEtat;
+    this.souffletEtat = { ...e, sens: autreSens(e.sens), source, inversions: e.inversions + 1, depuis: tNow, silenceS };
+  },
+
   // Temps de réponse 10 % → 90 % du régime établi, mesuré sur l'enveloppe
   // RMS (résolution ~10,7 ms). Le régime établi est la médiane de
   // l'enveloppe entre 0,65 et 1 s après l'attaque.
@@ -245,7 +291,10 @@ export const methodesStabilite = {
       const isolated = tNow - w.lastDip >= 1.5;
       // (Pas de test « plusieurs anches » ici : juste avant l'inversion, la
       // fenêtre de Matrix Pencil voit l'anche du poussé ET celle du tiré.)
-      if (w.steep && dur >= 0.02 && dur <= 0.4 && isolated) this.reversal = true;
+      if (w.steep && dur >= 0.02 && dur <= 0.4 && isolated) {
+        this.reversal = true;
+        this.reversalDipT = w.dipT;   // début du creux (sens du soufflet : un silence dedans l'a déjà compté)
+      }
       w.lastDip = tNow;
       w.dipT = null; w.fallT = tNow;
     } else if (tNow - w.dipT > 0.6) {
