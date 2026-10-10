@@ -18,22 +18,27 @@ import { MP_ALERT_S, methodesAnchesMp } from './anches-mp.js';
 import { methodesStabilite, SENS_SILENCE_S } from './stabilite.js';
 import { partialPresent, targetSpacing, methodesPlan } from './plan.js';
 import { methodesConfondu } from './confondu.js';
+import { methodesProches } from './proches.js';
 // Exportées par engine.js depuis la v28 (API gelée), rangées dans plan.js.
 export { strobePartials, unisonHarmonic } from './plan.js';
 
 // Version du moteur : doit être celle de la page et de app.js (cf. le
 // contrôle de cohérence dans app.js et le test dans dsp.test.mjs).
-export const ENGINE_VERSION = '45';
+export const ENGINE_VERSION = '52';
 
 const HOP = 4096;             // période d'analyse (~85 ms à 48 kHz)
 const MAXWIN = { fast: 128, normal: 256, precise: 512 };
 // Réglages sans effet sur les cibles : les changer ne remet pas la mesure à zéro.
 // Le sens du soufflet de la grille (`sens`, et `sensN`, compteur que
 // l'interface fait avancer pour le reposer) non plus : il ne change pas l'anche mesurée.
-const NO_RETUNE = new Set(['gateDb', 'tolCents', 'autoFreeze', 'readout', 'devMode', 'bellows', '_v', 'sens', 'sensN']);
+// La voix visée (`voix`, la case de la séquence) non plus : elle ne sert qu'à
+// nommer l'anche seule d'un unisson (proches.js, uniteUnisson).
+const NO_RETUNE = new Set(['gateDb', 'tolCents', 'autoFreeze', 'readout', 'devMode', 'bellows', '_v', 'sens', 'sensN', 'voix']);
 // Reprise après un silence (inversion du soufflet) : on ne garde que ce qui
 // suit la reprise (8 échantillons décimés ≈ une image).
 const RESUME_KEEP = 8;
+// Images de pics gardées pour reconnaître les replis (appariement.js, repli).
+const PICS_IMAGES = 16;
 // Deux anches déguisées en une (mode Automatique) : partiels en désaccord de
 // plus de DISAGREE_CENTS pendant plus de DISAGREE_HOLD_S.
 const DISAGREE_CENTS = 1.5;
@@ -217,6 +222,27 @@ export class Engine {
     const priorF0 = this.playedMidi != null ? midiToFreq(this.playedMidi, c) : null;
     const coarse = (!quiet && this.coarse.ready()) ? this.coarse.analyze(priorF0) : null;
     if (coarse) this.lastCoarse = coarse;   // sert à vérifier qu'un partiel existe (unisonHarmonic)
+    // Spectre de CETTE image (null en silence) : les raies repliées par la
+    // décimation se reconnaissent à ses pics (zoom.js, repli ; matchVoices).
+    this.coarseImage = coarse;
+    // Pics des dernières images (PICS_IMAGES, ~1,4 s) : une source de repli
+    // qui bat (deux anches proches) peut être dans un creux sur les 0,34 s de
+    // l'analyse grossière, pas sur la fenêtre du traqueur.
+    if (coarse) { (this.picsRecents ??= []).push(coarse.peaks.slice(0, 24)); if (this.picsRecents.length > PICS_IMAGES) this.picsRecents.shift(); }
+    else this.picsRecents = [];
+    // Fondus une fois par image : une raie par case de 0,5 Hz, la plus forte
+    // (16 images de 24 pics : 384 entrées, que chaque raie de chaque traqueur
+    // parcourait ; mesuré, +22 % de calcul sur un 16'+8').
+    this.picsFusion = null;
+    if (coarse) {
+      const m = new Map();
+      for (const l of this.picsRecents) for (const p of l) {
+        const c = Math.round(p.freq * 2);
+        const q = m.get(c);
+        if (!q || p.mag > q.mag) m.set(c, p);
+      }
+      this.picsFusion = [...m.values()];
+    }
     let f0 = coarse?.f0 ? coarse.f0.freq * calib : null;
 
     // Détection temporelle McLeod (NSDF) : hauteur monophonique robuste aux
@@ -348,6 +374,23 @@ export class Engine {
       }
     }
     if (c.mode === 'manual' && this.trackers.size === 0) this.retune(true);
+
+    // Note entendue, à côté de la note imposée (audit d'usage pro n° 1) :
+    // verrouillé, le moteur ne cherche plus la note ; il la cherche quand
+    // même ici, sans rien changer à la mesure, pour que l'interface dise
+    // « Mi5 joué, Ré#5 attendu » quand la touche d'à côté sonne. Même règle
+    // que la détection libre (fondamentale ramenée à la voix la plus grave du
+    // registre), confirmée image après image : `images` compte les images
+    // d'affilée où elle est la même.
+    if (c.lockNote != null && c.mode !== 'manual' && !this.chordDegrees()) {
+      let mE = !quiet && f0 ? nearestMidi(f0, c) : null;
+      if (mE != null && c.mode === 'register') mE -= 12 * Math.min(...this.voices().map((v) => v.oct));
+      if (mE == null || mE < MIDI_MIN || mE > MIDI_MAX) this.entendue = null;
+      else if (this.entendue?.midi === mE) this.entendue.images++;
+      else this.entendue = { midi: mE, images: 1 };
+    } else {
+      this.entendue = null;
+    }
 
     // Retour du son après un silence — typiquement l'inversion du soufflet :
     // ce ne sont plus les mêmes anches qui parlent (tiré / poussé), ni la
@@ -543,6 +586,9 @@ export class Engine {
         // Échantillons reçus depuis le début du régime (zoom.js analyze ;
         // diagnostic : la fenêtre W n'en lit que la plus grande puissance de 2).
         recu: az?.recu ?? 0,
+        // Raies écartées comme repli de la décimation (zoom.js, repli) :
+        // [{ f (Hz, ramenée comme la mesure), source (Hz), ecartHz, image }].
+        replis: g.replis ?? [],
         spectrum: az ? az.mags : null,
 
         voices,
@@ -747,6 +793,9 @@ export class Engine {
     // Le 8' d'un 16'+8' : lu sur ceux de ses partiels où sa raie est séparée
     // de celle du 16' (après le plancher : un partiel noyé n'y entre pas).
     this.octaveFuse(groups, claimed, claimedBy);
+    // Unisson d'un registre : restes trop faibles retirés, anche seule donnée
+    // à la voix visée (proches.js).
+    this.uniteUnisson(groups);
 
     // Auto-anches : ne compter que les vraies anches, pas le bruit ni les
     // harmoniques. Deux filtres :
@@ -935,6 +984,8 @@ export class Engine {
     if (!quiet) this.stabilize(groups);
     // Anche confondue avec l'octave : son estimation, avec sa marge (confondu.js).
     if (!quiet) this.estimerConfondues(groups);
+    // Anches d'un unisson que la fenêtre ne sépare pas : leur marge (proches.js).
+    if (!quiet) this.margesProches(groups);
     // Dernier instant où une anche du registre était mesurée à sa place
     // (sert à ne pas ré-attribuer les anches quand l'une d'elles se tait).
     if (!quiet && groups.some((g) => !g.isHarmonic && !g.isSub && g.voices.some((v) => v.tracked && !v.held))) {
@@ -984,6 +1035,9 @@ export class Engine {
       // recherche de L'anche : { midi, groupes: [{ key, center, k, f,
       // present, hit, miss, absent }] } ou null sans note imposée.
       noteImposee: this.lockDiag ?? null,
+      // Note entendue quand une note est imposée (la détection libre, qui ne
+      // change rien à la mesure) : { midi, images (d'affilée) } ou null.
+      noteEntendue: this.entendue ? { ...this.entendue } : null,
       // Sens du soufflet (stabilite.js) : 'tiré', 'poussé' (donnée), ou null
       // sans grille ; `soufflet` : { source : grille | creux | silence,
       // inversions (comptées depuis le lancement), depuis (s), silenceS,
@@ -1000,4 +1054,4 @@ export class Engine {
 }
 
 // Méthodes rangées dans les modules voisins, corps inchangés : `this` reste le moteur.
-Object.assign(Engine.prototype, methodesBattement, methodesAppariement, methodesAnchesMp, methodesStabilite, methodesPlan, methodesConfondu);
+Object.assign(Engine.prototype, methodesBattement, methodesAppariement, methodesAnchesMp, methodesStabilite, methodesPlan, methodesConfondu, methodesProches);
