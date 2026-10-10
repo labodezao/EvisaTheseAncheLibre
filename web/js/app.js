@@ -7,7 +7,10 @@ import {
   midiToFreq, voiceTargetFreq, beatTarget, centsClass, overlappingAllan,
 } from './music.js';
 import { Report } from './report.js';
-import { zipBytes } from './zip.js';
+import {
+  Enregistreur, choisirStockage, listerSessions, recupererSession, exporterSession,
+} from './session-stockage.js';
+import { lireEnteteWav, dureeSession, DUREES_SESSION_MIN, MORCEAU_S } from './session-format.js';
 import { CHORD_TYPES, parseDegrees, degreesText, degreeLabel, chordName } from './dsp/chord.js';
 import { initBench } from './bench.js';
 
@@ -19,7 +22,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '41';
+const APP_VERSION = '42';
 function versionMismatch(what, got) {
   const b = document.getElementById('versionBanner');
   if (!b) return;
@@ -56,6 +59,7 @@ const cfg = Object.assign({
   readout: null,        // clés de voix affichées en lecture numérique (null = toutes)
   response: 'normal',
   devMode: false,       // mode dev : garde le son et chaque mesure (export ZIP : WAV + CSV + JSON)
+  devMaxMin: 60,        // durée maximale d'une session (min) : 10, 30, 60 ou 120 (v42)
   beatCurve: { midiLow: 48, bLow: 0.8, midiHigh: 96, bHigh: 3.0, overrides: {} },
 }, loadCfg());
 
@@ -204,9 +208,9 @@ async function startAudio() {
 
     worker = new Worker('js/dsp/worker.js', { type: 'module' });
     const channel = new MessageChannel();
+    if (cfg.devMode) await stockageSession();
     worker.postMessage({ type: 'init', sampleRate: audioCtx.sampleRate, cfg: engineCfg(),
-      port: channel.port1, dev: !!cfg.devMode }, [channel.port1]);
-    state.devData = null;
+      port: channel.port1, dev: !!cfg.devMode, devMaxS: dureeSession(cfg.devMaxMin) * 60 }, [channel.port1]);
     worker.onmessage = onWorkerMessage;
 
     const node = new AudioWorkletNode(audioCtx, 'capture');
@@ -219,21 +223,32 @@ async function startAudio() {
     const wavUrl = new URLSearchParams(location.search).get('wav');
     if (wavUrl && !state.pendingFile) {
       // Mode test : un enregistrement servi à côté de l'appli (?wav=chemin).
-      state.pendingFile = { name: wavUrl, data: await (await fetch(wavUrl)).arrayBuffer() };
+      state.pendingFile = { name: wavUrl, blob: await (await fetch(wavUrl)).blob() };
     }
     if (state.pendingFile) {
       // Source « fichier » : un enregistrement (téléphone, enregistreur…)
       // rejoué dans l'analyseur exactement comme s'il arrivait du micro.
       // Silencieux (pas de sortie haut-parleur) : on mesure, on n'écoute pas.
-      const { name, data } = state.pendingFile;
+      // Un WAV est lu par morceaux par le Worker (une session de 60 min fait
+      // 345 Mo : jamais chargée en entier) ; MP3, OGG : décodés en entier.
+      // ?vitesse=4 : lu 4 fois plus vite que le temps réel (essais).
+      const { name, blob } = state.pendingFile;
       state.pendingFile = null;
-      const buf = await audioCtx.decodeAudioData(data.slice(0));
-      const src = audioCtx.createBufferSource();
-      src.buffer = buf;
-      src.connect(node);
-      src.onended = () => { $('fileInfo').textContent = `${name} — lu en entier (${buf.duration.toFixed(1)} s)`; };
-      src.start();
-      $('fileInfo').textContent = `▶ ${name} (${buf.duration.toFixed(1)} s)`;
+      const info = lireEnteteWav(new Uint8Array(await blob.slice(0, Math.min(blob.size, 1 << 16)).arrayBuffer()), blob.size);
+      if (info) {
+        const vitesse = Number(new URLSearchParams(location.search).get('vitesse')) || 1;
+        worker.postMessage({ type: 'fichier', blob, vitesse });
+        state.fichierNom = name;
+        $('fileInfo').textContent = `▶ ${name} (${(info.n / info.sr).toFixed(1)} s, lu par morceaux)`;
+      } else {
+        const buf = await audioCtx.decodeAudioData(await blob.arrayBuffer());
+        const src = audioCtx.createBufferSource();
+        src.buffer = buf;
+        src.connect(node);
+        src.onended = () => { $('fileInfo').textContent = `${name} — lu en entier (${buf.duration.toFixed(1)} s)`; };
+        src.start();
+        $('fileInfo').textContent = `▶ ${name} (${buf.duration.toFixed(1)} s)`;
+      }
     } else if (gen) {
       // Mode test : oscillateurs internes au lieu du micro (?gen=440.2,442.5).
       // Exposés sur window.__gen pour pouvoir simuler des changements de
@@ -306,29 +321,23 @@ function onWorkerMessage(e) {
   if (d.type === 'tick') onTick(d);
   else if (d.type === 'capture') { state.capture = { ...(state.capture || {}), ...d }; showCaptureInfo(); }
   else if (d.type === 'devStatus') showDevStatus(d.dev);
-  else if (d.type === 'devData') {
-    const w = e.target;
-    w._devWaiters?.forEach((fn) => fn(d));
-    w._devWaiters = [];
+  else if (d.type === 'devMorceau') devMorceau(d, e.target);
+  else if (d.type === 'devFin') devFin(d, e.target);
+  else if (d.type === 'devAbandon') devAbandon(d.gen, e.target);
+  else if (d.type === 'devFlushOk') devRepondre(d.req);
+  else if (d.type === 'fichierFin') {
+    $('fileInfo').textContent = `${state.fichierNom ?? ''} — lu en entier (${d.secondes.toFixed(1)} s)`;
   }
-}
-
-// Demande au Worker le son et les mesures enregistrés (mode dev).
-function fetchDevData(w) {
-  return new Promise((resolve) => {
-    (w._devWaiters ??= []).push(resolve);
-    w.postMessage({ type: 'devExport' });
-  });
 }
 
 function stopAudio() {
   stopTone();
   mediaStream?.getTracks().forEach((t) => t.stop());
-  // Mode dev : on récupère la session AVANT d'arrêter le Worker, pour
-  // qu'elle reste exportable une fois le micro coupé.
+  // Mode dev : le morceau en cours part avant l'arrêt du Worker ; la
+  // session reste exportable une fois le micro coupé (elle est stockée).
   if (worker && cfg.devMode) {
     const w = worker;
-    fetchDevData(w).then((d) => { if (!d.empty) state.devData = d; w.terminate(); showDevStatus(null); });
+    devDemander(w, 'devFin').then(() => { w.terminate(); showDevStatus(null); });
   } else {
     worker?.terminate();
   }
@@ -2008,85 +2017,180 @@ function downloadBlob(name, blob) {
 }
 
 // ---- Mode dev : session enregistrée (son + mesures) -----------------------------
+// Session longue (v42, Ewen 07/10/2026) : 10, 30, 60 ou 120 min
+// (cfg.devMaxMin, 60 par défaut). Le Worker rend un morceau toutes les
+// MORCEAU_S secondes (son Int16 et lignes du CSV) ; l'Enregistreur
+// (session-stockage.js) l'écrit hors de la mémoire vive (stockage du
+// navigateur : OPFS, sinon IndexedDB). L'export assemble le ZIP
+// sans tout charger. Une session coupée par un plantage reste sur le disque :
+// « Récupérer » au lancement suivant.
+let devStockage = null;       // promesse du stockage
+let devStockagePret = null;   // le stockage, une fois prêt
+let devEnreg = null;          // la session en cours (Enregistreur)
+let devDerniere = null;       // id de la dernière session close
+let devNumero = 0;
+const devAttentes = new Map();
+let devMessage = '';          // dernier export (gardé sous l'état, qui change à chaque mesure)
+
+function stockageSession() {
+  return (devStockage ??= choisirStockage().then((x) => { devStockagePret = x; return x; }));
+}
+
+// Message au Worker avec réponse (devFin, devFlush) ; 3 s au plus.
+function devDemander(w, type) {
+  const req = ++devNumero;
+  return new Promise((ok) => {
+    devAttentes.set(req, ok);
+    w.postMessage({ type, req });
+    setTimeout(() => devRepondre(req), 3000);
+  });
+}
+function devRepondre(req) {
+  const ok = devAttentes.get(req);
+  if (ok) { devAttentes.delete(req); ok(); }
+}
+
+function devMorceau(d, w) {
+  if (!devStockagePret) return;
+  if (!devEnreg || devEnreg.gen !== d.gen || devEnreg.worker !== w) {
+    if (devEnreg) { devDerniere = devEnreg.id; devEnreg.finir(); }
+    const contexte = {
+      produit: 'Accordeur Anche Libre Pro', version: APP_VERSION, userAgent: navigator.userAgent,
+      micro: $('deviceSel').selectedOptions?.[0]?.textContent || '', source: $('fileInfo').textContent || '',
+      capture: state.capture ?? null, reglages: JSON.parse(JSON.stringify(cfg)),
+    };
+    const e = new Enregistreur(devStockagePret, { gen: d.gen, maxS: dureeSession(cfg.devMaxMin) * 60, contexte });
+    e.worker = w;
+    devEnreg = e;
+    e.pret.then(() => {
+      if (e.erreur) w.postMessage({ type: 'dev', on: false });
+      else if (e.maxS < dureeSession(cfg.devMaxMin) * 60) w.postMessage({ type: 'dev', on: true, maxS: e.maxS });
+      devListe();
+    });
+  }
+  // Premier morceau écrit : la session entre dans la liste.
+  const premier = devEnreg.man.morceaux === 0;
+  devEnreg.ajouter(d).then(() => { if (premier) devListe(); });
+}
+
+function devFin(d, w) {
+  if (devEnreg && devEnreg.worker === w && (d.gen == null || devEnreg.gen === d.gen)) {
+    const e = devEnreg;
+    devEnreg = null;
+    devDerniere = e.id;
+    e.finir().then(() => { showDevStatus(null); devListe(); });
+  }
+  devRepondre(d.req);
+}
+
+function devAbandon(gen, w) {
+  if (devEnreg?.gen !== gen || devEnreg.worker !== w) return;
+  const e = devEnreg;
+  devEnreg = null;
+  e.finir().then(() => e.stockage.effacer(e.id)).then(devListe);
+}
+
+const fmtDuree = (x) => {
+  const s = Math.max(0, Math.floor(x ?? 0));
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = String(s % 60).padStart(2, '0');
+  return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
+};
+const fmtTaille = (o) => (o == null ? '—' : o < 1048576 ? `${(o / 1024).toFixed(0)} Ko`
+  : o < 1073741824 ? `${(o / 1048576).toFixed(1)} Mo` : `${(o / 1073741824).toFixed(2)} Go`);
+
 function showDevStatus(st) {
   const badge = $('devBadge'), info = $('devStatus');
   const on = !!cfg.devMode;
-  const fmt = (x) => `${Math.floor(x / 60)}:${String(Math.floor(x % 60)).padStart(2, '0')}`;
+  const e = devEnreg?.etat();
   if (on && state.running && st) {
     badge.classList.remove('hidden');
-    badge.textContent = `● dev ${fmt(st.seconds)}${st.full ? ' (plein)' : ''}`;
-    info.textContent = `Enregistrement en cours : ${fmt(st.seconds)} de son, ${st.ticks} mesures`
-      + (st.full ? ` — limite de ${st.maxS / 60} min atteinte, exportez puis effacez.` : '.');
+    badge.textContent = `● dev ${fmtDuree(st.seconds)}${st.full ? ' (plein)' : ''}`;
+    const maxS = Math.min(st.maxS ?? Infinity, e?.maxS ?? Infinity);
+    info.textContent = `Enregistrement en cours : ${fmtDuree(st.seconds)} sur ${fmtDuree(maxS)}, ${st.ticks} mesures`
+      + (e ? ` · ${fmtTaille(e.octets)} écrits en ${e.morceaux} morceaux de ${MORCEAU_S} s (${e.stockage})`
+        + `${e.libre != null ? ` · ${fmtTaille(e.libre)} libres` : ''}` : '')
+      + (e?.erreur === 'espace' ? ' — pas assez de place : session arrêtée.' : e?.erreur ? ` — erreur : ${e.erreur}.` : '')
+      + (e?.limiteEspace ? ` — durée réduite à ${Math.floor(e.maxS / 60)} min (place libre).` : '')
+      + (st.full ? ' — limite atteinte : l\'enregistrement s\'est arrêté proprement, exportez.' : '.');
   } else {
     badge.classList.add('hidden');
-    const d = state.devData;
     info.textContent = !on ? 'Mode dev désactivé.'
-      : d ? `Session gardée : ${fmt(d.pcm.length / d.sampleRate)} de son, ${d.ticks.length} mesures — prête à exporter.`
-        : 'Démarrez le micro (ou 📂 Fichier) : la session sera enregistrée.';
+      : devDerniere ? `Session gardée (${devDerniere}) : prête à exporter.`
+        : `Démarrez le micro (ou 📂 Fichier) : la session sera enregistrée (${dureeSession(cfg.devMaxMin)} min au plus).`;
   }
+  if (devMessage) info.textContent += ` ${devMessage}`;
 }
 
-function wavBytes(pcm, sr) {
-  const n = pcm.length, buf = new ArrayBuffer(44 + 2 * n), v = new DataView(buf);
-  const str = (o, x) => { for (let i = 0; i < x.length; i++) v.setUint8(o + i, x.charCodeAt(i)); };
-  str(0, 'RIFF'); v.setUint32(4, 36 + 2 * n, true); str(8, 'WAVE');
-  str(12, 'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
-  v.setUint32(24, sr, true); v.setUint32(28, 2 * sr, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
-  str(36, 'data'); v.setUint32(40, 2 * n, true);
-  new Int16Array(buf, 44).set(pcm);
-  return new Uint8Array(buf);
+// Les sessions gardées, la plus récente d'abord : « Exporter », « Effacer »,
+// et « Récupérer » pour une session qu'un plantage a interrompue.
+async function devListe() {
+  const ul = $('devSessions');
+  if (!ul) return;
+  let l = [];
+  try { l = await listerSessions(await stockageSession(), devEnreg?.id ?? null); } catch { l = []; }
+  ul.replaceChildren(...l.slice(0, 12).map((x) => {
+    const li = document.createElement('li');
+    const txt = document.createElement('span');
+    txt.textContent = `${x.id} · ${fmtDuree(x.secondes)} · ${fmtTaille(x.octets)}`
+      + `${x.id === devEnreg?.id ? ' · en cours' : x.interrompue ? ' · interrompue' : ''}${x.plein ? ' · plein' : ''}${x.exportee ? ' · exportée' : ''}`;
+    li.append(txt);
+    const b = (texte, f) => { const bt = document.createElement('button'); bt.textContent = texte; bt.onclick = f; li.append(' ', bt); };
+    if (x.interrompue) b('Récupérer', async () => { await recupererSession(await stockageSession(), x.id); devListe(); });
+    else b('⬇ Exporter', () => exportDevSession(x.id));
+    b('Effacer', async () => {
+      if (devEnreg?.id === x.id && worker) worker.postMessage({ type: 'devClear' });
+      else await (await stockageSession()).effacer(x.id);
+      if (devDerniere === x.id) devDerniere = null;
+      devListe();
+    });
+    return li;
+  }));
 }
 
-// Une ligne par anche et par mesure. `t_s` = fin de la fenêtre d'analyse,
-// sur la même horloge que le WAV ; `fenetre_s` = durée de cette fenêtre.
-function devCsv(ticks) {
-  const P = 8, sep = ';';
-  const num = (x, d) => (x == null || !Number.isFinite(x) ? '' : x.toFixed(d));
-  const head = ['t_s', 'note', 'midi', 'niveau_db', 'silence', 'groupe', 'anche', 'label', 'harmonique',
-    'k_suivi', 'cible_hz', 'f_hz', 'ecart_cents', 'amp_db', 'confondue_octave', 'estimation_rapide',
-    'maintenue', 'fenetre_s', 'remplissage'];
-  for (let k = 1; k <= P; k++) head.push(`p${k}_hz`);
-  // Anche confondue avec l'octave (moteur v37 et plus) : estimation, marge, méthode, signe connu.
-  head.push('estimee_hz', 'estimee_cents', 'marge_cents', 'methode', 'signe_connu');
-  const lines = [head.join(sep)];
-  for (const tk of ticks) {
-    const note = tk.midi != null ? noteLabel(tk.midi + (cfg.transpose || 0)).full : '';
-    const db = num(20 * Math.log10((tk.level ?? 0) + 1e-9), 1);
-    for (const r of tk.rows) {
-      const row = [num(tk.t, 4), note, tk.midi ?? '', db, tk.quiet, r.g, r.id,
-        String(r.label).replace(/[;\n]/g, ' '), r.harm, r.k, num(r.target, 5), num(r.f, 5), num(r.c, 4),
-        num(20 * Math.log10((r.amp ?? 0) + 1e-9), 1), r.merged, r.coarse, r.held,
-        num(r.srd ? r.W / r.srd : null, 3), num(r.fill, 3)];
-      for (let k = 1; k <= P; k++) row.push(num(r.p?.[k], 5));
-      row.push(num(r.conf?.f, 5), num(r.conf?.c, 4), num(r.conf?.m, 4), r.conf?.methode ?? '', r.conf ? r.conf.signe : '');
-      lines.push(row.join(sep));
-    }
-  }
-  return lines.join('\n');
-}
-
-async function exportDevSession() {
-  const d = worker && state.running ? await fetchDevData(worker) : state.devData;
-  if (!d || d.empty || !d.pcm?.length) { alert('Aucune session enregistrée : activez le mode dev et démarrez.'); return; }
-  const base = `session-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}`;
-  const meta = {
-    app: 'Accordeur Anche Libre Pro', mode_dev: 1, date: new Date().toISOString(),
-    user_agent: navigator.userAgent, micro: $('deviceSel').selectedOptions?.[0]?.textContent || '',
-    source: $('fileInfo').textContent || '', echantillonnage_hz: d.sampleRate,
-    capture: state.capture?.direct ? 'micro lu directement (MediaStreamTrackProcessor)' : 'Web Audio (rééchantillonné par le navigateur)',
-    duree_s: d.pcm.length / d.sampleRate, mesures: d.ticks.length, tronque: !!d.full,
-    reglages_interface: cfg, reglages_moteur: d.cfg,
+// Le JSON de la session (réglages pris au début de la session).
+function devMeta(man, inv) {
+  const c = man.contexte ?? {};
+  return {
+    app: c.produit ?? 'Accordeur Anche Libre Pro', version: c.version ?? null, mode_dev: 1, date: new Date().toISOString(),
+    debut: man.debut ?? null, fin: man.fin ?? null,
+    user_agent: c.userAgent ?? '', micro: c.micro ?? '', source: c.source ?? '', echantillonnage_hz: man.sr,
+    capture: c.capture?.direct ? 'micro lu directement (MediaStreamTrackProcessor)' : 'Web Audio (rééchantillonné par le navigateur)',
+    duree_s: inv.echantillons / man.sr, mesures: man.mesures ?? 0, tronque: !!man.plein,
+    duree_max_s: man.maxS ?? null, morceaux: inv.morceaux, morceau_s: MORCEAU_S, interrompue: !!man.interrompue,
+    stockage: man.stockage ?? null, reglages_interface: c.reglages ?? null, reglages_moteur: man.cfg ?? null,
     horloge: 't_s du CSV = fin de la fenêtre d\'analyse, même horloge que le WAV (échantillon t_s × fs)',
   };
-  // UN seul fichier : sur téléphone, le navigateur ne laisse passer qu'un
-  // téléchargement par geste — les trois d'affilée ne donnaient que le WAV.
-  // Le CSV commence par une marque UTF-8 (BOM) pour que le tableur lise les accents.
-  const zip = zipBytes([
-    { name: `${base}.wav`, data: wavBytes(d.pcm, d.sampleRate) },
-    { name: `${base}.csv`, data: '\ufeff' + devCsv(d.ticks) },
-    { name: `${base}.json`, data: JSON.stringify(meta, null, 2) },
-  ]);
-  downloadBlob(`${base}.zip`, new Blob([zip], { type: 'application/zip' }));
+}
+
+// UN seul fichier : sur téléphone, le navigateur ne laisse passer qu'un
+// téléchargement par geste — les trois d'affilée ne donnaient que le WAV.
+// Le CSV commence par une marque UTF-8 (BOM) pour que le tableur lise les accents.
+async function exportDevSession(id = devEnreg?.id ?? devDerniere) {
+  const st = await stockageSession();
+  if (!id) id = (await listerSessions(st, null).catch(() => [])).find((x) => !x.interrompue)?.id ?? null;
+  if (!id) { alert('Aucune session enregistrée : activez le mode dev et démarrez.'); return; }
+  let limite = Infinity;
+  if (devEnreg?.id === id) {
+    if (worker) await devDemander(worker, 'devFlush');
+    await devEnreg.vider();
+    limite = devEnreg.man.morceaux;
+  }
+  devMessage = '— Export en cours…';
+  showDevStatus(null);
+  try {
+    const r = await exporterSession(st, id, { meta: devMeta, limite });
+    if (r.chemin) {
+      devMessage = `— Exportée : ${r.chemin} (${fmtTaille(r.octets)}).`;
+    } else {
+      downloadBlob(r.nom, r.blob);
+      devMessage = `— ${r.nom} : dans les téléchargements (${fmtTaille(r.octets)}).`;
+    }
+    showDevStatus(null);
+  } catch (e) {
+    devMessage = '';
+    alert(e.message === 'vide' ? 'Session vide : rien à exporter.' : `Export impossible : ${e.message}`);
+  }
+  devListe();
 }
 
 // ---- Liaison des contrôles -------------------------------------------------------
@@ -2227,16 +2331,32 @@ function bindControls() {
   $('devMode').onchange = () => {
     cfg.devMode = $('devMode').checked;
     saveCfg();
-    worker?.postMessage({ type: 'dev', on: cfg.devMode });
+    if (cfg.devMode) stockageSession();
+    worker?.postMessage({ type: 'dev', on: cfg.devMode, maxS: dureeSession(cfg.devMaxMin) * 60 });
     showDevStatus(null);
   };
-  $('btnDevExport').onclick = exportDevSession;
-  $('btnDevClear').onclick = () => {
-    state.devData = null;
-    worker?.postMessage({ type: 'devClear' });
+  const dSel = $('devMaxMin');
+  if (dSel) {
+    dSel.replaceChildren(...DUREES_SESSION_MIN.map((m) => { const o = document.createElement('option'); o.value = String(m); o.textContent = `${m} min`; return o; }));
+    dSel.value = String(dureeSession(cfg.devMaxMin));
+    dSel.onchange = () => {
+      cfg.devMaxMin = dureeSession(dSel.value);
+      saveCfg();
+      const maxS = cfg.devMaxMin * 60;
+      if (devEnreg) devEnreg.changerMax(maxS);
+      if (worker && cfg.devMode) worker.postMessage({ type: 'dev', on: true, maxS: devEnreg ? devEnreg.maxS : maxS });
+      showDevStatus(null);
+    };
+  }
+  $('btnDevExport').onclick = () => exportDevSession();
+  $('btnDevClear').onclick = async () => {
+    const id = devEnreg?.id ?? devDerniere;
+    if (devEnreg && worker) worker.postMessage({ type: 'devClear' });
+    else if (id) { await (await stockageSession()).effacer(id); devDerniere = null; }
     showDevStatus(null);
   };
   showDevStatus(null);
+  devListe();
   $('btnCurvePng').onclick = exportCurvePng;
   updateLockButton();
   const setA4 = (v) => {
@@ -2303,7 +2423,7 @@ function bindControls() {
     const f = $('fileInput').files?.[0];
     if (!f) return;
     if (state.running) stopAudio();
-    state.pendingFile = { name: f.name, data: await f.arrayBuffer() };
+    state.pendingFile = { name: f.name, blob: f };
     $('fileInput').value = '';
     startAudio();
   };

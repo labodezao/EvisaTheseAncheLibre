@@ -8,7 +8,7 @@
   "scripts": {
     "start": "electron .",
     "serve": "node server.mjs",
-    "test": "node test/dsp.test.mjs && node test/seuils.test.mjs",
+    "test": "node test/dsp.test.mjs && node test/seuils.test.mjs && node --expose-gc test/session-longue.test.mjs",
     "test:poly": "node test/polyphonie.test.mjs",
     "dist": "electron-builder",
     "dist:win": "electron-builder --win",
