@@ -91,7 +91,7 @@ n'a de sens que reliée à ce qui se passe dans le cadre du corps.
   pas de grec ni de symbole Unicode en texte (formule). Les sons d'Ewen arrivent dans `J:\multimedia à tier\INBOX` : les lire, ne
   jamais les déplacer. Le .lyx est en CRLF dans le dépôt : garder CRLF (sinon tout le fichier change).
 
-## Accordeur web (`web/`) — état et leçons (v45, 2026-10-10)
+## Accordeur web (`web/`) — état et leçons (v52, 2026-10-11)
 Déployé sur GitHub Pages depuis `main` (https://labodezao.github.io/EvisaTheseAncheLibre/).
 
 **Le moteur se développe dans PolyReed** (dépôt privé d'Ewen,
@@ -123,6 +123,13 @@ session) et donne les battements d'intervalles (`tick.intervalles` : quinte 3:2,
 douzième, double octave ; b = m f_b − n f_h mesuré et voulu selon le tempérament, enveloppe). La page les
 montre (`qSens`, `qIntervals`). Essayé et retiré : lire la pente de phase sur tout le son reçu (pire sur
 le réel). Ewen (10/10) : quintes à l'égal par défaut ; la session du 25/09 ne dit rien du sens.
+v52 (11/10/2026) : moteur repris de PolyReed v52 (audit d'usage pro n° 1, 6, 11 ; docs/POLYPHONIE-ESSAIS.md
+§ 4.5 de PolyReed). Raies repliées par le filtre de décimation écartées (`zoom.js`, `repli`, `groupe.replis`) ;
+note imposée lue seulement si son partiel grave est un pic (`partielEnPic`) ; note entendue à côté du verrou
+(`tick.noteEntendue`) ; unisson d'un registre (`dsp/proches.js`) : anche seule donnée à la voix visée
+(`cfg.voix`), marge « anches proches » quand une voix manque ou que deux raies sont séparées de justesse ;
+octave exacte « immobile » (l'octave ne bat pas, marge 0,5/(k_max T), `confondu.js`). La page montre les
+méthodes nouvelles dans la ligne de l'anche confondue. Tests 60 à 62 de `test/dsp.test.mjs`.
 Références d'Ewen : **Peterson** (strobe) et **Dirk's Accordion Tuner** (qu'il utilise).
 Ewen parle français, souvent en dictée vocale ; il teste en jouant sur SON
 accordéon et envoie des ZIP de session (WAV + CSV + JSON, bouton Exporter ;

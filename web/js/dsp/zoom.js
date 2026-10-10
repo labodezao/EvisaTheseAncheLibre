@@ -21,6 +21,57 @@ const D1 = 32;
 const D2 = 16;
 const RING = 2048; // ~21,8 s à 48 kHz
 
+// Gain (amplitude) de la chaîne de décimation pour une raie à `o` Hz de la
+// porteuse : premier étage (moyenne de D1 à `sr`), puis le CIC d'ordre 2 du
+// second (deux moyennes de D2 à sr/D1). La raie ressort dans la bande à
+// o − srd·round(o/srd) : c'est le repli.
+export function gainDecimation(o, sr) {
+  const dir = (x, D) => {
+    const s = Math.sin(Math.PI * x);
+    return Math.abs(s) < 1e-12 ? 1 : Math.abs(Math.sin(Math.PI * x * D) / (D * s));
+  };
+  return dir(o / sr, D1) * dir((o * D1) / sr, D2) ** 2;
+}
+
+// Raies du spectre large bande (pics de l'analyse grossière) qui se replient
+// dans la bande d'un traqueur et y font une raie fantôme (audit d'usage pro
+// n° 1 et 11, 10/10/2026). Le filtre de décimation (CIC) laisse passer
+// −24 dB à 74 Hz de la porteuse (le partiel 2 d'un Mi5 dans la bande d'un
+// Ré#5 mesuré sur son partiel 2 : Mi5 lu « Ré#5 −27,7 ¢ », fin et plein) et
+// −37 dB près des multiples de 1 500 Hz (l'image négative de la fondamentale
+// d'une anche seule de Si4 dans la bande de son partiel 2 : un 8'+ fantôme à
+// +18,7 ¢ quand seul le 8'− sonne). Une raie de la bande à `off` Hz (`mag` :
+// sa magnitude dans la fenêtre de W points) est un repli si une raie forte
+// hors de la bande, ramenée par la décimation au même endroit (à deux cases
+// et 0,3 Hz près), l'explique en amplitude (au moins le quart : la raie
+// source se lit sur 0,34 s, le repli sur la fenêtre du traqueur), et si aucune
+// raie du spectre large bande n'est réellement là. Les amplitudes : pic de
+// Hann d'une sinusoïde d'amplitude a, a·N/4 (N points ; la bande complexe en
+// garde la moitié, la décimation ne change pas le niveau en bande).
+export function repli({ off, mag, W, fc, srd, sr, peaks, win }) {
+  if (!peaks?.length || !(W > 0) || !(win > 0)) return null;
+  const aZ = (4 * mag) / W;
+  const tol = 2 * (srd / W) + 0.3;
+  const bord = 0.45 * srd;
+  let source = null;
+  for (const p of peaks) {
+    const aP = (4 * p.mag) / win;
+    for (const s of [1, -1]) {
+      const o = s * p.freq - fc;
+      if (Math.abs(o) <= bord) {
+        // Une vraie raie à cet endroit : ce n'est pas (seulement) un repli.
+        if (s === 1 && Math.abs(o - off) < Math.max(tol, 3) && aP >= 0.25 * aZ) return null;
+        continue;
+      }
+      const x = o - srd * Math.round(o / srd);
+      if (Math.abs(x - off) > tol) continue;
+      const aR = aP * gainDecimation(o, sr);
+      if (aR >= 0.25 * aZ && (!source || aR > source.amp)) source = { f: p.freq, signe: s, amp: aR, ecartHz: o };
+    }
+  }
+  return source;
+}
+
 export class ZoomTracker {
   constructor(sampleRate) {
     this.sr = sampleRate;

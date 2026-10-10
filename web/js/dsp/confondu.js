@@ -286,11 +286,56 @@ export function estimeBattement({ ref, mRef, fRef, bandes, Tw }) {
     const cc = cercle(b, 0, nd);
     return cc ? { k: b.k, rho: cc.C / cc.B, Rbar: cc.Rbar, sphi: cc.sphi, dt, centre: cc.centre, points: cc.points } : null;
   }).filter(Boolean);
+  // Octave qui ne bat pas (audit d'usage pro n° 6, 10/10/2026). Quand le 8'
+  // est à l'octave exacte du 16' (δ = 0), il est verrouillé en phase sur lui :
+  // il n'y a plus de cercle, le 8' est DANS la raie fixe C_k. L'ajustement
+  // cherche alors le reste qui tourne et trouve un résidu 20 à 60 dB sous C_k
+  // (ρ_k = |C_k|/|B_k| de 40 à 1000) : un δ de hasard, des moitiés qui se
+  // contredisent. Mesuré sur synthèse (Fa1 à Mi3, 8' de −10 à +6 dB, deux
+  // timbres du 16', soufflet ±0,2 ¢, dérive commune, 6 s) : à δ = 0, 38 images
+  // sur 67 hors de la marge sur Ré#2, jusqu'à 4 ¢ d'erreur ; dès 0,1 ¢ de
+  // l'octave (un quart de tour sur le partiel le plus haut), le cercle se voit
+  // et l'estimation est juste. Rien ne tourne (ρ_k > CONF_RHO_IMMOBILE sur
+  // TOUS les partiels) : ce que la note dit, c'est qu'aucun battement ne s'est
+  // vu sur sa durée T. Un 8' qui sonne et s'écarte de |δ| fait k |δ| T tours
+  // sur son partiel k : sur synthèse, les images « immobiles » n'ont jamais
+  // dépassé 0,47 tour (k_max) en comptant l'erreur de mesure du 16'. On donne
+  // donc l'octave du 16' (δ = 0), à ±CONF_TOUR_IMMOBILE / (k_max T) près : la
+  // limite physique de la durée jouée, qui se resserre en 1/T (une note tenue
+  // 4 s de plus divise la marge par deux). Limite : un 8' plus de 20 dB sous
+  // le 16' sur tous ses partiels ne se distingue pas d'une octave juste (comme
+  // pour la méthode « par l'octave », il faut que le 8' sonne). Même chose
+  // quand l'ajustement ne fait pas un quart de tour sur la note (CONF_TOUR_VU).
+  const immobile = (rho.length > 0 && rho.length === data.length && rho.every((q) => q.rho > CONF_RHO_IMMOBILE))
+    || Math.abs(kmax * tout.d * T) < CONF_TOUR_VU
+    || (rho.length === data.length && rho.every((q) => q.Rbar >= CONF_RBAR_IMMOBILE));
+  if (immobile) {
+    const Ai = CONF_TOUR_IMMOBILE / (kmax * T);
+    return { d: 0, marge: Math.hypot(Ai, A), T, kmax, rho, immobile: true,
+      A, B: 0, S: 0, Ai, d1: m1?.d ?? null, d2: m2?.d ?? null, dFenetre: mw?.d ?? null, dMax: lim, dAjuste: tout.d };
+  }
   // A, B, S et les trois ajustements partiels : diagnostic (section recherche
   // de L'anche), la marge n'en dépend pas autrement.
-  return { d: tout.d, marge: Math.hypot(A, B, S), T, kmax, rho,
+  return { d: tout.d, marge: Math.hypot(A, B, S), T, kmax, rho, immobile: false,
     A, B, S, d1: m1?.d ?? null, d2: m2?.d ?? null, dFenetre: mw?.d ?? null, dMax: lim };
 }
+
+// Octave immobile (cf. estimeBattement) : un partiel où le reste qui tourne
+// est plus de 20 dB sous la raie fixe ne montre pas de 8' qui tourne.
+export const CONF_RHO_IMMOBILE = 10;
+// Tours que le partiel le plus haut a pu faire sans qu'on le voie (0,47 au
+// plus sur synthèse, erreur du 16' comprise).
+export const CONF_TOUR_IMMOBILE = 0.5;
+// Un ajustement qui fait moins d'un quart de tour sur la note n'a pas vu de
+// cercle, seulement un arc : une dérive lente, pas un battement (8' plus fort
+// que le 16' à l'octave exacte : ρ_k vers 1 sur un arc de 0,1 à 0,2 tour).
+export const CONF_TOUR_VU = 0.25;
+// …ni quand, sur TOUS les partiels, les points n'ont pas tourné autour du
+// centre du cercle (R̄ ≥ 0,9 : un arc d'un quart de tour au plus ; cf.
+// CONF_RBAR_MAX, la raie commune qui demande un arc qui a tourné). Mesuré :
+// La2 16'+8' exacts au timbre du générateur, ajustement à 0,9 tour (+1,07 ¢),
+// R̄ de 0,87 à 0,99.
+export const CONF_RBAR_IMMOBILE = 0.9;
 
 // 3) Par la raie commune, quand le 8' y domine (P08 : 8' 9 à 13 dB au-dessus
 //    du 16', qui monte de 2,5 ¢ sous lui pendant la note). Le battement
@@ -393,7 +438,10 @@ export const methodesConfondu = {
       for (const k of this.plan.partials.get(g.key) ?? []) bandes.push({ k, t: this.trackers.get(`${g.key}p${k}`) });
       const b = estimeBattement({ ref: this.trackers.get(h.key), mRef, fRef: r.fMeas, bandes, Tw });
       if (b && b.marge < est.marge) {
-        est = { f: fOct + b.d, marge: b.marge, methode: 'battement', signeConnu: Math.abs(b.d) > b.marge };
+        est = b.immobile
+          // Octave qui ne bat pas : la limite de la durée jouée (cf. estimeBattement).
+          ? { f: fOct, marge: b.marge, methode: 'immobile', signeConnu: false, dureeS: b.T }
+          : { f: fOct + b.d, marge: b.marge, methode: 'battement', signeConnu: Math.abs(b.d) > b.marge, dureeS: b.T };
       }
       const lect = g.voices[0].lecturesOctave;
       const rc = b && lect?.n === this.samplesTotal ? estimeRaie({ lectures: lect.liste, b, fBat: fOct + b.d, Tw }) : null;
@@ -410,7 +458,8 @@ export const methodesConfondu = {
   // Pour chaque anche marquée « confondue avec l'octave » (`merged`), pose :
   //   confondu (true), fEstimee (Hz), centsEstimes (écart à l'échelle, comme
   //   dCents), centsEstimesCible (écart à la cible, comme dTargetCents),
-  //   margeCents (±, en cents), methode ('octave' | 'battement'),
+  //   margeCents (±, en cents), methode ('octave' | 'battement' | 'raie' |
+//   'immobile' : l'octave ne bat pas, marge de la durée jouée), dureeLue (s),
   //   signeConnu (le 8' est-il sûrement au-dessus, ou au-dessous, de
   //   l'octave du 16' ?).
   // Sans anche mesurée une octave plus bas : confondu seul, estimation null.
@@ -453,6 +502,9 @@ export const methodesConfondu = {
     v.margeCents = est ? margeTotale(est) : null;
     v.methode = est ? est.methode : null;
     v.signeConnu = est ? est.signeConnu : false;
+    // Durée de son lue par le battement (s) : sa marge se resserre en 1/T
+    // (l'interface en tire « tiens la note n s », audit d'usage pro n° 6).
+    v.dureeLue = est?.dureeS ?? null;
     v.detailConfondu = est?.detail ?? null;
   },
 };
@@ -476,6 +528,8 @@ function detailEstimation(f16, mRef, Tw, b, rc) {
     battement: b ? {
       f: fOct + b.d, d: b.d, marge: b.marge, A: b.A, B: b.B, S: b.S, T: b.T, kmax: b.kmax,
       d1: b.d1, d2: b.d2, dFenetre: b.dFenetre, dMax: b.dMax, partiels: b.rho,
+      // Octave qui ne bat pas : δ ajusté (écarté), marge de la durée jouée.
+      immobile: !!b.immobile, Ai: b.Ai ?? null, dAjuste: b.dAjuste ?? null,
     } : null,
     raie: rc ? { f: rc.f, marge: rc.marge, n: rc.n } : null,
   };

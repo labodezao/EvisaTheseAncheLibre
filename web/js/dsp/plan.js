@@ -63,6 +63,27 @@ export function partialPresent(coarse, f0, k) {
   return ref > 0 && peakAround(f0 * k) >= ref / 31.6;
 }
 
+// Le partiel est-il un PIC du spectre large bande, à ±45 ¢ de `f` (le
+// maximum de la fenêtre à l'intérieur, pas sur un bord) ? Le pied d'une raie
+// voisine monte vers le bord de la fenêtre : ce n'est pas un partiel. Audit
+// d'usage pro n° 1 (10/10/2026) : partialPresent compare le partiel aux dix
+// premiers de la MÊME note ; quand elle ne sonne pas, ils ne sont que des
+// pieds de raies, et le pied du Mi5 joué, à 100 ¢ du Ré#5 visé, passait pour
+// le partiel du Ré#5 : la note voisine était lue « Ré#5 −27,7 ¢ », fine.
+// ±45 ¢ : une anche encore loin de sa cible (jusqu'à ±35 ¢, comme Auto-anches)
+// y tient ; la note voisine (100 ¢) n'y entre pas.
+export function partielEnPic(coarse, f) {
+  if (!coarse?.mag || !coarse.binHz) return true;
+  const tol = Math.max(2 * coarse.binHz, f * (2 ** (45 / 1200) - 1));
+  const a = Math.max(1, Math.floor((f - tol) / coarse.binHz));
+  const b = Math.min(coarse.mag.length - 2, Math.ceil((f + tol) / coarse.binHz));
+  let im = -1, m = -1;
+  for (let i = a; i <= b; i++) if (coarse.mag[i] > m) { m = coarse.mag[i]; im = i; }
+  // …et qui domine les bords d'au moins 6 dB : un lobe secondaire du pied d'une
+  // voisine peut faire un maximum à l'intérieur, juste après un zéro du bord.
+  return im > a && im < b && m >= 2 * Math.max(coarse.mag[a], coarse.mag[b]);
+}
+
 // Écart minimal (Hz) entre les cibles d'un groupe d'unisson ; à défaut de
 // cibles distinctes (auto-anches), l'écart attendu à la note.
 export function targetSpacing(g) {
@@ -180,7 +201,8 @@ export const methodesPlan = {
       if (!e) { e = { miss: 0, hit: 0, absent: true }; this.lockMiss.set(g.key, e); }
       let present = null;
       if (coarse) {
-        present = partialPresent(coarse, g.center, lowestPartial(g.center));
+        const kl = lowestPartial(g.center);
+        present = partialPresent(coarse, g.center, kl) && partielEnPic(coarse, kl * g.center);
         if (present) {
           e.miss = 0;
           if (++e.hit >= LOCK_HIT) e.absent = false;

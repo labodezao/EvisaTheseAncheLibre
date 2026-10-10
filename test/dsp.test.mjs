@@ -10,6 +10,11 @@ import { anches as sonAnches, timbre as timbreAnche, hasard as hasardAnche, rejo
 import { CONF_PRECISION } from '../web/js/dsp/confondu.js';
 
 const SR = 48000;
+// Hasard à graine fixe (Park-Miller, synthese-anches.mjs) : chaque son de
+// synthèse est le même d'une exécution à l'autre. Avant, Math.random :
+// le test 23 (musette MMM à 1,6 Hz, erreur RMS sous 0,2 ¢) a échoué une fois
+// sur un tirage de phases défavorable.
+const alea = hasardAnche(20261010).u;
 let failures = 0;
 
 function assert(cond, msg) {
@@ -30,12 +35,12 @@ function reedSignal({ freqs, harmonics = [1, 0.6, 0.4, 0.25, 0.15, 0.08], noise 
       const fh = f * (h + 1);
       if (fh > SR * 0.45) break;
       const amp = 0.25 * a * harmonics[h];
-      const phi = Math.random() * 2 * Math.PI;
+      const phi = alea() * 2 * Math.PI;
       const w = (2 * Math.PI * fh) / SR;
       for (let i = 0; i < n; i++) out[i] += amp * Math.sin(w * i + phi);
     }
   }
-  for (let i = 0; i < n; i++) out[i] += noise * (Math.random() * 2 - 1);
+  for (let i = 0; i < n; i++) out[i] += noise * (alea() * 2 - 1);
   return out;
 }
 
@@ -128,7 +133,7 @@ console.log('\nTest 5 — registre 16\'+8\' : mesure simultanée des deux octave
 console.log('\nTest 6 — mode manuel polyphonique : accord Do4-Mi4-Sol4');
 {
   const notes = [60, 64, 67];
-  const freqs = notes.map((m) => ({ f: midiToFreq(m) * Math.pow(2, (Math.random() * 8 - 4) / 1200) }));
+  const freqs = notes.map((m) => ({ f: midiToFreq(m) * Math.pow(2, (alea() * 8 - 4) / 1200) }));
   const engine = new Engine(SR, { mode: 'manual', manualNotes: notes, response: 'normal' });
   const last = run(engine, reedSignal({ freqs, seconds: 10 }));
   let ok = 0;
@@ -165,10 +170,10 @@ console.log('\nTest 8 — anche inharmonique : partiels étirés jusqu\'à +30 c
   for (let h = 0; h < stretch.length; h++) {
     const fh = fTrue * (h + 1) * Math.pow(2, stretch[h] / 1200);
     const w = (2 * Math.PI * fh) / SR;
-    const phi = Math.random() * 6.28;
+    const phi = alea() * 6.28;
     for (let i = 0; i < n; i++) sig[i] += 0.2 * amps[h] * Math.sin(w * i + phi);
   }
-  for (let i = 0; i < n; i++) sig[i] += 3e-4 * (Math.random() * 2 - 1);
+  for (let i = 0; i < n; i++) sig[i] += 3e-4 * (alea() * 2 - 1);
   const engine = new Engine(SR, { mode: 'auto', response: 'normal' });
   const last = run(engine, sig);
   assert(last && last.playedMidi === 52, `note détectée = Mi3 (obtenu : ${last && noteLabel(last.playedMidi ?? 0).full})`);
@@ -190,10 +195,10 @@ console.log('\nTest 9 — suivi individuel des harmoniques : chaque partiel mesu
     const fh = fTrue * (h + 1) * Math.pow(2, stretch[h] / 1200);
     partials.push(fh);
     const w = (2 * Math.PI * fh) / SR;
-    const phi = Math.random() * 6.28;
+    const phi = alea() * 6.28;
     for (let i = 0; i < n; i++) sig[i] += 0.2 * amps[h] * Math.sin(w * i + phi);
   }
-  for (let i = 0; i < n; i++) sig[i] += 3e-4 * (Math.random() * 2 - 1);
+  for (let i = 0; i < n; i++) sig[i] += 3e-4 * (alea() * 2 - 1);
   const engine = new Engine(SR, { mode: 'auto', trackHarmonics: 5, response: 'normal' });
   const last = run(engine, sig);
   assert(last && last.playedMidi === 57, `note détectée = La3 (obtenu : ${last && noteLabel(last.playedMidi ?? 0).full})`);
@@ -228,7 +233,7 @@ console.log('\nTest 10 — temps de réponse de l\'anche : rampe d\'attaque de 1
   const w = (2 * Math.PI * f) / SR;
   for (let i = 0; i < n; i++) {
     const envl = i < t0 ? 0 : Math.min(1, (i - t0) / ramp);
-    sig[i] = 0.3 * envl * Math.sin(w * i) + 2e-5 * (Math.random() * 2 - 1);
+    sig[i] = 0.3 * envl * Math.sin(w * i) + 2e-5 * (alea() * 2 - 1);
   }
   const engine = new Engine(SR, { mode: 'auto', response: 'fast' });
   const last = run(engine, sig);
@@ -248,10 +253,10 @@ console.log('\nTest 11 — détection de bifurcation : énergie sous-harmonique 
   const sig = new Float32Array(n);
   for (const [f, a] of [[f0, 0.25], [f0 / 2, 0.06], [f0 * 1.5, 0.04], [f0 * 2, 0.12]]) {
     const w = (2 * Math.PI * f) / SR;
-    const phi = Math.random() * 6.28;
+    const phi = alea() * 6.28;
     for (let i = 0; i < n; i++) sig[i] += a * Math.sin(w * i + phi);
   }
-  for (let i = 0; i < n; i++) sig[i] += 3e-4 * (Math.random() * 2 - 1);
+  for (let i = 0; i < n; i++) sig[i] += 3e-4 * (alea() * 2 - 1);
   const engine = new Engine(SR, { mode: 'auto', lockNote: 69, trackSub: true, response: 'normal' });
   const last = run(engine, sig);
   const gSub = last.groups.find((g) => g.key.endsWith('s05'));
@@ -284,7 +289,7 @@ console.log('\nTest 12 — suivi continu : glissando vocal (+40 cents en 4 s), c
       phase[h] += (2 * Math.PI * f * (h + 1)) / SR;
       sig[i] += 0.2 * harmonics[h] * Math.sin(phase[h]);
     }
-    sig[i] += 3e-4 * (Math.random() * 2 - 1);
+    sig[i] += 3e-4 * (alea() * 2 - 1);
   }
   const engine = new Engine(SR, { mode: 'auto', response: 'normal' });
   let tracked = 0, total = 0, last = null;
@@ -369,7 +374,7 @@ console.log('\nTest 14 — taux de croissance exponentiel σ de l\'attaque (parl
     const t = i / SR;
     let amp = 0;
     if (t >= t0) amp = 0.3 * Math.min(1, Math.exp(sigmaTrue * (t - tFull)));
-    sig[i] = amp * Math.sin(w * i) + 2e-5 * (Math.random() * 2 - 1);
+    sig[i] = amp * Math.sin(w * i) + 2e-5 * (alea() * 2 - 1);
   }
   const engine = new Engine(SR, { mode: 'auto', response: 'fast' });
   const last = run(engine, sig);
@@ -426,10 +431,10 @@ console.log('\nTest 16 — anti-pic harmonique : H3 suit le vrai partiel, pas un
   ];
   for (const { f, a } of parts) {
     const w = (2 * Math.PI * f) / SR;
-    const phi = Math.random() * 6.28;
+    const phi = alea() * 6.28;
     for (let i = 0; i < n; i++) sig[i] += a * Math.sin(w * i + phi);
   }
-  for (let i = 0; i < n; i++) sig[i] += 3e-4 * (Math.random() * 2 - 1);
+  for (let i = 0; i < n; i++) sig[i] += 3e-4 * (alea() * 2 - 1);
   const engine = new Engine(SR, { mode: 'auto', trackHarmonics: 3, response: 'precise' });
   const last = run(engine, sig);
   assert(last && last.playedMidi === nMidi,
@@ -459,10 +464,10 @@ console.log('\nTest 17 — plancher harmonique : une harmonique trop faible fait
   ];
   for (const { f, a } of parts) {
     const w = (2 * Math.PI * f) / SR;
-    const phi = Math.random() * 6.28;
+    const phi = alea() * 6.28;
     for (let i = 0; i < n; i++) sig[i] += a * Math.sin(w * i + phi);
   }
-  for (let i = 0; i < n; i++) sig[i] += 6e-4 * (Math.random() * 2 - 1);
+  for (let i = 0; i < n; i++) sig[i] += 6e-4 * (alea() * 2 - 1);
   const engine = new Engine(SR, { mode: 'auto', trackHarmonics: 3, response: 'normal' });
   const last = run(engine, sig);
   const g3 = last.groups.find((gr) => gr.key.endsWith('h3'));
@@ -486,10 +491,10 @@ console.log('\nTest 18 — NSDF (méthode McLeod) : justesse et robustesse à l\
     const harm = [1, 0.7, 0.5, 0.35, 0.2, 0.1];
     for (let h = 0; h < harm.length; h++) {
       const w = (2 * Math.PI * f0 * (h + 1)) / SR;
-      const phi = Math.random() * 6.28;
+      const phi = alea() * 6.28;
       for (let i = 0; i < W; i++) x[i] += 0.2 * harm[h] * Math.sin(w * i + phi);
     }
-    for (let i = 0; i < W; i++) x[i] += 2e-3 * (Math.random() * 2 - 1);
+    for (let i = 0; i < W; i++) x[i] += 2e-3 * (alea() * 2 - 1);
     const r = tracker.estimate(x);
     const err = r ? Math.abs(cents(r.f0, f0)) : Infinity;
     if (err > worst) worst = err;
@@ -503,14 +508,14 @@ console.log('\nTest 18 — NSDF (méthode McLeod) : justesse et robustesse à l\
     const w = (2 * Math.PI * 220 * k) / SR;
     for (let i = 0; i < W; i++) x[i] += 0.2 * a * Math.sin(w * i);
   }
-  for (let i = 0; i < W; i++) x[i] += 2e-3 * (Math.random() * 2 - 1);
+  for (let i = 0; i < W; i++) x[i] += 2e-3 * (alea() * 2 - 1);
   const r = tracker.estimate(x);
   assert(r && Math.abs(cents(r.f0, 220)) < 1,
     `fondamentale manquante : NSDF trouve 220 Hz (obtenu ${r?.f0?.toFixed(2)}), pas l'octave`);
 
   // Bruit blanc pur : aucune hauteur franche (clarté faible → null).
   const noise = new Float32Array(W);
-  for (let i = 0; i < W; i++) noise[i] = Math.random() * 2 - 1;
+  for (let i = 0; i < W; i++) noise[i] = alea() * 2 - 1;
   const rn = tracker.estimate(noise);
   assert(rn == null, `bruit blanc : pas de hauteur détectée (clarté insuffisante)`);
 }
@@ -538,7 +543,7 @@ console.log('\nTest 20 — Matrix Pencil : séparation sous la limite de Fourier
       const ph = (2 * Math.PI * p.f * n) / fs;
       yr[n] += p.A * Math.cos(ph); yi[n] += p.A * Math.sin(ph);
     }
-    yr[n] += 1e-4 * (Math.random() * 2 - 1); yi[n] += 1e-4 * (Math.random() * 2 - 1);
+    yr[n] += 1e-4 * (alea() * 2 - 1); yi[n] += 1e-4 * (alea() * 2 - 1);
   }
   const r = matrixPencil(yr, yi, 2, fs);
   const ok = r.length === 2
@@ -674,7 +679,7 @@ console.log('\nTest 26 — courbe sans dents de scie sous un soufflet vivant (MM
       sig[i] += 0.05 * amp[r] * env * y;
     }
   });
-  for (let i = 0; i < n; i++) sig[i] += 3e-4 * (Math.random() * 2 - 1);
+  for (let i = 0; i < n; i++) sig[i] += 3e-4 * (alea() * 2 - 1);
   const engine = new Engine(SR, { mode: 'register', register: 'MMM' });
   const prev = [null, null, null], jump = [0, 0, 0], err = [[], [], []];
   for (let i = 0; i + 512 <= n; i += 512) {
@@ -728,7 +733,7 @@ console.log('\nTest 28 — marches de hauteur (tiré/poussé) : la courbe saute 
   for (let i = 0; i < n; i++) {
     ph += (2 * Math.PI * f0 * 2 ** (centsAt(i / SR) / 1200)) / SR;
     for (let h = 0; h < harm.length; h++) sig[i] += 0.1 * harm[h] * Math.sin((h + 1) * ph + h);
-    sig[i] += 3e-4 * (Math.random() * 2 - 1);
+    sig[i] += 3e-4 * (alea() * 2 - 1);
   }
   const engine = new Engine(SR, { mode: 'auto', trackHarmonics: 3 });
   let worstBase = 0, worstH3 = 0, outside = 0, nH = 0;
@@ -781,7 +786,7 @@ function twoReeds(reeds, seconds = 8, gaps = []) {
       for (let h = 0; h < H.length; h++) x[i] += 0.08 * a * H[h] * Math.sin((h + 1) * ph + h);
     }
   }
-  for (let i = 0; i < n; i++) x[i] += 3e-4 * (Math.random() * 2 - 1);
+  for (let i = 0; i < n; i++) x[i] += 3e-4 * (alea() * 2 - 1);
   return x;
 }
 const at = (m, ct) => midiToFreq(m) * 2 ** (ct / 1200);
@@ -860,7 +865,7 @@ console.log('\nTest 33 — mode Accord (degrés) : fondamentale reconnue, accord
       }
     }
   });
-  for (let i = 0; i < n; i++) x[i] += 3e-4 * (Math.random() * 2 - 1);
+  for (let i = 0; i < n; i++) x[i] += 3e-4 * (alea() * 2 - 1);
   const e = new Engine(SR, { mode: 'chord', chordDegrees: [0, 4, 7] });
   const seen = chords.map(() => null);
   for (let i = 0; i + 512 <= n; i += 512) {
@@ -920,7 +925,7 @@ console.log('\nTest 35 — accord reconnu TOUT SEUL (type et fondamentale), comm
       }
     }
   });
-  for (let i = 0; i < n; i++) x[i] += 3e-4 * (Math.random() * 2 - 1);
+  for (let i = 0; i < n; i++) x[i] += 3e-4 * (alea() * 2 - 1);
   const e = new Engine(SR, { mode: 'chord', chordType: 'auto' });
   const got = chords.map(() => null);
   for (let i = 0; i + 512 <= n; i += 512) {
@@ -968,7 +973,7 @@ console.log('\nTest 37 — registre 16\'+8\' : on lâche une anche, elle devient
       for (let i = 0; i < stop * SR; i++) x[i] += 0.06 * H[h] * Math.sin(w * i + h);
     }
   }
-  for (let i = 0; i < n; i++) x[i] += 3e-4 * (Math.random() * 2 - 1);
+  for (let i = 0; i < n; i++) x[i] += 3e-4 * (alea() * 2 - 1);
   const e = new Engine(SR, { mode: 'register', register: 'LM' });
   let before = null, after = null, notes = new Set();
   for (let i = 0; i + 512 <= n; i += 512) {
@@ -999,7 +1004,7 @@ function musette(reeds, seconds, mod = 0.4) {
       for (let h = 0; h < H.length; h++) x[i] += Math.min(1, t / 0.05) * 0.08 * a * H[h] * Math.sin((h + 1) * ph + h);
     }
   }
-  for (let i = 0; i < n; i++) x[i] += 3e-4 * (Math.random() * 2 - 1);
+  for (let i = 0; i < n; i++) x[i] += 3e-4 * (alea() * 2 - 1);
   return x;
 }
 const reedCents = (r) => r.groups.filter((g) => !g.isHarmonic && !g.isSub).flatMap((g) => g.voices)
@@ -1091,7 +1096,7 @@ console.log('\nTest 41 — registre 16\'+8\' : la fondamentale du 16\' ne se rep
       for (let h = 0; h < H.length; h++) x[i] += 0.25 * a * H[h] * Math.sin((h + 1) * ph + h);
     }
   }
-  for (let i = 0; i < n; i++) x[i] += 3e-4 * (Math.random() * 2 - 1);
+  for (let i = 0; i < n; i++) x[i] += 3e-4 * (alea() * 2 - 1);
   const e = new Engine(SR, { mode: 'register', register: 'LM' });
   let bad = null, n8 = 0;
   for (let i = 0; i + 512 <= n; i += 512) {
@@ -1121,7 +1126,7 @@ console.log('\nTest 42 — Auto-anches : inversion du soufflet sans silence, une
     ph += (2 * Math.PI * f) / SR;
     for (let h = 0; h < H.length; h++) x[i] += Math.min(1, t / 0.05) * dip * 0.2 * H[h] * Math.sin((h + 1) * ph + h);
   }
-  for (let i = 0; i < n; i++) x[i] += 3e-4 * (Math.random() * 2 - 1);
+  for (let i = 0; i < n; i++) x[i] += 3e-4 * (alea() * 2 - 1);
   const e = new Engine(SR, { mode: 'reeds', reedOctaves: [0] });
   let before = null, after = null, late = null;
   for (let i = 0; i + 512 <= n; i += 512) {
@@ -1405,12 +1410,14 @@ console.log('\nTest 52 — 16\'+8\' : l\'anche confondue avec l\'octave a une es
 
 console.log('\nTest 53 — anche confondue : la marge se resserre avec la durée (en 1/T)');
 {
-  // 8' à 0,3 ¢ de l'octave : confondu toute la note, même à 6 s.
+  // 8' à 0,3 ¢ de l'octave : confondu toute la note, même à 6 s. Par le
+  // battement, ou, tant que le cercle n'a pas fait un quart de tour sur le
+  // partiel le plus haut, « immobile » (la limite de la durée jouée, en 1/T aussi).
   const imgs = confondus(39, 7, 7.3, 0, 6, { pente16: -3.5, derive: 0, vib: 0.1 });
   const conf = (v) => Math.sqrt(Math.max(0, v.margeCents ** 2 - CONF_PRECISION ** 2));   // part de la confusion
   const med = (a, b) => {
     const xs = imgs.filter((im) => im.t >= a && im.t < b).map((im) => voixDe(im, '8'))
-      .filter((v) => v.confondu && v.methode === 'battement').map(conf).sort((p, q) => p - q);
+      .filter((v) => v.confondu && (v.methode === 'battement' || v.methode === 'immobile')).map(conf).sort((p, q) => p - q);
     return xs.length ? xs[xs.length >> 1] : NaN;
   };
   const [m15, m3, m6] = [med(1.3, 1.7), med(2.8, 3.2), med(5.6, 6)];
@@ -1623,6 +1630,126 @@ console.log('\nTest 59 — battements d\'intervalles : la quinte bat à 3 f_b �
   // Unisson (musette) : pas d'intervalle (son battement a sa ligne).
   const mm = rejoueAnches({ mode: 'register', register: 'MM' }, sonAnches([{ f: 440, vib: 0.1 }, { f: 441.43, vib: 0.1 }], 3, { graine: 83 }));
   assert(mm.every((im) => im.r.intervalles == null), 'musette MM : pas d\'intervalle');
+}
+
+// ---------------------------------------------------------------------------
+// Audit d'usage pro du 10/10/2026 (docs/AUDIT-USAGE-PRO.md), n° 1, 11 et 6.
+// Timbre du générateur de l'application (reedWave d'audio.js : partiel k en
+// 1/k^1,3, 16 partiels) : c'est avec lui que l'audit a vu les défauts.
+const H_GEN = Array.from({ length: 16 }, (_, k) => 1 / (k + 1) ** 1.3);
+// Musette de Si4 de l'audit : 8'− 488,3, 8' 493,9, 8'+ 499,4 Hz (±5,55 Hz).
+const MUSETTE = { midiLow: 48, bLow: 5.55, midiHigh: 96, bHigh: 5.55, overrides: {} };
+
+console.log('\nTest 60 — note imposée : la touche d\'à côté n\'est pas lue sur la cible ; une anche seule est la voix visée, sans fantôme');
+{
+  // Mesuré à l'audit (générateur, MMM, cible Ré#5) : Mi5 joué lu « Ré#5
+  // −27,7 ¢ », fin et plein (Ré5 : +32,9 ¢). Mécanisme : le partiel 2 du Mi5,
+  // à 74 Hz de la porteuse du traqueur (partiel 2 du Ré#5), passe le filtre
+  // de décimation à −24 dB et se replie dans la bande ; et le contrôle de la
+  // note imposée (silentLock) comparait le partiel du Ré#5 aux autres
+  // partiels du Ré#5, des pieds de raies quand le Ré#5 ne sonne pas.
+  const at = (m, s) => midiToFreq(m) + s * 5.55;
+  for (const [joue, nom] of [[76, 'Mi5'], [74, 'Ré5']]) {
+    const x = sonAnches([-1, 0, 1].map((s) => ({ f: at(joue, s), H: H_GEN, vib: 0 })), 4, { graine: 60 });
+    const imgs = rejoueAnches({ mode: 'register', register: 'MMM', lockNote: 75, beatCurve: MUSETTE, response: 'fast', voix: '8' }, x)
+      .filter((im) => im.t > 1.2);
+    const lues = imgs.filter((im) => im.vs.some((v) => v.tracked && !v.held));
+    const entendue = imgs.filter((im) => im.r.noteEntendue?.midi === joue).length;
+    assert(lues.length === 0 && entendue >= 0.9 * imgs.length,
+      `${nom} joué, cible Ré#5 : ${lues.length} image(s) lue(s) sur ${imgs.length} (attendu 0) ; note entendue ${nom} sur ${entendue} images`);
+  }
+  // Anche seule (les deux autres bouchées) : la voix visée, à sa hauteur ;
+  // aucune autre voix. Mesuré à l'audit : la 8'− seule à +7 ¢ faisait aussi
+  // un 8'+ à +18,7 ¢ (l'image négative de sa fondamentale, repliée à −37 dB
+  // par le premier étage de décimation), et une anche 25 ¢ trop haute était
+  // rangée dans la voix dont la cible était la plus proche.
+  for (const [id, s, c, visee] of [['8-', -1, 7, '8-'], ['8-', -1, 25, '8-'], ['8', 0, -5, '8'], ['8+', 1, -30, '8+'], ['8', 0, 3, null]]) {
+    const f = at(71, s) * 2 ** (c / 1200);
+    const x = sonAnches([{ f, H: H_GEN, vib: 0 }], 4, { graine: 61 });
+    const imgs = rejoueAnches({ mode: 'register', register: 'MMM', lockNote: 71, beatCurve: MUSETTE, response: 'fast', voix: visee }, x)
+      .filter((im) => im.t > 1.2);
+    const qui = visee ?? id;
+    const bonnes = imgs.filter((im) => {
+      const v = voixDe(im, qui);
+      return v?.tracked && Math.abs(v.fMeas - f) < 0.01 && im.vs.every((o) => o === v || !o.tracked);
+    });
+    assert(bonnes.length === imgs.length,
+      `${id} seule à ${c > 0 ? '+' : ''}${c} ¢ de sa cible, voix visée ${visee ?? 'aucune'} : ${bonnes.length}/${imgs.length} images lues sur ${qui} seule, à sa hauteur`);
+  }
+}
+
+console.log('\nTest 61 — musette : deux anches plus proches que la résolution de la fenêtre ont une marge, jamais une valeur fausse sans elle');
+{
+  // Mesuré à l'audit (générateur, musette Si4) : la 8'− montée à 1,3 Hz du 8'
+  // lue 4,6 ¢ trop haut, fine, pleine, sans marge, en Rapide comme en Normal,
+  // toute la note (l'amas de la 8'−, centré sur sa mémoire du début de note,
+  // le mélange des deux, avalait la raie du 8') ; 8' et 8'+ à l'unisson, 8'+
+  // lu à +16 ¢ par moments ; 8'− et 8' à 0,44 Hz, 8' à +37 ¢ et 8'+ à +22 ¢
+  // (un repli de la décimation pris pour une anche, et tout l'appariement
+  // décalé d'une case). Règle : chaque anche montrée est juste à 0,2 ¢, ou sa
+  // marge contient l'erreur.
+  const ids = ['8-', '8', '8+'];
+  const cibles = { '8-': midiToFreq(71) - 5.55, 8: midiToFreq(71), '8+': midiToFreq(71) + 5.55 };
+  const cas = [
+    ['8- à 1,3 Hz du 8', { 8: -12, '8-': 3, '8+': 20 }],
+    ['8 et 8+ à l\'unisson', { 8: 10, '8-': 0, '8+': -9 }],
+    ['8- et 8 à 0,44 Hz', { 8: -18, '8-': 0, '8+': 0 }],
+    ['séparées', { 8: 2, '8-': 1, '8+': -3 }],
+  ];
+  for (const response of ['fast', 'normal']) {
+    for (const [nom, ec] of cas) {
+      const vrai = Object.fromEntries(ids.map((id) => [id, cibles[id] * 2 ** (ec[id] / 1200)]));
+      const x = sonAnches(ids.map((id) => ({ f: vrai[id], H: H_GEN, vib: 0 })), 6, { graine: 62 });
+      let n = 0, faux = 0, pire = null;
+      for (const im of rejoueAnches({ mode: 'register', register: 'MMM', lockNote: 71, beatCurve: MUSETTE, response }, x)) {
+        if (im.t < 1) continue;
+        for (const v of im.vs) {
+          if (!v.tracked || v.held) continue;
+          n++;
+          const f = v.confondu && v.fEstimee != null ? v.fEstimee : v.fMeas;
+          const e = Math.min(...ids.map((id) => Math.abs(cents(f, vrai[id]))));   // une anche de la note, au moins
+          const eV = Math.abs(cents(f, vrai[v.def.id]));
+          const marge = v.confondu && v.margeCents != null ? v.margeCents : 0.2;
+          if (eV > marge) { faux++; if (!pire || eV > pire.e) pire = { e: eV, txt: `${v.def.id} à ${im.t.toFixed(1)} s : ${eV.toFixed(2)} ¢ (±${marge.toFixed(2)}${v.confondu ? ', ' + v.methode : ''}) ; plus proche anche à ${e.toFixed(2)} ¢` }; }
+        }
+      }
+      assert(n > 100 && faux === 0, `${response}, ${nom} : ${faux} lecture(s) hors de leur marge sur ${n}${pire ? ` ; pire : ${pire.txt}` : ''}`);
+    }
+  }
+}
+
+console.log('\nTest 62 — 16\'+8\' à l\'octave exacte : une marge honnête, qui se resserre avec la durée (validable)');
+{
+  // Mesuré à l'audit (générateur, diato, basse La2 en 16'+8', les deux
+  // justes) : 8' « −0,27 ¢ ±1,81, signe inconnu », jamais validé, « à
+  // reprendre » au rapport. Mécanisme : à δ = 0, le 8' est verrouillé en phase
+  // sur le 16' ; il n'y a plus de cercle, l'ajustement du battement trouve un
+  // résidu 20 à 60 dB sous la raie fixe : un δ de hasard, des moitiés qui se
+  // contredisent (marge de 0,3 à 9 ¢ d'une image à l'autre, et jusqu'à 4 ¢
+  // d'erreur hors de la marge sur Ré#2). Il faut : la vérité dans la marge
+  // (95 %), et une marge qui passe sous 1 ¢ (l'octave validable à ±1 ¢) avant
+  // 3 s de note.
+  let n = 0, dedans = 0;
+  const lignes = [];
+  for (const m of [33, 39, 46]) for (const [db, H8] of [[0, H_GEN], [-6, null], [6, null]]) for (const response of ['fast', 'normal']) {
+    const liste = [{ f: midiToFreq(m), H: m === 33 ? H_GEN : timbreAnche(20, hasardAnche(m), -1.5), vib: 0.2, derive: 0.1 },
+      { f: midiToFreq(m + 12), a: 10 ** (db / 20), ...(H8 ? { H: H8 } : {}), vib: 0.2, derive: 0.1 }];
+    const x = sonAnches(liste, 5, { graine: 62 + m + db });
+    let premier = null;
+    for (const im of rejoueAnches({ mode: 'register', register: 'LM', lockNote: m + 12, response }, x)) {
+      const v = voixDe(im, '8');
+      if (!v?.confondu || v.fEstimee == null) continue;
+      const g8 = im.r.groups.find((g) => g.voices.includes(v));
+      const e = Math.abs(cents(v.fEstimee, vraieHauteur(x, liste, 1, im.t, g8.W / g8.srd)));
+      n++;
+      if (e <= v.margeCents) dedans++;
+      if (premier == null && Math.abs(v.centsEstimesCible) + v.margeCents < 1) premier = im.t;
+    }
+    lignes.push({ m, db, response, premier });
+  }
+  const tard = lignes.filter((l) => l.premier == null || l.premier > 3);
+  assert(n > 500 && dedans >= 0.95 * n && !tard.length,
+    `${dedans}/${n} images dans la marge (${(100 * dedans / Math.max(1, n)).toFixed(1)} %) ; validable à ±1 ¢ dès ${lignes.map((l) => (l.premier == null ? '—' : l.premier.toFixed(1))).join(', ')} s${tard.length ? ` ; trop tard : ${tard.map((l) => `${noteLabel(l.m + 12).full} ${l.db} dB ${l.response}`).join(', ')}` : ''}`);
 }
 
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);

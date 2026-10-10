@@ -22,7 +22,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '45';
+const APP_VERSION = '52';
 function versionMismatch(what, got) {
   const b = document.getElementById('versionBanner');
   if (!b) return;
@@ -127,7 +127,10 @@ function toggleTheme() { applyTheme(currentTheme() === 'dark' ? 'light' : 'dark'
 // Anche confondue avec l'octave (moteur v37 et plus, dsp/confondu.js) : son
 // estimation et sa marge, à la place de la raie commune (v.dTargetCents).
 // { c (¢ face à la cible), m (±¢), f (Hz), texte } ou null.
-const METHODES_CONFONDU = { octave: "par l'octave", battement: 'par le battement', raie: 'par la raie commune' };
+// v52 : « immobile » (l'octave ne bat pas, marge de la durée jouée) et « proches »
+// (deux anches d'un unisson dans un même lobe), audit d'usage pro de PolyReed n° 6 et 11.
+const METHODES_CONFONDU = { octave: "par l'octave", battement: 'par le battement', raie: 'par la raie commune',
+  immobile: "l'octave ne bat pas", proches: 'anches proches' };
 function estimationConfondue(v) {
   if (!v?.confondu || v.fEstimee == null || !Number.isFinite(v.margeCents) || !Number.isFinite(v.centsEstimesCible)) return null;
   const morceaux = [`±${v.margeCents.toFixed(3)} ¢`, METHODES_CONFONDU[v.methode] ?? ''];

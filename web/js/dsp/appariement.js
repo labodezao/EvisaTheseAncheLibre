@@ -5,8 +5,14 @@
 // posées sur Engine.prototype par engine.js (Object.assign), `this` reste
 // le moteur.
 
-import { FFT } from './fft.js';
+import { FFT, hannWindow } from './fft.js';
+
+import { repli } from './zoom.js';
 import { centsBetween } from '../music.js';
+
+// Fenêtres de Hann gardées par taille (enveloppe de l'amas, clusterRefine).
+const HANN = new Map();
+const hannDe = (W) => { let h = HANN.get(W); if (!h) { h = hannWindow(W); HANN.set(W, h); } return h; };
 
 // Hauteur moyenne d'une anche = pente de la PHASE de son amas de raies.
 //
@@ -56,9 +62,19 @@ export function clusterRefine(chosen, az, calib, div, expectedMt = null, foreign
   // des raies des autres voix : une voix sans anche (registre 8'+8' quand une
   // seule anche sonne) prend une raie latérale de sa voisine, et l'amas centré
   // sur elle couperait en deux celui de la vraie anche.
+  // Mais jamais sur la raie qu'une AUTRE anche a choisie (audit d'usage pro
+  // n° 11, 10/10/2026) : la mémoire d'une anche prise au début de la note,
+  // quand deux anches proches n'étaient pas encore séparées, est celle de
+  // leur mélange ; une fois séparées, elle tombe sur la raie de la voisine,
+  // et l'amas centré là lisait la voisine (musette Si4, 8'− à 1,3 Hz du 8' :
+  // 8'− lu à la hauteur du 8', 4,6 ¢ trop haut, toute la note).
+  const binHz0 = srd / W;
+  const surAutre = (i, m) => chosen.some((c, j) => j !== i && c && Math.abs(c.off - chosen[i].off) >= OCTAVE_SEP_BINS * binHz0
+    && Math.abs(m - c.off) < Math.abs(m - chosen[i].off));
   const centre = (i) => {
     const m = expectedMt?.[i] != null ? toOff(expectedMt[i]) : null;
     if (m == null || Math.abs(m - chosen[i].off) < CLUSTER_HZ / 2) return m ?? chosen[i].off;
+    if (surAutre(i, m)) return chosen[i].off;
     const alone = chosen.every((c, j) => j === i || !c || Math.abs(c.off - chosen[i].off) >= CLUSTER_HZ);
     return alone ? chosen[i].off : m;
   };
@@ -76,6 +92,14 @@ export function clusterRefine(chosen, az, calib, div, expectedMt = null, foreign
       if (Math.abs(fo - c.off) < 2 * binHz) continue;   // la raie choisie est celle-là (confondue)
       if (fo > c.off) hi = Math.min(hi, (fo + c.off) / 2); else lo = Math.max(lo, (fo + c.off) / 2);
     }
+    // …et à mi-chemin des raies choisies par les autres anches du groupe,
+    // quand la fenêtre les sépare de la sienne (OCTAVE_SEP_BINS cases) : les
+    // bornes « attendues » (cible d'une voisine sans mémoire) pouvaient
+    // laisser la raie de la voisine dans l'amas (n° 11, ci-dessus).
+    chosen.forEach((o, j) => {
+      if (j === i || !o || Math.abs(o.off - c.off) < OCTAVE_SEP_BINS * binHz) return;
+      if (o.off > c.off) hi = Math.min(hi, (o.off + c.off) / 2); else lo = Math.max(lo, (o.off + c.off) / 2);
+    });
     // La raie choisie doit être dans l'amas, avec son lobe principal.
     if (c.off - lo < 2 * binHz || hi - c.off < 2 * binHz || hi - lo < 6 * binHz) return;
     const half = Math.max(c.off - lo, hi - c.off);
@@ -95,8 +119,17 @@ export function clusterRefine(chosen, az, calib, div, expectedMt = null, foreign
     const n0 = Math.floor(W * 0.15), n1 = Math.ceil(W * 0.85);
     let last = null, acc = 0;
     let sw = 0, sn = 0, sp = 0, snn = 0, snp = 0;
+    // Enveloppe de l'amas (|z| rapporté à la fenêtre de Hann) : une anche
+    // seule la garde plate ; deux anches que la fenêtre ne sépare pas la font
+    // battre (audit d'usage pro n° 11). Régression linéaire en même temps
+    // (le soufflet qui enfle n'est pas un battement).
+    let sa = 0, sna = 0, saa = 0;
+    const hann = hannDe(W);
     for (let n = n0; n < n1; n++) {
       const pr = zr[n], pi = -zi[n];              // z = conj(FFT(conj X)) (à 1/W près)
+      const h = hann[n];
+      const amp = Math.hypot(pr, pi) / h;
+      sa += amp; sna += n * amp; saa += amp * amp;
       const cr = Math.cos(w0 * n), ci = -Math.sin(w0 * n);
       const dr = pr * cr - pi * ci, di = pr * ci + pi * cr;
       let ph = Math.atan2(di, dr);
@@ -122,6 +155,12 @@ export function clusterRefine(chosen, az, calib, div, expectedMt = null, foreign
     c.off = off;
     c.freq = ((fc + off) * calib) / div;
     c.cluster = true;
+    // Modulation de l'enveloppe : écart type autour de sa droite, rapporté à
+    // sa moyenne (0 : plate).
+    const moy = sa / sw;
+    const pa = (sw * sna - sn * sa) / den;
+    const resid = saa / sw - moy * moy - pa * pa * (snn / sw - (sn / sw) ** 2);
+    c.modulation = moy > 0 ? Math.sqrt(Math.max(0, resid)) / moy : null;
   });
 }
 
@@ -166,16 +205,24 @@ export function tolClaimHz(srd, W) { return Math.max(0.08, (0.6 * srd) / W); }
 // appariée (coût = tolHz) ; une composante revendiquée par une harmonique
 // grave coûte presque autant que l'abandon, elle n'est donc retenue que si
 // aucune composante libre ne convient.
-export function assignOrdered(voices, comps, tolHz) {
+export const TIE_CIBLE = 0.05;
+export function assignOrdered(voices, comps, tolHz, { tie = false } = {}) {
   const nV = voices.length;
   const nC = comps.length;
   const skip = tolHz;
   const claimPenalty = tolHz * 0.9;
   const INF = 1e15;
+  // À égalité de mémoire, la cible départage (TIE_CIBLE) : deux voix d'un
+  // unisson dont la mémoire est la même raie (prise quand leurs anches
+  // n'étaient pas encore séparées) se la disputaient à coût nul, et l'ordre
+  // de la programmation dynamique donnait la raie de la 8'+ au 8' (audit
+  // d'usage pro n° 11 : 8' lu à +37 ¢ sur la 8'+, toute la note).
   const cost = (i, j) => {
-    const d = Math.abs(comps[j].freq - (voices[i].mt ?? voices[i].target));
+    const v = voices[i];
+    const d = Math.abs(comps[j].freq - (v.mt ?? v.target));
     if (d >= tolHz) return INF;
-    return d + (comps[j].claimed ? claimPenalty : 0);
+    const dc = tie && v.mt != null && v.target != null && v.mt !== v.target ? TIE_CIBLE * Math.abs(comps[j].freq - v.target) : 0;
+    return d + dc + (comps[j].claimed ? claimPenalty : 0);
   };
   const dp = [];
   const bt = [];
@@ -254,9 +301,22 @@ export const methodesAppariement = {
       : useAnchor
         ? Math.max(2.5, anchorRef * 0.023)
         : Math.max(2.5, (group.center * (group.isHarmonic ? k : 1)) * 0.05);
-    let comps = az
-      ? az.components.map((cp) => ({ ...cp, freq: (cp.freq * calib) / div }))
-      : [];
+    // Raies repliées par la décimation (zoom.js, repli) : pas des anches. Elles
+    // sont écartées avant tout le reste (plancher, appariement), gardées pour
+    // le diagnostic (groupe : `replis`, section recherche de L'anche).
+    const co = this.coarseImage;
+    const pics = co ? this.picsFusion : null;
+    const replis = [];
+    // Un repli reste une raie du spectre de la bande : l'amas d'une anche
+    // s'arrête à mi-chemin, comme aux raies connues des autres anches.
+    const bornesRepli = [];
+    const raw = az ? az.components.filter((cp) => {
+      const r = co ? repli({ off: cp.off, mag: cp.mag, W: az.W, fc: az.fc, srd: az.srd, sr: this.sr, peaks: pics, win: this.coarse.win }) : null;
+      if (r) { replis.push({ f: (cp.freq * calib) / div, source: r.f * calib, ecartHz: r.ecartHz, image: r.signe < 0 }); bornesRepli.push(cp.freq * calib); }
+      return !r;
+    }) : [];
+    group.replis = replis;
+    let comps = raw.map((cp) => ({ ...cp, freq: (cp.freq * calib) / div }));
     comps = comps.filter((cp) =>
       expected.some((v) => Math.abs(cp.freq - v.mt) < tolHz));
     // Plancher relatif : un pic à plus de 30 dB sous le plus fort du groupe
@@ -333,14 +393,16 @@ export const methodesAppariement = {
         const dd = Math.abs(cp.freq - cont);
         if (dd < tolC && dd < bestD) { bestD = dd; best = cp; }
       }
-      if (best && az) clusterRefine([best], az, calib, div);
+      if (best && az) clusterRefine([best], az, calib, div, null, bornesRepli.length ? bornesRepli : null);
       this.fillVoice(expected[0], best, az?.W);
       expected[0].regressionPhase = diagPhase(best, az);
       expected[0].beatMeas = 0;
       return expected;
     }
 
-    const chosen = assignOrdered(expected, comps, tolHz);
+    // Registre seulement : en Auto-anches, les cibles sont des cases (rankReeds
+    // range les anches) ; essayé, la 8' de P02 y perdait 0,14 ¢ (médiane).
+    const chosen = assignOrdered(expected, comps, tolHz, { tie: this.cfg.mode === 'register' });
     const tNow = this.samplesTotal / this.sr;
     // Anche à l'octave juste d'une autre (registre 16'+8') : sa raie EST le
     // partiel pair de l'anche grave. Le coût de la raie « revendiquée » la
@@ -376,10 +438,13 @@ export const methodesAppariement = {
     // L'amas s'arrête aux raies connues des autres anches (cf. clusterRefine)
     // là où elles tombent dans la bande : 8' d'un 16'+8', octave ajoutée
     // d'Auto-anches.
-    if (az && !group.isSub) clusterRefine(chosen, az, calib, div, expected.map((v) => v.mt), group.octaveClash || octaveAjoutee ? claimed : null);
+    const etrangeres = group.octaveClash || octaveAjoutee ? claimed : null;
+    if (az && !group.isSub) clusterRefine(chosen, az, calib, div, expected.map((v) => v.mt), bornesRepli.length ? [...(etrangeres ?? []), ...bornesRepli] : etrangeres);
     for (let i = 0; i < expected.length; i++) {
       this.fillVoice(expected[i], chosen[i], az?.W);
       expected[i].regressionPhase = diagPhase(chosen[i], az);
+      // Battement de l'enveloppe de son amas (clusterRefine) : deux anches proches ?
+      expected[i].modulation = chosen[i]?.modulation ?? null;
       expected[i].merged = !!chosen[i]?.claimed;
       if (!group.isHarmonic && this.prevF) {
         const key = `${group.key}:${expected[i].def.id}`;
