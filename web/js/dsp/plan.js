@@ -48,7 +48,7 @@ const K_MAX = 8;
 // repliée par la décimation — elle ressortait comme une « mesure » fausse de
 // 4000 cents. Sans partiel présent, on redescend : l'accordeur n'affiche
 // alors rien, comme avant, plutôt qu'une valeur inventée.
-export function partialPresent(coarse, f0, k) {
+export function partialPresent(coarse, f0, k, rapport = 31.6) {
   if (!coarse?.mag || !coarse.binHz) return true;   // pas d'information : ne rien empêcher
   const peakAround = (f) => {
     const tol = Math.max(1.5 * coarse.binHz, 0.015 * f);
@@ -60,7 +60,7 @@ export function partialPresent(coarse, f0, k) {
   };
   let ref = 0;
   for (let n = 1; n <= 10; n++) ref = Math.max(ref, peakAround(f0 * n));
-  return ref > 0 && peakAround(f0 * k) >= ref / 31.6;
+  return ref > 0 && peakAround(f0 * k) >= ref / rapport;
 }
 
 // Le partiel est-il un PIC du spectre large bande, à ±45 ¢ de `f` (le
@@ -177,6 +177,64 @@ export const LOCK_MISS = 8;
 export const LOCK_HIT = 3;
 export const lowestPartial = (center) => Math.max(1, Math.ceil(150 / center));
 
+// Anches de chaque note d'un accord (mode accord, registre Q exclu) : ce que
+// l'instrument dit de son sommier des accords. Ewen (11/10/2026) : « à chaque
+// ouverture de soufflet, 3 anches » ; une main gauche Stradella a deux voix à
+// l'octave (16'+8') sur chaque note de l'accord, un diato la fondamentale, la
+// quinte et l'octave de la fondamentale. Le moteur lisait la plus grave de
+// chaque note et ignorait l'autre. `cfg.chordVoices` : liste de modèles
+// { oct (octaves au-dessus de la plus grave anche de la note, 0 à 3),
+// beatSign (unisson battant : −1, 0, 1), pied (« 16' », « 8' »… : le nom de la
+// voix, ou rien), semi (seulement pour ce degré ; rien : tous) }. Une note sans
+// modèle a une anche, la plus grave (comme avant). Pure.
+const OTTAVA = { 1: '8va', 2: '15ma', 3: '22ma' };
+export function chordVoiceTemplates(c) {
+  const out = [];
+  for (const t of Array.isArray(c?.chordVoices) ? c.chordVoices : []) {
+    const oct = Math.round(Number(t?.oct ?? 0));
+    if (!(oct >= 0 && oct <= 3)) continue;
+    const beatSign = Math.sign(Number(t?.beatSign) || 0);
+    const semi = t?.semi == null ? null : Math.round(Number(t.semi));
+    if (semi != null && !(semi >= 0 && semi < 24)) continue;
+    const pied = typeof t?.pied === 'string' && t.pied.length && t.pied.length <= 8 ? t.pied : null;
+    if (out.some((u) => u.oct === oct && u.beatSign === beatSign && u.semi === semi)) continue;
+    out.push({ oct, beatSign, semi, pied });
+  }
+  return out;
+}
+// Identifiant (et étiquette) d'une anche d'accord : le degré, puis la voix
+// (« 1 16' », « 5 8' ») ; sans nom de voix, l'octave (« 1 8va ») ; la plus
+// grave seule garde le degré nu (« 1 », comme avant).
+export function chordVoiceId(lbl, t) {
+  if (t.pied) return `${lbl} ${t.pied}`;
+  const sgn = t.beatSign > 0 ? '+' : t.beatSign < 0 ? '−' : '';
+  return `${lbl}${t.oct ? ` ${OTTAVA[t.oct]}` : ''}${sgn}`;
+}
+
+// Voisine d'une anche d'accord dans la même note, `d` octaves plus haut
+// (d = 1) ou plus bas (d = −1) ; null sinon (ou hors du mode accord).
+const degOct = (g) => {
+  const v = g.voices[0]?.def;
+  return v?.chordDeg != null ? [v.chordDeg, v.chordOct ?? 0] : null;
+};
+function chordSibling(groups, g, d) {
+  const a = degOct(g);
+  if (!a) return null;
+  return groups.find((h) => { const b = degOct(h); return b && b[0] === a[0] && b[1] === a[1] + d; }) ?? null;
+}
+// Le partiel k de `g` tombe-t-il (à SEP_HZ près) sur un partiel d'une AUTRE
+// note de l'accord ? Partiels jusqu'à la fréquence étudiée.
+function chordForeignClash(groups, g, k) {
+  const a = degOct(g);
+  const f = k * g.center;
+  return groups.some((h) => {
+    const b = degOct(h);
+    if (h === g || !b || b[0] === a[0]) return false;
+    for (let j = 1; j <= Math.ceil(f / h.center) + 1; j++) if (Math.abs(f - j * h.center) < SEP_HZ) return true;
+    return false;
+  });
+}
+
 // Méthodes d'Engine (cf. engine.js, Object.assign).
 export const methodesPlan = {
   // Centres des groupes dont la note imposée ne sonne pas (cf. LOCK_MISS),
@@ -219,6 +277,61 @@ export const methodesPlan = {
     return out;
   },
 
+  // Accord dont chaque note a plusieurs anches à l'octave (cfg.chordVoices) :
+  // chordFromPeaks prend, pour chaque note, la raie la plus grave de sa classe
+  // à moins de 20 dB de la plus forte. Le 16' d'une note peut avoir un
+  // fondamental plus faible (mesuré sur synthèse : à −15 dB, tout l'accord était
+  // lu une octave trop haut ; le 16' sur le 8', le 8' sur des partiels du 8').
+  // Comme la garde d'octave d'un registre (engine.js, D4) : une anche plus
+  // grave d'une octave a des partiels IMPAIRS à elle, qu'aucune anche de
+  // l'octave au-dessus ne fait. On descend la note d'une octave si l'un de ses
+  // partiels impairs (1 à 9) qui ne tombe sur aucun partiel d'une autre anche
+  // de l'accord (±35 ¢) : il en faut DEUX (une anche a une série de partiels ;
+  // une raie seule, un reste après une inversion du soufflet, faisait
+  // descendre une quinte réelle d'une octave, session d'Ewen, P13), présents
+  // (partialPresent : à moins de 30 dB du plus fort des dix premiers partiels
+  // de cette note plus grave) et en pic (partielEnPic). Dans un accord majeur,
+  // les partiels 3 et 5 de la fondamentale une octave plus bas tombent sur la
+  // quinte et la tierce : restent 1, 7 et 9. Modifie `ch` ; jusqu'à deux octaves.
+  abaisserOctaves(ch, coarse) {
+    const c = this.cfg;
+    if (c.mode !== 'chord') return;
+    const tpls = chordVoiceTemplates(c);
+    if (!tpls.length) return;
+    const octsDe = (n) => {
+      const t = tpls.filter((x) => x.semi == null || x.semi === n.semi);
+      return t.length ? t.map((x) => x.oct) : [0];
+    };
+    let change = false;
+    for (const n of ch.notes) {
+      if (Math.max(...octsDe(n)) < 1) continue;
+      for (let pas = 0; pas < 2; pas++) {
+        const bas = n.midi - 12;
+        if (bas < MIDI_MIN) break;
+        const fBas = midiToFreq(bas, c);
+        const autres = [];
+        // Les autres notes à leur hauteur, et une octave plus bas (elles
+        // peuvent elles aussi descendre : leurs huit premiers partiels ne
+        // prouvent rien ici).
+        for (const m of ch.notes) {
+          for (const o of octsDe(m)) {
+            for (const d of m === n ? [0] : [0, -12]) {
+              const f = midiToFreq(m.midi + 12 * o + d, c);
+              for (let k = 1; k * f < 12 * fBas && (d === 0 || k <= 8); k++) autres.push(k * f);
+            }
+          }
+        }
+        const libre = (k) => !autres.some((f) => Math.abs(1200 * Math.log2((k * fBas) / f)) < 35);
+        const siens = [1, 3, 5, 7, 9].filter((k) => libre(k) && partialPresent(coarse, fBas, k) && partielEnPic(coarse, k * fBas));
+        const sienne = siens.length >= 2;
+        if (!sienne) break;
+        n.midi = bas;
+        change = true;
+      }
+    }
+    if (change) ch.rootMidi = ch.notes.find((n) => n.semi === 0)?.midi ?? ch.notes[0].midi;
+  },
+
   // Accord en degrés (mode « Accord », ou registre Quinte = degrés 1 5) :
   // la fondamentale est reconnue dans le son (chordFromPeaks), chaque degré
   // devient une voix sur SA note, là où elle a été trouvée.
@@ -236,9 +349,19 @@ export const methodesPlan = {
   voices() {
     const c = this.cfg;
     if (this.chordDegrees()) {
-      return (this.chord?.notes ?? []).map((n) => {
+      // Chaque note de l'accord fait sonner les anches que l'instrument dit
+      // (cfg.chordVoices, cf. chordVoiceTemplates) : 16'+8' d'une main
+      // gauche Stradella, fondamentale et son octave d'un accord de diato...
+      // Sans rien dit, une anche par note, la plus grave (comme avant).
+      const tpls = c.mode === 'chord' ? chordVoiceTemplates(c) : [];
+      return (this.chord?.notes ?? []).flatMap((n) => {
         const lbl = degreeLabel(n.semi);
-        return { id: lbl, label: lbl, oct: 0, beatSign: 0, fixedMidi: n.midi, chordDeg: n.semi };
+        const siens = tpls.filter((t) => t.semi == null || t.semi === n.semi);
+        return (siens.length ? siens : [{ oct: 0, beatSign: 0, pied: null }]).map((t) => {
+          const id = chordVoiceId(lbl, t);
+          return { id, label: id, oct: t.oct, beatSign: t.beatSign, fixedMidi: n.midi + 12 * t.oct,
+            chordDeg: n.semi, chordOct: t.oct, pied: t.pied };
+        });
       });
     }
     if (c.mode === 'register') {
@@ -294,13 +417,18 @@ export const methodesPlan = {
     for (const v of this.voices()) {
       const base = v.fixedMidi ?? (playedMidi + 12 * v.oct + (v.semi || 0));
       if (base < MIDI_MIN - 1 || base > MIDI_MAX + 1) continue;
-      const t = v.fixedMidi != null
-        ? { midi: v.fixedMidi, nominal: midiToFreq(v.fixedMidi, c), beat: 0,
-            target: midiToFreq(v.fixedMidi, c) }
-        : voiceTargetFreq(playedMidi, v, c);
+      // Anche d'accord d'un unisson battant (cfg.chordVoices, beatSign) : sa
+      // cible suit la courbe de battement, comme dans un registre.
+      const t = v.fixedMidi != null && v.chordDeg != null && v.beatSign
+        ? voiceTargetFreq(v.fixedMidi, { ...v, oct: 0, semi: 0 }, c)
+        : v.fixedMidi != null
+          ? { midi: v.fixedMidi, nominal: midiToFreq(v.fixedMidi, c), beat: 0,
+              target: midiToFreq(v.fixedMidi, c) }
+          : voiceTargetFreq(playedMidi, v, c);
       // Accord : une clé par DEGRÉ (la courbe « 5 » reste la même d'un accord
-      // à l'autre, la légende ne s'allonge pas à chaque accord joué).
-      const key = v.chordDeg != null ? `c${v.chordDeg}`
+      // à l'autre, la légende ne s'allonge pas à chaque accord joué), et par
+      // octave quand la note a plusieurs anches à l'octave (« c0o1 »).
+      const key = v.chordDeg != null ? `c${v.chordDeg}${v.chordOct ? `o${v.chordOct}` : ''}`
         : v.fixedMidi != null ? `m${v.fixedMidi}` : `o${v.oct}${v.semi ? `q${v.semi}` : ''}`;
       let g = map.get(key);
       if (!g) {
@@ -334,6 +462,15 @@ export const methodesPlan = {
       // sur ses partiels impairs ; les pairs ne servent qu'à l'alerte « deux
       // anches ? » (engine.js, fusion multi-harmonique).
       if (c.mode === 'auto' && g.kTrack > 1) g.avoidEven = true;
+      // Accord dont chaque note a plusieurs anches à l'octave (cfg.chordVoices) :
+      // les mêmes règles qu'un registre 16'+8'. L'anche qui a une voisine de la
+      // même note une octave au-dessus se mesure sur un partiel impair ; celle
+      // du dessus (`chordUpper`) a tous ses partiels sur ceux de sa voisine du
+      // dessous : elle est lue sur ses partiels séparés (octaveFuse) et, tant
+      // que la fenêtre ne la sépare pas, estimée avec sa marge (confondu.js,
+      // l'octave qui ne bat pas comprise).
+      if (chordSibling(groups, g, 1)) g.avoidEven = true;
+      if (chordSibling(groups, g, -1)) g.chordUpper = true;
       if (g.avoidEven && g.kTrack % 2 === 0) g.kTrack++;
     }
     // Plus généralement (quinte, accord, notes définies) : le partiel de
@@ -351,7 +488,22 @@ export const methodesPlan = {
     const chordOdd = c.mode === 'chord';
     if (groups.length > 1) {
       for (const g of groups) {
-        if (g.voices.length > 1 || g.avoidEven) continue;
+        // L'anche du dessus d'une note d'accord à l'octave : comme le 8' d'un
+        // registre (octaveClash), mais son partiel de mesure évite ceux des
+        // AUTRES notes de l'accord (la quinte, la tierce), qui ne sont pas
+        // sa voisine du dessous : leur raie ne serait ni elle, ni l'octave.
+        if (g.chordUpper) {
+          if (g.voices.length !== 1) continue;
+          g.octaveClash = true;
+          const bad = (k) => chordForeignClash(groups, g, k) || (g.avoidEven && k % 2 === 0);
+          let k = g.kTrack;
+          while (k < K_MAX && bad(k)) k++;
+          if (!bad(k)) g.kTrack = k;
+          continue;
+        }
+        // Accord : l'anche du dessous d'une note à l'octave (avoidEven) passe
+        // aussi ici ; la règle des partiels impairs y est déjà (chordOdd).
+        if (g.voices.length > 1 || (g.avoidEven && !chordOdd)) continue;
         // Partiels de l'autre anche jusqu'à la fréquence étudiée (pas
         // seulement 16) : à la douzième (Fa4 sur La♯2), le partiel 6 de Fa4
         // tombe sur le 18 de La♯2.
@@ -376,8 +528,11 @@ export const methodesPlan = {
     // battement qui le fait passer sous le seuil de présence changerait k
     // sans recentrer le traqueur : la division par k deviendrait fausse. On
     // décide donc une fois par note, et on s'y tient.
-    if (!this.plan || this.plan.midi !== playedMidi) {
-      this.plan = { midi: playedMidi, k: new Map(), partials: new Map() };
+    // Accord : la même fondamentale peut porter un autre accord (Do, puis Do m) :
+    // le plan suit aussi les notes jouées.
+    const sig = this.chordDegrees() ? (this.chord?.notes ?? []).map((n) => n.midi).join(',') : '';
+    if (!this.plan || this.plan.midi !== playedMidi || (this.plan.sig ?? '') !== sig) {
+      this.plan = { midi: playedMidi, sig, k: new Map(), partials: new Map() };
       for (const g of groups) {
         // Anche seule dans son groupe (M, 16' d'un LM…) : pas d'unisson à
         // séparer, on garde son partiel de mesure, mais le strobe a quand

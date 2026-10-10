@@ -293,6 +293,32 @@
      0
     ],
     "subspace": true
+   },
+   "accord": {
+    "mode": "chord",
+    "chordType": "quinte",
+    "chordDegrees": [
+     0,
+     7
+    ]
+   },
+   "accord_lm": {
+    "mode": "chord",
+    "chordType": "quinte",
+    "chordDegrees": [
+     0,
+     7
+    ],
+    "chordVoices": [
+     {
+      "oct": 0,
+      "pied": "16'"
+     },
+     {
+      "oct": 1,
+      "pied": "8'"
+     }
+    ]
    }
   }
  },
@@ -317,6 +343,32 @@
      0
     ],
     "subspace": true
+   },
+   "accord": {
+    "mode": "chord",
+    "chordType": "quinte",
+    "chordDegrees": [
+     0,
+     7
+    ]
+   },
+   "accord_lm": {
+    "mode": "chord",
+    "chordType": "quinte",
+    "chordDegrees": [
+     0,
+     7
+    ],
+    "chordVoices": [
+     {
+      "oct": 0,
+      "pied": "16'"
+     },
+     {
+      "oct": 1,
+      "pied": "8'"
+     }
+    ]
    }
   }
  },
@@ -341,6 +393,32 @@
      0
     ],
     "subspace": true
+   },
+   "accord": {
+    "mode": "chord",
+    "chordType": "quinte",
+    "chordDegrees": [
+     0,
+     7
+    ]
+   },
+   "accord_lm": {
+    "mode": "chord",
+    "chordType": "quinte",
+    "chordDegrees": [
+     0,
+     7
+    ],
+    "chordVoices": [
+     {
+      "oct": 0,
+      "pied": "16'"
+     },
+     {
+      "oct": 1,
+      "pied": "8'"
+     }
+    ]
    }
   }
  },

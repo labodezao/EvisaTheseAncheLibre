@@ -23,6 +23,7 @@ spectre le confirme — la nature ne ment pas, la mesure si.
 | `paliers.py session.wav images.jsonl sortie.csv` | paliers de soufflet d'une anche seule (creux, sauts), référence courte de 0,25 s, pente ¢/dB dans le palier, valeur du moteur à +1 s et à la fin (audit du 10/10/2026) |
 | `intervalles_reels.mjs son.wav '<réglages>' t0 t1 [t0 t1 …]` | battements d'intervalles (quinte, octave, tierces…) mesurés, voulus et par l'enveloppe, sur des passages réels (§ 4.4) |
 | `confondu_grille.mjs separation\|derive\|stable` | 16'+8' de synthèse : erreur des lectures que le moteur dit séparées (selon le temps depuis la séparation), ou part des images confondues dont la vérité est dans la marge, par rapport d'amplitude et par méthode (§ 4.3) |
+| `accord_grille.mjs` | accord en 16'+8' de synthèse (diato, Stradella), une anche à +6 ¢ à chaque essai : lectures dans leur marge, désaccordée désignée, autres justes (POLYPHONIE-ESSAIS § 4.6) |
 
 Essais polyphoniques du 06/10/2026 (18 passages réels, défauts et tests qui échouent) :
 `docs/POLYPHONIE-ESSAIS.md` et `test/polyphonie.test.mjs` (`npm run test:poly`, hors `npm test`).

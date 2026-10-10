@@ -432,11 +432,34 @@ export const methodesConfondu = {
     if (!r?.tracked || r.merged || r.coarse || !(Tw > 0)) return null;
     const fOct = 2 * r.fMeas;
     let est = { f: fOct, marge: 1 / Tw, methode: 'octave', signeConnu: false };
+    // Accord (cfg.chordVoices) : la raie d'une AUTRE note dans la bande d'un
+    // partiel (appariement.js, octaveFuse, `etrangeres`), à moins de deux
+    // demi-bandes de l'octave du 16'. Le 8' de la quinte est la douzième du
+    // 16' de la fondamentale : TOUS ses partiels ont cette troisième raie, à
+    // k fois le battement de la quinte (0,66 Hz par partiel pour Sol3 + Ré4
+    // en tempérament égal).
+    //  - Le battement ne lit pas ces bandes : le cercle autour de la raie du
+    //    16' suppose deux raies. Essayé : ajuster la troisième (vitesse connue)
+    //    avec le reste, ou la retirer puis couper la bande avant elle ; la
+    //    raie étrangère et un 8' à l'octave exacte s'y échangent (un 8' juste
+    //    lu −1,0 ou +1,9 ¢, ±0,1).
+    //  - Par l'octave, quand la lecture est à moins de deux cases de la raie
+    //    étrangère, l'anche est confondue avec elle autant qu'avec l'octave :
+    //    elle peut être entre les deux. La marge couvre
+    //    l'écart de la lecture à chacune, plus deux cases (mesuré : 16' de la
+    //    quinte à +6 ¢, 8' juste, lu « +6,0 ¢ ±1,1 » sans cela).
+    const etr = g.voices[0].etrangeres;
+    const eBase = etr?.find((e) => e.k === (g.kTrack || 1) && e.f != null);
+    if (eBase && Math.abs(eBase.lu - eBase.f) < 2 / Tw) {
+      const k0 = eBase.k;
+      est.marge = Math.max(est.marge, (Math.abs(eBase.lu - k0 * fOct) + Math.abs(eBase.lu - eBase.f) + 2 / Tw) / k0);
+    }
     const mRef = h.kTrack || 1;
     if (mRef % 2 === 1 && this.plan) {
-      const bandes = [{ k: g.kTrack || 1, t: this.trackers.get(g.key) }];
+      let bandes = [{ k: g.kTrack || 1, t: this.trackers.get(g.key) }];
       for (const k of this.plan.partials.get(g.key) ?? []) bandes.push({ k, t: this.trackers.get(`${g.key}p${k}`) });
-      const b = estimeBattement({ ref: this.trackers.get(h.key), mRef, fRef: r.fMeas, bandes, Tw });
+      if (etr) bandes = bandes.filter((b) => !etr.some((e) => e.k === b.k && (e.f != null || e.ambigu)));
+      const b = bandes.length ? estimeBattement({ ref: this.trackers.get(h.key), mRef, fRef: r.fMeas, bandes, Tw }) : null;
       if (b && b.marge < est.marge) {
         est = b.immobile
           // Octave qui ne bat pas : la limite de la durée jouée (cf. estimeBattement).
