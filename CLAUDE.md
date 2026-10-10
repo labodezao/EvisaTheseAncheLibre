@@ -91,7 +91,7 @@ n'a de sens que reliée à ce qui se passe dans le cadre du corps.
   pas de grec ni de symbole Unicode en texte (formule). Les sons d'Ewen arrivent dans `J:\multimedia à tier\INBOX` : les lire, ne
   jamais les déplacer. Le .lyx est en CRLF dans le dépôt : garder CRLF (sinon tout le fichier change).
 
-## Accordeur web (`web/`) — état et leçons (v41, 2026-10-06)
+## Accordeur web (`web/`) — état et leçons (v42, 2026-10-10)
 Déployé sur GitHub Pages depuis `main` (https://labodezao.github.io/EvisaTheseAncheLibre/).
 
 **Le moteur se développe dans PolyReed** (dépôt privé d'Ewen,
@@ -110,6 +110,12 @@ est écrite dans `app.js` (PolyReed la lit dans `ui/version.js`) ; `SHELL` de
 `web/sw.js` est la liste de la thèse. Après un report :
 `grep -ri "polyreed\|licence\|stripe\|paddle" web test docs` ne doit rien
 trouver (hors README et ce fichier).
+v42 (10/10/2026) : session de recherche longue (Ewen, 07/10 : « 60 min au lieu de 10, pour
+suivre tout l'accordage »). Durée max 10 / 30 / 60 / 120 min (60 par défaut) ; le Worker rend un
+morceau toutes les 10 s (son Int16 et lignes du CSV), `web/js/session-stockage.js` l'écrit dans
+l'OPFS (sinon IndexedDB), l'export assemble le ZIP sans tout charger (`zipPlan` de `zip.js`), une
+session coupée se récupère ; un WAV rejoué est lu par morceaux (`?vitesse=` pour aller plus vite).
+Formats communs : `web/js/session-format.js`. Test : `test/session-longue.test.mjs`.
 Références d'Ewen : **Peterson** (strobe) et **Dirk's Accordion Tuner** (qu'il utilise).
 Ewen parle français, souvent en dictée vocale ; il teste en jouant sur SON
 accordéon et envoie des ZIP de session (WAV + CSV + JSON, bouton Exporter ;

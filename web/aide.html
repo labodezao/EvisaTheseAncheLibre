@@ -136,9 +136,13 @@
     <b>WAV</b>, le <b>CSV</b> des mesures et un <b>JSON</b> des réglages. Une mesure au temps t correspond à
     l'instant t du WAV (fin de sa fenêtre d'analyse) — vérifié : le WAV rejoué
     redonne les mêmes mesures au millième de cent près. Une pastille rouge
-    « ● dev » s'affiche dans le bandeau pendant l'enregistrement. Jusqu'à 10 min
-    par session ; la session reste exportable après l'arrêt du micro, mais un
-    nouveau démarrage l'efface : exportez d'abord.
+    « ● dev » s'affiche dans le bandeau pendant l'enregistrement. Durée maximale
+    réglable (10, 30, 60 ou 120 min ; 60 par défaut, tout un accordage) : la session
+    s'écrit au fil de l'eau dans le stockage du navigateur, par morceaux de 10 s (la
+    mémoire ne grossit pas ; une heure fait environ 350 Mo), et s'arrête proprement à
+    la limite. Les sessions gardées sont listées sous les boutons (exporter,
+    effacer) ; une session coupée par une page fermée se récupère au lancement
+    suivant (« Récupérer »).
   </div>
 
   <div class="callout">
