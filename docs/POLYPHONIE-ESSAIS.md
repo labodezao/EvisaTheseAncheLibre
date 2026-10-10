@@ -423,6 +423,73 @@ seconde de son avant, 95 à 126 après, dans le bruit de la machine (±10 % d'un
 
 Outils : `test/outils/paliers.py` (paliers de soufflet, référence courte, de l'audit), `test/outils/intervalles_reels.mjs`.
 
+### 4.6 Accord en 16'+8' : chaque anche de chaque note (moteur v54, 11/10/2026)
+
+Ewen : « à chaque ouverture de soufflet, 3 anches ». En mode accord, le moteur prenait pour chaque note
+la raie la plus grave de sa classe (`chordFromPeaks`) et n'en suivait qu'une : sur une main gauche
+Stradella (deux voix à l'octave aux accords) ou un diato (fondamentale, quinte, octave), la moitié des
+anches n'avaient pas de ligne, et un 8' faux ne se voyait pas. Test 63 de `dsp.test.mjs` : 4 cas sur 4
+en échec sur la v53 (184 lectures sur 368 : les 8' absents), tous passent.
+
+**Ce que le moteur fait maintenant.** Le réglage dit les anches de chaque note (`cfg.chordVoices` ;
+dans la page, « Anches par note » à côté de l'accord : une, 16'+8', 16'+8'+4', ou fondamentale, quinte et
+octave d'un accord de diato). Chaque anche est un groupe (`c<degré>o<octave>`) avec les règles d'un registre 16'+8' : le 16'
+sur un partiel impair, le 8' lu sur ses partiels séparés (`octaveFuse`) et estimé avec sa marge tant
+qu'il est confondu (`confondu.js`, l'octave qui ne bat pas comprise). Trois mécanismes propres à
+l'accord :
+
+1. Les raies connues des autres notes : celles de leur mesure de l'image, pas les raies revendiquées.
+   Mesuré : Sol3+Ré4 en 16'+8', 8' de Sol à +6 ¢ ; les raies revendiquées de ce 8' partaient de la raie
+   commune (2 f16) avant sa séparation ; son partiel 3, à 4 Hz de là, passait pour le partiel 2 du 8' de
+   la quinte, « séparé » et confirmé par son partiel 6 : la quinte lue +7,9 ¢ pour 0, sans marge.
+2. La raie d'une autre note dans la bande d'un partiel. Le 8' de la quinte est la douzième du 16' de la
+   fondamentale : chacun de ses partiels k a, à k × 0,66 Hz (Sol3 + Ré4 égal), le partiel 3k de Sol3.
+   Le battement (un cercle autour de la raie du 16') ne lit pas ces bandes ; essayé et écarté : ajuster
+   cette troisième raie (vitesse connue) avec le reste, ou la retirer puis couper la bande avant elle ;
+   elle et un 8' à l'octave exacte s'échangent (8' juste lu −1,0 ou +1,9 ¢, ±0,1). Une raie à 10-11 Hz
+   fuit encore dans la bande gardée (±6 Hz) : rayon de 12 Hz. Quand la lecture de la base est à moins de
+   deux cases de cette raie, la marge « par l'octave » couvre l'octave ET elle : « à confirmer », jamais
+   « juste » ni « faux » à tort. La séparation du 8' se juge à la résolution sur ces raies vraies, sans le
+   drapeau de l'appariement (2,6 ¢ au-dessus de 1,5 kHz, qui cachait un 8' à 3 Hz d'une autre note).
+3. Le 16' au fondamental faible : la raie la plus grave à −20 dB est le 8', tout l'accord était lu une
+   octave trop haut (à −15 dB sur synthèse). `abaisserOctaves` descend la note quand deux partiels
+   impairs de l'octave du dessous, libres des autres anches de l'accord, sont présents et en pic.
+
+**Synthèse** (`test/outils/accord_grille.mjs`, repris dans le test 63 de `dsp.test.mjs`) : quatre accords (Sol+Ré et Ré+La
+diato, Do majeur et Ré mineur Stradella), 16'+8' par note, une anche à +6 ¢ à chaque essai, Normal et
+Rapide, images après 3 s :
+
+| | lectures dans leur marge | désaccordée désignée (\|écart\| − marge > 1 ¢) | autres justes (\|écart\| + marge ≤ 1 ¢) |
+|---|---|---|---|
+| v53 | 50 % des anches lues (aucun 8') | seulement si c'est un 16' | — |
+| v54 | 4 773 / 4 784 (99,8 %) | 920 / 920 | 3 662 / 3 864 (95 %) ; désignées à tort : 1 image sur 3 864 |
+
+Les autres « à confirmer » : surtout le 8' de la quinte à la douzième d'un 16' désaccordé, dont toutes
+les bandes ont la raie d'une autre note (limite de ce que le son dit, la vérité est dans la marge).
+Diato Ré+La (quinte sous la fondamentale, pas de douzième) : 274 / 276 justes. Les 11 lectures hors
+marge sont à 0,03 ¢ de leur marge, ou la première image après 3 s.
+
+**Réel** (session du 25/09, `compare_poly.py`, modes `accord` et `accord_lm` ajoutés à P12, P13, P14) :
+
+| Passage | accord (une anche par note) v53 → v54 | accord en 16'+8' v53 → v54 |
+|---|---|---|
+| P12 Ré#4+La#4 | 1 : 0,08/0,12, 5 : 0,01/0,06 → identique | 1 16' 0,08/0,12, 5 16' 0,01/0,06 ; couverture 67 → 83 % |
+| P13 idem, inversion | 1 : 0,06/0,26, 5 : 0,03/0,26 → identique | 16' identiques |
+| P14 La#3+Fa4 | 1 : 0,07/0,09, 5 : 0,01/0,01 → identique | 16' identiques |
+
+Tous les autres modes des 18 passages (Automatique, registre, Auto-anches) : sortie identique, et
+`npm run test:poly` aussi. Sur cet accordéon, les accords n'ont qu'une anche par note (ESPRIT n'y trouve
+pas de 8') : en 16'+8', le 8' déclaré se pose sur l'octave du 16' (« l'octave ne bat pas », « c » de
+`avant_apres_poly.py`). C'est la limite connue d'un 16'+8' : un 8' absent ou 20 dB sous le 16' ne se
+distingue pas d'une octave juste ; l'instrument doit dire ses anches. Aucun enregistrement d'un accord
+réel en 16'+8' : à faire (§ 6, un Stradella, chaque bouton d'accord poussé puis tiré, 6 s).
+Basses en accord « 1 » seul : écarté, `chordFromPeaks` à un seul degré prend la raie la plus forte
+(un partiel aigu) ; une basse se mesure en registre.
+
+**Charge DSP** (ms de calcul par seconde de son, 8 s, médiane de trois passages) : registres et
+Automatique inchangés (65 → 65, 73 → 67, 63 → 60, 83 → 80) ; accord d'une anche par note 74 → 75 ;
+quinte en 16'+8' 76 → 95 (deux fois plus d'anches) ; Do majeur Stradella en 16'+8' 90 → 133.
+
 ## 5. Verdict
 
 **Utilisable à l'établi aujourd'hui** (avec le registre juste choisi à la main) :

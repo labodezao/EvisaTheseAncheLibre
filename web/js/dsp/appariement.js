@@ -9,6 +9,15 @@ import { FFT, hannWindow } from './fft.js';
 
 import { repli } from './zoom.js';
 import { centsBetween } from '../music.js';
+import { CONF_BANDE_HZ } from './confondu.js';
+
+// Raie d'une autre note à moins de 2 CONF_BANDE_HZ de l'octave du 16' dans la
+// bande d'un partiel : elle fuit dans la demi-bande gardée par le battement
+// (masque idéal sur une durée finie, 1/(π d) à d cases). Mesuré (accords de
+// synthèse, 16'+8' par note) : à CONF_BANDE_HZ seulement, des raies à 10 et
+// 11 Hz faisaient lire au battement un 8' juste à +2,6 ¢ ±0,2 ; à deux fois,
+// 99,8 % des lectures dans leur marge.
+const CONF_ETRANGERE_HZ = 2 * CONF_BANDE_HZ;
 
 // Fenêtres de Hann gardées par taille (enveloppe de l'amas, clusterRefine).
 const HANN = new Map();
@@ -205,6 +214,32 @@ export function tolClaimHz(srd, W) { return Math.max(0.08, (0.6 * srd) / W); }
 // appariée (coût = tolHz) ; une composante revendiquée par une harmonique
 // grave coûte presque autant que l'abandon, elle n'est donc retenue que si
 // aucune composante libre ne convient.
+// Accord dont chaque note a plusieurs anches à l'octave (plan.js,
+// cfg.chordVoices) : la voisine du dessous (même note, une octave plus bas)
+// d'une anche, ou null.
+function chordDessous(groups, g) {
+  const d = g.voices[0]?.def;
+  if (d?.chordDeg == null || !(d.chordOct > 0)) return null;
+  return groups.find((h) => h !== g && !h.isHarmonic && !h.isSub && h.voices[0]?.def.chordDeg === d.chordDeg
+    && (h.voices[0].def.chordOct ?? 0) === d.chordOct - 1) ?? null;
+}
+// Raies (Hz) des anches mesurées d'un groupe : leurs partiels 1 à 24.
+function rainesDe(h) {
+  const out = [];
+  for (const v of h.voices) {
+    if (!v.tracked || !(v.fMeas > 0)) continue;
+    for (let m = 1; m <= 24 && m * v.fMeas <= 9600; m++) out.push(m * v.fMeas);
+  }
+  return out;
+}
+// Raies de toutes les autres anches de la note (groupes de base), sur leur
+// mesure de cette image.
+function rainesConnues(groups, g) {
+  const out = [];
+  for (const h of groups) if (h !== g && !h.isHarmonic && !h.isSub) out.push(...rainesDe(h));
+  return out;
+}
+
 export const TIE_CIBLE = 0.05;
 export function assignOrdered(voices, comps, tolHz, { tie = false } = {}) {
   const nV = voices.length;
@@ -496,7 +531,16 @@ export const methodesAppariement = {
       if (!g.octaveClash || g.isHarmonic || g.isSub || g.voices.length !== 1) continue;
       const v = g.voices[0];
       if (!v.tracked) continue;
-      const others = claimed.filter((_, i) => claimedBy[i] !== g.center);
+      // Accord (plan.js, cfg.chordVoices) : l'anche du dessus d'une note, et sa
+      // voisine du dessous (le 16' de la même note).
+      const sous = chordDessous(groups, g);
+      // Raies connues des autres anches. Accord : celles des AUTRES notes
+      // sont lues sur leur mesure de cette image, déjà séparée pour les plus
+      // graves (les raies revendiquées partent de leur raie commune avant la
+      // séparation : mesuré, le partiel 3 du 8' de la fondamentale, à 4 Hz de
+      // l'octave du 16', passait pour le partiel 2 du 8' de la quinte, séparé
+      // et confirmé par son partiel 6 : la quinte lue +7,9 ¢ pour 0).
+      const others = sous ? rainesConnues(groups, g) : claimed.filter((_, i) => claimedBy[i] !== g.center);
       const k0 = g.kTrack || 1;
       const cands = [{ k: k0, f: v.fMeas * k0, amp: v.amp, W: g.W, srd: g.srd, merged: v.merged, base: true }];
       for (const p of groups) {
@@ -537,8 +581,14 @@ export const methodesAppariement = {
       // séparée (pente de phase à 2 cases d'une raie plus forte, au pire
       // asin(1)/(π k T)), une case 1/(k T) pour un témoin pas encore séparé.
       // Sinon l'anche reste confondue, avec son estimation (confondu.js).
-      const sep = (cd) => !cd.merged && gap(cd) >= (OCTAVE_SEP_BINS * cd.srd) / cd.W;
-      const temoin = (cd) => cd.W > 0 && cd.amp >= floor && !cd.merged && gap(cd) >= tolClaimHz(cd.srd, cd.W);
+      // Accord : `others` sont les raies vraies de chaque anche, à la
+      // résolution ; le drapeau de l'appariement (raies revendiquées, à
+      // 2,6 ¢ près au-dessus de 1,5 kHz) n'y ajoute rien et cachait un 8'
+      // séparé de 3 Hz du partiel 15 de la fondamentale (mesuré : 8' de la
+      // quinte juste sous un 16' à +6 ¢, lu par l'octave « +6,0 ¢ »).
+      const fondu = (cd) => !sous && cd.merged;
+      const sep = (cd) => !fondu(cd) && gap(cd) >= (OCTAVE_SEP_BINS * cd.srd) / cd.W;
+      const temoin = (cd) => cd.W > 0 && cd.amp >= floor && !fondu(cd) && gap(cd) >= tolClaimHz(cd.srd, cd.W);
       const biais = (cd) => ((sep(cd) ? 0.5 : 1) * cd.srd) / (cd.W * cd.k);
       const confirme = (cd) => cands.some((w) => w !== cd && temoin(w) && Math.abs(w.f / w.k - cd.f / cd.k) <= biais(cd) + biais(w));
       let r = fuse((cd) => sep(cd) && confirme(cd), (cd) => (cd.amp * cd.k) ** 2);
@@ -561,7 +611,7 @@ export const methodesAppariement = {
       let role = 'separee';
       if (r == null) {
         role = 'confondue';
-        r = fuse((cd) => cd.base || (!cd.merged && gap(cd) >= tolClaimHz(cd.srd, cd.W)), (cd) => cd.amp ** 2);
+        r = fuse((cd) => cd.base || (!fondu(cd) && gap(cd) >= tolClaimHz(cd.srd, cd.W)), (cd) => cd.amp ** 2);
         // La raie commune (l'octave mesurée du 16'), au plus près de la base.
         const fb = v.fMeas * k0;
         const common = others.reduce((b, x) => (b == null || Math.abs(x - fb) < Math.abs(b - fb) ? x : b), null);
@@ -578,7 +628,45 @@ export const methodesAppariement = {
       v.partielsMesure = r?.parts ? r.parts.map((p) => ({ ...p, role })) : r ? [{ k: k0, f: r.f, poids: 1, role }] : null;
       // Lectures brutes de chaque partiel, de cette image (cf. confondu.js,
       // estimeRaie).
-      v.lecturesOctave = { n: this.samplesTotal, liste: cands.filter((cd) => cd.amp >= floor).map(({ k, f, amp, W, srd }) => ({ k, f, amp, W, srd })) };
+      // Accord : dans la bande de chaque partiel, la raie d'une autre note
+      // (connue, mesurée à part) à moins de CONF_ETRANGERE_HZ de l'octave du
+      // 16'. Le battement ne lit pas cette bande, l'estimation par la raie
+      // commune non plus (confondu.js).
+      v.etrangeres = null;
+      if (sous?.voices[0]?.tracked) {
+        const f16 = sous.voices[0].fMeas;
+        // Raies des autres notes, chacune avec son incertitude (Hz, à la
+        // fondamentale) : l'anche du dessus d'une autre note encore confondue
+        // n'est connue qu'à la résolution de sa fenêtre (mesuré : 8' de la
+        // fondamentale juste, confondu sous un 16' à +6 ¢, lu sur la raie
+        // commune ; son partiel 6, 2,7 Hz sous l'octave du 16' de la quinte, ne
+        // passait pas pour étranger, et le battement du 8' de la quinte lisait
+        // +1,9 ¢ ±0,1 pour 0).
+        const loin = [];
+        for (const h of groups) {
+          if (h === g || h === sous || h.isHarmonic || h.isSub) continue;
+          for (const w of h.voices) {
+            // Une anche de l'accord sans mesure à cette image (un trou d'une
+            // image, que stabilize tiendra) sonne toujours : sa dernière valeur.
+            const st = w.tracked ? null : this.stab?.get(`${h.key}:${w.def.id}`);
+            const f = w.tracked ? w.fMeas : st?.f;
+            if (!(f > 0)) continue;
+            const flou = w.tracked ? w.merged : st.merged;
+            const u = flou && h.W > 0 ? (OCTAVE_SEP_BINS * h.srd) / (h.W * (h.kTrack || 1)) : 0;
+            for (let m = 1; m <= 24 && m * f <= 9600; m++) loin.push({ x: m * f, u: m * u });
+          }
+        }
+        v.etrangeres = cands.map((cd) => {
+          const c0 = 2 * cd.k * f16;
+          const pres = loin.filter((q) => Math.abs(q.x - c0) < CONF_ETRANGERE_HZ + q.u).map((q) => q.x)
+            .sort((a, b) => Math.abs(a - c0) - Math.abs(b - c0));
+          const res = cd.W > 0 ? (OCTAVE_SEP_BINS * cd.srd) / cd.W : 1;
+          const distinctes = pres.filter((x, i) => pres.findIndex((y) => Math.abs(y - x) < res) === i);
+          return { k: cd.k, f: distinctes[0] ?? null, ambigu: distinctes.length > 1, lu: cd.f };
+        });
+      }
+      const propre = (cd) => !v.etrangeres?.some((e) => e.k === cd.k && e.f != null);
+      v.lecturesOctave = { n: this.samplesTotal, liste: cands.filter((cd) => cd.amp >= floor && propre(cd)).map(({ k, f, amp, W, srd }) => ({ k, f, amp, W, srd })) };
       if (r == null) continue;
       const f = r.f;
       v.fMeas = f;

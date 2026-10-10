@@ -24,7 +24,7 @@ export { strobePartials, unisonHarmonic } from './plan.js';
 
 // Version du moteur : doit être celle de la page et de app.js (cf. le
 // contrôle de cohérence dans app.js et le test dans dsp.test.mjs).
-export const ENGINE_VERSION = '52';
+export const ENGINE_VERSION = '54';
 
 const HOP = 4096;             // période d'analyse (~85 ms à 48 kHz)
 const MAXWIN = { fast: 128, normal: 256, precise: 512 };
@@ -289,6 +289,9 @@ export class Engine {
             prevNotes: this.chord?.notes.map((n) => n.midi) ?? null }))
         : null;
       if (ch) ch.degrees = ch.notes.map((n) => n.semi);
+      // Plusieurs anches par note : la plus grave peut avoir un fondamental
+      // faible (plan.js, abaisserOctaves).
+      if (ch && coarse) this.abaisserOctaves(ch, coarse);
       if (ch) {
         const sig = ch.notes.map((n) => n.midi).join(',');
         const cur = this.chord ? this.chord.notes.map((n) => n.midi).join(',') : null;
@@ -1012,9 +1015,14 @@ export class Engine {
       // Hz, signe gardé), voulu (même chose sur les cibles), partiel (Hz),
       // enveloppe: { hz, conf, depth, sure } | null } ; null sans paire.
       intervalles,
+      // Accord : { rootPc, rootMidi, notes: [{ semi, midi, amp }], type,
+      // voix: [{ id, semi, oct, midi, pied }] } ; `voix` : chaque anche suivie,
+      // note par note (plusieurs à l'octave quand l'instrument le dit,
+      // cfg.chordVoices), dans l'ordre des notes.
       chord: this.chordDegrees() && this.chord
         ? { rootPc: this.chord.rootPc, rootMidi: this.chord.rootMidi, notes: this.chord.notes,
-          type: this.chord.type ?? null } : null,
+          type: this.chord.type ?? null,
+          voix: this.voices().map((v) => ({ id: v.id, semi: v.chordDeg, oct: v.chordOct ?? 0, midi: v.fixedMidi, pied: v.pied ?? null })) } : null,
       // Mode Automatique : deux anches à l'unisson (trémolo) depuis plus de
       // 1,5 s → { cents : écart entre elles } ou null.
       // Avec Matrix Pencil (cf. mpReeds), tout de suite et avec la hauteur

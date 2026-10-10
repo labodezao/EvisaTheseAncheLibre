@@ -91,7 +91,7 @@ n'a de sens que reliée à ce qui se passe dans le cadre du corps.
   pas de grec ni de symbole Unicode en texte (formule). Les sons d'Ewen arrivent dans `J:\multimedia à tier\INBOX` : les lire, ne
   jamais les déplacer. Le .lyx est en CRLF dans le dépôt : garder CRLF (sinon tout le fichier change).
 
-## Accordeur web (`web/`) — état et leçons (v52, 2026-10-11)
+## Accordeur web (`web/`) — état et leçons (v54, 2026-10-11)
 Déployé sur GitHub Pages depuis `main` (https://labodezao.github.io/EvisaTheseAncheLibre/).
 
 **Le moteur se développe dans PolyReed** (dépôt privé d'Ewen,
@@ -130,6 +130,13 @@ note imposée lue seulement si son partiel grave est un pic (`partielEnPic`) ; n
 (`cfg.voix`), marge « anches proches » quand une voix manque ou que deux raies sont séparées de justesse ;
 octave exacte « immobile » (l'octave ne bat pas, marge 0,5/(k_max T), `confondu.js`). La page montre les
 méthodes nouvelles dans la ligne de l'anche confondue. Tests 60 à 62 de `test/dsp.test.mjs`.
+v54 (11/10/2026) : moteur repris de PolyReed v54 (POLYPHONIE-ESSAIS § 4.6). Mode accord : chaque anche de
+chaque note (`cfg.chordVoices` ; la page : « Anches par note », une, 16'+8', 16'+8'+4', fondamentale-quinte-
+octave d'un diato), avec les règles d'un registre 16'+8' (partiel impair, `octaveFuse`, estimation et marge,
+l'octave qui ne bat pas) ; raies des autres notes lues sur leur mesure de l'image ; raie d'une autre note
+dans la bande d'un partiel (`v.etrangeres`, le 8' de la quinte à la douzième du 16' de la fondamentale) hors
+du battement ; note lue une octave trop haut quand le 16' a un fondamental faible (`abaisserOctaves`).
+Test 63 de `test/dsp.test.mjs`, `test/outils/accord_grille.mjs`.
 Références d'Ewen : **Peterson** (strobe) et **Dirk's Accordion Tuner** (qu'il utilise).
 Ewen parle français, souvent en dictée vocale ; il teste en jouant sur SON
 accordéon et envoie des ZIP de session (WAV + CSV + JSON, bouton Exporter ;

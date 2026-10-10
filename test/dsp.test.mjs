@@ -1752,5 +1752,72 @@ console.log('\nTest 62 — 16\'+8\' à l\'octave exacte : une marge honnête, qu
     `${dedans}/${n} images dans la marge (${(100 * dedans / Math.max(1, n)).toFixed(1)} %) ; validable à ±1 ¢ dès ${lignes.map((l) => (l.premier == null ? '—' : l.premier.toFixed(1))).join(', ')} s${tard.length ? ` ; trop tard : ${tard.map((l) => `${noteLabel(l.m + 12).full} ${l.db} dB ${l.response}`).join(', ')}` : ''}`);
 }
 
+console.log('\nTest 63 — accord de main gauche, chaque note en 16\'+8\' : chaque anche a sa ligne, la désaccordée est désignée seule');
+{
+  // Ewen (11/10/2026) : « à chaque ouverture de soufflet, 3 anches ». En mode
+  // accord, le moteur lisait la plus grave anche de chaque note et ignorait
+  // l'autre : sur un Stradella (deux voix à l'octave aux accords) ou un diato
+  // (fondamentale et quinte, chacune en 16'+8'), la moitié des anches
+  // n'avaient pas de ligne. L'instrument dit les anches de chaque note
+  // (cfg.chordVoices) ; chacune est suivie avec les règles d'un registre
+  // 16'+8' : le 16' sur un partiel impair, le 8' sur ses partiels séparés,
+  // estimé avec sa marge tant qu'il est confondu (l'octave qui ne bat pas
+  // comprise). Les raies des autres notes (le 8' de la quinte est la douzième
+  // du 16' de la fondamentale) ne sont prises ni pour lui ni pour son octave.
+  // Chaque essai : une anche à +6 ¢, les autres justes. Elle doit être lue à
+  // +6 et désignée (|écart| − marge > 1 ¢) seule ; les autres jamais
+  // désignées, justes (|écart| + marge ≤ 1 ¢) presque partout. Une anche
+  // dont tous les partiels tombent sur ceux d'une autre note (le 8' de la
+  // quinte à la douzième d'un 16' désaccordé) peut rester « à confirmer » :
+  // sa marge couvre les deux places possibles, c'est la limite de ce que le
+  // son dit, pas un défaut ; la vérité doit être dans sa marge.
+  const LM = [{ oct: 0, pied: "16'" }, { oct: 1, pied: "8'" }];
+  const quinte = { mode: 'chord', chordType: 'quinte', chordDegrees: [0, 7], chordVoices: LM };
+  const cas = [
+    ['diato Sol + Ré (quinte au-dessus)', [55, 62], quinte, ['normal', 'fast']],
+    ['diato Ré + La (quinte au-dessous)', [62, 57], quinte, ['normal']],
+    ['Stradella Do majeur, 3 sons en 2 voix', [60, 52, 55], { mode: 'chord', chordType: 'majeur', chordDegrees: [0, 4, 7], chordVoices: LM }, ['normal']],
+  ];
+  for (const [nom, notes, cfg, reponses] of cas) for (const response of reponses) {
+    const reeds = notes.flatMap((m) => [m, m + 12]);
+    let lues = 0, attendues = 0, dedans = 0, justes = 0, autres = 0, desiAutres = 0, desiVise = 0, nVise = 0;
+    const pires = [];
+    for (let j = 0; j < reeds.length; j++) {
+      const liste = reeds.map((m, i) => ({ f: at(m, i === j ? 6 : 0), a: i % 2 ? 0.7 : 1, vib: 0.1 }));
+      const x = sonAnches(liste, 5, { graine: 63 + j });
+      for (const im of rejoueAnches({ ...cfg, response }, x)) {
+        if (im.t < 3) continue;
+        reeds.forEach((m, i) => {
+          attendues++;
+          const v = im.vs.find((q) => q.midi === m);
+          if (!v?.tracked) return;
+          lues++;
+          const g = im.r.groups.find((gg) => gg.voices.includes(v));
+          const c = v.confondu && v.fEstimee != null ? v.centsEstimesCible : v.dTargetCents;
+          const mg = v.confondu && v.margeCents != null ? v.margeCents : 0;
+          const vrai = cents(vraieHauteur(x, liste, i, im.t, g.W / g.srd), v.target);
+          if (Math.abs(c - vrai) <= Math.max(0.15, mg)) dedans++;
+          else if (pires.length < 3) pires.push(`${v.def.id} (${noteLabel(m).full}) à ${im.t.toFixed(1)} s : ${c.toFixed(2)} ±${mg.toFixed(2)} pour ${vrai.toFixed(2)}`);
+          const desi = Math.abs(c) - mg > 1;
+          if (i === j) { nVise++; if (desi) desiVise++; } else { autres++; if (desi) desiAutres++; if (Math.abs(c) + mg <= 1) justes++; }
+        });
+      }
+    }
+    assert(lues >= 0.98 * attendues && dedans >= 0.98 * lues && desiVise === nVise && desiAutres <= 0.01 * autres && justes >= 0.85 * autres,
+      `${nom}, ${response} : ${lues}/${attendues} lectures, ${dedans} dans leur marge ; la désaccordée désignée ${desiVise}/${nVise}, une autre ${desiAutres}/${autres} ; les autres justes ${justes}/${autres}${pires.length ? ` ; hors marge : ${pires.join(' ; ')}` : ''}`);
+  }
+  // Le 16' au fondamental 15 dB plus faible : la raie la plus grave de chaque
+  // classe de note à moins de 20 dB est celle du 8', tout l'accord était lu une
+  // octave trop haut. Ses partiels impairs à lui disent qu'il sonne.
+  const H16 = timbreAnche(12, hasardAnche(5));
+  H16[0] *= 10 ** (-15 / 20);
+  const faible = sonAnches([60, 52, 55].flatMap((m) => [{ f: at(m, 0), H: H16 }, { f: at(m + 12, 0), a: 0.7 }]), 5, { graine: 9 });
+  const fin = rejoueAnches({ mode: 'chord', chordType: 'majeur', chordDegrees: [0, 4, 7], chordVoices: LM }, faible).at(-1);
+  const lu = fin.r.chord?.notes.map((n) => noteLabel(n.midi).full).join(' ');
+  const voixLues = fin.vs.filter((v) => v.tracked).map((v) => `${v.def.id} ${noteLabel(v.midi).full}`).sort().join(', ');
+  assert(lu === 'Do4 Mi3 Sol3' && fin.vs.filter((v) => v.tracked).length === 6,
+    `16' au fondamental à −15 dB : accord lu ${lu} (Do4 Mi3 Sol3), anches ${voixLues}`);
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);

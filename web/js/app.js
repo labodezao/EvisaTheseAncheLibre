@@ -22,7 +22,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '52';
+const APP_VERSION = '54';
 function versionMismatch(what, got) {
   const b = document.getElementById('versionBanner');
   if (!b) return;
@@ -46,6 +46,8 @@ const cfg = Object.assign({
   manualNotes: null,
   chordType: 'quinte',     // mode Accord : type d'accord (CHORD_TYPES) ou 'perso'
   chordDegrees: [0, 7],    // … ses degrés en demi-tons au-dessus de la fondamentale
+  chordVoices: null, // anches de chaque note de l'accord (moteur v54, dsp/plan.js chordVoiceTemplates)
+  chordVoix: 'M',          // … réglage d'où vient chordVoices : M, LM, LMH, I-V-VIII
   trackHarmonics: 0,
   trackSub: false,
   subspace: false,
@@ -128,7 +130,7 @@ function toggleTheme() { applyTheme(currentTheme() === 'dark' ? 'light' : 'dark'
 // estimation et sa marge, à la place de la raie commune (v.dTargetCents).
 // { c (¢ face à la cible), m (±¢), f (Hz), texte } ou null.
 // v52 : « immobile » (l'octave ne bat pas, marge de la durée jouée) et « proches »
-// (deux anches d'un unisson dans un même lobe), audit d'usage pro de PolyReed n° 6 et 11.
+// (deux anches d'un unisson dans un même lobe), audit d'usage pro n° 6 et 11.
 const METHODES_CONFONDU = { octave: "par l'octave", battement: 'par le battement', raie: 'par la raie commune',
   immobile: "l'octave ne bat pas", proches: 'anches proches' };
 function estimationConfondue(v) {
@@ -2392,6 +2394,11 @@ function bindControls() {
     $('qDegrees').classList.toggle('hidden', cfg.chordType === 'auto');
     pushConfig();
   };
+  $('qChordVoix').onchange = () => {
+    cfg.chordVoix = $('qChordVoix').value;
+    cfg.chordVoices = voixAccordMoteur(cfg.chordVoix);
+    pushConfig();
+  };
   $('qDegrees').onchange = () => {
     const d = parseDegrees($('qDegrees').value);
     if (!d) { alert('Degrés non reconnus. Exemples : 1 5 · 1 3 5 · 1 b3 5 · 1 3 b7 · 1 b3 6'); return; }
@@ -2855,6 +2862,17 @@ function updateLockButton() {
   }
 }
 
+// Anches de chaque note d'un accord (moteur v54, dsp/plan.js chordVoiceTemplates) :
+// les voix d'un registre ramenées à la plus grave, ou la fondamentale, la quinte
+// et l'octave de la fondamentale d'un diato ; « une » : null (une anche par note).
+function voixAccordMoteur(nom) {
+  if (nom === 'I-V-VIII') return [{ semi: 0, oct: 0 }, { semi: 0, oct: 1 }, { semi: 7, oct: 0 }];
+  const p = REGISTER_PRESETS[nom];
+  if (!p || p.voices.length < 2) return null;
+  const bas = Math.min(...p.voices.map((v) => v.oct ?? 0));
+  return p.voices.map((v) => ({ oct: (v.oct ?? 0) - bas, beatSign: v.beatSign ?? 0, pied: v.label }));
+}
+
 function updateModeVisibility() {
   $('mode').value = cfg.mode;
   $('qMode').value = cfg.mode;
@@ -2864,6 +2882,7 @@ function updateModeVisibility() {
   $('qChord').value = cfg.chordType || 'perso';
   $('qDegrees').value = degreesText(cfg.chordDegrees || [0, 7]);
   $('qDegrees').classList.toggle('hidden', cfg.chordType === 'auto');
+  $('qChordVoix').value = cfg.chordVoix || 'M';
   if (cfg.mode !== 'chord' && !(cfg.mode === 'register' && cfg.register === 'Q')) $('qChordNow').classList.add('hidden');
   $('qNotesWrap').classList.toggle('hidden', cfg.mode !== 'manual');
   renderQuickNotes();
