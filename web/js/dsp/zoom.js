@@ -342,6 +342,10 @@ export class ZoomTracker {
       re: cur.re,
       im: cur.im,
       W,
+      // Échantillons reçus depuis le début du régime (diagnostic de la pente
+      // de phase, audit du 10/10/2026) : la fenêtre W n'en lit que la plus
+      // grande puissance de 2, bornée par maxWin.
+      recu: avail,
       srd: this.srd,
       fc: this.fc,
       fill: Math.min(1, avail / maxWin),

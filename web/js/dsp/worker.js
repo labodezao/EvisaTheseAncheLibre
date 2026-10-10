@@ -57,7 +57,8 @@ function devAppend(chunk) {
 function devTick(r) {
   if (!dev || dev.full) return;
   const t = r.time - dev.start / engine.sr;
-  dev.csv.push(lignesCsv({ t, midi: r.playedMidi, level: r.level, quiet: r.quiet ? 1 : 0, rows: rangeesTick(r) },
+  dev.csv.push(lignesCsv({ t, midi: r.playedMidi, level: r.level, quiet: r.quiet ? 1 : 0, rows: rangeesTick(r),
+    sens: r.sens ?? null, sensSource: r.soufflet?.source ?? null, inversions: r.soufflet?.inversions ?? null },
     engine.cfg?.transpose || 0));
   dev.ticks++; dev.ticksM++;
 }

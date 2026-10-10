@@ -393,3 +393,26 @@ export function voiceTargetFreq(playedMidi, voice, cfg) {
   if (!d) return { midi, nominal: f, beat, target: f + beat };
   return { midi, nominal: f, beat, decalage: d, target: f * Math.pow(2, d / 1200) + beat };
 }
+
+// ---- Battements d'intervalles (audit du 10/10/2026, docs/AUDIT-REPETABILITE.md) ----
+// Deux anches f_b (basse) et f_h (haute) à l'intervalle m:n (f_h / f_b ≈ m / n)
+// ont un partiel commun : le partiel m de la basse et le partiel n de la
+// haute. Le battement entendu est b = m·f_b − n·f_h (Hz). Signe gardé :
+// b > 0, l'intervalle est plus étroit que le pur (rétréci) ; b < 0, plus
+// large. Quinte en tempérament égal : b = f_b (3 − 2·2^(7/12)) = +0,003386 f_b
+// (rétrécie de 1,955 ¢, +0,886 Hz à Do4) ; quinte pure (Cordier) : 0. Le
+// battement voulu se tire des cibles du moteur (m·cible_b − n·cible_h) : il
+// suit le tempérament, le La, les décalages par note.
+// Clé : écart en demi-tons entre les deux notes (de 1 à 24).
+export const INTERVALLES = Object.freeze({
+  3: { m: 6, n: 5, nom: 'tierce mineure' }, // donnée
+  4: { m: 5, n: 4, nom: 'tierce' }, // donnée
+  5: { m: 4, n: 3, nom: 'quarte' }, // donnée
+  7: { m: 3, n: 2, nom: 'quinte' }, // donnée
+  12: { m: 2, n: 1, nom: 'octave' }, // donnée
+  19: { m: 3, n: 1, nom: 'douzieme' }, // donnée
+  24: { m: 4, n: 1, nom: 'double octave' }, // donnée
+});
+
+// Battement de l'intervalle m:n entre f_b et f_h (Hz, signe gardé).
+export const battementIntervalle = (fb, fh, m, n) => m * fb - n * fh;

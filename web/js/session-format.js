@@ -122,6 +122,9 @@ export const COLONNES_SESSION = Object.freeze([
   ...Array.from({ length: PARTIELS_CSV }, (_, i) => `p${i + 1}_hz`),
   // Anche confondue avec l'octave (v41) : estimation, marge, méthode, signe connu.
   'estimee_hz', 'estimee_cents', 'marge_cents', 'methode', 'signe_connu',
+  // Sens du soufflet suivi par le moteur (v45, audit du 10/10/2026) : sens,
+  // d'où il vient (grille, creux, silence), inversions entendues.
+  'sens', 'sens_source', 'inversions',
 ]);
 
 // Début du CSV : marque UTF-8 (le tableur lit les accents) et colonnes.
@@ -154,7 +157,8 @@ export function rangeesTick(r) {
   return rows;
 }
 
-// Les lignes du CSV d'une mesure `tk` = { t, midi, level, quiet, rows },
+// Les lignes du CSV d'une mesure `tk` = { t, midi, level, quiet, rows, sens,
+// sensSource, inversions },
 // séparateur « ; », point décimal, chacune finie par « \n ».
 export function lignesCsv(tk, transpose = 0) {
   const num = (x, d) => (x == null || !Number.isFinite(x) ? '' : x.toFixed(d));
@@ -168,6 +172,7 @@ export function lignesCsv(tk, transpose = 0) {
       num(r.srd ? r.W / r.srd : null, 3), num(r.fill, 3)];
     for (let k = 1; k <= PARTIELS_CSV; k++) l.push(num(r.p?.[k], 5));
     l.push(num(r.conf?.f, 5), num(r.conf?.c, 4), num(r.conf?.m, 4), r.conf?.methode ?? '', r.conf ? r.conf.signe : '');
+    l.push(tk.sens ?? '', tk.sensSource ?? '', tk.inversions ?? '');
     s += `${l.join(';')}\n`;
   }
   return s;

@@ -1,3 +1,5 @@
+import { INTERVALLES, battementIntervalle } from '../music.js';
+
 // Battement et forme de la sortie du moteur : battement du trémolo
 // (measureBeat), mesures par partiel pour le stroboscope (withPartials),
 // spectre en échelle log pour l'affichage (logResample).
@@ -64,6 +66,51 @@ export function logResample(mag, binHz, nOut, fLo = 20, fHi = 10000) {
 
 // Méthodes d'Engine (cf. engine.js, Object.assign).
 export const methodesBattement = {
+  // Battements d'intervalles (audit du 10/10/2026, docs/AUDIT-REPETABILITE.md,
+  // étape 5). Pour chaque paire d'anches de la note (registre Q, accord,
+  // registres à l'octave) à un intervalle de INTERVALLES (music.js) : le
+  // battement de leur partiel commun, b = m f_b − n f_h, MESURÉ par les deux
+  // fréquences (précis à quelques mHz : il se lit dès que les deux anches
+  // sont mesurées) et VOULU par leurs cibles (tempérament, La, décalages).
+  // Vérification : l'enveloppe du traqueur du partiel m de la basse (sa bande
+  // contient aussi le partiel n de la haute), qui bat à |b| ; elle ne se lit
+  // que si la note dure deux périodes (beatFromEnvelope : 2,5 s au moins,
+  // 0,2 Hz demande 10 s). Une anche confondue avec l'octave compte pour son
+  // estimation (confondu.js). Les unissons (musette) ont leur propre battement.
+  measureIntervals(groups) {
+    const voix = [];
+    for (const g of groups) {
+      if (g.isHarmonic || g.isSub) continue;
+      for (const v of g.voices) voix.push({ g, v });
+    }
+    const out = [];
+    for (let i = 0; i < voix.length; i++) {
+      for (let j = i + 1; j < voix.length; j++) {
+        const [lo, hi] = voix[i].v.nominal <= voix[j].v.nominal ? [voix[i], voix[j]] : [voix[j], voix[i]];
+        const s = Math.round(12 * Math.log2(hi.v.nominal / lo.v.nominal));
+        const r = INTERVALLES[s];
+        if (!r) continue;
+        const f = (v) => (!v.tracked || v.coarse ? null : v.confondu && v.fEstimee != null ? v.fEstimee : v.merged ? null : v.fMeas);
+        const fb = f(lo.v), fh = f(hi.v);
+        let env = null;
+        const tr = this.trackers.get(lo.g.kTrack === r.m ? lo.g.key : `${lo.g.key}p${r.m}`);
+        if (tr) {
+          const b = tr.beatFromEnvelope(1);
+          if (b) env = { hz: b.hz, conf: b.conf, depth: b.depth, sure: b.conf >= 0.4 && b.hz <= 14 };
+        }
+        out.push({
+          bas: lo.v.def.id, haut: hi.v.def.id, demiTons: s, m: r.m, n: r.n, nom: r.nom,
+          fBas: fb, fHaut: fh,
+          mesure: fb != null && fh != null ? battementIntervalle(fb, fh, r.m, r.n) : null,
+          voulu: battementIntervalle(lo.v.target, hi.v.target, r.m, r.n),
+          partiel: r.m * (fb ?? lo.v.target),
+          enveloppe: env,
+        });
+      }
+    }
+    return out.length ? out : null;
+  },
+
   // Battement du trémolo, en battements par seconde (× 60 = par minute) —
   // demande d'Ewen : « deux anches en vibrato : combien de fois par minute ça
   // bat ? ». Lu dans l'enveloppe de chaque partiel suivi de la note (cf.

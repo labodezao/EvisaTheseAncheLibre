@@ -328,6 +328,101 @@ n'est plus dit séparé (sa raie séparée n'était pas confirmée) ; l'écran y
 8 s, médiane de 5) : 69,5 → 68,7 ms par seconde de son, pire image 9 → 8 ms ; 8' qui domine :
 63 → 63 ms.
 
+### 4.4 Répétabilité au soufflet et intervalles (moteur v45, 10/10/2026)
+
+Suite d'un audit du 10/10/2026 : la même note change de 0,3 à 3 ¢ d'un palier
+de soufflet au suivant. Le moteur, dans un palier, est répétable à 0,05 ¢ ; la dispersion vient surtout de la
+réalité (sens du soufflet, pression), un peu de la lecture (instant, fenêtre). Cinq étapes ; pour le moteur, les tests 58 et 59 de `dsp.test.mjs`, qui
+échouaient avant. Le palier stable (étape 2) et l'affichage à l'établi (étape 4) sont dans l'interface
+v2, pas dans cette page ; ici, la page montre le sens du soufflet et les battements d'intervalles.
+
+**Sens du soufflet (étape 1).** Le son ne dit pas le sens ; il dit quand il change. Le moteur part du sens de la
+grille et bascule à chaque inversion entendue : un creux franc (`watchReversal`) ou un silence de moins de 1,5 s
+(un silence fait aussi un creux à la remontée : une seule inversion). Après un silence plus long, le musicien
+s'est arrêté : retour au sens de la grille. Une grille qui change de sens pendant que le son tient vaut pour la
+prochaine inversion (le tiré validé, la séquence passe au poussé avant que le soufflet ne s'inverse). Synthèse :
+creux de 15 dB / 80 ms et silence de 0,3 s comptés, battements de 0,6 et 2 Hz jamais. Session du 25/09 (0 à
+106 s) : 28 inversions entendues. Ewen ne sait plus s'il alternait tiré et poussé : on n'en tire rien sur le sens.
+
+**Palier stable avant la validation (étape 2).** Règle : 1,5 s d'images fines de l'anche visée (même note, même
+sens), son niveau propre à ±1 dB, pente de la hauteur sous 0,1 ¢/s ; la fenêtre pleine n'est plus demandée.
+Pourquoi 1,5 s : les images sont des moyennes de ~1 s de son, corrélées ; sur 1 s, la pente n'a qu'une ou deux
+valeurs indépendantes. Les 27 paliers de la session (anche seule, mode Automatique, tolérance ouverte : on juge
+la règle, pas la justesse) :
+
+| règle | paliers validables | délai médian | écart lu − palier (médiane / max) |
+|---|---|---|---|
+| avant, rapide (fenêtre 1,37 s + 1 s) | 10 / 27 | 2,30 s | 0,03 / 5,13 ¢ |
+| avant, normal (2,73 s + 1 s) | 3 / 27 | 3,76 s | 0,05 / 0,29 ¢ |
+| v45, palier de 1,5 s (rapide ou normal) | 10 / 27 | 2,14 s | 0,05 / 0,34 ¢ |
+| essai, palier de 1 s | 14 / 27 | 1,79 s | 0,12 / 0,67 ¢ |
+
+Le but de l'audit (plus de 50 %) n'est pas atteint : 15 paliers sur 27 durent moins de 1,9 s (1,5 s plus les
+0,4 s de la première valeur fine). Avec 1 s, la dérive d'attaque du Fa#3 (+0,13 ¢/s) était validée 0,67 ¢ trop
+bas et un son qui enfle de 2 dB/s passait pour un palier : refusé. Il faut tenir la note 2 s. Le niveau du palier
+est celui de l'anche (son amplitude), pas du son entier : une musette MM bat de 5 dB et se valide en 1,9 s.
+
+**Pente de phase (étape 3).** Cause de la gigue de 0,1 ¢ vue par l'audit : la fenêtre FFT ne grandit que par
+puissances de 2 (2,4 s reçues, 1,37 s dans la fenêtre) et la pente n'en lit que 15 à 85 %. À fenêtre pleine,
+Précis lisse bien plus que Normal (0,006 contre 0,037 ¢, soufflet ±0,3 ¢ à 0,6 Hz) : les 0,10 ¢ de l'audit
+comptaient les images de croissance. Essayé : tout le son reçu (spectre complété de zéros) et 5 à 95 %.
+
+| soufflet ±0,3 ¢, RSB 30 et 15 dB | 0,2 Hz | 0,6 Hz | 1 Hz | 1,5 Hz |
+|---|---|---|---|---|
+| normal, croissance, avant → essai | 0,27 → 0,27 | 0,17 → 0,10 | 0,15 → 0,11 | 0,09 → 0,05 |
+| normal, fenêtre pleine, avant → essai | 0,17 → 0,16 | 0,038 → 0,005 | 0,017 → 0,000 | 0,007 → 0,003 |
+
+Sur les 18 passages, en revanche, tout se dégrade : P16 (anche seule) 0,01 → 0,11 ¢ (les bords de la fenêtre
+sont pollués sur le réel : l'IFFT est circulaire et le noyau du masque mêle les deux bouts) ; P10 et P11 (8'+ à
+24 ¢) 0,05 → 1 ¢ : une anche qui descend vraiment de 2,6 ¢/s est lue en retard par une moyenne plus longue. Avec
+15 à 85 % sur tout le son reçu : P10 et P11 toujours à 1 à 1,5 ¢. Ce qui est réel ne se lisse pas : l'estimateur
+ne change pas. Reste un diagnostic (`v.regressionPhase`, `g.recu` : fenêtre, son lu, son reçu) et sa carte.
+
+Répétabilité mesurée sur les 27 paliers (référence de l'audit : régression de phase sur 0,25 s) : moteur
+identique, écart type dans un palier 0,050 ¢ (médiane), moteur − référence 0,06 ¢ (médiane). Ce qui change :
+la valeur VALIDÉE n'est plus lue n'importe quand (écart au palier 5,1 → 0,34 ¢ au plus, en rapide).
+
+**À l'établi (étape 4).** Sous le chiffre d'Accorder (luthier) et sur la carte lecture de L'anche : la
+dispersion de la mesure sur sa fenêtre (écart type, étendue), le niveau en dB, une consigne (±1 dB autour du
+niveau de la mesure « avant » de la case) et, quand la pente ¢/dB de l'anche est sûre (au moins 3 dB, R² > 0,5),
+la hauteur ramenée à ce niveau, avec son incertitude (erreur type de la pente × écart de niveau). Rien avec deux
+anches (le niveau bat) ni sans pente. Synthèse : hauteur −0,2 ¢/dB, niveau de 0 à 6 dB et retour : pente lue
+−0,199 ¢/dB (R² 0,99) ; au sommet, mesuré −1,05 ¢, ramené −0,46, vrai −0,39 ¢.
+
+Pressions de repère pour la soufflerie (Ewen : « le problème, c'est de savoir les vraies pressions de jeu ») :
+les laboratoires mesurent les anches d'accordéon et d'orgue à anches vers 0,6 kPa (6 mbar), balayages de 0,05 à
+0,85 kPa (Cottingham, « Reed vibration and pitch bending in western free reed instruments », cours CCRMA, 2013,
+d'après Busha 1999 et Coyle 2009) ; dans un harmonium réel, la chambre des anches est entre 0,2 et 1,5 kPa
+(Puranik et Scavone, « Clamped bar model for free reeds », Forum Acusticum, Turin, 2023). Rien de publié n'a été
+trouvé par registre ni par zone (graves, médium, aigus) pour l'accordéon. Les documents de conception de la
+thèse prennent 1 à 3 kPa de jeu et 3 à 5 kPa de pointe : hypothèses, pas des mesures. Incertitude : un facteur 2
+à 3. La mesure qui manque : le capteur XGZP6847 au banc, ou un tube en U (1 mm d'eau = 10 Pa).
+
+**Battements d'intervalles (étape 5).** Pour chaque paire d'anches de la note à un intervalle connu (quinte 3:2,
+quarte 4:3, tierces 5:4 et 6:5, octave 2:1, douzième 3:1, double octave 4:1), b = m f_b − n f_h, mesuré par les
+deux fréquences, voulu par les cibles (le tempérament réglé décide : égal par défaut, quinte rétrécie de
+1,955 ¢ ; Cordier, quinte pure : 0), vérifié par l'enveloppe du partiel commun quand la note dure deux périodes.
+Synthèse : Do4 + Sol4 égal 0,886 Hz (enveloppe 0,890), quinte pure 0,000, Do-Mi-Sol tierce −10,38 Hz et tierce
+mineure Mi-Sol +17,79 Hz. Réel, registre Q :
+
+| passage | basse | haute | quinte mesurée | voulue (égal) |
+|---|---|---|---|---|
+| P12 | Ré#4 +5,0 ¢ | La#4 +15,7 ¢ | −4,8 Hz | +1,05 Hz |
+| P13 avant l'inversion | | | −9,5 Hz | +1,05 Hz |
+| P13 après | | | −5,6 Hz | +1,05 Hz |
+| P14 | La#3 | Fa4 | +3,7 Hz | +0,79 Hz |
+
+L'audit trouvait ces quintes pures : il lisait la quinte de l'octave au-dessus (Ré#5, La#5 à +7,0 ¢). Dans un
+accord de main gauche, les deux sonnent ; le moteur, en registre Q, mesure l'octave grave, et chaque anche y est
+confirmée par la vérité ESPRIT à 0,01 ¢ près (§ 3). L'enveloppe ne confirme rien sur ces passages (2,7 s,
+plusieurs anches dans la bande).
+
+**Mesures de contrôle.** Les 18 passages (`compare_poly.py`, 3 réglages) : sortie identique octet pour octet à la
+v41 après chaque étape retenue. Charge DSP (quatre sons de 8 s, médiane de 5, après chauffe) : 91 à 116 ms par
+seconde de son avant, 95 à 126 après, dans le bruit de la machine (±10 % d'un passage à l'autre).
+
+Outils : `test/outils/paliers.py` (paliers de soufflet, référence courte, de l'audit), `test/outils/intervalles_reels.mjs`.
+
 ## 5. Verdict
 
 **Utilisable à l'établi aujourd'hui** (avec le registre juste choisi à la main) :

@@ -22,7 +22,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '42';
+const APP_VERSION = '45';
 function versionMismatch(what, got) {
   const b = document.getElementById('versionBanner');
   if (!b) return;
@@ -369,7 +369,8 @@ async function listDevices() {
 // Le moteur reçoit la configuration complète et ignore les clés purement UI :
 // une seule liste de champs à maintenir (les valeurs par défaut ci-dessus).
 function engineCfg() {
-  return { ...cfg };
+  // Sens du soufflet de la grille (v45) : le moteur en part et bascule à chaque inversion entendue.
+  return { ...cfg, sens: cfg.bellows === 'P' ? 'poussé' : 'tiré' };
 }
 function pushConfig() {
   saveCfg();
@@ -385,6 +386,8 @@ function onTick(t) {
   state.rawTick = t;
   showTwoReeds(t);
   showBeat(t);
+  showIntervals(t);
+  showSens(t);
   drawVu(t);
   showChord(t);
   if (state.frozen) {
@@ -1964,6 +1967,8 @@ function setBellows(dir) {
   $('btnTirer').classList.toggle('active', dir === 'T');
   $('btnPousser').classList.toggle('active', dir === 'P');
   saveCfg();
+  // Le moteur reprend ce sens (v45) : sans réglage de cible, rien n'est remis à zéro.
+  worker?.postMessage({ type: 'config', cfg: { sens: dir === 'P' ? 'poussé' : 'tiré' } });
   refreshReport();
   beep(dir === 'T' ? 660 : 880, 0.04);
 }
@@ -2723,6 +2728,34 @@ function showBeat(t) {
     : b.kind === 'modulation' ? 'modulation (soufflet ?)' : 'deux anches';
   el.textContent = `〰 ${(hz * 60).toFixed(0)} bat/min · ${hz.toFixed(2)} Hz · ${what}${b.sure || b.pairHz != null ? '' : ' ?'}`;
   el.classList.toggle('unsure', !(b.sure || b.pairHz != null));
+  el.classList.remove('hidden');
+}
+
+// Battements d'intervalles (moteur v45, battement.js measureIntervals) :
+// « quinte : bat +0,05 Hz · voulu +0,89 Hz », signe gardé (+ rétréci,
+// − élargi), voulu selon le tempérament réglé ; « · env 0,89 » quand
+// l'enveloppe du partiel commun le confirme.
+function showIntervals(t) {
+  const el = $('qIntervals');
+  if (!el) return;
+  const qs = !t.quiet && Array.isArray(t.intervalles) ? t.intervalles : [];
+  if (!qs.length) { if (!t.quiet) el.classList.add('hidden'); return; }
+  const hz = (x) => (x == null ? '—' : `${x < 0 ? '−' : '+'}${Math.abs(x).toFixed(Math.abs(x) < 10 ? 2 : 1).replace('.', ',')}`);
+  const txt = qs.map((q) => `${q.nom} : bat ${hz(q.mesure)} Hz · voulu ${hz(q.voulu)} Hz`
+    + (q.enveloppe?.sure ? ` · env ${q.enveloppe.hz.toFixed(2).replace('.', ',')}` : '')).join('   ');
+  if (el.textContent !== txt) el.textContent = txt;
+  el.classList.remove('hidden');
+}
+
+// Sens du soufflet que suit le moteur (v45) : « tiré · inversion 3 (creux) ».
+function showSens(t) {
+  const el = $('qSens');
+  if (!el) return;
+  const so = t.soufflet;
+  if (!so || (!t.sens && !so.inversions)) { el.classList.add('hidden'); return; }
+  const src = { grille: 'grille', creux: 'creux', silence: 'silence' }[so.source] ?? '';
+  const txt = `soufflet : ${t.sens ?? 'sens inconnu'}${so.inversions ? ` · inversion ${so.inversions}` : ''}${src ? ` (${src})` : ''}`;
+  if (el.textContent !== txt) el.textContent = txt;
   el.classList.remove('hidden');
 }
 

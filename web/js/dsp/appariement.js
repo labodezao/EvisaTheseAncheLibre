@@ -125,6 +125,25 @@ export function clusterRefine(chosen, az, calib, div, expectedMt = null, foreign
   });
 }
 
+// Diagnostic de la pente de phase (section recherche de L'anche ; audit du
+// 10/10/2026, étape 3). Rien ici ne change la mesure. { appliquee (pente
+// d'amas faite), W (fenêtre FFT), fenetreS, luS (le son que la pente lit : 15
+// à 85 % de la fenêtre), recu et recuS (le son reçu depuis le début du
+// régime) }. Pendant que la fenêtre grandit (après une attaque, une
+// inversion, une marche), W ne prend que la plus grande puissance de 2 du son
+// reçu : 2,4 s reçues, 1,37 s dans la fenêtre, 0,96 s lues. C'est la cause
+// de la gigue de 0,1 ¢ que l'audit voyait sur les paliers courts. Lire tout le
+// son reçu a été essayé (docs/POLYPHONIE-ESSAIS.md, § 4.4) : plus régulier sur
+// synthèse, mais en retard sur une anche réelle qui dérive (P10 : 8'+ qui
+// descend de 2,6 ¢/s, 1 ¢ d'écart), et les bords de la fenêtre (5 à 15 %) sont
+// pollués sur le réel : on ne le fait pas.
+export function diagPhase(comp, az) {
+  if (!comp || !az) return null;
+  const s = az.W / az.srd;
+  return { appliquee: !!comp.cluster, W: az.W, fenetreS: s, luS: comp.cluster ? 0.7 * s : null,
+    recu: az.recu ?? az.W, recuS: (az.recu ?? az.W) / az.srd };
+}
+
 // Écart minimal, en cases de la fenêtre courante (1 case = 1/T), entre la
 // raie du 8' et celle, connue, du 16' sur un même partiel (cf. octaveFuse).
 // À 2 cases, le lobe principal de Hann (±2 cases) fait deux pics distincts,
@@ -316,6 +335,7 @@ export const methodesAppariement = {
       }
       if (best && az) clusterRefine([best], az, calib, div);
       this.fillVoice(expected[0], best, az?.W);
+      expected[0].regressionPhase = diagPhase(best, az);
       expected[0].beatMeas = 0;
       return expected;
     }
@@ -359,6 +379,7 @@ export const methodesAppariement = {
     if (az && !group.isSub) clusterRefine(chosen, az, calib, div, expected.map((v) => v.mt), group.octaveClash || octaveAjoutee ? claimed : null);
     for (let i = 0; i < expected.length; i++) {
       this.fillVoice(expected[i], chosen[i], az?.W);
+      expected[i].regressionPhase = diagPhase(chosen[i], az);
       expected[i].merged = !!chosen[i]?.claimed;
       if (!group.isHarmonic && this.prevF) {
         const key = `${group.key}:${expected[i].def.id}`;

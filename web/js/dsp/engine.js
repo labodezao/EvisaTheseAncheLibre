@@ -15,7 +15,7 @@ import {
 import { withPartials, logResample, methodesBattement } from './battement.js';
 import { methodesAppariement, OCTAVE_SEP_BINS } from './appariement.js';
 import { MP_ALERT_S, methodesAnchesMp } from './anches-mp.js';
-import { methodesStabilite } from './stabilite.js';
+import { methodesStabilite, SENS_SILENCE_S } from './stabilite.js';
 import { partialPresent, targetSpacing, methodesPlan } from './plan.js';
 import { methodesConfondu } from './confondu.js';
 // Exportées par engine.js depuis la v28 (API gelée), rangées dans plan.js.
@@ -23,12 +23,14 @@ export { strobePartials, unisonHarmonic } from './plan.js';
 
 // Version du moteur : doit être celle de la page et de app.js (cf. le
 // contrôle de cohérence dans app.js et le test dans dsp.test.mjs).
-export const ENGINE_VERSION = '42';
+export const ENGINE_VERSION = '45';
 
 const HOP = 4096;             // période d'analyse (~85 ms à 48 kHz)
 const MAXWIN = { fast: 128, normal: 256, precise: 512 };
 // Réglages sans effet sur les cibles : les changer ne remet pas la mesure à zéro.
-const NO_RETUNE = new Set(['gateDb', 'tolCents', 'autoFreeze', 'readout', 'devMode', 'bellows', '_v']);
+// Le sens du soufflet de la grille (`sens`, et `sensN`, compteur que
+// l'interface fait avancer pour le reposer) non plus : il ne change pas l'anche mesurée.
+const NO_RETUNE = new Set(['gateDb', 'tolCents', 'autoFreeze', 'readout', 'devMode', 'bellows', '_v', 'sens', 'sensN']);
 // Reprise après un silence (inversion du soufflet) : on ne garde que ce qui
 // suit la reprise (8 échantillons décimés ≈ une image).
 const RESUME_KEEP = 8;
@@ -87,6 +89,7 @@ export class Engine {
     this.stab = new Map();      // sortie stabilisée par anche (cf. stabilize)
     this.reedSeen = new Map();  // auto-anches : persistance des anches d'unisson
     this.lastFine = null;       // dernière mesure fine de la voix de base (maintien en creux de battement)
+    this.sensDeLaGrille(0);     // sens du soufflet (stabilite.js, SENS_SILENCE_S)
   }
 
   get gate() { return Math.pow(10, (this.cfg.gateDb ?? -70) / 20); }
@@ -100,6 +103,10 @@ export class Engine {
     Object.assign(this.cfg, patch);
     if (JSON.stringify([this.cfg.mode, this.cfg.register, this.cfg.chordDegrees, this.cfg.chordType]) !== before) this.chord = null;
     if (patch.beatCurve) this.cfg.beatCurve = { ...patch.beatCurve };
+    // La grille dit un sens (stabilite.js) : « non » à « poussé ? » (sensN) le
+    // pose tout de suite ; un pas d'un autre sens, à la prochaine inversion.
+    if (changed.includes('sensN')) this.sensDeLaGrille(this.samplesTotal / this.sr);
+    else if (changed.includes('sens')) this.grilleChange(this.samplesTotal / this.sr);
     if (changed.every((k) => NO_RETUNE.has(k))) return;
     // Tout changement de cible invalide les traqueurs.
     this.retune(true);
@@ -200,6 +207,7 @@ export class Engine {
     this.rmsAcc = 0; this.rmsN = 0;
     const peak = this.peakAcc; this.peakAcc = 0;
     const quiet = level < this.gate;
+    this.lastQuiet = quiet;     // la grille qui change de sens (stabilite.js, grilleChange)
     const calib = 1 + (c.calibrationPpm || 0) * 1e-6;
 
     // En silence, la détection de note n'a rien à détecter : la FFT large
@@ -354,6 +362,17 @@ export class Engine {
         if (this.silentSince == null) this.silentSince = tNow;
         this.reversal = false;
       } else if (this.silentSince != null || this.reversal) {
+        // Sens du soufflet (stabilite.js) : un creux franc ou un silence
+        // court est une inversion ; un silence long, un arrêt.
+        // Un silence fait aussi un creux, vu à la remontée : une seule inversion.
+        const silenceS = this.silentSince != null ? tNow - this.silentSince : null;
+        if (silenceS == null) {
+          if (!(this.repriseSilenceT >= (this.reversalDipT ?? -Infinity))) this.basculerSens('creux', tNow);
+        } else {
+          if (silenceS < SENS_SILENCE_S) this.basculerSens('silence', tNow, silenceS);
+          else this.sensDeLaGrille(tNow);
+          this.repriseSilenceT = tNow;
+        }
         this.silentSince = null;
         this.reversal = false;
         for (const tr of this.trackers.values()) tr.restart(RESUME_KEEP);
@@ -521,6 +540,9 @@ export class Engine {
         srd: t.srd,
         W: az?.W ?? 0,
         fill: az?.fill ?? 0,
+        // Échantillons reçus depuis le début du régime (zoom.js analyze ;
+        // diagnostic : la fenêtre W n'en lit que la plus grande puissance de 2).
+        recu: az?.recu ?? 0,
         spectrum: az ? az.mags : null,
 
         voices,
@@ -919,6 +941,7 @@ export class Engine {
       this.lastVoiceT = this.samplesTotal / this.sr;
     }
     const beat = quiet ? null : this.measureBeat(groups);
+    const intervalles = quiet ? null : this.measureIntervals(groups);
 
     return {
       type: 'tick',
@@ -932,6 +955,12 @@ export class Engine {
       // Mode Automatique : partiels en désaccord depuis plus de 1,5 s → sans
       // doute deux anches. { k, kBase, cents } ou null.
       beat,
+      // Battements d'intervalles (battement.js, measureIntervals) : pour chaque
+      // paire d'anches à un intervalle connu (quinte 3:2, octave 2:1…) :
+      // { bas, haut, demiTons, m, n, nom, fBas, fHaut, mesure (m f_b − n f_h,
+      // Hz, signe gardé), voulu (même chose sur les cibles), partiel (Hz),
+      // enveloppe: { hz, conf, depth, sure } | null } ; null sans paire.
+      intervalles,
       chord: this.chordDegrees() && this.chord
         ? { rootPc: this.chord.rootPc, rootMidi: this.chord.rootMidi, notes: this.chord.notes,
           type: this.chord.type ?? null } : null,
@@ -955,6 +984,12 @@ export class Engine {
       // recherche de L'anche : { midi, groupes: [{ key, center, k, f,
       // present, hit, miss, absent }] } ou null sans note imposée.
       noteImposee: this.lockDiag ?? null,
+      // Sens du soufflet (stabilite.js) : 'tiré', 'poussé' (donnée), ou null
+      // sans grille ; `soufflet` : { source : grille | creux | silence,
+      // inversions (comptées depuis le lancement), depuis (s), silenceS,
+      // grille (le sens que la grille dit), grilleT (quand elle l'a dit) }.
+      sens: this.souffletEtat.sens,
+      soufflet: { ...this.souffletEtat },
       attack: this.lastAttack,
       // Les groupes cachés (traqueurs de fusion) ne sont pas transmis :
       // ils servent au calcul, pas à l'affichage.
