@@ -490,6 +490,69 @@ Basses en accord « 1 » seul : écarté, `chordFromPeaks` à un seul degré pre
 Automatique inchangés (65 → 65, 73 → 67, 63 → 60, 83 → 80) ; accord d'une anche par note 74 → 75 ;
 quinte en 16'+8' 76 → 95 (deux fois plus d'anches) ; Do majeur Stradella en 16'+8' 90 → 133.
 
+### 4.7 Basses 16'+8'+4', anche qui ne sonne pas (moteur v55, 11/10/2026)
+
+Ewen : « 3 anches par bouton ; par exemple pour les basses : Do1, Do2 et Do3 ; pour les accords : Do3
+et Sol3 ». Une basse de diato fait donc sonner trois anches à l'octave (registre 16'+8'+4'), un accord
+deux (fondamentale et quinte, une anche chacune). Les règles du 16'+8' n'étaient pas étendues au 4' :
+test 64 de `dsp.test.mjs` (Do2+Do3+Do4, La1+La2+La3, Sol#2+Sol#3+Sol#4 en Normal, Do en Rapide ; une
+anche à +6 ¢ à chaque essai, images après 3 s ; deux accords Do+Sol en 16'+8'+4') : 5 cas sur 6 en
+échec sur la v54, tous passent.
+
+**Les mécanismes.**
+
+1. Le 8' du milieu a une voisine au-dessus (partiels impairs, `avoidEven`) et une au-dessous : tous
+   ses partiels, impairs compris, sont des partiels pairs du 16'. Il n'était pas `octaveClash` et
+   lisait la raie commune : 8' juste lu +6,0 ¢ sans marge quand le 16' était à +6 ¢ (Sol#3, 23 images
+   sur 23). Maintenant lu comme le 8' d'un 16'+8' : séparé, ou estimé avec sa marge.
+2. Le 4' prenait pour référence le 8' (une octave plus bas), lu sur une raie partagée : sa phase est
+   celle d'un mélange. 4' juste lu +4,5 ¢ ±0,9 quand le 8' était à +6 ¢ (le battement lisait la vitesse
+   du 8'), −1,3 ¢ ±0,2 quand le 16' était à +6 ¢. La référence est maintenant le 16', deux octaves plus
+   bas (`rapport` 4). Sur le partiel k du 4', trois raies : le 16' (4k f16), le 4' et le 8' (2k f8) ;
+   le 4' confondu peut être avec l'une ou l'autre, et sa lecture ne dit pas laquelle (16' à +6 ¢, 8' et
+   4' justes, leurs raies en partie annulées : le 4' était lu sur la raie du 16'). Par l'octave,
+   l'intervalle couvre les deux places ; le battement seulement sur les bandes où le 8', marge comprise,
+   fait moins d'un quart de tour sur la fenêtre, et sa marge compte cet écart. Un 8' faux ou mal connu
+   laisse le 4' « à confirmer », jamais faux.
+3. En Rapide, les partiels 2 et 3 du 4', posés sur la vraie raie du 8', passaient pour le 4' séparé et
+   confirmé (+2,0 ¢ sans marge) : les raies connues étaient celles de l'appariement (le 8' avant sa
+   séparation), et un 8' sans mesure à une image n'en avait plus. Comme pour un accord (§ 4.6) : les
+   raies de cette image, et la dernière valeur d'une anche qui a un trou d'une image.
+4. Octave qui ne bat pas, partiel par partiel : sur le 4' juste en Rapide, les partiels 3 et 4 avaient
+   ρ ≈ 5 mais R̄ = 0,99, le partiel 6 ρ ≈ 22 mais R̄ = 0,2 ; aucun des deux critères ne tenait sur
+   TOUS les partiels, et l'ajustement, sans minimum, finissait au bord de la grille (−4,8 ¢ ±0,1 pour
+   un 4' juste, 11 images sur 23). Chaque partiel dit maintenant, à sa façon, que rien n'y tourne.
+
+| Test 64 (276 lectures par cas) | dans leur marge v54 → v55 | désignées à tort v54 → v55 | tout juste, validables v54 → v55 |
+|---|---|---|---|
+| Do2+Do3+Do4, Normal | 259 → 276 | 15 → 0 | 69 → 62 / 69 |
+| La1+La2+La3, Normal | 274 → 276 | 2 → 0 | 69 → 62 / 69 |
+| Sol#2+Sol#3+Sol#4, Normal | 240 → 276 | 36 → 0 | 69 → 68 / 69 |
+| Do2+Do3+Do4, Rapide | 216 → 276 | 39 → 0 | 69 → 69 / 69 |
+
+Ce que ça coûte : quand tout est juste, le 4' n'est pas validable sur quelques images de plus (sa
+marge compte l'incertitude du 8').
+
+La désaccordée est désignée partout (69 / 69). Les « à confirmer » : le 4' à côté d'un 16' ou d'un 8'
+faux (limite de ce que le son dit). Accord Do+Sol en 16'+8'+4' par note : 4' justes, 0 lecture hors
+marge (6 sur 46 en v54 avec le 16' de Do à +6 ¢) ; ils restent « à confirmer » tant que le 8' de leur
+note n'est pas connu à un quart de tour près.
+
+**Réel** (les 18 passages, `compare_poly.py` en Automatique, registre, Auto-anches et accords) : sortie
+v55 identique octet pour octet à la v54 (`avant_apres_poly.py` : aucune dégradation) ; `npm run test:poly`
+aussi. Aucun enregistrement réel d'une basse en 16'+8'+4' : à faire (§ 6, un bouton de basse de diato,
+poussé puis tiré, 6 s).
+
+**Anche qui ne sonne pas** (Ewen : il bouchait une anche faute d'accordeur polyphonique ; pas de bouton
+« anche bouchée »). Test 65, musette de Si4 dont la 8'− ou la 8'+ ne sonne pas : elle n'est jamais lue
+(« — ») ; l'autre anche, qui n'est pas sa voisine, est validable à ±1 ¢ sur toutes les images ; le 8',
+sa voisine, garde la marge 3/(k T) de `margesProches` (±3,9 ¢ à Si4, ±1,9 ¢ à Si5), qui contient la
+vérité. Cette marge est physiquement nécessaire : dans la fenêtre, une anche muette et une anche à
+moins de 3/(k T) Hz de sa voisine, cachée dans son lobe, font le même spectre ; sans bouchage, c'est le
+cas courant pendant l'accordage. L'enveloppe ne les distingue pas sous un soufflet vivant (§ 4.5), et
+une anche cachée bien plus forte que sa voisine ne laisse aucun battement visible. Pour aller plus loin
+il faudrait un estimateur sur toute la note (deux raies dans le lobe), pas un changement de règle.
+
 ## 5. Verdict
 
 **Utilisable à l'établi aujourd'hui** (avec le registre juste choisi à la main) :

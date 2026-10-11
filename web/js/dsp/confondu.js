@@ -191,8 +191,10 @@ function meilleur(bandes, grille, i0, i1, dt, t0) {
 // Estimation par le battement. `ref` : traqueur du 16' (partiel impair
 // `mRef`, fondamentale mesurée `fRef`) ; `bandes` : [{ k, t }] traqueurs des
 // partiels k de l'anche confondue ; `Tw` : fenêtre courante de sa mesure (s).
-// Rend { d (Hz, f = 2 fRef + d), marge (Hz), T (s) } ou null.
-export function estimeBattement({ ref, mRef, fRef, bandes, Tw }) {
+// Rend { d (Hz, f = rapport fRef + d), marge (Hz), T (s) } ou null.
+// `rapport` : la référence est `rapport` fois plus grave (2 : une octave ; 4 :
+// le 16' d'un 16'+8'+4' pour le 4'), f = rapport fRef + d.
+export function estimeBattement({ ref, mRef, fRef, bandes, Tw, rapport = 2 }) {
   if (!ref || !(fRef > 0) || !(Tw > 0) || !bandes.length) return null;
   const srd = ref.srd, L = CONF_BANDE_HZ;
   const dmax = 1 / Tw;
@@ -238,7 +240,7 @@ export function estimeBattement({ ref, mRef, fRef, bandes, Tw }) {
   const dt = D / srd, t0 = (D >> 1) / srd;
   const data = utiles.map(({ k, t }) => {
     const y = derniers(t, N);
-    const q = (2 * k) / mRef;
+    const q = (rapport * k) / mRef;
     const fr = q * ref.fc - t.fc;
     for (let n = 0; n < N; n++) {
       const p = -(q * psi[n] + (2 * Math.PI * fr * n) / srd), c = Math.cos(p), s = Math.sin(p);
@@ -306,9 +308,16 @@ export function estimeBattement({ ref, mRef, fRef, bandes, Tw }) {
   // le 16' sur tous ses partiels ne se distingue pas d'une octave juste (comme
   // pour la méthode « par l'octave », il faut que le 8' sonne). Même chose
   // quand l'ajustement ne fait pas un quart de tour sur la note (CONF_TOUR_VU).
-  const immobile = (rho.length > 0 && rho.length === data.length && rho.every((q) => q.rho > CONF_RHO_IMMOBILE))
-    || Math.abs(kmax * tout.d * T) < CONF_TOUR_VU
-    || (rho.length === data.length && rho.every((q) => q.Rbar >= CONF_RBAR_IMMOBILE));
+  // Partiel par partiel (16'+8'+4', 11/10/2026) : chaque partiel dit, à sa
+  // façon, que rien n'y tourne (pas de reste à moins de 20 dB, ou des points
+  // qui n'ont pas tourné). Mesuré (synthèse, 4' d'un 16'+8'+4' juste, en
+  // Rapide) : partiels 3 et 4 à ρ ≈ 5 mais R̄ = 0,99, partiel 6 à ρ ≈ 22 mais
+  // R̄ = 0,2 ; aucun des deux critères ne tenait sur tous les partiels, et
+  // l'ajustement, sans minimum, finissait au bord de la grille (−4,8 ¢ ±0,1
+  // pour un 4' juste).
+  const immobile = (rho.length > 0 && rho.length === data.length
+      && rho.every((q) => q.rho > CONF_RHO_IMMOBILE || q.Rbar >= CONF_RBAR_IMMOBILE))
+    || Math.abs(kmax * tout.d * T) < CONF_TOUR_VU;
   if (immobile) {
     const Ai = CONF_TOUR_IMMOBILE / (kmax * T);
     return { d: 0, marge: Math.hypot(Ai, A), T, kmax, rho, immobile: true,
@@ -416,6 +425,51 @@ export const CONF_PRECISION = 0.1;
 // 16' sur laquelle l'estimation s'appuie (CONF_PRECISION, la précision visée
 // d'une mesure séparée : sur synthèse, le 16' bouge de 0,05 à 0,1 ¢ quand sa
 // fenêtre double ou que le soufflet ondule).
+// Anche de référence d'une anche confondue (`g`, octaveClash) : sa voisine
+// une octave plus bas, mesurée seule sur un partiel impair (le 16' d'un
+// 16'+8'), rapport 2. Registre 16'+8'+4' : la voisine du 4' est le 8', lui-même
+// lu sur une raie partagée avec le 16' (octaveClash, plan.js) ; sa phase est
+// celle d'un mélange, pas une référence. On descend alors jusqu'à l'anche lue
+// seule (le 16', rapport 4) ; celles entre les deux (`inter`, le 8') sont des
+// raies de plus dans les bandes (cf. intermediaire). De même pour
+// chaque note d'un accord en 16'+8'+4' (cfg.chordVoices). Pure.
+function referenceOctave(g, groups) {
+  const seule = (x) => x !== g && !x.isHarmonic && !x.isSub && x.voices.length === 1;
+  const dessous = (y) => groups.find((x) => seule(x) && x !== y && Math.abs(centsBetween(2 * x.center, y.center)) < 50);
+  const h = dessous(g);
+  if (!h) return null;
+  if (!h.octaveClash) return { h, rapport: 2, inter: [] };
+  const inter = [h];
+  for (let b = dessous(h); b; b = dessous(b)) {
+    if (!b.octaveClash) return { h: b, rapport: 2 ** (inter.length + 1), inter };
+    inter.push(b);
+  }
+  return { h, rapport: 2, inter: [] };
+}
+
+// Le 8' d'un 16'+8'+4' (les anches intermédiaires, `inter`) vu du 4' : sa
+// place ramenée à la fondamentale du 4' (2 f8) et son incertitude, { f, m }
+// (Hz) ; s'il y en a plusieurs, la plus éloignée de l'octave du 16'. null si
+// aucune ne sonne. Pure.
+function intermediaire(g, inter, fOct, Tw) {
+  let x = null;
+  for (const i of inter) {
+    const w = i.voices[0];
+    if (!w?.tracked || !(w.fMeas > 0)) continue;
+    const q = Math.round(g.center / i.center);
+    const Ti = i.W > 0 ? i.W / i.srd : Tw;
+    // Hauteur de l'intermédiaire et son incertitude (Hz, à sa fondamentale) :
+    // son estimation si elle est confondue, sa résolution si elle l'est sans
+    // estimation, la précision visée si elle est séparée.
+    const estimee = w.confondu && w.fEstimee > 0;
+    const f = estimee ? w.fEstimee : w.fMeas;
+    const m = estimee ? f * (2 ** (w.margeCents / 1200) - 1)
+      : w.merged ? 2 / (Ti * (i.kTrack || 1)) : f * (2 ** (CONF_PRECISION / 1200) - 1);
+    if (!x || Math.abs(q * f - fOct) > Math.abs(x.f - fOct)) x = { f: q * f, m: q * m };
+  }
+  return x;
+}
+
 function margeTotale(est) {
   return Math.hypot(centsBetween(est.f + est.marge, est.f), CONF_PRECISION);
 }
@@ -425,12 +479,11 @@ export const methodesConfondu = {
   // Estimation d'une anche à l'octave d'une autre, mesurée une octave plus
   // bas : { f, marge (Hz), methode, signeConnu } ou null.
   estimationOctave(g, groups) {
-    const h = groups.find((x) => x !== g && !x.isHarmonic && !x.isSub && x.voices.length === 1
-      && Math.abs(centsBetween(2 * x.center, g.center)) < 50);
+    const { h, rapport, inter } = referenceOctave(g, groups) ?? {};
     const r = h?.voices[0];
     const Tw = g.W > 0 ? g.W / g.srd : 0;
     if (!r?.tracked || r.merged || r.coarse || !(Tw > 0)) return null;
-    const fOct = 2 * r.fMeas;
+    const fOct = rapport * r.fMeas;
     let est = { f: fOct, marge: 1 / Tw, methode: 'octave', signeConnu: false };
     // Accord (cfg.chordVoices) : la raie d'une AUTRE note dans la bande d'un
     // partiel (appariement.js, octaveFuse, `etrangeres`), à moins de deux
@@ -448,6 +501,25 @@ export const methodesConfondu = {
     //    elle peut être entre les deux. La marge couvre
     //    l'écart de la lecture à chacune, plus deux cases (mesuré : 16' de la
     //    quinte à +6 ¢, 8' juste, lu « +6,0 ¢ ±1,1 » sans cela).
+    // 16'+8'+4' : sur le partiel k du 4', trois raies, le 16' (4k f16, la
+    // référence), le 4', et le 8' (2k f8), à k D de la référence (D = |2 f8 −
+    // 4 f16|, U son incertitude). Le 4' confondu est à moins de deux cases
+    // d'UNE des raies connues, celle du 16' ou celle du 8', et sa lecture ne
+    // dit pas laquelle (mesuré : 16' à +6 ¢, 8' et 4' justes, leurs raies en
+    // partie annulées, le 4' lu sur la raie du 16').
+    //  - Par l'octave : l'intervalle couvre les deux places, plus deux cases.
+    //  - Par le battement : seulement sur les bandes où le 8', marge comprise,
+    //    fait moins d'un quart de tour sur la fenêtre (CONF_TOUR_VU) : il y est
+    //    dans la raie fixe ; la marge compte D + U (le 4' peut être avec lui).
+    //    Ailleurs le 8' est une troisième raie qui tourne (mesuré, accord : 4'
+    //    juste lu +3,6 ¢ ±1,3 sur la vitesse du 8', ou +6,5 ¢ ±0,4 sur les
+    //    bandes où le 8', et le 4' avec lui, sortaient du filtre).
+    //  - Pas d'estimation par la raie commune (elle suppose deux raies).
+    // Un 8' loin de l'octave du 16' laisse donc le 4' « à confirmer » ; un 8'
+    // accordé sur le 16' rend le battement au 4'.
+    const x = inter.length ? intermediaire(g, inter, fOct, Tw) : null;
+    const D = x ? Math.abs(x.f - fOct) : 0, U = x ? x.m : 0;
+    if (x) est = { f: (fOct + x.f) / 2, marge: Math.max(1 / Tw, D / 2 + U + 2 / Tw), methode: 'octave', signeConnu: false };
     const etr = g.voices[0].etrangeres;
     const eBase = etr?.find((e) => e.k === (g.kTrack || 1) && e.f != null);
     if (eBase && Math.abs(eBase.lu - eBase.f) < 2 / Tw) {
@@ -459,21 +531,23 @@ export const methodesConfondu = {
       let bandes = [{ k: g.kTrack || 1, t: this.trackers.get(g.key) }];
       for (const k of this.plan.partials.get(g.key) ?? []) bandes.push({ k, t: this.trackers.get(`${g.key}p${k}`) });
       if (etr) bandes = bandes.filter((b) => !etr.some((e) => e.k === b.k && (e.f != null || e.ambigu)));
-      const b = bandes.length ? estimeBattement({ ref: this.trackers.get(h.key), mRef, fRef: r.fMeas, bandes, Tw }) : null;
-      if (b && b.marge < est.marge) {
+      if (x) bandes = bandes.filter((b) => b.k * (D + U) * Tw < CONF_TOUR_VU);
+      const b = bandes.length ? estimeBattement({ ref: this.trackers.get(h.key), mRef, fRef: r.fMeas, bandes, Tw, rapport }) : null;
+      const mb = b ? b.marge + D + U : Infinity;
+      if (b && mb < est.marge) {
         est = b.immobile
           // Octave qui ne bat pas : la limite de la durée jouée (cf. estimeBattement).
-          ? { f: fOct, marge: b.marge, methode: 'immobile', signeConnu: false, dureeS: b.T }
-          : { f: fOct + b.d, marge: b.marge, methode: 'battement', signeConnu: Math.abs(b.d) > b.marge, dureeS: b.T };
+          ? { f: fOct, marge: mb, methode: 'immobile', signeConnu: false, dureeS: b.T }
+          : { f: fOct + b.d, marge: mb, methode: 'battement', signeConnu: Math.abs(b.d) > mb, dureeS: b.T };
       }
       const lect = g.voices[0].lecturesOctave;
-      const rc = b && lect?.n === this.samplesTotal ? estimeRaie({ lectures: lect.liste, b, fBat: fOct + b.d, Tw }) : null;
+      const rc = b && !x && lect?.n === this.samplesTotal ? estimeRaie({ lectures: lect.liste, b, fBat: fOct + b.d, Tw }) : null;
       if (rc && rc.marge < est.marge) {
         est = { f: rc.f, marge: rc.marge, methode: 'raie', signeConnu: Math.abs(rc.f - fOct) > rc.marge };
       }
-      est.detail = detailEstimation(r.fMeas, mRef, Tw, b, rc);
+      est.detail = detailEstimation(r.fMeas, mRef, Tw, b, rc, rapport);
     } else {
-      est.detail = detailEstimation(r.fMeas, mRef, Tw, null, null);
+      est.detail = detailEstimation(r.fMeas, mRef, Tw, null, null, rapport);
     }
     return est;
   },
@@ -543,10 +617,10 @@ export const methodesConfondu = {
 //                    Rbar, sphi, dt (s entre deux points), centre [x, y],
 //                    points { x, y, i } }] } ou null (moins d'une seconde de son)
 //   raie           { f, marge, n } ou null (la raie commune ne passe pas)
-function detailEstimation(f16, mRef, Tw, b, rc) {
-  const fOct = 2 * f16;
+function detailEstimation(f16, mRef, Tw, b, rc, rapport = 2) {
+  const fOct = rapport * f16;
   return {
-    f16, mRef, Tw,
+    f16, mRef, Tw, rapport,
     octave: { f: fOct, marge: 1 / Tw },
     battement: b ? {
       f: fOct + b.d, d: b.d, marge: b.marge, A: b.A, B: b.B, S: b.S, T: b.T, kmax: b.kmax,

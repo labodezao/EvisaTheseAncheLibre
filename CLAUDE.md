@@ -91,7 +91,7 @@ n'a de sens que reliée à ce qui se passe dans le cadre du corps.
   pas de grec ni de symbole Unicode en texte (formule). Les sons d'Ewen arrivent dans `J:\multimedia à tier\INBOX` : les lire, ne
   jamais les déplacer. Le .lyx est en CRLF dans le dépôt : garder CRLF (sinon tout le fichier change).
 
-## Accordeur web (`web/`) — état et leçons (v54, 2026-10-11)
+## Accordeur web (`web/`) — état et leçons (v55, 2026-10-11)
 Déployé sur GitHub Pages depuis `main` (https://labodezao.github.io/EvisaTheseAncheLibre/).
 
 **Le moteur se développe dans PolyReed** (dépôt privé d'Ewen,
@@ -137,6 +137,11 @@ l'octave qui ne bat pas) ; raies des autres notes lues sur leur mesure de l'imag
 dans la bande d'un partiel (`v.etrangeres`, le 8' de la quinte à la douzième du 16' de la fondamentale) hors
 du battement ; note lue une octave trop haut quand le 16' a un fondamental faible (`abaisserOctaves`).
 Test 63 de `test/dsp.test.mjs`, `test/outils/accord_grille.mjs`.
+v55 (11/10/2026) : moteur repris de PolyReed v55 (POLYPHONIE-ESSAIS § 4.7). Registre 16'+8'+4' : le 8' du
+milieu lu comme le 8' d'un 16'+8' (`octaveClash`) ; le 4' estimé sur le 16' (`rapport` 4, le 8' entre les deux :
+marge qui couvre sa place, battement seulement où il est fixe) ; raies de l'image pour le 4' ; octave qui ne
+bat pas jugée partiel par partiel. Anche d'un MMM qui ne sonne pas : « — », sa voisine garde sa marge. Tests
+64 et 65 de `test/dsp.test.mjs`.
 Références d'Ewen : **Peterson** (strobe) et **Dirk's Accordion Tuner** (qu'il utilise).
 Ewen parle français, souvent en dictée vocale ; il teste en jouant sur SON
 accordéon et envoie des ZIP de session (WAV + CSV + JSON, bouton Exporter ;

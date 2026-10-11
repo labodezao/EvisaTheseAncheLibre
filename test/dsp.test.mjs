@@ -1819,5 +1819,113 @@ console.log('\nTest 63 — accord de main gauche, chaque note en 16\'+8\' : chaq
     `16' au fondamental à −15 dB : accord lu ${lu} (Do4 Mi3 Sol3), anches ${voixLues}`);
 }
 
+console.log('\nTest 64 — basses 16\'+8\'+4\' (main gauche diato, Ewen 11/10/2026 : « Do1, Do2 et Do3 ») : chaque anche lue, ou estimée avec une marge qui contient la vérité');
+{
+  // Ewen (11/10/2026) : un bouton de basse de diato fait sonner trois anches à
+  // l'octave. Les règles du 16'+8' étendues au 4' : le 16' sur un partiel
+  // impair ; le 8' a une voisine au-dessus (partiels impairs) ET au-dessous
+  // (tous ses partiels sont des partiels pairs du 16') : lu comme le 8' d'un
+  // 16'+8' (séparé ou estimé) ; le 4' a deux raies connues dans chaque bande,
+  // le 16' et le 8'. Mesuré avant (v54) : le 8' juste lu +6 ¢ sans marge
+  // quand le 16' était à +6 ¢ (il lisait la raie commune) ; le 4' juste lu
+  // +4,5 ¢ ±0,9 quand le 8' était à +6 ¢ (le battement lisait la vitesse du
+  // 8'), +2 ¢ sans marge en Rapide. Chaque essai : une anche à +6 ¢, les
+  // autres justes. Exigé : chaque lecture dans sa marge, la désaccordée
+  // désignée, aucune autre désignée à tort ; tout juste : 16', 8' et 4'
+  // validables presque partout. Un 4' voisin d'un 8' ou d'un 16' faux peut
+  // rester « à confirmer » (sa raie peut être celle de l'un ou de l'autre).
+  const cas = [[48, 'normal'], [45, 'normal'], [56, 'normal'], [48, 'fast']];
+  const ids = ['16', '8', '4'];
+  for (const [m, response] of cas) {
+    let lues = 0, attendues = 0, dedans = 0, desiVise = 0, nVise = 0, desiAutres = 0, autres = 0, justes = 0, tousJustes = 0, nTous = 0;
+    const pires = [];
+    for (let j = -1; j < 3; j++) {
+      const liste = [m - 12, m, m + 12].map((r, i) => ({ f: at(r, i === j ? 6 : 0), a: [1, 0.7, 0.5][i], vib: 0.1 }));
+      const x = sonAnches(liste, 5, { graine: 64 + m + j });
+      for (const im of rejoueAnches({ mode: 'register', register: 'LMH', lockNote: m, response }, x)) {
+        if (im.t < 3) continue;
+        ids.forEach((id, i) => {
+          attendues++;
+          const v = voixDe(im, id);
+          if (!v?.tracked) return;
+          lues++;
+          const g = im.r.groups.find((gg) => gg.voices.includes(v));
+          const c = v.confondu && v.fEstimee != null ? v.centsEstimesCible : v.dTargetCents;
+          const mg = v.confondu && v.margeCents != null ? v.margeCents : 0;
+          const vrai = cents(vraieHauteur(x, liste, i, im.t, g.W / g.srd), v.target);
+          if (Math.abs(c - vrai) <= Math.max(0.15, mg)) dedans++;
+          else if (pires.length < 3) pires.push(`${id} (${j < 0 ? 'tout juste' : `${ids[j]} faux`}) à ${im.t.toFixed(1)} s : ${c.toFixed(2)} ±${mg.toFixed(2)} pour ${vrai.toFixed(2)}`);
+          const desi = Math.abs(c) - mg > 1;
+          const juste = Math.abs(c) + mg <= 1;
+          if (i === j) { nVise++; if (desi) desiVise++; } else { autres++; if (desi) desiAutres++; if (juste) justes++; }
+          if (j < 0) { nTous++; if (juste) tousJustes++; }
+        });
+      }
+    }
+    assert(lues >= 0.98 * attendues && dedans === lues && desiVise === nVise && desiAutres === 0 && tousJustes >= 0.8 * nTous && justes >= 0.6 * autres,
+      `${noteLabel(m - 12).full} + ${noteLabel(m).full} + ${noteLabel(m + 12).full}, ${response} : ${lues}/${attendues} lectures, ${dedans} dans leur marge ; la désaccordée désignée ${desiVise}/${nVise}, une autre ${desiAutres}/${autres} ; tout juste : ${tousJustes}/${nTous} validables ; les autres justes ${justes}/${autres}${pires.length ? ` ; hors marge : ${pires.join(' ; ')}` : ''}`);
+  }
+  // Même règle pour chaque note d'un accord en 16'+8'+4' (Réglages > Mesure,
+  // « seize huit et quatre pieds ») : un 16' faux ne fait pas lire le 4' sur
+  // le 8' (mesuré avant : 4' juste lu +3,6 ¢ ±1,3, puis +7,5 ¢ ±0,1). Le 4'
+  // d'un accord reste « à confirmer » tant que le 8' n'est pas connu à un
+  // quart de tour près sur la fenêtre (limite, pas un défaut).
+  const LMH = [{ oct: 0, pied: "16'" }, { oct: 1, pied: "8'" }, { oct: 2, pied: "4'" }];
+  const reeds = [48, 55].flatMap((m) => [m, m + 12, m + 24]);
+  for (const j of [0, 3]) {
+    const liste = reeds.map((m, i) => ({ f: at(m, i === j ? 6 : 0), a: [1, 0.7, 0.5][i % 3], vib: 0.1 }));
+    const x = sonAnches(liste, 5, { graine: 70 + j });
+    let n = 0, hors = 0, desi = 0;
+    const pires = [];
+    for (const im of rejoueAnches({ mode: 'chord', chordType: 'quinte', chordDegrees: [0, 7], chordVoices: LMH }, x)) {
+      if (im.t < 3) continue;
+      reeds.forEach((m, i) => {
+        const v = im.vs.find((q) => q.midi === m);
+        if (!v?.tracked || i % 3 !== 2) return;
+        n++;
+        const g = im.r.groups.find((gg) => gg.voices.includes(v));
+        const c = v.confondu && v.fEstimee != null ? v.centsEstimesCible : v.dTargetCents;
+        const mg = v.confondu && v.margeCents != null ? v.margeCents : 0;
+        const vrai = cents(vraieHauteur(x, liste, i, im.t, g.W / g.srd), v.target);
+        if (Math.abs(c - vrai) > Math.max(0.15, mg)) { hors++; if (pires.length < 2) pires.push(`${noteLabel(m).full} ${c.toFixed(2)} ±${mg.toFixed(2)} pour ${vrai.toFixed(2)}`); }
+        if (Math.abs(c) - mg > 1) desi++;
+      });
+    }
+    assert(n > 40 && hors === 0 && desi === 0, `accord Do + Sol, chaque note en 16'+8'+4', ${noteLabel(reeds[j]).full} à +6 ¢ : les 4' justes, ${hors} lecture(s) hors marge sur ${n}, ${desi} désignée(s) à tort${pires.length ? ` ; ${pires.join(' ; ')}` : ''}`);
+  }
+}
+
+console.log('\nTest 65 — musette dont une anche ne sonne pas (bouchée ou muette) : elle est absente, l\'autre anche validée, la voisine garde sa marge');
+{
+  // Ewen (11/10/2026) : il bouchait une anche faute d'accordeur polyphonique ;
+  // pas de bouton « anche bouchée ». Une anche qui ne sonne pas n'a pas de raie
+  // (« — »), jamais de valeur. Ses voisines dans l'ordre des cibles gardent la
+  // marge 3/(k T) (margesProches) : dans la fenêtre, une anche muette et une
+  // anche à moins de 3/(k T) Hz de sa voisine (cachée dans son lobe, le cas
+  // courant pendant l'accordage quand on ne bouche plus rien) font le même
+  // spectre ; l'enveloppe ne les distingue pas sous un soufflet vivant
+  // (POLYPHONIE-ESSAIS § 4.5). Physiquement nécessaire : la voisine reste « à
+  // confirmer » à ±1 ¢ (Si4 : ±3,9 ¢), validée à une tolérance plus large ;
+  // l'anche qui n'est pas sa voisine est validée à ±1 ¢.
+  const cib = { '8-': midiToFreq(71) - 5.55, 8: midiToFreq(71), '8+': midiToFreq(71) + 5.55 };
+  for (const [muette, voisine, libre] of [['8-', '8', '8+'], ['8+', '8', '8-']]) {
+    const ec = { '8-': 0.3, 8: -0.2, '8+': 0.4 };
+    const ids = ['8-', '8', '8+'].filter((i) => i !== muette);
+    const liste = ids.map((i) => ({ f: cib[i] * 2 ** (ec[i] / 1200), H: H_GEN, vib: 0.1 }));
+    const x = sonAnches(liste, 6, { graine: 65 });
+    const imgs = rejoueAnches({ mode: 'register', register: 'MMM', lockNote: 71, beatCurve: MUSETTE, voix: voisine }, x).filter((im) => im.t > 2);
+    const lueMuette = imgs.filter((im) => voixDe(im, muette)?.tracked).length;
+    const vLibre = imgs.filter((im) => { const v = voixDe(im, libre); return v?.tracked && !v.confondu && Math.abs(v.dTargetCents) < 1; }).length;
+    const vVoisine = imgs.filter((im) => {
+      const v = voixDe(im, voisine);
+      const i = ids.indexOf(voisine);
+      const vrai = cents(vraieHauteur(x, liste, i, im.t, 0.7), v.target);
+      return v?.tracked && v.confondu && v.methode === 'proches' && Math.abs(v.centsEstimesCible - vrai) <= v.margeCents && v.margeCents > 1;
+    }).length;
+    assert(imgs.length > 30 && lueMuette === 0 && vLibre === imgs.length && vVoisine === imgs.length,
+      `${muette} muette : jamais lue (${lueMuette}) ; ${libre} validable à ±1 ¢ sur ${vLibre}/${imgs.length} images ; ${voisine} « à confirmer », marge qui contient la vérité, sur ${vVoisine}/${imgs.length}`);
+  }
+}
+
 console.log(failures === 0 ? '\nTous les tests DSP passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);
