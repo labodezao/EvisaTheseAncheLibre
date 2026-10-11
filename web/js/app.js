@@ -23,6 +23,8 @@ const $ = (id) => document.getElementById(id);
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
 const APP_VERSION = '55';
+// Le pied de page lit la version ici : jamais de numéro écrit en dur dans index.html.
+{ const pied = document.getElementById('appVersion'); if (pied) pied.textContent = `version ${APP_VERSION}`; }
 function versionMismatch(what, got) {
   const b = document.getElementById('versionBanner');
   if (!b) return;
