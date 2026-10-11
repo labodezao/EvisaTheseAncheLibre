@@ -501,6 +501,19 @@ export const methodesPlan = {
           if (!bad(k)) g.kTrack = k;
           continue;
         }
+        // Registre à trois octaves (16'+8'+4') : l'anche du milieu a une
+        // voisine au-dessus (avoidEven : partiels impairs, ses pairs sont ceux
+        // du 4') ET une au-dessous : tous ses partiels, impairs compris,
+        // tombent sur les partiels pairs du 16'. Elle est donc aussi lue
+        // comme le 8' d'un 16'+8' (octaveClash : partiels séparés de la raie
+        // du 16', sinon estimée avec sa marge). Mesuré (synthèse, basses La2
+        // à Sol#3) : lue sur la raie commune, le 8' juste affichait +6 ¢ quand
+        // le 16' était à +6 ¢.
+        if (g.avoidEven && !chordOdd && c.mode === 'register' && g.voices.length === 1
+          && groups.some((h) => h !== g && h.voices.length === 1 && octOf(h) === octOf(g) - 1)) {
+          g.octaveClash = true;
+          continue;
+        }
         // Accord : l'anche du dessous d'une note à l'octave (avoidEven) passe
         // aussi ici ; la règle des partiels impairs y est déjà (chordOdd).
         if (g.voices.length > 1 || (g.avoidEven && !chordOdd)) continue;

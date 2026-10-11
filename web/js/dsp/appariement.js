@@ -540,7 +540,29 @@ export const methodesAppariement = {
       // séparation : mesuré, le partiel 3 du 8' de la fondamentale, à 4 Hz de
       // l'octave du 16', passait pour le partiel 2 du 8' de la quinte, séparé
       // et confirmé par son partiel 6 : la quinte lue +7,9 ¢ pour 0).
-      const others = sous ? rainesConnues(groups, g) : claimed.filter((_, i) => claimedBy[i] !== g.center);
+      // 16'+8'+4' (registre, ou chaque note d'un accord) : la voisine du
+      // dessous du 4' (le 8') est elle-même
+      // lue ici, juste avant (octaveFuse va du grave à l'aigu) ; sa raie
+      // revendiquée est celle de l'appariement, souvent le mélange avec le
+      // 16'. Mesuré (synthèse, Rapide, Mi3, 8' à +6 ¢) : les partiels 2 et 3
+      // du 4', posés sur la vraie raie du 8', passaient pour le 4' séparé et
+      // confirmé ; le 4' juste lu +2,0 ¢ sans marge. Comme pour un accord : les
+      // raies de cette image.
+      const chaine = groups.some((h) => h !== g && h.octaveClash && !h.isHarmonic && !h.isSub
+        && h.voices.length === 1 && Math.abs(centsBetween(2 * h.center, g.center)) < 50);
+      const others = sous || chaine ? rainesConnues(groups, g) : claimed.filter((_, i) => claimedBy[i] !== g.center);
+      // Une anche du registre sans mesure à cette image (un trou, que
+      // stabilize tiendra) sonne toujours : sa dernière valeur (mesuré : le 8'
+      // sans raie une image, ses partiels pris pour le 4' séparé).
+      if (chaine) {
+        for (const h of groups) {
+          if (h === g || h.isHarmonic || h.isSub) continue;
+          for (const w of h.voices) {
+            const f = w.tracked ? null : this.stab?.get(`${h.key}:${w.def.id}`)?.f;
+            if (f > 0) for (let m = 1; m <= 24 && m * f <= 9600; m++) others.push(m * f);
+          }
+        }
+      }
       const k0 = g.kTrack || 1;
       const cands = [{ k: k0, f: v.fMeas * k0, amp: v.amp, W: g.W, srd: g.srd, merged: v.merged, base: true }];
       for (const p of groups) {
@@ -586,7 +608,7 @@ export const methodesAppariement = {
       // 2,6 ¢ près au-dessus de 1,5 kHz) n'y ajoute rien et cachait un 8'
       // séparé de 3 Hz du partiel 15 de la fondamentale (mesuré : 8' de la
       // quinte juste sous un 16' à +6 ¢, lu par l'octave « +6,0 ¢ »).
-      const fondu = (cd) => !sous && cd.merged;
+      const fondu = (cd) => !sous && !chaine && cd.merged;
       const sep = (cd) => !fondu(cd) && gap(cd) >= (OCTAVE_SEP_BINS * cd.srd) / cd.W;
       const temoin = (cd) => cd.W > 0 && cd.amp >= floor && !fondu(cd) && gap(cd) >= tolClaimHz(cd.srd, cd.W);
       const biais = (cd) => ((sep(cd) ? 0.5 : 1) * cd.srd) / (cd.W * cd.k);
