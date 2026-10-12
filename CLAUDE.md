@@ -91,7 +91,7 @@ n'a de sens que reliée à ce qui se passe dans le cadre du corps.
   pas de grec ni de symbole Unicode en texte (formule). Les sons d'Ewen arrivent dans `J:\multimedia à tier\INBOX` : les lire, ne
   jamais les déplacer. Le .lyx est en CRLF dans le dépôt : garder CRLF (sinon tout le fichier change).
 
-## Accordeur web (`web/`) — état et leçons (v55, 2026-10-11)
+## Accordeur web (`web/`) — état et leçons (v58, 2026-10-12)
 Déployé sur GitHub Pages depuis `main` (https://labodezao.github.io/EvisaTheseAncheLibre/).
 
 **Le moteur se développe dans PolyReed** (dépôt privé d'Ewen,
@@ -142,6 +142,10 @@ milieu lu comme le 8' d'un 16'+8' (`octaveClash`) ; le 4' estimé sur le 16' (`r
 marge qui couvre sa place, battement seulement où il est fixe) ; raies de l'image pour le 4' ; octave qui ne
 bat pas jugée partiel par partiel. Anche d'un MMM qui ne sonne pas : « — », sa voisine garde sa marge. Tests
 64 et 65 de `test/dsp.test.mjs`.
+v58 (12/10/2026) : moteur repris de PolyReed v58 (PR 67 à 69, `docs/FREQUENCES-ANCHES.md`) : battement par
+l'enveloppe (v56), paire cohérente (v57), peigne rigide `dsp/peigne.js` et états sûr / en cours / au centre (v58) ;
+colonnes de session `battement_hz`, `battement_brut_hz`, `battement_source`, `paire_reparee` ; l'état et sa marge
+sont lus dans `app.js` (`estimationConfondue`). Tests `battement` et `frequences`. Détail : bloc « Battement affiché » plus bas.
 Références d'Ewen : **Peterson** (strobe) et **Dirk's Accordion Tuner** (qu'il utilise).
 Ewen parle français, souvent en dictée vocale ; il teste en jouant sur SON
 accordéon et envoie des ZIP de session (WAV + CSV + JSON, bouton Exporter ;
@@ -235,6 +239,54 @@ Liste tenue dans PolyReed, recopiée à chaque report.
   repli sur elle. Secteur (50 Hz et sous-multiples) : jamais pris pour une anche ni une vérité.
 - Le ronflement 50 Hz du micro USB d'Ewen (−88 dBFS) est là depuis toujours ;
   ne pas l'accuser à tort.
+
+Battement affiché (v56, session d'Ewen du 11/10/2026, test/battement.test.mjs) :
+
+- Le chiffre du battement d'un unisson n'est plus la différence brute des deux fréquences (`beatMeas` = f(8'+) − f(8'))
+  : deux anches voisines se tirent et font un PEIGNE de raies à ±Δ ; la différence valait Δ, 2Δ ou 3 Hz pour 0,8 Hz
+  vrai. `dsp/battement.js`, `fuserBattement` : l'enveloppe du volume (`measureBeat`, stable à 0,01-0,05 Hz) fait
+  foi quand elle est sûre (deux anches, partiels d'accord, au moins 0,3 Hz) ; « modulation » ou pas sûre, elle ne
+  tranche que si l'écart mesuré s'en écarte de plus de 40 % ; sinon médiane de l'écart sur 1 s. `beatBrut` garde
+  l'écart brut, `beatSource` (enveloppe | ecart) dit d'où vient le chiffre, les CSV les exposent. Ne pas
+  remettre `beatMeas` brut dans l'interface.
+
+Hauteurs des deux anches cohérentes avec le battement (v57, `docs/FREQUENCES-ANCHES.md`, banc `test/bench_frequences.mjs`,
+`test/frequences.test.mjs`) :
+
+- f(8'+) − f(8') doit valoir le battement de l'enveloppe. `cohererPaire` (battement.js) ne touche JAMAIS une paire
+  cohérente (±10 %) ; une paire incohérente (raie de rang n±1 du peigne prise pour l'anche : Fa#4 de la session, +12 ¢ pendant
+  1,8 s) est ramenée à la dernière paire cohérente de la note (≤ 1,5 s, retrouvée dans l'historique de 3 s : l'enveloppe ne
+  vient qu'après 2,5 s de note) : l'anche qui la suit reste, l'autre est à un battement d'elle ; sans référence, rien. Le
+  contrôle est sur les voix FINALES (après `stabilize`), pas sur les raies.
+- Essayé et écarté (détail dans le doc) : pente de phase de l'amas entier + centre de masse avec l'écart de l'enveloppe
+  (mieux sur anches qui se tirent fort, mais +0,3 à 2 ¢ sur deux anches nettes quand une raie étrangère fuit dans le masque) ;
+  ancrage sur la raie la plus forte ; moyenne de l'amas sur des périodes entières hors de l'état « centre » (retard : dérive
+  1 ¢/s de 1,0 à 1,5 ¢). Ne pas les refaire sans le banc. L'ajustement de peigne à positions LIBRES (v57) est remplacé par
+  le peigne RIGIDE (v58, ci-dessous).
+- Hors tolérance, connu : anches qui se tirent à β > 0,3 rad ou AM > 15 % (des anches accrochées, pas un unisson : le banc
+  les garde étiquetées « extrêmes »), trois anches qui se tirent (MMM : pas de peigne à trois anches), une raie étrangère qui
+  tombe dans la bande d'anches qui se tirent, battement sous 0,35 Hz (Do6-Do7 : le centre, pas l'anche).
+
+Anches qui se tirent : peigne rigide et ce qu'on peut dire (v58, audit couplage du 11/10/2026, `dsp/peigne.js`) :
+
+- Vérité du banc : la fréquence MOYENNE de chaque anche en place sur un nombre ENTIER de périodes de battement
+  (`fenetreEntiere`, `vraieEntiere` de synthese-anches.mjs ; la modulation de phase s'y annule). Couplage réaliste : β ≤ 0,3 rad
+  au fondamental, AM ≤ 15 % (en régime d'Adler β ≈ κ/(2Ω) : β = 0,5 à 1,2 impose des anches accrochées). Les anciens cas sont
+  « extrême » et hors tolérance. Les 1 à 4 ¢ de la v57 étaient en bonne part ce désaccord de définition.
+- `ajusterPeigne` : toutes les raies sont à k f1 + m Δ (m de −2 à k+2) ; deux paramètres non linéaires (F, Δ) par Gauss-Newton
+  (Kaufman) sur la bande de base du traqueur, amplitudes linéaires éliminées (variable projection). Deux partiels (2 puis 1, sinon
+  3) : f1(k)/k à 0,3 ¢ près, Δ à 5 %, et Δ à 10 % + 0,02 Hz de l'enveloppe. Les porteuses sont les deux raies voisines de k pas dont
+  le PLUS PETIT module est le plus grand ; si l'anche faible vaut une raie latérale de la forte (amplitudes ambiguës), les lectures
+  d'avant tranchent seulement si elles désignent la même étiquette. Fenêtre = au moins 2 périodes (raies séparées) et 1,5 s, en
+  nombre entier de périodes. Pris si r < 0,05 ET (raies latérales ≥ −12 dB au partiel mesuré, déduites de celles de k = 1-2 par
+  la loi de Bessel, OU paire qui ne colle pas à Δ) ; trois ajustements d'affilée pour entrer, 0,5 s de tenue pour sortir.
+  `source = 'peigne'`, `sigmaCents`. Une raie étrangère fait monter r : refus, le moteur d'avant lit (anches nettes à 0,05 ¢).
+- `etatPaire` : `etatAnche` 'sur' | 'en cours' | 'centre' et `margeAnche` (¢) par anche d'un unisson, que l'interface lit comme la
+  marge d'une anche confondue (ici `app.js`, `estimationConfondue` : « ±3,100 ¢ · en cours · encore 2 s »). Jamais « sûr » avant
+  T_besoin = max(1 s, 1,2/Δ) (2/Δ sous 0,8 Hz), sans battement connu et paire qui colle, ni avec σ > 0,3 ¢. Sous la résolution de
+  la fenêtre (Δ < 1/T, Do6-Do7 sous 0,35 Hz) : 'centre', le milieu des deux anches moyenné sur des périodes entières, chacune
+  à ± Δ/2 (Δ par l'enveloppe, 0,03 Hz). La validation attend |écart| + marge < tolérance.
+- Banc : `node test/bench_frequences.mjs` (297 cas) ; tests F 1 à F 11 de `test/frequences.test.mjs` (le F 12, de l'interface, reste dans PolyReed) (T1 à T7 de l'audit).
 
 ### Outils (`test/outils/`, voir `LISEZMOI.md`)
 `csv_resume.py` (ce qui a été affiché), `rejoue.mjs` (rejouer un WAV dans le

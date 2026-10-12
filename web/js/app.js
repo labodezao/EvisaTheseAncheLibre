@@ -22,7 +22,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '55';
+const APP_VERSION = '58';
 // Le pied de page lit la version ici : jamais de numéro écrit en dur dans index.html.
 { const pied = document.getElementById('appVersion'); if (pied) pied.textContent = `version ${APP_VERSION}`; }
 function versionMismatch(what, got) {
@@ -134,8 +134,18 @@ function toggleTheme() { applyTheme(currentTheme() === 'dark' ? 'light' : 'dark'
 // v52 : « immobile » (l'octave ne bat pas, marge de la durée jouée) et « proches »
 // (deux anches d'un unisson dans un même lobe), audit d'usage pro n° 6 et 11.
 const METHODES_CONFONDU = { octave: "par l'octave", battement: 'par le battement', raie: 'par la raie commune',
-  immobile: "l'octave ne bat pas", proches: 'anches proches' };
+  immobile: "l'octave ne bat pas", proches: 'anches proches',
+  peigne: 'anches qui se tirent', centre: 'au centre des deux anches', encours: 'en cours' };
 function estimationConfondue(v) {
+  // v58 (dsp/peigne.js, etatPaire) : deux anches qui se tirent, ou une note qui commence. La hauteur n'est dite sûre qu'après
+  // T_besoin et avec un σ sous 0,3 ¢ ; avant, ou sous la résolution de la fenêtre, elle porte sa marge (« en cours », « au centre »,
+  // « anches qui se tirent ») comme une anche confondue : la validation attend |écart| + marge < tolérance.
+  if (!v?.confondu && v?.tracked && v.margeAnche > 0 && v.etatAnche && Number.isFinite(v.dTargetCents)) {
+    const methode = { sur: 'peigne', centre: 'centre' }[v.etatAnche] ?? 'encours';
+    const morceaux = [`±${v.margeAnche.toFixed(3)} ¢`, METHODES_CONFONDU[methode]];
+    if (methode === 'encours' && v.tBesoin != null) morceaux.push(`encore ${Math.max(1, Math.ceil(v.tBesoin - (v.ageNote ?? 0)))} s`);
+    return { c: v.dTargetCents, m: v.margeAnche, f: v.fMeas, texte: morceaux.join(' · '), paire: true };
+  }
   if (!v?.confondu || v.fEstimee == null || !Number.isFinite(v.margeCents) || !Number.isFinite(v.centsEstimesCible)) return null;
   const morceaux = [`±${v.margeCents.toFixed(3)} ¢`, METHODES_CONFONDU[v.methode] ?? ''];
   if (v.methode === 'battement' && !v.signeConnu) morceaux.push('signe inconnu');
@@ -719,7 +729,7 @@ function updateReadout(t) {
       <div class="rc-head"><b>${lbl}</b><span>${note}</span></div>
       <div class="rc-cents">≈ ${estC.c >= 0 ? '+' : ''}${estC.c.toFixed(3)} ¢</div>
       <div class="rc-sub">${estC.texte} · ${estC.f.toFixed(3)} Hz</div>
-      <div class="rc-sub">confondue avec l'octave · raie commune ${v.dTargetCents >= 0 ? '+' : ''}${v.dTargetCents.toFixed(3)} ¢ (${v.fMeas.toFixed(3)} Hz)</div>
+      ${estC.paire ? '' : `<div class="rc-sub">confondue avec l'octave · raie commune ${v.dTargetCents >= 0 ? '+' : ''}${v.dTargetCents.toFixed(3)} ¢ (${v.fMeas.toFixed(3)} Hz)</div>`}
     </div>`;
     }
     const c = v.dTargetCents;
@@ -1266,7 +1276,7 @@ function drawStrobe(id, big = false) {
         ctx.fillText(`≈ ${est.c >= 0 ? '+' : ''}${est.c.toFixed(3)} ¢ ${est.texte}`, 6, yl);
       }
       const adv = est && Math.abs(est.c) + est.m > cfg.tolCents && Math.abs(c) <= cfg.tolCents
-        ? { txt: `≈ juste à ±${est.m.toFixed(2)} ¢ près · confondue avec l'octave`, ok: false }
+        ? { txt: `≈ juste à ±${est.m.toFixed(2)} ¢ près · ${est.paire ? 'lecture pas encore sûre' : "confondue avec l'octave"}`, ok: false }
         : reedAdvice(est ? est.c : c, cfg.tolCents, v.merged);
       if (adv && row >= 130) {
         yl += 18;

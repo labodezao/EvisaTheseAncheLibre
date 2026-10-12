@@ -19,12 +19,13 @@ import { methodesStabilite, SENS_SILENCE_S } from './stabilite.js';
 import { partialPresent, targetSpacing, methodesPlan } from './plan.js';
 import { methodesConfondu } from './confondu.js';
 import { methodesProches } from './proches.js';
+import { methodesPeigne } from './peigne.js';
 // Exportées par engine.js depuis la v28 (API gelée), rangées dans plan.js.
 export { strobePartials, unisonHarmonic } from './plan.js';
 
 // Version du moteur : doit être celle de la page et de app.js (cf. le
 // contrôle de cohérence dans app.js et le test dans dsp.test.mjs).
-export const ENGINE_VERSION = '55';
+export const ENGINE_VERSION = '58';
 
 const HOP = 4096;             // période d'analyse (~85 ms à 48 kHz)
 const MAXWIN = { fast: 128, normal: 256, precise: 512 };
@@ -92,6 +93,8 @@ export class Engine {
     this.lastAttack = null;
     this.steps = new Map();     // détection de saut par groupe (cf. detectStep)
     this.stab = new Map();      // sortie stabilisée par anche (cf. stabilize)
+    this.beatFus = new Map();   // battement affiché par unisson (battement.js, fuserBattement)
+    this.cohEtat = new Map();   // dernière paire cohérente par unisson, par note (battement.js, cohererPaire) : ne repart pas de zéro à retune()
     this.reedSeen = new Map();  // auto-anches : persistance des anches d'unisson
     this.lastFine = null;       // dernière mesure fine de la voix de base (maintien en creux de battement)
     this.sensDeLaGrille(0);     // sens du soufflet (stabilite.js, SENS_SILENCE_S)
@@ -125,6 +128,7 @@ export class Engine {
     this.prevF = new Map();
     this.steps = new Map();      // détection de saut par groupe (cf. detectStep)
     this.stab = new Map();       // sortie stabilisée par anche (cf. stabilize)
+    this.beatFus = new Map();    // battement affiché par unisson (battement.js, fuserBattement)
     this.reedSeen = new Map();   // auto-anches : persistance des anches d'unisson
     this.ownT = new Map();       // dernière mesure « à soi » (non confondue) par anche
     this.confT = new Map();      // dernière image « confondue avec l'octave » par anche (confondu.js)
@@ -1062,4 +1066,4 @@ export class Engine {
 }
 
 // Méthodes rangées dans les modules voisins, corps inchangés : `this` reste le moteur.
-Object.assign(Engine.prototype, methodesBattement, methodesAppariement, methodesAnchesMp, methodesStabilite, methodesPlan, methodesConfondu, methodesProches);
+Object.assign(Engine.prototype, methodesBattement, methodesAppariement, methodesAnchesMp, methodesStabilite, methodesPlan, methodesConfondu, methodesProches, methodesPeigne);

@@ -125,6 +125,13 @@ export const COLONNES_SESSION = Object.freeze([
   // Sens du soufflet suivi par le moteur (v45, audit du 10/10/2026) : sens,
   // d'où il vient (grille, creux, silence), inversions entendues.
   'sens', 'sens_source', 'inversions',
+  // Battement affiché de l'anche face à la voix de base (v56) : le chiffre de
+  // l'écran, l'écart brut des deux fréquences mesurées, et d'où vient le chiffre
+  // (enveloppe | ecart ; dsp/battement.js, fuserBattement).
+  'battement_hz', 'battement_brut_hz', 'battement_source',
+  // Hauteur de l'anche ramenée à un battement de sa voisine (v57, battement.js, cohererPaire) : 1 si la lecture brute
+  // ne collait pas au battement de l'enveloppe.
+  'paire_reparee',
 ]);
 
 // Début du CSV : marque UTF-8 (le tableur lit les accents) et colonnes.
@@ -151,6 +158,11 @@ export function rangeesTick(r) {
         // Anche confondue avec l'octave (confondu.js) : estimation et marge.
         conf: v.confondu ? { f: v.fEstimee ?? null, c: v.centsEstimesCible ?? null, m: v.margeCents ?? null,
           methode: v.methode ?? '', signe: v.signeConnu ? 1 : 0 } : null,
+        // Battement affiché, écart brut et source (battement.js, fuserBattement).
+        bat: v.tracked && !g.isHarmonic ? v.beatMeas ?? null : null,
+        batBrut: v.tracked && !g.isHarmonic ? v.beatBrut ?? null : null,
+        batSource: v.tracked && !g.isHarmonic ? v.beatSource ?? '' : '',
+        repar: v.tracked && !g.isHarmonic && v.pairRepaired ? 1 : 0,
       });
     }
   }
@@ -173,6 +185,7 @@ export function lignesCsv(tk, transpose = 0) {
     for (let k = 1; k <= PARTIELS_CSV; k++) l.push(num(r.p?.[k], 5));
     l.push(num(r.conf?.f, 5), num(r.conf?.c, 4), num(r.conf?.m, 4), r.conf?.methode ?? '', r.conf ? r.conf.signe : '');
     l.push(tk.sens ?? '', tk.sensSource ?? '', tk.inversions ?? '');
+    l.push(num(r.bat, 4), num(r.batBrut, 4), r.batSource ?? '', r.repar ? 1 : 0);
     s += `${l.join(';')}\n`;
   }
   return s;
