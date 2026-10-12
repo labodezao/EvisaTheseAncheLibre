@@ -35,29 +35,57 @@ export function timbre(n, r, pente = -3.5, trous = {}, gigue = 2) {
 // sous le signal ; `creux` : { t, db, dur } plongée du niveau à l'inversion.
 // Le son rendu porte `ecart(j, t)` : l'écart (cents) de l'anche j à sa
 // fréquence `f` à l'instant t (vibrato, saut, dérive), la vérité des tests.
-export function anches(liste, secondes, { rsb = 40, graine = 7, fv = 0.8, creux = null } = {}) {
+export function anches(liste, secondes, { rsb = 40, graine = 7, fv = 0.8, creux = null, phi = false } = {}) {
   const r = hasard(graine);
   const n = Math.floor(SR * secondes), x = new Float32Array(n);
+  // `phi` : garde la phase de la fondamentale de chaque anche (vibrato, dérive et modulation de phase compris), pour la
+  // vérité « fréquence moyenne sur un nombre entier de périodes de battement » (vraieEntiere).
+  const phases = phi ? liste.map(() => new Float64Array(n)) : null;
+  // `tire.adler` : { kappa, D0 }, deux oscillateurs couplés (Adler 1946) : dψ/dt = 2πΔ0 − K sin ψ, K = 2πκ ; la phase de
+  // chaque anche reçoit ±(K/2)∫sin ψ dt (signe : `tire.signe`). Battement observé Ω = √(Δ0² − κ²) ; chaque fréquence
+  // moyenne est tirée de (Δ0 − Ω)/2 vers l'autre.
+  const ad = liste.find((a) => a.tire?.adler)?.tire.adler;
+  let sinInt = null;
+  if (ad) {
+    const K = 2 * Math.PI * ad.kappa, w0 = 2 * Math.PI * ad.D0;
+    sinInt = new Float64Array(n);
+    let psi = ad.psi0 ?? 0, acc = 0;
+    for (let i = 0; i < n; i++) {
+      sinInt[i] = acc;
+      const sn = Math.sin(psi);
+      acc += sn / SR;
+      psi += (w0 - K * sn) / SR;
+    }
+    sinInt.K = K;
+  }
   const phv = 2 * Math.PI * r.u();
-  for (const an of liste) {
+  for (let jj = 0; jj < liste.length; jj++) {
+    const an = liste[jj];
     const H = an.H ?? timbre(12, r);
     const ph0 = H.map(() => 2 * Math.PI * r.u());
     const debut = an.debut ?? 0, montee = an.montee ?? 0.05, vib = an.vib ?? 0.1, derive = an.derive ?? 0;
+    // `tire` : { f, beta, ph, am } tirage mutuel de deux anches voisines : leur phase
+    // oscille à f Hz (le battement) avec un indice beta (rad), leur amplitude de am (0 à 1).
+    const tire = an.tire ?? null;
     let ph = 0;
     for (let i = 0; i < n; i++) {
       const t = i / SR;
       const saut = an.saut && t >= an.saut.t ? an.saut.c : 0;
       ph += (2 * Math.PI * an.f * 2 ** ((vib * Math.sin(2 * Math.PI * fv * t + phv) + saut + derive * t) / 1200)) / SR;
+      const phT = tire?.adler ? (tire.signe ?? 1) * (sinInt.K / 2) * sinInt[i]
+        : tire ? tire.beta * Math.sin(2 * Math.PI * tire.f * t + (tire.ph ?? 0)) : 0;
+      if (phases) phases[jj][i] = ph + phT;
       if (t < debut) continue;
       let g = 1;
       if (creux) {
         const d = Math.abs(t - creux.t), bas = 10 ** (-creux.db / 20);
         g = d < creux.dur / 2 ? bas : d < creux.dur ? bas + (1 - bas) * (d - creux.dur / 2) / (creux.dur / 2) : 1;
       }
-      const env = g * Math.min(1, (t - debut) / montee) * 0.1 * (an.a ?? 1);
+      const env = g * Math.min(1, (t - debut) / montee) * 0.1 * (an.a ?? 1)
+        * (tire?.am ? 1 + tire.am * Math.sin(2 * Math.PI * tire.f * t + (tire.ph ?? 0) + 1) : 1);
       for (let h = 0; h < H.length; h++) {
         if (an.f * (h + 1) > 0.45 * SR) break;
-        x[i] += env * H[h] * Math.sin((h + 1) * ph + ph0[h]);
+        x[i] += env * H[h] * Math.sin((h + 1) * (ph + phT) + ph0[h]);
       }
     }
   }
@@ -65,6 +93,7 @@ export function anches(liste, secondes, { rsb = 40, graine = 7, fv = 0.8, creux 
   for (const v of x) p += v * v;
   const s = Math.sqrt(p / n / 10 ** (rsb / 10));
   for (let i = 0; i < n; i++) x[i] += s * r.n();
+  if (phases) x.phi = phases;
   x.ecart = (j, t) => {
     const an = liste[j];
     return (an.vib ?? 0.1) * Math.sin(2 * Math.PI * fv * t + phv)
@@ -80,6 +109,14 @@ export function vraie(x, liste, j, t, T) {
   let s = 0, n = 0;
   for (let u = t - 0.85 * T; u <= t - 0.15 * T; u += 0.001) { s += x.ecart(j, Math.max(0, u)); n++; }
   return liste[j].f * 2 ** (s / Math.max(1, n) / 1200);
+}
+
+// Fréquence moyenne (Hz) de la fondamentale de l'anche j sur la fenêtre de L secondes qui finit à t : (phase(t) − phase(t − L)) /
+// (2π L), vibrato, dérive et modulation de phase compris. Avec L = un nombre ENTIER de périodes de battement, la modulation
+// de phase se moyenne à zéro : c'est « la fréquence de l'anche en place » (audit couplage du 11/10/2026). Demande `phi: true`.
+export function vraieEntiere(x, j, t, L) {
+  const i1 = Math.min(x.length - 1, Math.round(t * SR)), i0 = Math.max(0, Math.round((t - L) * SR));
+  return (x.phi[j][i1] - x.phi[j][i0]) / (2 * Math.PI * ((i1 - i0) / SR));
 }
 
 // Rejoue un son dans le moteur ; rend les images (temps, note, voix visibles).
