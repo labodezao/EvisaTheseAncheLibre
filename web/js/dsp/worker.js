@@ -12,11 +12,39 @@
 // de la mémoire vive (session-stockage.js).
 
 import { Engine } from './engine.js';
+import { LecteurNote } from './lecteur-note.js';
 import {
   MORCEAU_S, versInt16, rangeesTick, lignesCsv, lireEnteteWav, echantillonsWav,
 } from '../session-format.js';
 
 let engine = null;
+
+// --- verrou de phase expérimental (v59) : coupé par défaut ; éteint, rien de ce bloc ne tourne ------------------------------------------
+// Le son et les images vont à `LecteurNote`, qui découpe les notes ; chaque note part dans un second Worker (verrou-worker.js) : le calcul
+// (7 s pour une note de 9 s) ne gêne ni la mesure ni l'interface. Le moteur ne reçoit rien de plus : ses images restent celles de la v58.
+let verrouOn = false, lecteur = null, verrouWorker = null, verrouOccupe = false, verrouFile = null;
+function verrouLire(note) {
+  if (verrouOccupe) { verrouFile = note; return; }   // une seule lecture à la fois ; la plus récente attend
+  try {
+    verrouWorker ??= new Worker(new URL('./verrou-worker.js', import.meta.url), { type: 'module' });
+  } catch (err) {
+    self.postMessage({ type: 'verrou', lecture: { sure: false, raison: 'erreur', erreur: 'Worker' } });
+    return;
+  }
+  verrouOccupe = true;
+  verrouWorker.onmessage = (e) => {
+    verrouOccupe = false;
+    self.postMessage({ type: 'verrou', lecture: e.data });
+    if (verrouFile) { const n = verrouFile; verrouFile = null; verrouLire(n); }
+  };
+  verrouWorker.onerror = () => { verrouOccupe = false; self.postMessage({ type: 'verrou', lecture: { sure: false, raison: 'erreur', erreur: 'calcul' } }); };
+  verrouWorker.postMessage(note, [note.x.buffer]);
+  self.postMessage({ type: 'verrou', lecture: { calcul: true, midi: note.midi, t: note.t } });
+}
+function verrouRegler(on) {
+  verrouOn = !!on;
+  if (!verrouOn) { lecteur = null; verrouFile = null; }
+}
 
 // --- enregistrement de session (mode dev) ------------------------------------
 let devMaxS = 3600;                 // durée maximale (s), réglée par la page
@@ -72,6 +100,10 @@ function onChunk(chunk) {
   devAppend(chunk);
   const t0 = performance.now();
   const result = engine.process(chunk);
+  if (verrouOn) {
+    if (!lecteur || lecteur.sr !== engine.sr) lecteur = new LecteurNote(engine.sr, verrouLire);
+    lecteur.alimenter(chunk, result);
+  }
   if (result) {
     // Charge DSP : temps de calcul rapporté à la période d'analyse.
     result.dspMs = performance.now() - t0;
@@ -188,6 +220,7 @@ self.onmessage = (e) => {
   if (d.type === 'init') {
     engine = new Engine(d.sampleRate, d.cfg || {});
     pendingCfg = d.cfg || {}; pendingDev = !!d.dev;
+    verrouRegler(d.verrou);
     if (d.devMaxS > 0) devMaxS = d.devMaxS;
     if (d.dev) devStart();
     if (d.port) d.port.onmessage = (ev) => onChunk(ev.data);
@@ -197,6 +230,8 @@ self.onmessage = (e) => {
     readStream(d.readable).catch((err) => self.postMessage({ type: 'capture', error: String(err) }));
   } else if (d.type === 'fichier') {
     lireFichier(d.blob, d.vitesse).catch((err) => self.postMessage({ type: 'capture', error: String(err?.message ?? err) }));
+  } else if (d.type === 'verrou') {
+    verrouRegler(d.on);
   } else if (d.type === 'config') {
     pendingCfg = { ...(pendingCfg || {}), ...d.cfg };
     engine?.configure(d.cfg);

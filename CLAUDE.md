@@ -142,6 +142,7 @@ milieu lu comme le 8' d'un 16'+8' (`octaveClash`) ; le 4' estimé sur le 16' (`r
 marge qui couvre sa place, battement seulement où il est fixe) ; raies de l'image pour le 4' ; octave qui ne
 bat pas jugée partiel par partiel. Anche d'un MMM qui ne sonne pas : « — », sa voisine garde sa marge. Tests
 64 et 65 de `test/dsp.test.mjs`.
+v60 (13/10/2026) : moteur repris de PolyReed v60 : verrou de phase par anche en OPTION EXPÉRIMENTALE (case « Verrou de phase (expérimental) » du panneau de réglages, éteinte par défaut ; éteinte, rien ne change : v58), lu sur une note tenue 3 s au moins dans un second Worker (`dsp/lecteur-note.js`, `verrou-worker.js`, `verrou-note.js`, `verrou.js`), battements forts jusqu'à 40 Hz et A6 lus sur les raies ou refusés ; ses tests et bancs sont dans PolyReed (`test/verrou*.test.mjs`, `bench_reel.mjs`, `bench_plage.mjs`), l'interface est celle de cette page (`web/js/app.js`, `ui/verrou-affichage.js`).
 v58 (12/10/2026) : moteur repris de PolyReed v58 (PR 67 à 69, `docs/FREQUENCES-ANCHES.md`) : battement par
 l'enveloppe (v56), paire cohérente (v57), peigne rigide `dsp/peigne.js` et états sûr / en cours / au centre (v58) ;
 colonnes de session `battement_hz`, `battement_brut_hz`, `battement_source`, `paire_reparee` ; l'état et sa marge
