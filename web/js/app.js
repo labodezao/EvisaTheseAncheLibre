@@ -13,6 +13,7 @@ import {
 import { lireEnteteWav, dureeSession, DUREES_SESSION_MIN, MORCEAU_S } from './session-format.js';
 import { CHORD_TYPES, parseDegrees, degreesText, degreeLabel, chordName } from './dsp/chord.js';
 import { initBench } from './bench.js';
+import { afficherVerrou } from './ui/verrou-affichage.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -22,7 +23,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '58';
+const APP_VERSION = '60';
 // Le pied de page lit la version ici : jamais de numéro écrit en dur dans index.html.
 { const pied = document.getElementById('appVersion'); if (pied) pied.textContent = `version ${APP_VERSION}`; }
 function versionMismatch(what, got) {
@@ -226,7 +227,7 @@ async function startAudio() {
     worker = new Worker('js/dsp/worker.js', { type: 'module' });
     const channel = new MessageChannel();
     if (cfg.devMode) await stockageSession();
-    worker.postMessage({ type: 'init', sampleRate: audioCtx.sampleRate, cfg: engineCfg(),
+    worker.postMessage({ type: 'init', sampleRate: audioCtx.sampleRate, cfg: engineCfg(), verrou: verrouPhase,
       port: channel.port1, dev: !!cfg.devMode, devMaxS: dureeSession(cfg.devMaxMin) * 60 }, [channel.port1]);
     worker.onmessage = onWorkerMessage;
 
@@ -337,6 +338,7 @@ function onWorkerMessage(e) {
   const d = e.data;
   if (d.type === 'tick') onTick(d);
   else if (d.type === 'capture') { state.capture = { ...(state.capture || {}), ...d }; showCaptureInfo(); }
+  else if (d.type === 'verrou') { verrouLecture = d.lecture; majVerrou(); }
   else if (d.type === 'devStatus') showDevStatus(d.dev);
   else if (d.type === 'devMorceau') devMorceau(d, e.target);
   else if (d.type === 'devFin') devFin(d, e.target);
@@ -2252,6 +2254,8 @@ function bindControls() {
   $('response').value = cfg.response;
   $('tolCents').value = String(cfg.tolCents);
   $('autoFreeze').checked = !!cfg.autoFreeze;
+  $('verrouPhase').checked = verrouPhase;
+  majVerrou();
   $('bLow').value = cfg.beatCurve.bLow;
   $('bHigh').value = cfg.beatCurve.bHigh;
   $('instrName').value = report.name;
@@ -2436,6 +2440,13 @@ function bindControls() {
   $('response').onchange = () => { cfg.response = $('response').value; pushConfig(); };
   $('tolCents').onchange = () => { cfg.tolCents = Number($('tolCents').value); saveCfg(); };
   $('autoFreeze').onchange = () => { cfg.autoFreeze = $('autoFreeze').checked; saveCfg(); };
+  $('verrouPhase').onchange = () => {
+    verrouPhase = $('verrouPhase').checked;
+    localStorage.setItem('aal.verrouPhase', verrouPhase ? '1' : '0');
+    if (!verrouPhase) verrouLecture = null;
+    worker?.postMessage({ type: 'verrou', on: verrouPhase });
+    majVerrou();
+  };
   $('btnCalibrate').onclick = calibrateFromMeasure;
   $('applyManual').onclick = applyManual;
   $('manualNotes').onkeydown = (e) => { if (e.key === 'Enter') applyManual(); };
@@ -2769,6 +2780,17 @@ function showIntervals(t) {
   el.classList.remove('hidden');
 }
 
+// Verrou de phase EXPÉRIMENTAL (v59) : éteint par défaut, mémorisé à part du cfg (le moteur ne le voit pas). Allumé, le Worker découpe les notes et
+// un second Worker les lit (dsp/verrou-worker.js) ; la ligne montre les deux fréquences, « Δ non résolu » ou la raison du refus.
+let verrouPhase = localStorage.getItem('aal.verrouPhase') === '1';
+let verrouLecture = null;
+function majVerrou() {
+  const el = $('qVerrou');
+  if (!el) return;
+  const v = afficherVerrou(verrouLecture, verrouPhase);
+  el.classList.toggle('hidden', v.etat === 'cache');
+  if (el.textContent !== v.texte) el.textContent = v.texte;
+}
 // Sens du soufflet que suit le moteur (v45) : « tiré · inversion 3 (creux) ».
 function showSens(t) {
   const el = $('qSens');
