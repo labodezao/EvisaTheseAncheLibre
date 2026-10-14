@@ -168,9 +168,9 @@ export function consigne(alerte, ctx = {}) {
       code: 'trous',
       titre: fr ? 'Des blocs de son ont été perdus' : 'Blocks of sound were lost',
       texte: fr
-        ? `La date du flux saute de ${nombre(Math.abs(d.dernier_ms), 0, 'fr')} ms par rapport aux échantillons reçus (${d.total ?? 1} fois depuis le début). Les hauteurs lues autour de ces instants sont à écarter.`
-        : `The stream clock jumps by ${nombre(Math.abs(d.dernier_ms), 0, 'en')} ms against the samples received (${d.total ?? 1} times so far). Pitches read around those moments should be discarded.`,
-      geste: fr
+        ? `La date du flux a sauté de ${nombre(Math.abs(d.dernier_ms), 0, 'fr')} ms par rapport aux échantillons reçus, à ${nombre(d.dernier_t_s, 1, 'fr')} s du début de la prise (${d.total ?? 1} fois). Les hauteurs lues autour de cet instant sont à écarter.${d.cause === 'retard' ? ' Le calcul de l’accordeur a lui-même pris du retard à cet instant.' : ''}`
+        : `The stream clock jumped by ${nombre(Math.abs(d.dernier_ms), 0, 'en')} ms against the samples received, ${nombre(d.dernier_t_s, 1, 'en')} s into the take (${d.total ?? 1} times). Pitches read around that moment should be discarded.${d.cause === 'retard' ? ' The tuner’s own processing fell behind at that moment.' : ''}`,
+      geste: d.cause === 'retard' ? (fr ? 'Fermez les autres onglets et applications, branchez l’ordinateur sur secteur (mode performance), puis refaites la prise.' : 'Close other tabs and apps, plug the computer in (performance mode), then redo the take.') : fr
         ? 'Fermez les autres applications qui utilisent le son, branchez le micro directement (sans hub USB), fermez les onglets lourds, puis refaites la prise.'
         : 'Close other apps using sound, plug the mic in directly (no USB hub), close heavy tabs, then redo the take.',
       court: fr ? 'blocs perdus' : 'lost blocks',
@@ -188,11 +188,11 @@ export function consigne(alerte, ctx = {}) {
       code: 'secteur',
       titre: fr ? `Ronflement du secteur (${d.hz ?? 50} Hz) fort` : `Strong mains hum (${d.hz ?? 50} Hz)`,
       texte: fr
-        ? `Une raie à ${d.hz ?? 50} Hz et ses harmoniques dépasse le fond de ${nombre(d.ratio_db, 0, 'fr')} dB.`
-        : `A ${d.hz ?? 50} Hz line and its harmonics stand ${nombre(d.ratio_db, 0, 'en')} dB above the floor.`,
+        ? `Une raie à ${d.hz ?? 50} Hz et ses harmoniques dépasse le fond de ${nombre(d.ratio_db, 0, 'fr')} dB${d.trop_fort ? ' et le retrait n\u2019a pas suffi : le ronflement est trop fort pour être retiré' : ''}.`
+        : `A ${d.hz ?? 50} Hz line and its harmonics stand ${nombre(d.ratio_db, 0, 'en')} dB above the floor${d.trop_fort ? ' and removal was not enough: the hum is too strong to be removed' : ''}.`,
       geste: fr
-        ? 'Passez l\'ordinateur sur batterie (débranchez le chargeur), éloignez les câbles secteur, ou utilisez une interface audio avec un micro symétrique.'
-        : 'Run the computer on battery (unplug the charger), move mains cables away, or use an audio interface with a balanced mic.',
+        ? 'Dans cet ordre : 1) utilisez une interface audio (par exemple le Zoom H6) plutôt qu\u2019un micro USB alimenté par le bus ; 2) branchez le micro sur un autre port USB, directement sur l\u2019ordinateur (pas de hub, pas de port en façade) ; 3) éloignez les câbles secteur du micro et de son câble.'
+        : 'In this order: 1) use an audio interface (for example the Zoom H6) instead of a bus-powered USB mic; 2) plug the mic into another USB port, directly on the computer (no hub, no front-panel port); 3) move mains cables away from the mic and its cable.',
       court: fr ? 'ronflement secteur' : 'mains hum',
     };
     case 'lent': return {
@@ -207,6 +207,13 @@ export function consigne(alerte, ctx = {}) {
         + (os === 'windows' ? (fr ? 'Windows : Paramètres > Système > Son > Entrée > Format : 48 000 Hz.' : 'Windows: Settings > System > Sound > Input > Format: 48,000 Hz.') : ''),
       court: fr ? 'fréquence trop basse' : 'sample rate too low',
     };
+    case 'secteurProche': return {
+      code: 'secteurProche',
+      titre: fr ? 'Partiel proche d\u2019une harmonique du secteur' : 'Partial close to a mains harmonic',
+      texte: fr ? 'Cette note a un partiel à moins de 1 Hz d\u2019une harmonique du secteur, que le retrait du ronflement abîme : la lecture n\u2019est pas dite sûre.' : 'This note has a partial within 1 Hz of a mains harmonic, which the hum removal damages: the reading is not called reliable.',
+      geste: fr ? 'Lisez la note sur un autre partiel (autre note proche) ou coupez le retrait du ronflement dans Réglages > Mesure.' : 'Read the note on another partial or turn off hum removal in Settings > Measure.',
+      court: fr ? 'partiel près du secteur' : 'partial near mains',
+    };
     case 'bluetooth': return {
       code: 'bluetooth',
       titre: fr ? 'Micro Bluetooth' : 'Bluetooth mic',
@@ -220,6 +227,15 @@ export function consigne(alerte, ctx = {}) {
     };
     default: return null;
   }
+}
+
+// Les informations du contrôle (pas des alertes) : « ronflement 50 Hz supprimé ». Une ligne discrète, aucun conseil.
+export function informations(etat, ctx = {}) {
+  const fr = ctx.lang !== 'en';
+  return (etat?.infos ?? []).map((i) => {
+    if (i.code === 'secteurRetire') return { code: i.code, texte: fr ? `ronflement ${i.detail?.hz ?? 50} Hz supprimé` : `${i.detail?.hz ?? 50} Hz hum removed` };
+    return null;
+  }).filter(Boolean);
 }
 
 // Ordre d'affichage : le plus grave d'abord.

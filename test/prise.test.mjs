@@ -140,6 +140,20 @@ console.log('Blocs perdus (dates du flux)');
   const trembleur = new ControlePrise(sr);
   { let cum = 0; for (let b = 0; b < 2000; b++) { const gigue = b % 97 === 50 ? 9000 : b % 131 === 70 ? -9000 : 0; trembleur.bloc(1e6 + cum / sr * 1e6 + gigue, n); trembleur.alimenter(new Float32Array(n).map(() => lin(-70) * gauss())); cum += n; } }
   assert(trembleur.trous.length === 0, `dates qui sautent de 9 ms sur un seul bloc : aucun trou (${trembleur.trous.length})`);
+  // Démarrage du périphérique : la date saute de 870 ms à 2 s de la prise (Ewen, v61 réel) : pas une perte
+  const demarrage = new ControlePrise(sr);
+  { let cum = 0, saut = 0; for (let b = 0; b < 3000; b++) { if (b === 200) saut = 870000; demarrage.bloc(1e6 + cum / sr * 1e6 + saut, n); demarrage.alimenter(new Float32Array(n).map(() => lin(-70) * gauss())); cum += n; if (b % 20 === 0) demarrage.etat(); } }
+  assert(demarrage.trous.length === 0 && !demarrage.etat().codes.includes('trous'), 'saut de 870 ms au démarrage : aucun trou, aucune alerte');
+  assert(demarrage.resume().saut_au_demarrage_ms === 870, 'le saut est gardé dans le résumé, pas dans les alertes');
+  { let cum = 0, saut = 870000; const c = demarrage; c.alimenter(new Float32Array(0)); void cum; void saut; }
+  // la vraie détection reste : même saut après le démarrage, avec son instant et sa cause
+  const apres = new ControlePrise(sr);
+  { let cum = 0, saut = 0; for (let b = 0; b < 1300; b++) { if (b === 1000) saut = 870000; apres.bloc(1e6 + cum / sr * 1e6 + saut, n, 3); apres.alimenter(new Float32Array(n).map(() => lin(-70) * gauss())); cum += n; if (b % 20 === 0) apres.etat(); } }
+  const tr = apres.etat().alertes.find((x) => x.code === 'trous');
+  assert(tr && Math.abs(tr.detail.dernier_t_s - 10) < 0.2 && tr.detail.cause === 'flux', `saut de 870 ms à 10 s : alerte avec l'instant (${tr?.detail.dernier_t_s} s) et la cause « flux »`);
+  const lent = new ControlePrise(sr);
+  { let cum = 0, saut = 0; for (let b = 0; b < 1300; b++) { if (b === 1000) saut = 300000; lent.bloc(1e6 + cum / sr * 1e6 + saut, n, 280); lent.alimenter(new Float32Array(n).map(() => lin(-70) * gauss())); cum += n; if (b % 20 === 0) lent.etat(); } }
+  assert(lent.trous[0]?.cause === 'retard', 'saut du même ordre que le temps de calcul du Worker : cause « retard »');
   const petit = flux(4);
   assert(petit.trous.length === 0, '4 ms d\'écart : sous le seuil de 5 ms');
   const double = flux(-30);
