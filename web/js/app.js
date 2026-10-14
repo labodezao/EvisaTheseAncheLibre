@@ -7,6 +7,7 @@ import {
   midiToFreq, voiceTargetFreq, beatTarget, centsClass, overlappingAllan,
 } from './music.js';
 import { Report } from './report.js';
+import { ligneMicro, consignes, plateforme, propositionMicro, blocMicro, classerMicro, mentionDouteuse, choisirMicro } from './prise-micro.js';
 import {
   Enregistreur, choisirStockage, listerSessions, recupererSession, exporterSession,
 } from './session-stockage.js';
@@ -23,7 +24,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '60';
+const APP_VERSION = '61';
 // Le pied de page lit la version ici : jamais de numéro écrit en dur dans index.html.
 { const pied = document.getElementById('appVersion'); if (pied) pied.textContent = `version ${APP_VERSION}`; }
 function versionMismatch(what, got) {
@@ -209,6 +210,14 @@ const state = {
   allanDirty: true,
 };
 
+// Le micro qui sert, la prise de son (dsp/prise.js) : la barre du micro et le bandeau d'alertes.
+let microInfo = null;      // { label, deviceId, groupId, settings, repli, bloc } du micro lancé
+let microsListe = [];      // les micros branchés
+let priseEtat = null;      // dernier état du contrôle de la prise (message `prise` du Worker)
+let priseResume = null;
+let avisMicro = '';
+const priseMasquee = new Set();
+
 let audioCtx = null;
 let worker = null;
 let mediaStream = null;
@@ -285,15 +294,26 @@ async function startAudio() {
         window.__genGain.push(g);
       }
     } else {
-      mediaStream = await navigator.mediaDevices.getUserMedia({
+      // Le micro choisi (mémorisé par identifiant, cfg.deviceId) ; débranché, le micro par défaut sert et la barre le dit.
+      const voulu = $('deviceSel').value || cfg.deviceId || '';
+      const contraintes = (exact) => ({
         audio: {
-          deviceId: $('deviceSel').value ? { exact: $('deviceSel').value } : undefined,
+          deviceId: exact ? { exact } : undefined,
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
           channelCount: 1,
         },
       });
+      let repli = null;
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia(contraintes(voulu));
+      } catch (err) {
+        if (!voulu || !/Overconstrained|NotFound|NotReadable/i.test(String(err?.name))) throw err;
+        repli = voulu;
+        mediaStream = await navigator.mediaDevices.getUserMedia(contraintes(''));
+      }
+      noterMicro(mediaStream.getAudioTracks()[0], repli);
       // Lecture directe du micro quand le navigateur le permet (Chrome, Edge) :
       // le chemin Web Audio le rééchantillonne avec un rapport qui change par
       // à-coups (±6 ¢ toutes les ~2 s, mesuré) — cf. worker.js, readStream.
@@ -337,7 +357,8 @@ function showCaptureInfo() {
 function onWorkerMessage(e) {
   const d = e.data;
   if (d.type === 'tick') onTick(d);
-  else if (d.type === 'capture') { state.capture = { ...(state.capture || {}), ...d }; showCaptureInfo(); }
+  else if (d.type === 'capture') { state.capture = { ...(state.capture || {}), ...d }; showCaptureInfo(); majMicroBarre(); }
+  else if (d.type === 'prise') { priseEtat = d.etat; priseResume = d.resume; majPrise(); }
   else if (d.type === 'verrou') { verrouLecture = d.lecture; majVerrou(); }
   else if (d.type === 'devStatus') showDevStatus(d.dev);
   else if (d.type === 'devMorceau') devMorceau(d, e.target);
@@ -361,7 +382,8 @@ function stopAudio() {
     worker?.terminate();
   }
   audioCtx?.close();
-  audioCtx = null; worker = null; mediaStream = null;
+  audioCtx = null; worker = null; mediaStream = null; microInfo = null; priseEtat = null;
+  majMicroBarre(); majPrise();
   state.running = false;
   state.tick = null;
   markAllDirty();
@@ -374,15 +396,96 @@ function stopAudio() {
 async function listDevices() {
   const devs = await navigator.mediaDevices.enumerateDevices();
   const sel = $('deviceSel');
-  const cur = sel.value;
+  const cur = sel.value || cfg.deviceId || '';
   sel.innerHTML = '';
+  const defaut = document.createElement('option');
+  defaut.value = '';
+  defaut.textContent = 'micro par défaut';
+  sel.appendChild(defaut);
+  microsListe = [];
   for (const d of devs.filter((d) => d.kind === 'audioinput')) {
     const o = document.createElement('option');
     o.value = d.deviceId;
-    o.textContent = d.label || `Micro ${sel.length + 1}`;
+    o.textContent = d.label || `Micro ${sel.length}`;
     sel.appendChild(o);
+    microsListe.push({ id: d.deviceId, nom: o.textContent, groupId: d.groupId || null });
   }
-  if (cur) sel.value = cur;
+  // Le micro mémorisé, s'il est encore là ; sinon « par défaut » (débranché : la barre le dit au lancement).
+  sel.value = choisirMicro(microsListe, cur).id ?? '';
+  majMicroBarre();
+}
+
+// ---- Barre du micro et bandeau de la prise de son (prise-micro.js) ------------------------------
+function noterMicro(piste, repli) {
+  let reglages = {};
+  try { reglages = piste.getSettings?.() ?? {}; } catch { /* piste fermée */ }
+  const info = { label: piste.label ?? '', deviceId: reglages.deviceId ?? null, groupId: reglages.groupId ?? null, settings: reglages,
+    classement: classerMicro(piste.label, reglages.deviceId), repli, perdu: false, bloc: null };
+  microInfo = info;
+  avisMicro = repli ? `Le micro mémorisé n'est pas branché : ${info.label || 'le micro par défaut'} sert à la place.` : '';
+  worker?.postMessage({ type: 'priseMicro', codes: info.classement.bluetooth ? ['bluetooth'] : [], detail: { label: info.label } });
+  blocMicro({ piste }).then((b) => { info.bloc = b; }).catch(() => {});
+  // Débranché en cours de route : le micro par défaut reprend, sans rien perdre du réglage mémorisé.
+  piste.addEventListener?.('ended', () => {
+    if (microInfo !== info || !state.running) return;
+    const nom = info.label;
+    stopAudio();
+    $('deviceSel').value = '';
+    startAudio().then(() => { avisMicro = `Le micro ${nom} a été débranché ou coupé : ${microInfo?.label || 'le micro par défaut'} sert.`; majMicroBarre(); });
+  });
+  majMicroBarre();
+}
+
+function majMicroBarre() {
+  const info = $('microInfo');
+  if (!info) return;
+  const c = state.capture ?? null;
+  info.textContent = state.running || c ? ligneMicro(microInfo, c, 'fr') : 'micro arrêté';
+  info.classList.toggle('erreur', !!c?.error);
+  const prop = state.running && microInfo && !c?.fichier && !c?.gen ? propositionMicro(microsListe, microInfo, 'fr') : null;
+  const avis = $('microAvis');
+  avis.replaceChildren();
+  if (avisMicro) avis.append(document.createTextNode(`${avisMicro} `));
+  if (prop) {
+    avis.append(document.createTextNode(`Meilleur choix : ${prop.nom} (${prop.raison}). `));
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = 'utiliser';
+    b.onclick = () => { cfg.deviceId = prop.id; saveCfg(); $('deviceSel').value = prop.id; relancerMicro(); };
+    avis.append(b);
+  }
+}
+
+function majPrise() {
+  const el = $('bandeauPrise');
+  if (!el) return;
+  const codes = priseEtat?.codes ?? [];
+  for (const c of [...priseMasquee]) if (!codes.includes(c)) priseMasquee.delete(c);
+  const cs = consignes(priseEtat, { nom: microInfo?.label || '', os: plateforme(), lang: 'fr' }).filter((c) => !priseMasquee.has(c.code));
+  el.classList.toggle('hidden', cs.length === 0);
+  el.replaceChildren(...cs.map((c) => {
+    const bloc = document.createElement('div');
+    bloc.className = 'prise-alerte';
+    for (const [cl, tx] of [['prise-titre', c.titre], ['prise-texte', c.texte], ['prise-geste', c.geste]]) {
+      const p = document.createElement('p');
+      p.className = cl;
+      p.textContent = tx;
+      bloc.append(p);
+    }
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = 'compris';
+    b.onclick = () => { priseMasquee.add(c.code); majPrise(); };
+    bloc.append(b);
+    return bloc;
+  }));
+}
+
+// Autre micro choisi : la capture repart.
+function relancerMicro() {
+  if (!state.running) { majMicroBarre(); return; }
+  stopAudio();
+  startAudio();
 }
 
 // Le moteur reçoit la configuration complète et ignore les clés purement UI :
@@ -563,6 +666,11 @@ function updateHeader(t) {
         : fill >= 0.999 ? 'convergé, en mouvement' : `convergence ${(fill * 100).toFixed(0)} %`;
   }
   updateVerdict(t);
+  if (t?.prise?.douteuse) {
+    // Prise douteuse : le chiffre reste lisible, mais sans couleur d'état ; la raison est dite.
+    cv.style.color = '';
+    cs.textContent = mentionDouteuse(t.prise.codes, { lang: 'fr' });
+  }
   $('levelBar').style.width = `${Math.min(100, Math.max(0, 100 + (20 * Math.log10((t?.level ?? 0) + 1e-9) + 10)))}%`;
 }
 
@@ -572,7 +680,12 @@ function updateHeader(t) {
 function updateVerdict(t) {
   const el = $('verdict');
   const v = selectedVoice(t);
-  el.classList.remove('v-ok', 'v-up', 'v-down');
+  el.classList.remove('v-ok', 'v-up', 'v-down', 'v-douteuse');
+  if (t?.prise?.douteuse && v && v.dTargetCents != null) {
+    el.textContent = '⚠ prise douteuse';
+    el.classList.add('v-douteuse');
+    return;
+  }
   if (!v || v.dTargetCents == null || (t && t.playedMidi == null)) {
     el.textContent = '—';
     return;
@@ -2080,10 +2193,12 @@ function devMorceau(d, w) {
     if (devEnreg) { devDerniere = devEnreg.id; devEnreg.finir(); }
     const contexte = {
       produit: 'Accordeur Anche Libre Pro', version: APP_VERSION, userAgent: navigator.userAgent,
-      micro: $('deviceSel').selectedOptions?.[0]?.textContent || '', source: $('fileInfo').textContent || '',
+      micro: microInfo?.bloc ?? microInfo?.label ?? ($('deviceSel').selectedOptions?.[0]?.textContent || ''), source: $('fileInfo').textContent || '',
       capture: state.capture ?? null, reglages: JSON.parse(JSON.stringify(cfg)),
     };
-    const e = new Enregistreur(devStockagePret, { gen: d.gen, maxS: dureeSession(cfg.devMaxMin) * 60, contexte });
+    // Le début de la session est celui de la capture (le Worker l'a daté), pas l'arrivée du premier morceau, 10 s plus tard.
+    const e = new Enregistreur(devStockagePret, { gen: d.gen, maxS: dureeSession(cfg.devMaxMin) * 60, contexte,
+      date: d.debutMs ? new Date(d.debutMs) : new Date() });
     e.worker = w;
     devEnreg = e;
     e.pret.then(() => {
@@ -2177,12 +2292,16 @@ function devMeta(man, inv) {
   return {
     app: c.produit ?? 'Accordeur Anche Libre Pro', version: c.version ?? null, mode_dev: 1, date: new Date().toISOString(),
     debut: man.debut ?? null, fin: man.fin ?? null,
-    user_agent: c.userAgent ?? '', micro: c.micro ?? '', source: c.source ?? '', echantillonnage_hz: man.sr,
+    user_agent: c.userAgent ?? '', micro: c.micro && typeof c.micro === 'object' ? c.micro.label : (c.micro ?? ''), source: c.source ?? '', echantillonnage_hz: man.sr,
     capture: c.capture?.direct ? 'micro lu directement (MediaStreamTrackProcessor)' : 'Web Audio (rééchantillonné par le navigateur)',
     duree_s: inv.echantillons / man.sr, mesures: man.mesures ?? 0, tronque: !!man.plein,
     duree_max_s: man.maxS ?? null, morceaux: inv.morceaux, morceau_s: MORCEAU_S, interrompue: !!man.interrompue,
     stockage: man.stockage ?? null, reglages_interface: c.reglages ?? null, reglages_moteur: man.cfg ?? null,
     horloge: 't_s du CSV = fin de la fenêtre d\'analyse, même horloge que le WAV (échantillon t_s × fs)',
+    // v61 : le micro (nom, empreinte de l\'identifiant, getSettings complet) et ce que le contrôle de la prise a vu.
+    micro_detail: c.micro && typeof c.micro === 'object' ? c.micro : null,
+    prise: man.prise ? { saine: !(man.prise.episodes ?? []).length, episodes: man.prise.episodes ?? [], trous: man.prise.trous ?? [],
+      resume: man.prise.resume ?? null, canaux_flux: c.capture?.canaux ?? null } : null,
   };
 }
 
@@ -2544,6 +2663,8 @@ function bindControls() {
   $('aboutLink').onclick = (e) => { e.preventDefault(); $('aboutDlg').showModal(); };
 
   navigator.mediaDevices?.enumerateDevices?.().then(listDevices).catch(() => {});
+  navigator.mediaDevices?.addEventListener?.('devicechange', () => navigator.mediaDevices.enumerateDevices().then(listDevices).catch(() => {}));
+  $('deviceSel').onchange = () => { cfg.deviceId = $('deviceSel').value || null; saveCfg(); relancerMicro(); };
 }
 
 function applyManual() {

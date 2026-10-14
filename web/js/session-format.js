@@ -132,6 +132,9 @@ export const COLONNES_SESSION = Object.freeze([
   // Hauteur de l'anche ramenée à un battement de sa voisine (v57, battement.js, cohererPaire) : 1 si la lecture brute
   // ne collait pas au battement de l'enveloppe.
   'paire_reparee',
+  // Contrôle de la prise de son (v61, dsp/prise.js) : vide si la prise est saine, sinon les défauts en cours
+  // (gate, pompage, trous, ecretage, secteur, lent) séparés par « + » : la mesure est alors douteuse.
+  'prise',
 ]);
 
 // Début du CSV : marque UTF-8 (le tableur lit les accents) et colonnes.
@@ -170,7 +173,7 @@ export function rangeesTick(r) {
 }
 
 // Les lignes du CSV d'une mesure `tk` = { t, midi, level, quiet, rows, sens,
-// sensSource, inversions },
+// sensSource, inversions, prise },
 // séparateur « ; », point décimal, chacune finie par « \n ».
 export function lignesCsv(tk, transpose = 0) {
   const num = (x, d) => (x == null || !Number.isFinite(x) ? '' : x.toFixed(d));
@@ -185,7 +188,7 @@ export function lignesCsv(tk, transpose = 0) {
     for (let k = 1; k <= PARTIELS_CSV; k++) l.push(num(r.p?.[k], 5));
     l.push(num(r.conf?.f, 5), num(r.conf?.c, 4), num(r.conf?.m, 4), r.conf?.methode ?? '', r.conf ? r.conf.signe : '');
     l.push(tk.sens ?? '', tk.sensSource ?? '', tk.inversions ?? '');
-    l.push(num(r.bat, 4), num(r.batBrut, 4), r.batSource ?? '', r.repar ? 1 : 0);
+    l.push(num(r.bat, 4), num(r.batBrut, 4), r.batSource ?? '', r.repar ? 1 : 0, tk.prise ?? '');
     s += `${l.join(';')}\n`;
   }
   return s;
