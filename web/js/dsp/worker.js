@@ -13,11 +13,32 @@
 
 import { Engine } from './engine.js';
 import { LecteurNote } from './lecteur-note.js';
+import { ControlePrise } from './prise.js';
 import {
   MORCEAU_S, versInt16, rangeesTick, lignesCsv, lireEnteteWav, echantillonsWav,
 } from '../session-format.js';
 
 let engine = null;
+
+// Contrôle de la prise de son (prise.js) : regarde les échantillons et, en lecture directe, les dates des blocs.
+// Chaque image du moteur porte `prise` ({ douteuse, codes }) ; la page reçoit un message `prise` quand les défauts
+// changent (le texte, le geste à faire : prise-micro.js).
+let controle = null, priseCle = '';
+function nouveauControle(sr) {
+  controle = new ControlePrise(sr);
+  priseCle = '';
+  return controle;
+}
+function priseEtat(force = false) {
+  if (!controle) return null;
+  const e = controle.etat();
+  const cle = e.codes.join('+');
+  if (force || cle !== priseCle) {
+    priseCle = cle;
+    self.postMessage({ type: 'prise', etat: e, resume: controle.resume() });
+  }
+  return e;
+}
 
 // --- verrou de phase expérimental (v59) : coupé par défaut ; éteint, rien de ce bloc ne tourne ------------------------------------------
 // Le son et les images vont à `LecteurNote`, qui découpe les notes ; chaque note part dans un second Worker (verrou-worker.js) : le calcul
@@ -54,7 +75,8 @@ let dev = null;                     // { gen, index, start, n, maxN, pcm, fill, 
 function devStart() {
   const sr = engine.sr;
   dev = { gen: ++devGen, index: 0, start: engine.samplesTotal, n: 0, maxN: Math.round(devMaxS * sr),
-    pcm: new Int16Array(MORCEAU_S * sr), fill: 0, csv: [], ticks: 0, ticksM: 0, full: false };
+    pcm: new Int16Array(MORCEAU_S * sr), fill: 0, csv: [], ticks: 0, ticksM: 0, full: false,
+    debutMs: Date.now(), priseT0: controle ? controle.temps : 0 };
 }
 
 // Rend le morceau en cours (son et lignes du CSV), s'il y a quelque chose.
@@ -63,7 +85,11 @@ function devFlush() {
   const pcm = dev.fill === dev.pcm.length ? dev.pcm : dev.pcm.slice(0, dev.fill);
   self.postMessage({ type: 'devMorceau', gen: dev.gen, index: dev.index, sr: engine.sr, pcm,
     csv: dev.csv.join(''), mesures: dev.ticksM, cfg: dev.index === 0 ? engine.cfg : undefined,
-    n: dev.n, ticks: dev.ticks, full: dev.full }, [pcm.buffer]);
+    n: dev.n, ticks: dev.ticks, full: dev.full,
+    // Le début réel de la session (et non l'arrivée du premier morceau, 10 s plus tard) ; le contrôle de la prise.
+    debutMs: dev.debutMs,
+    prise: controle ? { episodes: controle.episodesSession(dev.priseT0), trous: controle.trousSession(dev.priseT0), resume: controle.resume() } : undefined,
+  }, [pcm.buffer]);
   dev.index++;
   dev.pcm = new Int16Array(MORCEAU_S * engine.sr);
   dev.fill = 0; dev.csv = []; dev.ticksM = 0;
@@ -86,7 +112,8 @@ function devTick(r) {
   if (!dev || dev.full) return;
   const t = r.time - dev.start / engine.sr;
   dev.csv.push(lignesCsv({ t, midi: r.playedMidi, level: r.level, quiet: r.quiet ? 1 : 0, rows: rangeesTick(r),
-    sens: r.sens ?? null, sensSource: r.soufflet?.source ?? null, inversions: r.soufflet?.inversions ?? null },
+    sens: r.sens ?? null, sensSource: r.soufflet?.source ?? null, inversions: r.soufflet?.inversions ?? null,
+    prise: r.prise?.codes?.join('+') ?? '' },
     engine.cfg?.transpose || 0));
   dev.ticks++; dev.ticksM++;
 }
@@ -98,6 +125,7 @@ function devStatus() {
 function onChunk(chunk) {
   if (!engine) return;
   devAppend(chunk);
+  controle?.alimenter(chunk);
   const t0 = performance.now();
   const result = engine.process(chunk);
   if (verrouOn) {
@@ -107,6 +135,8 @@ function onChunk(chunk) {
   if (result) {
     // Charge DSP : temps de calcul rapporté à la période d'analyse.
     result.dspMs = performance.now() - t0;
+    const prise = priseEtat();
+    if (prise) result.prise = { douteuse: prise.douteuse, codes: prise.codes };
     devTick(result);
     if (dev) result.dev = devStatus();
     // Les spectres sont transférés (zéro copie) plutôt que clonés.
@@ -138,10 +168,13 @@ async function readStream(readable) {
       if (!engine || engine.sr !== ad.sampleRate) {
         const cfg = engine ? engine.cfg : pendingCfg;
         engine = new Engine(ad.sampleRate, cfg || {});
+        nouveauControle(ad.sampleRate);
         if (dev || pendingDev) devStart();
-        self.postMessage({ type: 'capture', direct: true, sampleRate: ad.sampleRate, format: ad.format });
+        self.postMessage({ type: 'capture', direct: true, sampleRate: ad.sampleRate, format: ad.format, canaux: ad.numberOfChannels });
+        priseEtat(true);
       }
       const n = ad.numberOfFrames;
+      controle?.bloc(ad.timestamp, n);
       if (buf.length < fill + n) { const b = new Float32Array(2 * (fill + n)); b.set(buf.subarray(0, fill)); buf = b; }
       const plane = buf.subarray(fill, fill + n);
       if (/^f32/.test(ad.format)) {
@@ -173,8 +206,10 @@ async function lireFichier(blob, vitesse = 1) {
   const info = lireEnteteWav(tete, blob.size);
   if (!info) throw new Error('WAV illisible'); // interne
   engine = new Engine(info.sr, pendingCfg || {});
+  nouveauControle(info.sr);
   if (dev || pendingDev) devStart();
   self.postMessage({ type: 'capture', direct: false, sampleRate: info.sr, fichier: true, duree: info.n / info.sr });
+  priseEtat(true);
   const HOPS = 512;
   const parLecture = Math.max(1, Math.round(info.sr / 2)) * info.bloc; // une demi-seconde à la fois
   let pos = info.debut;
@@ -219,6 +254,7 @@ self.onmessage = (e) => {
   const d = e.data;
   if (d.type === 'init') {
     engine = new Engine(d.sampleRate, d.cfg || {});
+    nouveauControle(d.sampleRate);
     pendingCfg = d.cfg || {}; pendingDev = !!d.dev;
     verrouRegler(d.verrou);
     if (d.devMaxS > 0) devMaxS = d.devMaxS;
@@ -232,6 +268,12 @@ self.onmessage = (e) => {
     lireFichier(d.blob, d.vitesse).catch((err) => self.postMessage({ type: 'capture', error: String(err?.message ?? err) }));
   } else if (d.type === 'verrou') {
     verrouRegler(d.on);
+  } else if (d.type === 'priseMuet') {
+    // Mesure coupée voulue (annonce vocale, son de référence) : des zéros, mais pas une porte.
+    controle?.suspendre(d.muet);
+  } else if (d.type === 'priseMicro') {
+    // Ce que la page sait du micro par son nom (prise-micro.js) : Bluetooth, mains libres.
+    for (const code of ['bluetooth']) { if (d.codes?.includes(code)) controle?.declarer(code, d.detail ?? {}); else controle?.retirer(code); }
   } else if (d.type === 'config') {
     pendingCfg = { ...(pendingCfg || {}), ...d.cfg };
     engine?.configure(d.cfg);

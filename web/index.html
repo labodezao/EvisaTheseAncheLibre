@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr" data-version="60">
+<html lang="fr" data-version="61">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -47,6 +47,13 @@
     <button id="btnLock" disabled title="Verrouiller la note mesurée (désactive la détection automatique)">🔓 Auto</button>
   </div>
 </header>
+<!-- v61 : le micro qui sert est toujours dit (nom, fréquence réelle, canaux), le choix du micro est ici, et le contrôle de la prise de son parle dans le bandeau. -->
+<div id="microBarre" class="micro-barre">
+  <label>Micro <select id="deviceSel"></select></label>
+  <span id="microInfo" class="micro-info">micro arrêté</span>
+  <span id="microAvis" class="micro-avis"></span>
+</div>
+<div id="bandeauPrise" class="bandeau-prise hidden" role="alert"></div>
 
 <nav id="tabbar" role="tablist">
   <button class="tab active" data-tab="strobe" role="tab" aria-selected="true">◎ Strobe</button>
@@ -353,7 +360,7 @@
     </div>
     <div class="panel">
       <h2>Entrée audio</h2>
-      <label>Périphérique <select id="deviceSel"></select></label>
+      <p class="hint">Le choix du micro est en haut de la page.</p>
       <p class="hint" id="latencyInfo"></p>
       <p class="hint" id="dspLoad"></p>
       <p class="hint" id="fileInfo">📂 Fichier : analyser un enregistrement au lieu du micro.</p>

@@ -1,0 +1,383 @@
+// Contrôle de la prise de son, en continu, dans le Worker (Ewen, 14/10/2026 :
+// « un accordeur professionnel doit garantir que la prise de son est fiable, et
+// le dire »). Il ne regarde que les échantillons reçus (et, si le navigateur les
+// donne, les dates des blocs) : jamais la musique. Chaque détecteur cherche la
+// SIGNATURE d'un défaut de la chaîne, pas un réglage propre à un micro.
+//
+// Pourquoi (J:\claude\tmp\accordeur_session_2026-10-14\diagnostic.md) : l'accordeur
+// avait capté un micro USB générique au lieu du Zoom H6, avec l'effet vocal de
+// Windows (suppression de bruit) : plages de zéros exacts dans les pauses (1629 de
+// 1 ms et plus en 2 min, jusqu'à 23 ms), plancher de bruit à -88 dBFS contre -70
+// à -84 pour le H6 (le bruit du soufflet), amplitudes relatives des partiels
+// instables, ronflement du secteur à 50 Hz.
+//
+// Les alertes (codes) :
+//   gate     suppresseur de bruit / porte : plages de zéros exacts de 1 à 250 ms, ou
+//            plancher de bruit coupé net dans les pauses ;
+//   pompage  traitement dynamique (compresseur, gain automatique) : la raie du secteur, qui
+//            a une amplitude vraie constante, suit le niveau du son (gain qui baisse quand il monte).
+//            Seulement quand le ronflement est là : sans lui, rien dans le signal ne sert de
+//            référence (le fond de soufflet monte et descend tout seul : 12 à 23 dB dans les
+//            prises du H6, mesuré), le contrôle ne dit alors rien du pompage ;
+//   trous    blocs perdus ou doublés : la date du flux s'écarte du compte d'échantillons ;
+//   ecretage échantillons collés au maximum ;
+//   secteur  ronflement du secteur (raies à 50 ou 60 Hz et leurs harmoniques) ;
+//   lent     fréquence d'échantillonnage de 8 à 16 kHz (téléphone, Bluetooth « mains libres »).
+// Les seuils sont fixés sur des sons de synthèse (test/prise.test.mjs, banc) ; les
+// prises réelles servent à valider, pas à régler (règle d'or de CLAUDE.md).
+//
+// Module pur, sans DOM : tourne dans le Worker (worker.js) et sous Node.
+
+export const SEUILS = Object.freeze({
+  chauffe_s: 1.0,           // rien n'est jugé pendant la première seconde (démarrage du flux)
+  // gate : zéros exacts
+  zeroMin_s: 0.001,         // plage de zéros d'au moins 1 ms ...
+  zeroMax_s: 0.25,          // ... et d'au plus 250 ms (au-delà : micro coupé, pas une porte)
+  gateFenetre_s: 30,
+  gateEvents: 5,            // 5 plages en 30 s
+  gateZeroPart: 0.6,        // ... dans un bloc de 100 ms dont les zéros ne font pas plus de 60 % (sinon : plancher sous la quantification, pas une porte)
+  // gate : plancher coupé net
+  palierHaut: -80,          // dBFS : le niveau d'avant (une pause, entre -80 ...
+  palierPause: -58,         // ... et -58 dBFS, depuis 3 blocs) ...
+  palierBas: -84,           // ... et celui d'après
+  palierSaut: 9,            // dB perdus en un seul bloc de 100 ms
+  palierPlat: 2.5,          // dB : le plancher reste plat ensuite (3 blocs)
+  palierEvents: 4,          // 4 coupures en 60 s
+  palierFenetre_s: 60,
+  // pompage : la raie du secteur, d'amplitude vraie constante, suit le niveau du son
+  pompageEcart: 2,          // dB d'écart type de la raie d'une fenêtre à l'autre ...
+  pompageCorr: -0.6,        // ... et corrélation avec le niveau de la fenêtre (le gain baisse quand le son monte)
+  pompageMin: 8,            // fenêtres de ronflement qu'il faut pour juger
+  // trous
+  trouMs: 5,                // écart date / échantillons
+  trouTenue_s: 15,
+  // écrêtage
+  ecreteNiveau: 0.985,
+  ecreteSuite: 3,           // 3 échantillons d'affilée au maximum
+  ecreteEvents: 5,
+  ecreteFenetre_s: 10,
+  // secteur
+  secteurFenetre_s: 2,
+  secteurRatioDb: 15,       // la raie dépasse ses voisines de 15 dB ...
+  secteurHarmDb: 8,         // ... et une de ses harmoniques de 8 dB
+  secteurAbsDb: -85,        // dBFS (crête) : une raie plus faible n'est qu'un bruit de convertisseur
+  secteurFenetres: 10,      // 10 fenêtres de 2 s gardées
+  secteurMin: 6,
+  secteurPart: 0.7,
+  // lent
+  srLent: 16000,
+  // durée de maintien d'une alerte après la dernière preuve
+  tenue_s: 30,
+});
+
+// Les alertes qui rendent une mesure douteuse (toutes ; le ronflement seulement
+// quand il est détecté, c'est-à-dire fort : ratio et niveau ci-dessus).
+export const CODES = Object.freeze(['gate', 'pompage', 'trous', 'ecretage', 'secteur', 'lent', 'bluetooth']);
+
+const BLOC_S = 0.1;   // niveau par blocs de 100 ms
+
+export class ControlePrise {
+  constructor(sr, seuils = {}) {
+    this.sr = sr;
+    this.s = { ...SEUILS, ...seuils };
+    this.n = 0;                 // échantillons reçus (hors pause du contrôle)
+    this.muet = false;
+    // zéros exacts
+    this.zeros = 0;
+    this.evGate = [];           // temps (s) des plages de zéros
+    this.zerosVus = 0;          // pour le rapport : toutes les plages
+    this.pend = [];             // plages de zéros finies dans le bloc de 100 ms en cours
+    this.bz = 0;                // zéros dans ce bloc
+    this.zeroMax = 0;           // la plus longue vue (s)
+    // niveau par blocs
+    this.bn = 0; this.bsom = 0; this.B = Math.max(1, Math.round(sr * BLOC_S));
+    this.niv = [];              // derniers niveaux (dBFS), 8 blocs
+    this.evPalier = [];
+    // écrêtage
+    this.suiteCrete = 0; this.enCrete = false; this.evEcrete = [];
+    // trous
+    this.ts0 = null; this.cum = 0; this.rRef = 0; this.candidat = null; this.trous = []; this.dernierTrou = -1e9;
+    this.tsDernier = null; this.cumDernier = 0;
+    // secteur
+    this.tamponS = new Float32Array(Math.round(sr * this.s.secteurFenetre_s));
+    this.remplis = 0;
+    this.fenetresS = [];        // 1 par fenêtre : { hit, ratio, abs, base }
+    this.dernierSecteur = null;
+    this.hann = null;
+    // états, épisodes
+    this.actifs = new Map();    // code -> { depuis, dernier, n, detail }
+    this.episodes = [];         // { code, debut_s, fin_s, n, detail }
+    this.externes = new Map();  // défauts connus de la page, pas du signal : un micro Bluetooth (prise-micro.js)
+    this.dernierEtat = null;
+  }
+
+  // La page sait quelque chose du micro que le signal ne dit pas (son nom : « Hands-Free »).
+  declarer(code, detail = {}) { this.externes.set(code, detail); }
+  retirer(code) { this.externes.delete(code); }
+
+  get temps() { return this.n / this.sr; }
+
+  // Mesure coupée (annonce vocale, son de référence : le flux donne des zéros
+  // voulus) : rien n'est jugé, les suites de zéros et de niveaux repartent.
+  suspendre(oui) {
+    this.muet = !!oui;
+    this.zeros = 0; this.suiteCrete = 0; this.niv.length = 0; this.pend.length = 0; this.bz = 0;
+    this.bn = 0; this.bsom = 0;
+    this.remplis = 0;
+    this.ts0 = null; this.candidat = null;   // la date du flux repart : la coupure n est pas un trou
+  }
+
+  // Un bloc d'échantillons (la suite exacte du flux, sans trou).
+  alimenter(x) {
+    if (this.muet) { this.n += x.length; return; }   // le temps avance (même horloge que le moteur), rien n'est jugé
+    const s = this.s, sr = this.sr, B = this.B;
+    const zMin = Math.round(s.zeroMin_s * sr), zMax = Math.round(s.zeroMax_s * sr);
+    const lim = s.ecreteNiveau;
+    for (let i = 0; i < x.length; i++) {
+      const v = x[i];
+      const a = v < 0 ? -v : v;
+      this.n++;
+      // zéros exacts
+      if (v === 0) { this.zeros++; this.bz++; }
+      else {
+        if (this.zeros >= zMin && this.zeros <= zMax && this.temps > s.chauffe_s) {
+          this.pend.push(this.temps, this.zeros / sr);
+        }
+        this.zeros = 0;
+      }
+      // écrêtage
+      if (a >= lim) {
+        if (++this.suiteCrete === s.ecreteSuite && this.temps > s.chauffe_s) this.evEcrete.push(this.temps);
+      } else this.suiteCrete = 0;
+      // niveau par blocs
+      this.bsom += v * v;
+      if (++this.bn === B) {
+        this.niveau(10 * Math.log10(this.bsom / B + 1e-20));
+        // Les plages de zéros de ce bloc comptent si les zéros n'en sont pas la
+        // plus grande partie : sinon le plancher est sous la quantification
+        // (un micro très calme sur 16 bits), pas une porte.
+        if (this.pend.length && this.bz / B < s.gateZeroPart) {
+          for (let k = 0; k < this.pend.length; k += 2) {
+            this.evGate.push(this.pend[k]);
+            this.zerosVus++;
+            if (this.pend[k + 1] > this.zeroMax) this.zeroMax = this.pend[k + 1];
+          }
+        }
+        this.pend.length = 0; this.bz = 0;
+        this.bn = 0; this.bsom = 0;
+      }
+      // tampon du secteur
+      if (this.remplis < this.tamponS.length) this.tamponS[this.remplis++] = v;
+    }
+    if (this.remplis === this.tamponS.length) {
+      this.jugerSecteur();
+      this.remplis = 0;
+    }
+  }
+
+  // Niveau d'un bloc de 100 ms : coupure nette du plancher.
+  niveau(db) {
+    const s = this.s, t = this.temps;
+    const L = this.niv;
+    L.push(db);
+    if (L.length > 8) L.shift();
+    if (t <= s.chauffe_s) return;
+    // plancher coupé net : un saut vers le bas de 9 dB et plus d'un bloc à l'autre, de
+    // -78 dBFS ou plus haut à -84 ou plus bas, puis 3 blocs plats
+    const m = L.length;
+    if (m >= 8) {
+      const av = L[m - 5], ap = L[m - 4];
+      // le plancher d'avant est celui d'une pause (le bruit du soufflet, -80 à -58 dBFS) depuis 3 blocs : la fin
+      // d'une note qui tombe au bruit de fond n'est pas une coupure
+      const pause = [L[m - 7], L[m - 6], av].every((v) => v >= s.palierHaut && v <= s.palierPause);
+      if (pause && ap <= s.palierBas && av - ap >= s.palierSaut) {
+        const plat = [L[m - 3], L[m - 2], L[m - 1]].every((v) => Math.abs(v - ap) <= s.palierPlat);
+        if (plat) this.evPalier.push(t - 0.4);
+      }
+    }
+  }
+
+  // Les dates du flux (microsecondes) face au compte d'échantillons.
+  // `ts` : AudioData.timestamp, `n` : numberOfFrames.
+  bloc(ts, n) {
+    if (this.muet || !Number.isFinite(ts)) return;
+    if (this.ts0 === null) {
+      this.ts0 = ts; this.cum = 0; this.rRef = 0; this.tsDernier = ts; this.cumDernier = 0;
+    } else {
+      const r = (ts - this.ts0) / 1e6 - this.cum / this.sr;
+      const ecart = r - this.rRef;
+      const ms = ecart * 1000;
+      // Un vrai trou décale TOUTES les dates suivantes (un palier) ; une date qui tremble (gigue de la
+      // capture) ne dépasse le seuil que sur un bloc. Le trou n'est donc retenu qu'au bloc suivant.
+      const c = this.candidat;
+      if (c && Math.abs(ms) > 0.6 * this.s.trouMs && Math.sign(ms) === Math.sign(c.ms)) {
+        this.trous.push({ t_s: c.t, ms: Math.round(c.ms * 10) / 10 });
+        if (this.trous.length > 500) this.trous.shift();
+        this.dernierTrou = this.temps;
+        this.rRef = r;
+        this.candidat = null;
+      } else {
+        this.candidat = null;
+        if (Math.abs(ms) > this.s.trouMs && this.temps > this.s.chauffe_s) this.candidat = { ms, t: this.temps };
+        else this.rRef += 0.02 * ecart;   // l'horloge du micro dérive lentement (100 à 150 ppm) : on la suit
+      }
+      this.tsDernier = ts; this.cumDernier = this.cum;
+    }
+    this.cum += n;
+  }
+
+  // Dérive de l'horloge du micro face à celle du navigateur (ppm), sur toute la prise.
+  deriveHorloge() {
+    if (this.ts0 === null || this.cumDernier < this.sr * 10) return null;
+    const reel = (this.tsDernier - this.ts0) / 1e6;
+    const attendu = this.cumDernier / this.sr;
+    return Math.round((reel / attendu - 1) * 1e6 * 10) / 10;
+  }
+
+  // Ronflement du secteur : raies à 50 (ou 60) Hz et à leurs harmoniques 2 et 3,
+  // face à leurs voisines à ±4 et ±6 Hz, sur une fenêtre de 2 s (case de 0,5 Hz).
+  jugerSecteur() {
+    const s = this.s, sr = this.sr, N = this.tamponS.length;
+    if (!this.hann) {
+      this.hann = new Float32Array(N);
+      for (let i = 0; i < N; i++) this.hann[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / N);
+    }
+    if (this.temps <= s.chauffe_s) return;
+    const x = this.tamponS, h = this.hann;
+    const puissance = (f) => {
+      if (f >= sr / 2 - 10) return 0;
+      const w = 2 * Math.PI * f / sr, c = 2 * Math.cos(w);
+      let s1 = 0, s2 = 0;
+      for (let i = 0; i < N; i++) { const v = x[i] * h[i] + c * s1 - s2; s2 = s1; s1 = v; }
+      const re = s1 - s2 * Math.cos(w), im = s2 * Math.sin(w);
+      return (re * re + im * im) * 4 / (N * N);   // amplitude de crête au carré (fenêtre de Hann : somme N/2)
+    };
+    const db = (p) => 10 * Math.log10(p + 1e-20);
+    let meilleur = null;
+    for (const base of [50, 60]) {
+      const r = [];
+      for (let k = 1; k <= 3; k++) {
+        const f = base * k;
+        const p = puissance(f);
+        const v = (puissance(f - 6) + puissance(f - 4) + puissance(f + 4) + puissance(f + 6)) / 4;
+        r.push({ f, ratio: db(p) - db(v), abs: db(p) });   // abs : crête en dBFS (dB de l'amplitude au carré)
+      }
+      const [a, b, c] = r;
+      const hit = a.ratio >= s.secteurRatioDb && a.abs >= s.secteurAbsDb && Math.max(b.ratio, c.ratio) >= s.secteurHarmDb;
+      const cand = { hit, base, ratio: a.ratio, abs: a.abs, harm: Math.max(b.ratio, c.ratio) };
+      if (!meilleur || (hit && !meilleur.hit) || (hit === meilleur.hit && cand.ratio > meilleur.ratio)) meilleur = cand;
+    }
+    let somme = 0;
+    for (let i = 0; i < N; i++) somme += x[i] * x[i];
+    meilleur.niveau = db(somme / N);
+    meilleur.t = this.temps;
+    this.dernierSecteur = meilleur;
+    this.fenetresS.push(meilleur);
+    if (this.fenetresS.length > s.secteurFenetres) this.fenetresS.shift();
+  }
+
+  // ---- État ----
+  // Preuve la plus récente et nombre de preuves dans la fenêtre, par code.
+  preuves() {
+    const s = this.s, t = this.temps;
+    const dans = (ev, fen) => { while (ev.length && ev[0] < t - fen) ev.shift(); return ev; };
+    const out = {};
+    const gate = dans(this.evGate, s.gateFenetre_s);
+    const palier = dans(this.evPalier, s.palierFenetre_s);
+    const zerosOk = gate.length >= s.gateEvents;
+    if (zerosOk || palier.length >= s.palierEvents) {
+      const ev = zerosOk ? gate : palier;
+      out.gate = { premiere: ev[0], derniere: ev[ev.length - 1], n: gate.length + palier.length,
+        detail: { zeros: gate.length, coupures: palier.length, plusLongue_ms: Math.round(this.zeroMax * 10000) / 10 } };
+    }
+    if (this.trous.length && t - this.dernierTrou <= s.trouTenue_s) {
+      out.trous = { premiere: this.dernierTrou, derniere: this.dernierTrou, n: this.trous.length,
+        detail: { dernier_ms: this.trous[this.trous.length - 1].ms, total: this.trous.length } };
+    }
+    const crete = dans(this.evEcrete, s.ecreteFenetre_s);
+    if (crete.length >= s.ecreteEvents) out.ecretage = { premiere: crete[0], derniere: crete[crete.length - 1], n: crete.length, detail: {} };
+    if (this.fenetresS.length >= s.secteurMin) {
+      const hits = this.fenetresS.filter((f) => f.hit);
+      if (hits.length / this.fenetresS.length >= s.secteurPart) {
+        const d = hits[hits.length - 1];
+        out.secteur = { premiere: hits[0].t, derniere: d.t, n: hits.length,
+          detail: { hz: d.base, ratio_db: Math.round(d.ratio * 10) / 10, crete_dbfs: Math.round(d.abs * 10) / 10 } };
+      }
+    }
+    if (out.secteur) {
+      const h = this.fenetresS.filter((f) => f.hit);
+      if (h.length >= s.pompageMin) {
+        const a = h.map((f) => f.abs), l = h.map((f) => f.niveau);
+        const m = (v) => v.reduce((x, y) => x + y, 0) / v.length;
+        const ma = m(a), ml = m(l);
+        let saa = 0, sll = 0, sal = 0;
+        for (let i = 0; i < a.length; i++) { saa += (a[i] - ma) ** 2; sll += (l[i] - ml) ** 2; sal += (a[i] - ma) * (l[i] - ml); }
+        const ecart = Math.sqrt(saa / a.length), corr = saa > 0 && sll > 0 ? sal / Math.sqrt(saa * sll) : 0;
+        if (ecart >= s.pompageEcart && corr <= s.pompageCorr) {
+          out.pompage = { premiere: h[0].t, derniere: h[h.length - 1].t, n: h.length,
+            detail: { ecart_db: Math.round(ecart * 10) / 10, correlation: Math.round(corr * 100) / 100 } };
+        }
+      }
+    }
+    for (const [code, detail] of this.externes) out[code] = { premiere: 0, derniere: t, n: 1, detail };
+    if (this.sr <= s.srLent && this.n > 0) out.lent = { premiere: 0, derniere: t, n: 1, detail: { sr: this.sr } };
+    return out;
+  }
+
+  // { douteuse, codes, alertes: [{ code, depuis_s, n, detail }] }. L'alerte reste
+  // `tenue_s` après sa dernière preuve (SEUILS.tenue_s), sauf les trous (15 s).
+  etat() {
+    const t = this.temps, s = this.s;
+    const p = this.preuves();
+    for (const [code, e] of Object.entries(p)) {
+      const a = this.actifs.get(code);
+      if (a) { a.dernier = e.derniere; a.n = e.n; a.detail = e.detail; a.vue = t; }
+      else {
+        this.actifs.set(code, { depuis: e.premiere, dernier: e.derniere, n: e.n, detail: e.detail, vue: t });
+        this.episodes.push({ code, debut_s: e.premiere, fin_s: null, n: e.n, detail: e.detail });
+      }
+    }
+    for (const [code, a] of [...this.actifs]) {
+      if (!p[code] && t - a.vue > (code === 'trous' ? 0 : s.tenue_s)) {
+        this.actifs.delete(code);
+        for (let i = this.episodes.length - 1; i >= 0; i--) {
+          if (this.episodes[i].code === code && this.episodes[i].fin_s === null) {
+            this.episodes[i].fin_s = a.vue; this.episodes[i].n = a.n; this.episodes[i].detail = a.detail;
+            break;
+          }
+        }
+      }
+    }
+    for (const ep of this.episodes) {
+      const a = this.actifs.get(ep.code);
+      if (a && ep.fin_s === null) { ep.n = a.n; ep.detail = a.detail; }
+    }
+    const alertes = [...this.actifs].map(([code, a]) => ({ code, depuis_s: a.depuis, n: a.n, detail: a.detail }));
+    return { douteuse: alertes.length > 0, codes: alertes.map((a) => a.code), alertes, t };
+  }
+
+  // Les épisodes pour le JSON de la session. `t0` : l'instant de la session dans
+  // le temps du contrôle (s) ; les temps rendus sont ceux de la session.
+  episodesSession(t0 = 0) {
+    this.etat();
+    return this.episodes.map((e) => ({
+      code: e.code, debut_s: Math.max(0, Math.round((e.debut_s - t0) * 100) / 100),
+      fin_s: e.fin_s == null ? null : Math.round((e.fin_s - t0) * 100) / 100, n: e.n, detail: e.detail,
+    }));
+  }
+
+  // Les trous datés, pour le JSON.
+  trousSession(t0 = 0) {
+    return this.trous.map((x) => ({ t_s: Math.round((x.t_s - t0) * 1000) / 1000, ms: x.ms }));
+  }
+
+  // Résumé chiffré de la prise (JSON de la session, tests).
+  resume() {
+    return {
+      duree_s: Math.round(this.temps * 10) / 10,
+      plages_de_zeros: this.zerosVus, plus_longue_plage_ms: Math.round(this.zeroMax * 10000) / 10,
+      coupures_de_plancher: this.evPalier.length,
+      derive_horloge_ppm: this.deriveHorloge(),
+    };
+  }
+}
