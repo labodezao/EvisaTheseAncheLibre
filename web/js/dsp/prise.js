@@ -28,6 +28,8 @@
 //
 // Module pur, sans DOM : tourne dans le Worker (worker.js) et sous Node.
 
+import { affinerSecteur } from './secteur.js';
+
 export const SEUILS = Object.freeze({
   chauffe_s: 1.0,           // rien n'est jugé pendant la première seconde (démarrage du flux)
   // gate : zéros exacts
@@ -50,6 +52,7 @@ export const SEUILS = Object.freeze({
   pompageMin: 8,            // fenêtres de ronflement qu'il faut pour juger
   // trous
   trouMs: 5,                // écart date / échantillons
+  trouChauffe_s: 5,         // les 5 premières secondes : un saut de date est le démarrage du périphérique (v62, Ewen : 870 ms au lancement), pas une perte ; le compteur repart de la nouvelle date
   trouTenue_s: 15,
   // écrêtage
   ecreteNiveau: 0.985,
@@ -96,7 +99,7 @@ export class ControlePrise {
     // écrêtage
     this.suiteCrete = 0; this.enCrete = false; this.evEcrete = [];
     // trous
-    this.ts0 = null; this.cum = 0; this.rRef = 0; this.candidat = null; this.trous = []; this.dernierTrou = -1e9;
+    this.ts0 = null; this.cum = 0; this.rRef = 0; this.candidat = null; this.demarrageMs = null; this.trous = []; this.dernierTrou = -1e9;
     this.tsDernier = null; this.cumDernier = 0;
     // secteur
     this.tamponS = new Float32Array(Math.round(sr * this.s.secteurFenetre_s));
@@ -107,6 +110,15 @@ export class ControlePrise {
     // états, épisodes
     this.actifs = new Map();    // code -> { depuis, dernier, n, detail }
     this.episodes = [];         // { code, debut_s, fin_s, n, detail }
+    // retrait du ronflement (v62, dsp/secteur.js) : le contrôle regarde le signal BRUT (alimenter) et le signal retiré (alimenterNet)
+    this.retireSecteur = true;      // réglage : retirer le ronflement quand il est détecté
+    this.secteurOn = false;         // l'annuleur travaille (le Worker l'a réglé)
+    this.tActif = 0;
+    this.tamponN = new Float32Array(this.tamponS.length);
+    this.remplisN = 0;
+    this.fenetresN = [];
+    this.secteurF0 = null; this.secteurH = 0; this.secteurNouveau = false;
+    this.infos = [];
     this.externes = new Map();  // défauts connus de la page, pas du signal : un micro Bluetooth (prise-micro.js)
     this.dernierEtat = null;
   }
@@ -199,7 +211,9 @@ export class ControlePrise {
 
   // Les dates du flux (microsecondes) face au compte d'échantillons.
   // `ts` : AudioData.timestamp, `n` : numberOfFrames.
-  bloc(ts, n) {
+  // `retardMs` : le temps que le Worker lui-même vient de mettre à traiter un bloc (s'il est du même ordre que le
+  // saut, c'est le calcul qui n'a pas suivi, pas le micro : cause « retard »).
+  bloc(ts, n, retardMs = 0) {
     if (this.muet || !Number.isFinite(ts)) return;
     if (this.ts0 === null) {
       this.ts0 = ts; this.cum = 0; this.rRef = 0; this.tsDernier = ts; this.cumDernier = 0;
@@ -211,14 +225,18 @@ export class ControlePrise {
       // capture) ne dépasse le seuil que sur un bloc. Le trou n'est donc retenu qu'au bloc suivant.
       const c = this.candidat;
       if (c && Math.abs(ms) > 0.6 * this.s.trouMs && Math.sign(ms) === Math.sign(c.ms)) {
-        this.trous.push({ t_s: c.t, ms: Math.round(c.ms * 10) / 10 });
+        this.trous.push({ t_s: c.t, ms: Math.round(c.ms * 10) / 10, cause: Math.abs(c.ms) <= 1.5 * (c.retard || 0) + 20 ? 'retard' : 'flux' });
         if (this.trous.length > 500) this.trous.shift();
         this.dernierTrou = this.temps;
         this.rRef = r;
         this.candidat = null;
       } else {
         this.candidat = null;
-        if (Math.abs(ms) > this.s.trouMs && this.temps > this.s.chauffe_s) this.candidat = { ms, t: this.temps };
+        if (Math.abs(ms) > this.s.trouMs && this.temps <= this.s.trouChauffe_s) {
+          // Démarrage : la date du flux se cale. On repart de cette date, sans compter de trou.
+          this.demarrageMs = Math.round(ms);
+          this.rRef = r;
+        } else if (Math.abs(ms) > this.s.trouMs) this.candidat = { ms, t: this.temps, retard: retardMs };
         else this.rRef += 0.02 * ecart;   // l'horloge du micro dérive lentement (100 à 150 ppm) : on la suit
       }
       this.tsDernier = ts; this.cumDernier = this.cum;
@@ -234,16 +252,42 @@ export class ControlePrise {
     return Math.round((reel / attendu - 1) * 1e6 * 10) / 10;
   }
 
+  // Le signal APRÈS le retrait du ronflement : sert à dire si le ronflement est parti.
+  alimenterNet(x) {
+    if (this.muet || !this.secteurOn) return;
+    for (let i = 0; i < x.length; i++) {
+      this.tamponN[this.remplisN++] = x[i];
+      if (this.remplisN === this.tamponN.length) { this.jugerSecteur(this.tamponN, this.fenetresN, false); this.remplisN = 0; }
+    }
+  }
+
+  // Le Worker doit-il (re)régler l'annuleur ? Deux fenêtres de ronflement de suite le déclenchent ; chaque nouvelle
+  // fenêtre rend la fréquence affinée du secteur et les harmoniques à retirer (une seule fois par fenêtre).
+  demandeSecteur() {
+    if (!this.retireSecteur || !this.secteurNouveau) return null;
+    const f = this.fenetresS;
+    if (f.length < 2 || !f[f.length - 1].hit || !f[f.length - 2].hit || !this.secteurF0) return null;
+    this.secteurNouveau = false;
+    return { f0: this.secteurF0, harmoniques: this.secteurH };
+  }
+
+  // L'annuleur travaille (true) ou s'est arrêté.
+  secteurActif(on) {
+    if (on && !this.secteurOn) { this.tActif = this.temps; this.fenetresN = []; this.remplisN = 0; }
+    this.secteurOn = !!on;
+    if (!on) this.infos = [];
+  }
+
   // Ronflement du secteur : raies à 50 (ou 60) Hz et à leurs harmoniques 2 et 3,
   // face à leurs voisines à ±4 et ±6 Hz, sur une fenêtre de 2 s (case de 0,5 Hz).
-  jugerSecteur() {
-    const s = this.s, sr = this.sr, N = this.tamponS.length;
+  jugerSecteur(tampon = this.tamponS, liste = this.fenetresS, brut = true) {
+    const s = this.s, sr = this.sr, N = tampon.length;
     if (!this.hann) {
       this.hann = new Float32Array(N);
       for (let i = 0; i < N; i++) this.hann[i] = 0.5 - 0.5 * Math.cos(2 * Math.PI * i / N);
     }
     if (this.temps <= s.chauffe_s) return;
-    const x = this.tamponS, h = this.hann;
+    const x = tampon, h = this.hann;
     const puissance = (f) => {
       if (f >= sr / 2 - 10) return 0;
       const w = 2 * Math.PI * f / sr, c = 2 * Math.cos(w);
@@ -271,9 +315,23 @@ export class ControlePrise {
     for (let i = 0; i < N; i++) somme += x[i] * x[i];
     meilleur.niveau = db(somme / N);
     meilleur.t = this.temps;
-    this.dernierSecteur = meilleur;
-    this.fenetresS.push(meilleur);
-    if (this.fenetresS.length > s.secteurFenetres) this.fenetresS.shift();
+    if (brut) this.dernierSecteur = meilleur;
+    liste.push(meilleur);
+    if (liste.length > s.secteurFenetres) liste.shift();
+    if (brut && meilleur.hit && this.retireSecteur) {
+      // Fréquence réelle du secteur (à 0,01 Hz) et harmoniques qui dépassent leurs voisines de 8 dB : celles-là sont retirées.
+      const f0 = affinerSecteur(x, sr, meilleur.base);
+      this.secteurF0 = this.secteurF0 && Math.abs(this.secteurF0 - f0) < 0.15 ? Math.round((0.5 * this.secteurF0 + 0.5 * f0) * 100) / 100 : f0;
+      let hmax = 1;
+      for (let k = 2; k <= 16 && k * this.secteurF0 < Math.min(1500, sr / 2 - 20); k++) {
+        const f = k * this.secteurF0;
+        const p = puissance(f);
+        const v = (puissance(f - 6) + puissance(f - 4) + puissance(f + 4) + puissance(f + 6)) / 4;
+        if (db(p) - db(v) >= 8 && db(p) / 2 >= -110) hmax = k;
+      }
+      this.secteurH = hmax;
+      this.secteurNouveau = true;
+    }
   }
 
   // ---- État ----
@@ -292,7 +350,8 @@ export class ControlePrise {
     }
     if (this.trous.length && t - this.dernierTrou <= s.trouTenue_s) {
       out.trous = { premiere: this.dernierTrou, derniere: this.dernierTrou, n: this.trous.length,
-        detail: { dernier_ms: this.trous[this.trous.length - 1].ms, total: this.trous.length } };
+        detail: { dernier_ms: this.trous[this.trous.length - 1].ms, dernier_t_s: Math.round(this.trous[this.trous.length - 1].t_s * 10) / 10,
+          cause: this.trous[this.trous.length - 1].cause, total: this.trous.length } };
     }
     const crete = dans(this.evEcrete, s.ecreteFenetre_s);
     if (crete.length >= s.ecreteEvents) out.ecretage = { premiere: crete[0], derniere: crete[crete.length - 1], n: crete.length, detail: {} };
@@ -320,6 +379,16 @@ export class ControlePrise {
       }
     }
     for (const [code, detail] of this.externes) out[code] = { premiere: 0, derniere: t, n: 1, detail };
+    // Ronflement retiré : ce n'est plus une alerte mais une information, tant que ce qui reste est faible.
+    this.infos = [];
+    if (out.secteur && this.secteurOn) {
+      const nets = this.fenetresN.filter((f) => f.t > this.tActif + 8);
+      const dernier = this.fenetresN[this.fenetresN.length - 1];
+      const encore = nets.length >= 4 && nets.filter((f) => f.hit).length / nets.length >= s.secteurPart;
+      const info = { hz: out.secteur.detail.hz, avant_db: out.secteur.detail.ratio_db, apres_db: dernier ? Math.round(dernier.ratio * 10) / 10 : null, f0: this.secteurF0, harmoniques: this.secteurH };
+      if (encore) out.secteur.detail.trop_fort = true;
+      else { this.infos = [{ code: 'secteurRetire', detail: info }]; delete out.secteur; }
+    }
     if (this.sr <= s.srLent && this.n > 0) out.lent = { premiere: 0, derniere: t, n: 1, detail: { sr: this.sr } };
     return out;
   }
@@ -353,7 +422,7 @@ export class ControlePrise {
       if (a && ep.fin_s === null) { ep.n = a.n; ep.detail = a.detail; }
     }
     const alertes = [...this.actifs].map(([code, a]) => ({ code, depuis_s: a.depuis, n: a.n, detail: a.detail }));
-    return { douteuse: alertes.length > 0, codes: alertes.map((a) => a.code), alertes, t };
+    return { douteuse: alertes.length > 0, codes: alertes.map((a) => a.code), alertes, infos: this.infos, t };
   }
 
   // Les épisodes pour le JSON de la session. `t0` : l'instant de la session dans
@@ -377,7 +446,7 @@ export class ControlePrise {
       duree_s: Math.round(this.temps * 10) / 10,
       plages_de_zeros: this.zerosVus, plus_longue_plage_ms: Math.round(this.zeroMax * 10000) / 10,
       coupures_de_plancher: this.evPalier.length,
-      derive_horloge_ppm: this.deriveHorloge(),
+      derive_horloge_ppm: this.deriveHorloge(), saut_au_demarrage_ms: this.demarrageMs ?? null,
     };
   }
 }

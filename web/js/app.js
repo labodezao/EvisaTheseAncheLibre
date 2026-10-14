@@ -7,7 +7,7 @@ import {
   midiToFreq, voiceTargetFreq, beatTarget, centsClass, overlappingAllan,
 } from './music.js';
 import { Report } from './report.js';
-import { ligneMicro, consignes, plateforme, propositionMicro, blocMicro, classerMicro, mentionDouteuse, choisirMicro } from './prise-micro.js';
+import { ligneMicro, consignes, informations, plateforme, propositionMicro, blocMicro, classerMicro, mentionDouteuse, choisirMicro } from './prise-micro.js';
 import {
   Enregistreur, choisirStockage, listerSessions, recupererSession, exporterSession,
 } from './session-stockage.js';
@@ -24,7 +24,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '61';
+const APP_VERSION = '62';
 // Le pied de page lit la version ici : jamais de numéro écrit en dur dans index.html.
 { const pied = document.getElementById('appVersion'); if (pied) pied.textContent = `version ${APP_VERSION}`; }
 function versionMismatch(what, got) {
@@ -462,8 +462,9 @@ function majPrise() {
   const codes = priseEtat?.codes ?? [];
   for (const c of [...priseMasquee]) if (!codes.includes(c)) priseMasquee.delete(c);
   const cs = consignes(priseEtat, { nom: microInfo?.label || '', os: plateforme(), lang: 'fr' }).filter((c) => !priseMasquee.has(c.code));
-  el.classList.toggle('hidden', cs.length === 0);
-  el.replaceChildren(...cs.map((c) => {
+  const infos = informations(priseEtat, { lang: 'fr' });
+  el.classList.toggle('hidden', cs.length === 0 && infos.length === 0);
+  el.replaceChildren(...infos.map((i) => { const p = document.createElement('p'); p.className = 'prise-info'; p.textContent = i.texte; return p; }), ...cs.map((c) => {
     const bloc = document.createElement('div');
     bloc.className = 'prise-alerte';
     for (const [cl, tx] of [['prise-titre', c.titre], ['prise-texte', c.texte], ['prise-geste', c.geste]]) {

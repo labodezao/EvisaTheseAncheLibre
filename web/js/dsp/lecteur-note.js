@@ -72,7 +72,15 @@ export class LecteurNote {
 }
 
 // Ce que la page garde d'une lecture de note : de petits nombres, pas le son ni les raies.
-export function resumeLecture(l, { midi = null, t = null, ms = null } = {}) {
+export const ECART_MOTEUR_MAX_C = 20;   // une lecture « sûre » à plus de 20 ¢ du moteur est une erreur d'étiquette (prise du 14/10 : Mi5 lu 300 ¢ trop bas), refusée
+export function resumeLecture(l, { midi = null, t = null, ms = null, moteur = null } = {}) {
+  if (l.sure && Array.isArray(l.f) && moteur?.length >= 3) {
+    // Le moteur lit les mêmes anches à ±1 ¢ : si le verrou en est loin, il a lu autre chose (autre raie, autre paire).
+    const tard = moteur.filter((q) => q[0] > moteur[moteur.length - 1][0] * 0.6);
+    const m = (k) => { const v = tard.map((q) => q[k]).sort((a, b) => a - b); return v[v.length >> 1]; };
+    const e = Math.max(Math.abs(1200 * Math.log2(l.f[0] / m(1))), Math.abs(1200 * Math.log2(l.f[1] / m(2))));
+    if (Number.isFinite(e) && e > ECART_MOTEUR_MAX_C) l = { ...l, sure: false, raison: 'ecart', f: null };
+  }
   return {
     sure: !!l.sure, raison: l.raison ?? null, f: l.f ?? null, centre: l.centre ?? null, demi: l.demi ?? null, omega: l.omega ?? null,
     sigmaC: l.sigmaC ?? null, plageS: null,

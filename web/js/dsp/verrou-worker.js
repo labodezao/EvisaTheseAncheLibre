@@ -9,7 +9,7 @@ self.onmessage = (e) => {
   let lecture;
   try {
     const l = lireNote(x, sr, 0, x.length, fc, { moteur });
-    lecture = resumeLecture(l, { midi, t, ms: performance.now() - t0 });
+    lecture = resumeLecture(l, { midi, t, ms: performance.now() - t0, moteur });
     if (l.plage) lecture.plageS = (l.plage.i1 - l.plage.i0) / sr;
   } catch (err) {
     lecture = { sure: false, raison: 'erreur', erreur: String(err?.message ?? err), midi, t, ms: performance.now() - t0 };

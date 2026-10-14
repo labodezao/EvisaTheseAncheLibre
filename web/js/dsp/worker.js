@@ -14,6 +14,7 @@
 import { Engine } from './engine.js';
 import { LecteurNote } from './lecteur-note.js';
 import { ControlePrise } from './prise.js';
+import { RetireSecteur } from './secteur.js';
 import {
   MORCEAU_S, versInt16, rangeesTick, lignesCsv, lireEnteteWav, echantillonsWav,
 } from '../session-format.js';
@@ -24,8 +25,13 @@ let engine = null;
 // Chaque image du moteur porte `prise` ({ douteuse, codes }) ; la page reçoit un message `prise` quand les défauts
 // changent (le texte, le geste à faire : prise-micro.js).
 let controle = null, priseCle = '';
+// Retrait du ronflement du secteur (secteur.js, v62) : ce que le moteur et le verrou reçoivent est le signal sans ronflement ;
+// l'enregistrement de la session garde le signal BRUT (la preuve). Allumé par défaut dès que le contrôle détecte le ronflement.
+let retire = null, retireVoulu = true;
 function nouveauControle(sr) {
   controle = new ControlePrise(sr);
+  controle.retireSecteur = retireVoulu;
+  retire = new RetireSecteur(sr);
   priseCle = '';
   return controle;
 }
@@ -35,7 +41,7 @@ function priseEtat(force = false) {
   const cle = e.codes.join('+');
   if (force || cle !== priseCle) {
     priseCle = cle;
-    self.postMessage({ type: 'prise', etat: e, resume: controle.resume() });
+    self.postMessage({ type: 'prise', etat: e, resume: controle.resume(), secteur: retire?.actif ? { f0: retire.f0, harmoniques: retire.h } : null });
   }
   return e;
 }
@@ -126,17 +132,24 @@ function onChunk(chunk) {
   if (!engine) return;
   devAppend(chunk);
   controle?.alimenter(chunk);
+  const propre = retire?.actif ? retire.traiter(chunk) : chunk;
+  if (retire?.actif) controle?.alimenterNet(propre);
   const t0 = performance.now();
-  const result = engine.process(chunk);
+  const result = engine.process(propre);
   if (verrouOn) {
     if (!lecteur || lecteur.sr !== engine.sr) lecteur = new LecteurNote(engine.sr, verrouLire);
-    lecteur.alimenter(chunk, result);
+    lecteur.alimenter(propre, result);
   }
   if (result) {
     // Charge DSP : temps de calcul rapporté à la période d'analyse.
     result.dspMs = performance.now() - t0;
     const prise = priseEtat();
-    if (prise) result.prise = { douteuse: prise.douteuse, codes: prise.codes };
+    if (prise) {
+      // Le contrôle a vu un ronflement : l'annuleur se règle (fréquence réelle du secteur, harmoniques présentes).
+      const dem = controle.demandeSecteur();
+      if (dem) { retire.regler(dem.f0, dem.harmoniques); controle.secteurActif(true); }
+      result.prise = { douteuse: prise.douteuse, codes: prise.codes, secteurHz: retire.actif ? retire.frequences() : null };
+    }
     devTick(result);
     if (dev) result.dev = devStatus();
     // Les spectres sont transférés (zéro copie) plutôt que clonés.
@@ -161,6 +174,7 @@ async function readStream(readable) {
   const reader = readable.getReader();
   let buf = new Float32Array(0), fill = 0;
   const HOPS = 512;
+  let charge = 0, debutIt = 0;   // durée de traitement d'un bloc, la plus forte des dernières (retard du Worker : prise.js, bloc)
   for (;;) {
     const { value: ad, done } = await reader.read();
     if (done) break;
@@ -174,7 +188,8 @@ async function readStream(readable) {
         priseEtat(true);
       }
       const n = ad.numberOfFrames;
-      controle?.bloc(ad.timestamp, n);
+      controle?.bloc(ad.timestamp, n, charge);
+      debutIt = performance.now();
       if (buf.length < fill + n) { const b = new Float32Array(2 * (fill + n)); b.set(buf.subarray(0, fill)); buf = b; }
       const plane = buf.subarray(fill, fill + n);
       if (/^f32/.test(ad.format)) {
@@ -191,6 +206,7 @@ async function readStream(readable) {
       buf.copyWithin(0, o, fill); fill -= o;
     } finally {
       ad.close();
+      charge = Math.max(performance.now() - debutIt, charge * 0.98);
     }
   }
 }
@@ -271,6 +287,11 @@ self.onmessage = (e) => {
   } else if (d.type === 'priseMuet') {
     // Mesure coupée voulue (annonce vocale, son de référence) : des zéros, mais pas une porte.
     controle?.suspendre(d.muet);
+  } else if (d.type === 'retireSecteur') {
+    // Réglage : retirer (true, par défaut) ou laisser le ronflement.
+    retireVoulu = d.on !== false;
+    if (controle) controle.retireSecteur = retireVoulu;
+    if (!retireVoulu) { retire?.arreter(); controle?.secteurActif(false); }
   } else if (d.type === 'priseMicro') {
     // Ce que la page sait du micro par son nom (prise-micro.js) : Bluetooth, mains libres.
     for (const code of ['bluetooth']) { if (d.codes?.includes(code)) controle?.declarer(code, d.detail ?? {}); else controle?.retirer(code); }

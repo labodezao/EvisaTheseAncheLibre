@@ -104,3 +104,38 @@ trou de bloc repérable dans le WAV PC ; le saut de 45 ms de l'essai 1 n'était 
   doit rester muet.
 - Les gestes pour Linux et pour les pilotes qui n'ont pas de « Améliorations audio » (ASIO4ALL, interfaces à pilote
   propre) sont génériques.
+
+## v62 (14/10/2026, retours d'Ewen sur la v61 réelle)
+
+**Blocs perdus : fausse alerte au démarrage.** Ewen a eu « la date du flux saute de 870 ms ». Cause probable (non reproductible
+dans le navigateur de test, qui refuse le micro) : la date du premier bloc se cale pendant le démarrage du périphérique. Le
+contrôle ne compte plus aucun saut pendant les 5 premières secondes : il repart de la nouvelle date et garde le saut dans le résumé
+(`saut_au_demarrage_ms`). Après, un saut n'est retenu que confirmé au bloc suivant (une date qui tremble d'un bloc n'est pas un
+trou). L'alerte dit l'instant (« à 10,0 s du début de la prise ») et la cause : `flux` (le micro) ou `retard` (le calcul de l'accordeur
+a pris le retard, avec le conseil de fermer les autres onglets). Vrai trou simulé : toujours détecté (test/prise.test.mjs).
+
+**Ronflement du secteur retiré** (`dsp/secteur.js`, réglage Réglages > Mesure, allumé par défaut). Détecté, le ronflement est soustrait
+avant le moteur et le verrou par un annuleur adaptatif de sinusoïdes (un cran de 0,3 Hz par harmonique, qui suit amplitude et phase ;
+fréquence du secteur affinée à 0,01 Hz sur 49,65 à 50,35 Hz et 59,65 à 60,35 Hz). L'enregistrement de la session garde le signal brut.
+Banc (test/secteur.test.mjs) : ronflement à -60 dBFS retiré de 58 à 66 dB ; partiels à 101,5, 203,3 et 440 Hz inchangés à 0,04 dB ;
+La2, Mi2, La3 et Do5 avec ronflement à +36 dB au-dessus du plancher : écart de mesure après retrait 0,000 ¢ (avant : jusqu'à 0,15 ¢ sur
+La2). Le bandeau n'est plus une alerte mais une ligne discrète (« ronflement 50 Hz supprimé ») ; il ne redevient alerte que si le
+ronflement reste après retrait, avec ces conseils dans l'ordre : interface audio (Zoom H6) plutôt qu'un micro USB alimenté par le bus ;
+autre port USB, directement sur l'ordinateur ; éloigner les câbles secteur. Un partiel à moins de 1 Hz d'une harmonique est abîmé par
+le retrait : la mesure est dite douteuse (« partiel près du secteur »). Sur la prise PC du 14/10 (+28 dB de ronflement) :
+écart type du plateau par anche 0,551 ¢ brut contre 0,438 ¢ sans ronflement (médiane inchangée 0,21 ¢) ; H6 : 0,165 ¢ (médiane 0,075 ¢).
+
+**Attaque, en cours, résolue** (`ui/phase.js`). Deux causes mesurées sur la prise H6 (`test/outils/phases.mjs`, 25 notes) : la fenêtre
+d'analyse ne couvre pas assez de battements (la lecture se pose en médiane 1,1 fois 2/Ω après le début de la note : 1,4 à 6 s pour Ω de
+0,5 à 1,6 Hz) ; l'attaque physique de l'anche, qui reste quand 2/Ω est court (Ω supérieur à 2 Hz : 2,7 s pour 0,9 s de fenêtre). Écart au
+plateau pendant les 3 premières secondes : 0,3 à 4,3 ¢. Tant qu'une anche a moins de 1 s de son (attaque) ou moins de 2,5/Ω s
+(en cours), la courbe est grise en pointillé, l'étiquette « attaque » ou « en cours » est dite, le chiffre n'est jamais « juste » et la
+validation attend.
+
+**Le verrou, plus précis ?** (`test/outils/moteur_verrou.mjs`, plateau du moteur contre lecture du verrou, par note.) Non. H6 : 25 notes,
+16 lectures « sûres » : 11 à 0,12 ¢ ou moins du moteur, 4 plus loin (0,2 ; 0,78 ; 0,78 ; 1,97 ¢ dans l’aigu, où les deux ne lisent pas la même
+portion d'une hauteur qui dérive) et UNE fausse lecture sûre à 300 ¢ (Mi5 lu 553 Hz au lieu de 659), 9 refus. PC : même profil (11
+sûres, 1,2 ¢ d'écart sur Si4, la même fausse lecture à 300 ¢), le retrait du ronflement ne change rien au verrou. Il n'apporte pas de
+précision là où le moteur est posé, il refuse souvent, et une lecture sûre fausse existe : elle est maintenant refusée quand elle est à
+plus de 20 ¢ du moteur (`resumeLecture`, raison « écart »). Sa lecture sûre est tracée sur la courbe (trait par anche avec sa valeur) pour
+que l'écart avec le moteur se voie.
