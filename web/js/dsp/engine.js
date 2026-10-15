@@ -20,12 +20,13 @@ import { partialPresent, targetSpacing, methodesPlan } from './plan.js';
 import { methodesConfondu } from './confondu.js';
 import { methodesProches } from './proches.js';
 import { methodesPeigne } from './peigne.js';
+import { methodesCertificat } from './certificat.js';
 // Exportées par engine.js depuis la v28 (API gelée), rangées dans plan.js.
 export { strobePartials, unisonHarmonic } from './plan.js';
 
 // Version du moteur : doit être celle de la page et de app.js (cf. le
 // contrôle de cohérence dans app.js et le test dans dsp.test.mjs).
-export const ENGINE_VERSION = '62';
+export const ENGINE_VERSION = '63';
 
 const HOP = 4096;             // période d'analyse (~85 ms à 48 kHz)
 const MAXWIN = { fast: 128, normal: 256, precise: 512 };
@@ -97,6 +98,7 @@ export class Engine {
     this.cohEtat = new Map();   // dernière paire cohérente par unisson, par note (battement.js, cohererPaire) : ne repart pas de zéro à retune()
     this.reedSeen = new Map();  // auto-anches : persistance des anches d'unisson
     this.lastFine = null;       // dernière mesure fine de la voix de base (maintien en creux de battement)
+    if (this.cfg.certificat?.actif !== false) this.initAnneau();   // son brut des 8 dernières secondes : le certificat des lectures « sûres » (certificat.js)
     this.sensDeLaGrille(0);     // sens du soufflet (stabilite.js, SENS_SILENCE_S)
   }
 
@@ -159,6 +161,7 @@ export class Engine {
   process(chunk) {
     this.coarse.write(chunk);
     this.samplesTotal += chunk.length;
+    if (this.anneau) this.alimenterAnneau(chunk);
     const gate = this.gate;
 
     let sum = 0, pk = 0;
@@ -226,6 +229,7 @@ export class Engine {
     const priorF0 = this.playedMidi != null ? midiToFreq(this.playedMidi, c) : null;
     const coarse = (!quiet && this.coarse.ready()) ? this.coarse.analyze(priorF0) : null;
     if (coarse) this.lastCoarse = coarse;   // sert à vérifier qu'un partiel existe (unisonHarmonic)
+    if (coarse && this.planAvecSpectre()) this.retune(true);   // R4 : une anche désaccordée hors de la bande du partiel choisi sans spectre (plan.js)
     // Spectre de CETTE image (null en silence) : les raies repliées par la
     // décimation se reconnaissent à ses pics (zoom.js, repli ; matchVoices).
     this.coarseImage = coarse;
@@ -1066,4 +1070,4 @@ export class Engine {
 }
 
 // Méthodes rangées dans les modules voisins, corps inchangés : `this` reste le moteur.
-Object.assign(Engine.prototype, methodesBattement, methodesAppariement, methodesAnchesMp, methodesStabilite, methodesPlan, methodesConfondu, methodesProches, methodesPeigne);
+Object.assign(Engine.prototype, methodesBattement, methodesAppariement, methodesAnchesMp, methodesStabilite, methodesPlan, methodesConfondu, methodesProches, methodesPeigne, methodesCertificat);
