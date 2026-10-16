@@ -24,7 +24,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '63';
+const APP_VERSION = '64';
 // Le pied de page lit la version ici : jamais de numéro écrit en dur dans index.html.
 { const pied = document.getElementById('appVersion'); if (pied) pied.textContent = `version ${APP_VERSION}`; }
 function versionMismatch(what, got) {
@@ -1200,20 +1200,39 @@ function drawPitchCurve() {
       const x = xFor(best.t);
       ctx.strokeStyle = theme().dim;
       ctx.beginPath(); ctx.moveTo(x, pad.t); ctx.lineTo(x, H - pad.b); ctx.stroke();
-      const parts = [`−${(T - best.t).toFixed(1)} s`];
+      // Fiche de lecture (Ewen, 16/10/2026 : « ça crée un carré noir et ça n'apporte pas grand-chose ») : le fond était un noir fixe, le texte la couleur du
+      // thème : en thème clair, du noir sur du noir. Maintenant : le fond et le texte du thème, un cadre, une ligne par anche avec sa pastille, dans le tracé.
+      const lignes = [{ texte: `−${(T - best.t).toFixed(1)} s`, gras: true }];
       for (const k of keys) {
         const v = best.vals[k];
-        if (v) parts.push(`${state.voiceLabels.get(k) || k} ${v.c >= 0 ? '+' : ''}${v.c.toFixed(1)}¢ (${v.f.toFixed(3)} Hz)`);
+        if (v) lignes.push({ texte: `${state.voiceLabels.get(k) || k}  ${v.c >= 0 ? '+' : '−'}${Math.abs(v.c).toFixed(2)} ¢  ${v.f.toFixed(3)} Hz`, cle: k });
       }
-      ctx.font = '11px system-ui';
-      const text = parts.join('   ');
-      const tw = ctx.measureText(text).width + 10;
-      const bx = clamp(x - tw / 2, pad.l, W - pad.r - tw);
-      ctx.fillStyle = 'rgba(16,20,26,0.92)';
-      ctx.fillRect(bx, pad.t + 2, tw, 16);
-      ctx.fillStyle = theme().text;
-      ctx.textAlign = 'left';
-      ctx.fillText(text, bx + 5, pad.t + 14);
+      if (lignes.length > 1) {
+        ctx.save();
+        ctx.font = '12px system-ui';
+        const th = theme();
+        const tw = Math.max(...lignes.map((l) => ctx.measureText(l.texte).width + (l.cle ? 14 : 0))) + 16;
+        const hh = lignes.length * 17 + 8;
+        let bx = x + 10;
+        if (bx + tw > W - pad.r) bx = x - 10 - tw;
+        bx = Math.max(pad.l, Math.min(bx, W - pad.r - tw));
+        const by = pad.t + 4;
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = th.canvasBg || th.panel2;
+        ctx.fillRect(bx, by, tw, hh);
+        ctx.strokeStyle = th.gridStrong || th.dim;
+        ctx.strokeRect(bx + 0.5, by + 0.5, tw - 1, hh - 1);
+        ctx.textAlign = 'left';
+        lignes.forEach((l, i) => {
+          const y = by + 17 + i * 17 - 3;
+          let tx = bx + 8;
+          if (l.cle) { ctx.fillStyle = colorFor(l.cle); ctx.fillRect(tx, y - 8, 8, 8); tx += 14; }
+          ctx.fillStyle = th.text;
+          ctx.font = `${l.gras ? '600 ' : ''}12px system-ui`;
+          ctx.fillText(l.texte, tx, y);
+        });
+        ctx.restore();
+      }
     }
   }
 }
