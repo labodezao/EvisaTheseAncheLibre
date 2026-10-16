@@ -26,7 +26,7 @@ export { strobePartials, unisonHarmonic } from './plan.js';
 
 // Version du moteur : doit être celle de la page et de app.js (cf. le
 // contrôle de cohérence dans app.js et le test dans dsp.test.mjs).
-export const ENGINE_VERSION = '63';
+export const ENGINE_VERSION = '64';
 
 const HOP = 4096;             // période d'analyse (~85 ms à 48 kHz)
 const MAXWIN = { fast: 128, normal: 256, precise: 512 };
@@ -35,7 +35,7 @@ const MAXWIN = { fast: 128, normal: 256, precise: 512 };
 // l'interface fait avancer pour le reposer) non plus : il ne change pas l'anche mesurée.
 // La voix visée (`voix`, la case de la séquence) non plus : elle ne sert qu'à
 // nommer l'anche seule d'un unisson (proches.js, uniteUnisson).
-const NO_RETUNE = new Set(['gateDb', 'tolCents', 'autoFreeze', 'readout', 'devMode', 'bellows', '_v', 'sens', 'sensN', 'voix']);
+const NO_RETUNE = new Set(['horlogeIncertPpm', 'gateDb', 'tolCents', 'autoFreeze', 'readout', 'devMode', 'bellows', '_v', 'sens', 'sensN', 'voix']);
 // Reprise après un silence (inversion du soufflet) : on ne garde que ce qui
 // suit la reprise (8 échantillons décimés ≈ une image).
 const RESUME_KEEP = 8;
@@ -220,6 +220,8 @@ export class Engine {
     const peak = this.peakAcc; this.peakAcc = 0;
     const quiet = level < this.gate;
     this.lastQuiet = quiet;     // la grille qui change de sens (stabilite.js, grilleChange)
+    // Un silence efface les certificats : un son qui reprend se certifie de nouveau (la valeur d'avant le silence n'est pas rendue comme « sûre » à la première image)
+    if (quiet && this.certEtat?.size) { this.certEtat.clear(); this.batMemo?.clear(); }
     const calib = 1 + (c.calibrationPpm || 0) * 1e-6;
 
     // En silence, la détection de note n'a rien à détecter : la FFT large

@@ -316,3 +316,4 @@ le 06/10 : `images.mjs`, `verite_poly.py`, `compare_poly.py`, `resume_poly.py`,
 - `test/session-2026-09-25-23-58-20.zip` (59 Mo) est dans `main` (fusion
   classique) : session quintes + octaves main gauche, utile en référence.
 - v63 (16/10/2026) : certificat des lectures « sûr » reporté du produit (moteur : engine, plan, battement, certificat, nls-bessel ; docs/CERTIFICAT.md). Le refus s'affiche comme une anche « en cours » avec marge.
+- v64 (16/10/2026) : le certificat devient la lecture affichée, super musette à trois anches (`nls-trio.js`), horloge du micro exigée (`cfg.horlogeIncertPpm`, absente ici : jamais refusée pour cela), domaine jusqu'à 60 Hz, battement affiché stable avec son incertitude (`beatCert`), un silence efface les certificats. Moteur reporté de PolyReed ; chiffres : docs/CERTIFICAT.md. Fiche de survol de la courbe d'accordage corrigée (fond noir fixe sous un texte sombre en thème clair : « carré noir » d'Ewen, 16/10/2026).

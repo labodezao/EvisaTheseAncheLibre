@@ -157,14 +157,19 @@ export const methodesBattement = {
         this.etatPaire?.(g, tNow, envHz, envSure);
         this.certifierPaire?.(g, tNow);
       }
-      if (g === premier && g.voices.length >= 3) this.certifierTrio?.(g);
+      if (g === premier && g.voices.length >= 3) this.certifierTrio?.(g, tNow);
       for (const v of autres) {
         const brut = v.beatMeas;
         v.beatBrut = brut ?? null;
         v.beatSource = null;
         const hist = st.brut.get(v.def.id) ?? [];
         const sortie = st.sortie.get(v.def.id) ?? [];
-        if (brut == null || !base.tracked || !v.tracked) { st.brut.set(v.def.id, hist.filter((h) => tNow - h.t <= FUS_PAIR_S)); continue; }
+        if (brut == null || !base.tracked || !v.tracked) {
+          st.brut.set(v.def.id, hist.filter((h) => tNow - h.t <= FUS_PAIR_S));
+          // une image où le traqueur perd une anche : la valeur certifiée (mémoire de 1,5 s) reste affichée, le chiffre ne saute pas à la valeur brute
+          if (v.beatCert?.hz != null && brut != null) { v.beatBrutMediane = brut; v.beatMeas = (v.def.beatSign ? Math.sign(v.def.beatSign) : Math.sign(brut) || 1) * v.beatCert.hz; v.beatSource = 'certificat'; }
+          continue;
+        }
         hist.push({ t: tNow, v: brut });
         const recent = hist.filter((h) => tNow - h.t <= FUS_PAIR_S);
         st.brut.set(v.def.id, recent);
@@ -179,6 +184,8 @@ export const methodesBattement = {
         st.sortie.set(v.def.id, rec);
         v.beatMeas = mediane(rec.map((h) => h.v));
         v.beatSource = src;
+        // v64 : le battement de toute la plage tenue (certificat.js, estimerBattement), valeur unique avec son incertitude, remplace la médiane glissante
+        if (v.beatCert?.hz != null) { v.beatBrutMediane = v.beatMeas; v.beatMeas = signe * v.beatCert.hz; v.beatSource = 'certificat'; }
       }
     }
   },

@@ -71,7 +71,7 @@ export function demodPartiel(x, i0, i1, k, mu, sr, D) {
 }
 
 // Gain du filtre CIC3 à l'écart ν (Hz) de la fréquence de mélange.
-const droop = (nu, M, sr) => {
+export const droop = (nu, M, sr) => {
   const x = Math.PI * nu / sr, sx = Math.sin(x);
   if (Math.abs(sx) < 1e-12) return 1;
   const g = Math.sin(M * x) / (M * sx);
@@ -80,7 +80,7 @@ const droop = (nu, M, sr) => {
 
 // ---- Bessel -----------------------------------------------------------------------------------------------------------------
 // J_n(x) pour n = 0 .. nmax+1 (série entière). J_{-n} = (-1)^n J_n.
-function besselJ(x, nmax, out) {
+export function besselJ(x, nmax, out) {
   for (let n = 0; n <= nmax + 1; n++) {
     let term = 1;
     for (let j = 1; j <= n; j++) term *= (x / 2) / j;
@@ -89,10 +89,10 @@ function besselJ(x, nmax, out) {
     out[n] = sum;
   }
 }
-const Jn = (J, n) => (n >= 0 ? J[n] : (n & 1 ? -J[-n] : J[-n]));
+export const Jn = (J, n) => (n >= 0 ? J[n] : (n & 1 ? -J[-n] : J[-n]));
 
 // Résolution d'un système n×n (Gauss, pivot partiel), A plat modifié.
-function resoudre(A, b, n) {
+export function resoudre(A, b, n) {
   for (let i = 0; i < n; i++) {
     let p = i;
     for (let j = i + 1; j < n; j++) if (Math.abs(A[j * n + i]) > Math.abs(A[p * n + i])) p = j;
@@ -110,7 +110,7 @@ function resoudre(A, b, n) {
 }
 
 // G x = b, G hermitienne nc×nc (Gr symétrique, Gi antisymétrique), par le système réel équivalent de taille 2·nc. Rend { xr, xi }.
-function resoudreHerm(Gr, Gi, br, bi, nc) {
+export function resoudreHerm(Gr, Gi, br, bi, nc) {
   const n2 = 2 * nc, M = new Float64Array(n2 * n2), v = new Float64Array(n2);
   for (let a = 0; a < nc; a++) {
     for (let b = 0; b < nc; b++) {
@@ -374,7 +374,7 @@ export function ajusterLM(mod, p0, libres, steps, opts) {
   while (!(r = g.next()).done);
   return r.value;
 }
-function* ajusterLMg(mod, p0, libres, steps, { iter = 25, tol = 1e-5 } = {}) {
+export function* ajusterLMg(mod, p0, libres, steps, { iter = 25, tol = 1e-5 } = {}) {
   const N = mod.N, P = libres.length;
   let p = Float64Array.from(p0);
   const r0 = new Float64Array(N), r1 = new Float64Array(N);
@@ -382,14 +382,15 @@ function* ajusterLMg(mod, p0, libres, steps, { iter = 25, tol = 1e-5 } = {}) {
   let lam = 1e-2, it = 0;
   const J = Array.from({ length: P }, () => new Float64Array(N));
   const T = mod.ds[0].T, fmax = 0.25 / T;
-  const warpIdx = new Map(); libres.forEach((idx, a) => { if (idx >= NP0) warpIdx.set(idx, a); });
-  const colsW = Array.from({ length: mod.npar }, (_, i) => (i >= NP0 ? new Float64Array(N) : null));
+  const NP = mod.NP ?? NP0, freqIdx = mod.freqIdx ?? [0, 1, 8];
+  const warpIdx = new Map(); libres.forEach((idx, a) => { if (idx >= NP) warpIdx.set(idx, a); });
+  const colsW = Array.from({ length: mod.npar }, (_, i) => (i >= NP ? new Float64Array(N) : null));
   for (; it < iter; it++) {
     // base (mémorise colonnes et Gram) puis dérivées analytiques du warp, puis différences finies des autres
     if (warpIdx.size) { mod.residu(p, r0, true); mod.jacobienneWarp(p, colsW); }
     for (let a = 0; a < P; a++) {
       const idx = libres[a], Ja = J[a];
-      if (idx >= NP0) { Ja.set(colsW[idx]); continue; }
+      if (idx >= NP) { Ja.set(colsW[idx]); continue; }
       const q = Float64Array.from(p), h = steps[idx];
       q[idx] += h;
       mod.residu(q, r1);
@@ -409,7 +410,7 @@ function* ajusterLMg(mod, p0, libres, steps, { iter = 25, tol = 1e-5 } = {}) {
       if (!d) { lam *= 10; continue; }
       const q = Float64Array.from(p);
       let sc = 1;
-      for (let a = 0; a < P; a++) { const idx = libres[a]; if (idx <= 1 || idx === 8) sc = Math.min(sc, fmax / Math.max(1e-300, Math.abs(d[a]))); }
+      for (let a = 0; a < P; a++) { const idx = libres[a]; if (freqIdx.includes(idx)) sc = Math.min(sc, fmax / Math.max(1e-300, Math.abs(d[a]))); }
       for (let a = 0; a < P; a++) { const idx = libres[a]; q[idx] = Math.min(mod.UB[idx], Math.max(mod.LB[idx], p[idx] + sc * d[a])); }
       const S2 = mod.residu(q, r1);
       if (S2 < S) {
@@ -421,7 +422,7 @@ function* ajusterLMg(mod, p0, libres, steps, { iter = 25, tol = 1e-5 } = {}) {
       lam *= 5;
     }
     if (!ok) break;
-    yield;
+    yield (P + 2) * mod.n * mod.Q * 1e-3;       // coût de l'itération en milliers de « partiel-échantillon évalué » (une évaluation du résidu par paramètre, plus le pas et son essai) : le temps de calcul se compte en ça, pas en nombre de pas
   }
   return { p, ssr: S, it };
 }
@@ -429,7 +430,7 @@ function* ajusterLMg(mod, p0, libres, steps, { iter = 25, tol = 1e-5 } = {}) {
 // ---- recherche des départs : spectre « somme harmonique » -------------------------------------------------------------------
 // Deux spectres : S (somme des puissances des partiels) et G (moyenne géométrique des puissances normalisées par partiel). Une raie latérale de
 // modulation de phase (une seule fois par partiel, à f1 ± Ω/k) domine S mais pas G ; une anche, présente à tous les partiels, domine G.
-function spectreHarmonique(ds, fLo, fHi) {
+export function spectreHarmonique(ds, fLo, fHi) {
   const T = ds[0].T, K = ds.length, step = 0.5 / (K * T), np = Math.min(6000, Math.ceil((fHi - fLo) / step) + 1), S = new Float64Array(np), G = new Float64Array(np);
   for (const d of ds) {
     const N = d.n;
@@ -452,7 +453,7 @@ function spectreHarmonique(ds, fLo, fHi) {
   for (let p = 0; p < np; p++) G[p] = Math.exp(G[p] / K);
   return { S, G, fLo, df: (fHi - fLo) / (np - 1) };
 }
-function pics(sp, M, cle = 'S') {
+export function pics(sp, M, cle = 'S') {
   const S = sp[cle], { fLo, df } = sp, o = [];
   for (let p = 1; p < S.length - 1; p++) if (S[p] > S[p - 1] && S[p] >= S[p + 1]) {
     const a = S[p - 1], b = S[p], c = S[p + 1], d = a - 2 * b + c, dx = d !== 0 ? 0.5 * (a - c) / d : 0;
@@ -474,7 +475,7 @@ export function lireBessel(x, i0, i1, sr, fc, opts = {}) {
 }
 export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
   const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
-  const { plageBasC = 50, plageHautC = 110, prior = null, Kmax = 4, iter = 15, nDeparts = 5, noeudsS = 0.5, omegaMax = 25, libre = true } = opts;
+  const { plageBasC = 50, plageHautC = 110, prior = null, priorFirst = false, chaud = false, pInit = null, libreInit = null, dt = 0, Kmax = 4, iter = 15, iterEtape = 5, tol = 1e-4, nGarde = 99, nLibre = 1, nDeparts = 5, noeudsS = 0.5, omegaMax = 60, libre = true } = opts;
   const T = (i1 - i0) / sr;
   if (!(T > 0.3)) return { ok: false, raison: 'court' };
   const fLo = fc * 2 ** (-plageBasC / 1200), fHi = fc * 2 ** (plageHautC / 1200);   // l'anche basse à ±35 ¢ de la note, l'autre jusqu'à ~55 ¢ plus haut
@@ -495,13 +496,30 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
   // de la première), puis la paire lue par le moteur. Pas de classement par résidu avant ajustement : à 0,1 Hz près d'erreur sur une position,
   // le résidu du partiel 2 ne dit rien (agitation de la main) ; chaque départ est ajusté en entier (avec élagage au partiel 2).
   const res1 = 1 / (K * T);
-  const dep = [];
-  const addPair = (x1, x2) => { const om = x2 - x1; if (om > 1.2 * res1 && om < omegaMax) { dep.push([x1, om]); dep.push([x1 - om, om]); } };
+  const dep = [], dep2 = [];
+  const addPair = (x1, x2) => { const om = x2 - x1; if (om > 1.2 * res1 && om < omegaMax) { dep.push([x1, om]); dep2.push([x1 - om, om]); } };
   const distincts = [];
   for (const q of pk) if (distincts.every((d) => Math.abs(d.f - q.f) > 1.2 * res1) && q.h > 1e-5 * pk[0].h) distincts.push(q);
-  // le spectre d'abord, le moteur ensuite : une paire lue de travers par le moteur ne doit pas prendre la place de la bonne
-  for (let a = 1; a < Math.min(distincts.length, 4); a++) addPair(Math.min(distincts[0].f, distincts[a].f), Math.max(distincts[0].f, distincts[a].f));
-  if (prior) addPair(Math.min(prior[0], prior[1]), Math.max(prior[0], prior[1]));
+  // le spectre d'abord, le moteur ensuite : une paire lue de travers par le moteur ne doit pas prendre la place de la bonne.
+  // v64 : TOUTES les paires des trois raies les plus hautes, pas seulement celles de la plus haute avec une autre : avec une raie étrangère forte (un autre son à
+  // −3 dB) la vraie paire (B, A) et la fausse (B, C) ne se distinguent pas, et la fausse n'était jamais essayée, donc jamais départagée (4 lectures « sûr » à +4 et +6 ¢).
+  // Les étiquettes principales des paires d'abord, les étiquettes décalées ensuite.
+  const topD = distincts.slice(0, 4);
+  for (const [a, b] of [[0, 1], [0, 2], [1, 2], [0, 3], [1, 3], [2, 3]]) if (b < topD.length) addPair(Math.min(topD[a].f, topD[b].f), Math.max(topD[a].f, topD[b].f));
+  dep.push(...dep2);
+  const depSpectre = dep.slice();
+  if (prior) {
+    const n0 = dep.length;
+    addPair(Math.min(prior[0], prior[1]), Math.max(prior[0], prior[1]));
+    if (priorFirst) dep.unshift(...dep.splice(n0));       // lecture déjà connue (ajustement chaud) : son départ passe devant ceux du spectre
+  }
+  // ajustement chaud : le pic du spectre le plus proche de la lecture connue passe devant (la hauteur a pu dériver depuis l'ajustement d'où l'on part)
+  if (chaud && pInit && prior && depSpectre.length) {
+    const p1 = Math.min(prior[0], prior[1]), pO = Math.abs(prior[1] - prior[0]);
+    let meilleur = null;
+    for (const d of depSpectre) { const dist = Math.abs(d[0] - p1) + Math.abs(d[1] - pO); if (!meilleur || dist < meilleur.dist) meilleur = { d, dist }; }
+    if (meilleur && meilleur.dist < 0.6 * pO + res1) dep.unshift(meilleur.d);
+  }
   if (!dep.length) { const om = 2 * res1; dep.push([distincts[0].f, om], [distincts[0].f - om, om]); }   // anches non séparées : le critère le dira
   const Dm = (spread) => Math.min(sr / 2, Math.max(opts.D ?? 0, 2.4 * ((K + 4) * spread / 2 + 3) + 10));   // les raies vont de −2Ω à (K+2)Ω autour du partiel
   const cache = new Map();
@@ -519,20 +537,28 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
   function* ajusterDepart(f1d, Omd, force) {
     const ds = donnees(f1d, Omd);
     yield;
-    // θ de départ : le meilleur de quatre sur le partiel 2
-    const m2 = new Modele(ds.slice(0, Math.min(2, K)), J);
+    // θ de départ : le meilleur de quatre sur le partiel 2 (ajustement chaud : les paramètres de l'ajustement d'avant)
     let best = null;
-    for (const th of [0, 1.5708, 3.1416, 4.7124]) {
-      const p = new Float64Array(NP0 + 2 * J); p[0] = f1d; p[1] = Omd; p[2] = 0.12; p[3] = -0.12; p[4] = 0.05; p[6] = th; p[7] = -0.05;
-      const S = m2.residu(p);
-      if (!best || S < best.S) best = { S, p };
+    if (chaud && pInit) {
+      const p = new Float64Array(NP0 + 2 * J);
+      for (let i = 0; i < NP0; i++) p[i] = pInit[i] ?? 0;
+      p[0] = f1d; p[1] = Omd;
+      p[6] += TWO_PI * Omd * dt;      // θ est la phase du battement au CENTRE de la fenêtre : le centre a bougé de dt secondes depuis l'ajustement d'où l'on part
+      best = { S: 0, p };
+    } else {
+      const m2 = new Modele(ds.slice(0, Math.min(2, K)), J);
+      for (const th of [0, 1.5708, 3.1416, 4.7124]) {
+        const p = new Float64Array(NP0 + 2 * J); p[0] = f1d; p[1] = Omd; p[2] = 0.12; p[3] = -0.12; p[4] = 0.05; p[6] = th; p[7] = -0.05;
+        const S = m2.residu(p);
+        if (!best || S < best.S) best = { S, p };
+      }
     }
     // continuation sur les partiels : 1, 2, 3, 4 … (le warp se cale sur les bas partiels, peu sensibles à la phase)
     let pp = best.p, elague = false;
-    const etapes = [1, 2, 3, 4, 6].filter((q) => q < K).concat([K]);
+    const etapes = [1, 2, 3, 4, 6].filter((q) => q < K).concat([K]);      // aussi à chaud : le warp se cale sur les bas partiels avant les hauts (sans quoi la dérive de la fenêtre fait décrocher le partiel 4)
     for (const q of etapes) {
       const mod = new Modele(ds.slice(0, q), J);
-      pp = (yield* ajusterLMg(mod, pp, toutes(mod, false), steps, { iter: q === K ? iter : 8 })).p;
+      pp = (yield* ajusterLMg(mod, pp, toutes(mod, false), steps, { iter: q === K ? iter : iterEtape, tol })).p;
       // élagage : un départ dont le résidu relatif, aux deux premiers partiels, est bien pire que celui du meilleur ne sera pas rattrapé
       if (q === Math.min(2, K)) {
         mod.residu(pp);
@@ -553,17 +579,21 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
     if (r) sols.push(r);
   }
   // le concurrent du meilleur : l'autre étiquette (la raie la plus forte vue comme la 2e anche, la première étant une anche à peine audible)
-  if (sols.length) {
+  if (sols.length && !chaud) {
     sols.sort((u, v) => u.ssrData - v.ssrData);
     const b0 = sols[0].p;
-    const aRival = (q) => Math.abs(q.p[0] - b0[0]) > 0.4 * b0[1] || Math.abs(q.p[1] - b0[1]) > 0.3 * b0[1];
-    if (!sols.slice(1).some(aRival)) {
-      const r = yield* ajusterDepart(b0[0] - b0[1], b0[1], true);
+    // v64 : les deux étiquettes voisines, la paire décalée d'un battement vers le bas (la faible lue pour la forte) ET vers le haut (la raie latérale haute lue pour la
+    // faible) ; l'une des deux seules laissait passer le cas Ω = 26 Hz où la vraie paire n'était que le rival « vers le haut » de la mauvaise.
+    for (const sens of [-1, 1]) {
+      const f1r = b0[0] + sens * b0[1];
+      if (sols.some((q) => Math.abs(q.p[0] - f1r) < 0.3 * b0[1] && Math.abs(q.p[1] - b0[1]) < 0.3 * b0[1])) continue;
+      const r = yield* ajusterDepart(f1r, b0[1], true);
       if (r) sols.push(r);
     }
   }
   if (!sols.length) return { ok: false, raison: 'sans départ' };
   // Les solutions se comparent sur les MÊMES données : bande commune qui contient toutes les raies de toutes les solutions.
+  if (sols.length > nGarde) { sols.sort((u, v) => u.ssrData - v.ssrData); sols.length = nGarde; }
   const lo = Math.min(...sols.map((q) => q.p[0])), hi = Math.max(...sols.map((q) => q.p[0] + q.p[1]));
   const centreC = (lo + hi) / 2, DC = Dm(hi - lo);
   const commun = ks.map((k) => demodPartiel(x, i0, i1, k, k * centreC, sr, DC));
@@ -573,11 +603,21 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
     q.p = r.p; q.mod = mod; q.ssr = mod.residu(r.p); q.ssrData = mod.ssrData; q.libre = false;
   }
   sols.sort((u, v) => u.ssr - v.ssr);
+  // Les trois meilleures hypothèses d'étiquette sont menées jusqu'au bout sur les mêmes données : un rival mal convergé (4 itérations) paraissait 1 000 σ² plus mauvais
+  // que la vraie paire et la fausse paire passait (banc v64 : trois lectures « sûr » fausses de 7 ¢ ou 16 ¢, aucune quand les itérations sont poussées).
+  if (!chaud) {
+    for (const q of sols.slice(0, 3)) {
+      const r = yield* ajusterLMg(q.mod, q.p, toutes(q.mod, false), steps, { iter: 10, tol: 1e-5 });
+      q.p = r.p; q.ssr = q.mod.residu(r.p); q.ssrData = q.mod.ssrData;
+    }
+    sols.sort((u, v) => u.ssr - v.ssr);
+  }
   // Raie étrangère : chaque hypothèse sérieuse (les trois meilleures) peut avoir une raie libre de plus. Une fuite à −15 dB à 0,3 Hz d'une anche
   // fait préférer à un ajustement sans elle un « modèle » où elle est la seconde anche et où la vraie seconde anche manque (r plus petit !).
-  if (libre) {
+  {
     const dofDe = (m) => Math.max(1, m.Ndata - m.npar - 4 * m.Q);
-    for (const q of sols.slice(0, 3)) {
+    for (const q of sols.slice(0, chaud ? 1 : nLibre)) {      // à chaud : la meilleure seulement
+      if (!libre) break;
       const resB = new Float64Array(q.mod.N);
       q.mod.residu(q.p, resB);
       const dsR = commun.map((d, qi) => {
@@ -588,7 +628,10 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
       const dem = 0.42 * DC / K;
       const spR = spectreHarmonique(dsR, centreC - dem, centreC + dem);
       const garde = 1.5 * res1, fa = q.p[0], fb = q.p[0] + q.p[1];
-      const cand = pics(spR, 6, 'G').find((c) => Math.abs(c.f - fa) > garde && Math.abs(c.f - fb) > garde);
+      // Une raie étrangère ne peut pas tenir la place d'une raie latérale (f_r + nΩ) : libre, elle se glisse à la place de la vraie seconde anche
+      // (audit v64 : Ω = 26 Hz, l'anche faible à +Ω lue comme raie étrangère, la raie latérale basse prise pour elle, 50 ¢ d'erreur sur les deux, rapport de vraisemblance 3 494).
+      const lateral = (f) => [fa, fb].some((fr) => [-3, -2, -1, 1, 2, 3].some((n) => Math.abs(f - (fr + n * q.p[1])) <= garde));
+      const cand = pics(spR, 6, 'G').find((c) => Math.abs(c.f - fa) > garde && Math.abs(c.f - fb) > garde && !lateral(c.f));
       yield;
       if (!cand) continue;
       const modL = new Modele(commun, J, { libre: true });
@@ -607,6 +650,23 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
   const rival = sols.slice(1).find((s) => Math.abs(s.p[0] - pb[0]) > 0.4 * pb[1] || Math.abs(s.p[1] - pb[1]) > 0.3 * pb[1]);
   const dof = Math.max(1, mod.Ndata - mod.npar - 4 * mod.Q);
   const s2 = best.ssrData / dof;
+  // Qui est l'anche, qui est la raie étrangère ? Quand une raie étrangère est adoptée, chaque anche peut changer de rôle avec elle (la raie étrangère devient l'anche,
+  // l'anche devient étrangère) : si ce modèle-là n'est pas pire de plus de LLR_MIN σ², le rôle des trois raies est indécidable (trois raies pures comparables : un autre
+  // son à −3 dB, test de la v58 « raie étrangère à 1,7 Δ » : l'ajustement lisait +4 et +6 ¢ avec un rapport de vraisemblance de 106 contre la vraie paire).
+  let llrAffectation = Infinity;
+  if (best.libre && !chaud) {
+    const fEtr = pb[8];
+    for (const r of [0, 1]) {
+      const fOut = r === 0 ? pb[0] : pb[0] + pb[1], fRest = r === 0 ? pb[0] + pb[1] : pb[0];
+      const [lo, hi] = [fEtr, fRest].sort((u, v) => u - v);
+      if (hi - lo < 1.2 * res1) continue;
+      const p0 = Float64Array.from(pb); p0[0] = lo; p0[1] = hi - lo; p0[8] = fOut;
+      const modA = new Modele(commun, J, { libre: true });
+      const rr = yield* ajusterLMg(modA, p0, toutes(modA, true), steps, { iter: 12, tol: 1e-5 });
+      modA.residu(rr.p);
+      llrAffectation = Math.min(llrAffectation, (modA.ssrData - best.ssrData) / s2);
+    }
+  }
   const sig = covariance(mod, pb, steps, s2);
   const f1 = pb[0], f2 = pb[0] + pb[1];
   const sigC = [sig[0] * C_CENTS / f1, Math.hypot(sig[0], sig[1]) * C_CENTS / f2];
@@ -625,6 +685,23 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
     o += 2 * d.n;
   }
   const Ku = snr.filter((v) => v >= 20).length;
+  // Marge d'étiquette (dB) : au partiel k, la raie de l'anche faible contre la raie latérale que l'anche forte met au même endroit (J1 de son indice de phase, plus la
+  // modulation d'amplitude). Sous 0 dB la raie « faible » est plus petite que la raie latérale qui la recouvre : la bande latérale et l'anche se confondent, seul le
+  // modèle les distingue — et un faux modèle (raie latérale prise pour l'anche, anche prise pour raie latérale) y ajuste aussi bien (banc v64).
+  const coefMag = (beta, m, psi, k, n) => {
+    const Jb = new Float64Array(NM + 3); besselJ(k * beta, NM, Jb);
+    const j0 = Jn(Jb, n), jm = Jn(Jb, n - 1), jp = Jn(Jb, n + 1);
+    return Math.hypot(j0 + 0.5 * m * Math.cos(psi) * (jm + jp), 0.5 * m * Math.sin(psi) * (jm - jp));
+  };
+  let margeEtiquette = Infinity;
+  for (let qi = 0; qi < Math.min(2, mod.Q); qi++) {
+    const d = mod.ds[qi], A = mod.amp[qi], k = d.k;
+    const a1 = Math.hypot(A[0], A[1]) * coefMag(pb[2], pb[4], pb[5], k, 0), a2 = Math.hypot(A[2], A[3]) * coefMag(pb[3], pb[7], pb[5], k, 0);
+    const fort = a1 >= a2 ? 0 : 1;                        // 0 : l'anche basse est la plus forte, la faible est à +Ω ; 1 : l'inverse
+    const lateral = fort === 0 ? Math.hypot(A[0], A[1]) * coefMag(pb[2], pb[4], pb[5], k, 1) : Math.hypot(A[2], A[3]) * coefMag(pb[3], pb[7], pb[5], k, -1);
+    const faible = Math.min(a1, a2);
+    margeEtiquette = Math.min(margeEtiquette, 20 * Math.log10(Math.max(faible, 1e-300) / Math.max(lateral, 1e-300)));
+  }
   // la raie étrangère : son niveau relatif à l'anche la plus forte (dB), sur le partiel 1
   let libreInfo = null;
   if (best.libre) {
@@ -637,9 +714,9 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
   const sxx = tj.reduce((a, b) => a + b * b, 0), pente = tj.reduce((a, b, j) => a + b * (dw[j] - moy), 0) / sxx;
   const agit = Math.sqrt(dw.reduce((a, v, j) => a + (v - moy - pente * tj[j]) ** 2, 0) / J) * C_CENTS;
   return {
-    ok: true, f: [f1, f2], sigmaC: sigC, Om: pb[1], b: [pb[2], pb[3]], m: pb[4], m2: pb[7], psi: pb[5], th: pb[6], libre: libreInfo,
+    ok: true, f: [f1, f2], margeEtiquette, niveauDb: (() => { const A = mod.amp[0]; const a = Math.hypot(A[0], A[1]), b = Math.hypot(A[2], A[3]); return -Math.abs(20 * Math.log10(Math.max(a, 1e-300) / Math.max(b, 1e-300))); })(), sigmaC: sigC, Om: pb[1], b: [pb[2], pb[3]], m: pb[4], m2: pb[7], psi: pb[5], th: pb[6], libre: libreInfo,
     derive: pente * C_CENTS, agit, warpC: dw.map((v) => (v - moy) * C_CENTS), r: best.ssrData / Math.max(1e-300, energie), ssr: best.ssrData, dof, s2, K, Ku, T, J, snr, plancherDb: plancher, nPics: pk.length,
-    llr: rival ? (rival.ssrData - best.ssrData) / s2 : Infinity,
+    llr: rival ? (rival.ssrData - best.ssrData) / s2 : Infinity, llrAffectation,
     rival: rival ? { f: [rival.p[0], rival.p[0] + rival.p[1]], ssr: rival.ssr } : null,
     debug: opts.debug ? { pics: pk, departs: dep, sols: sols.map((s) => [s.p[0], s.p[1], s.ssr, s.libre]) } : undefined,
     sol: pb, mod, ms: typeof performance !== 'undefined' ? performance.now() - t0 : 0,
@@ -670,7 +747,7 @@ function covariance(mod, p, steps, s2) {
 }
 
 // Plancher hors modèle d'un partiel : médiane du module du spectre du résidu (Hann), relative à la plus forte porteuse (dB).
-function planchersDb(d, res, o, amp) {
+export function planchersDb(d, res, o, amp) {
   const n = d.n;
   if (n < 16) return null;
   let P = 1; while (P < 4 * n) P <<= 1;
