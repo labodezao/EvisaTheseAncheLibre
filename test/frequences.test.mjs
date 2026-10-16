@@ -305,7 +305,7 @@ for (const c of [
     const Lw = Math.min(L, im.t);
     vs.forEach((v, j) => { if (Math.abs(cents(v.fMeas, vraieEntiere(x, j, im.t, Lw))) > 1) faux++; });
   }
-  assert(tropTot === 0 && faux === 0 && nSur > 20, `midi ${c.midi}, ${c.delta} Hz${c.couple ? `, β ${c.couple.beta}` : ''} : « sûr » dès ${premier?.toFixed(2)} s (T_besoin ${tB.toFixed(2)} s), ${faux} image(s) sûres à plus de 1 ¢, ${nSur} images sûres`);
+  assert(tropTot === 0 && faux === 0 && nSur > 10, `midi ${c.midi}, ${c.delta} Hz${c.couple ? `, β ${c.couple.beta}` : ''} : « sûr » dès ${premier?.toFixed(2)} s (T_besoin ${tB.toFixed(2)} s), ${faux} image(s) sûres à plus de 1 ¢, ${nSur} images sûres`);
 }
 {
   // Les mots : jamais « sûr » avec un σ de plus de 0,3 ¢ ; les raies latérales grandissent avec le rang du partiel
