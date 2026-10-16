@@ -315,3 +315,4 @@ le 06/10 : `images.mjs`, `verite_poly.py`, `compare_poly.py`, `resume_poly.py`,
   battements. Calibration longue façon Dirk (horloge carte son) : non faite.
 - `test/session-2026-09-25-23-58-20.zip` (59 Mo) est dans `main` (fusion
   classique) : session quintes + octaves main gauche, utile en référence.
+- v63 (16/10/2026) : certificat des lectures « sûr » reporté du produit (moteur : engine, plan, battement, certificat, nls-bessel ; docs/CERTIFICAT.md). Le refus s'affiche comme une anche « en cours » avec marge.

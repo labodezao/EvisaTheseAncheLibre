@@ -121,6 +121,21 @@ export function strobePartials(g, coarse = null) {
   return out;
 }
 
+// R4 (audit Fable du 15/10/2026) : la bande du traqueur au partiel k ne couvre que ±BAND_HZ/k autour du centre. La marge OUT_OF_TUNE_HZ
+// (1,5 Hz au fondamental) ne tient pas une anche désaccordée de 31 ¢ à 1154 Hz (21 Hz) : à k = 3 elle est à 63 Hz, hors bande, la plus
+// forte des deux anches n'est jamais vue, la faible est lue pour la forte et une raie du peigne pour l'autre : 100 % de lectures « sûr »
+// fausses à 8 Hz et 12 ¢. Le spectre large bande voit pourtant toutes les raies fortes de la note : le partiel de mesure est abaissé
+// jusqu'à ce que celles qui sont à moins de 14 dB de la plus forte, à ±60 ¢ du centre, tiennent dans la bande.
+export function partielPourRaiesVues(g, k, coarse) {
+  if (!coarse?.peaks?.length || !(g.center > 0)) return k;
+  const lo = g.center * 2 ** (-60 / 1200), hi = g.center * 2 ** (60 / 1200);
+  const voisines = coarse.peaks.filter((p) => p.freq >= lo && p.freq <= hi);
+  if (!voisines.length) return k;
+  const m0 = Math.max(...voisines.map((p) => p.mag));
+  const ecart = Math.max(...voisines.filter((p) => p.mag >= 0.2 * m0).map((p) => Math.abs(p.freq - g.center)));
+  return Math.max(1, Math.min(k, Math.floor(BAND_HZ / (ecart + OUT_OF_TUNE_HZ))));
+}
+
 export function unisonHarmonic(g, cfg, coarse = null) {
   const kBase = g.kTrack;
   if (cfg.polyHarmonic) return Math.max(1, cfg.polyHarmonic | 0);
@@ -145,6 +160,7 @@ export function unisonHarmonic(g, cfg, coarse = null) {
   const kBand = Math.floor(BAND_HZ / (spread + OUT_OF_TUNE_HZ));
   const kFreq = Math.floor(K_FREQ_MAX / g.center);
   let k = Math.max(kBase, Math.min(kSep, kBand, kFreq, K_MAX));
+  k = Math.max(kBase, partielPourRaiesVues(g, k, coarse));
   // Partiel pair interdit quand une anche sonne à l'octave au-dessus (cf.
   // groupVoices) : kBase est alors impair, la boucle s'y arrête au pire.
   const ok = (kk) => !(g.avoidEven && kk % 2 === 0) && partialPresent(coarse, g.center, kk);
@@ -237,6 +253,16 @@ function chordForeignClash(groups, g, k) {
 
 // Méthodes d'Engine (cf. engine.js, Object.assign).
 export const methodesPlan = {
+  // R4 : le plan d'une note posée avant la première analyse large bande (note imposée : dès la première image, 0,34 s avant le spectre) a
+  // choisi son partiel de mesure sans voir les raies. Dès que le spectre est là, on regarde si le partiel doit être abaissé (partielPourRaiesVues) ;
+  // si oui le moteur se recale (retune) : dans l'attaque, rien d'utile n'est encore lu. Rend vrai quand il faut se recaler.
+  planAvecSpectre() {
+    const p = this.plan, c = this.lastCoarse;
+    if (!p?.sansSpectre || !c?.peaks?.length || this.playedMidi == null) return false;
+    p.sansSpectre = false;
+    return this.groupVoices(this.playedMidi).some((g) => p.k.has(g.key) && partielPourRaiesVues(g, p.k.get(g.key), c) < p.k.get(g.key));
+  },
+
   // Centres des groupes dont la note imposée ne sonne pas (cf. LOCK_MISS),
   // d'après le spectre large bande de l'image (`coarse`, null en silence :
   // rien ne change). Groupes de base seulement ; leurs partiels et leurs
@@ -545,7 +571,7 @@ export const methodesPlan = {
     // le plan suit aussi les notes jouées.
     const sig = this.chordDegrees() ? (this.chord?.notes ?? []).map((n) => n.midi).join(',') : '';
     if (!this.plan || this.plan.midi !== playedMidi || (this.plan.sig ?? '') !== sig) {
-      this.plan = { midi: playedMidi, sig, k: new Map(), partials: new Map() };
+      this.plan = { midi: playedMidi, sig, k: new Map(), partials: new Map(), sansSpectre: !(this.lastCoarse?.peaks?.length) };
       for (const g of groups) {
         // Anche seule dans son groupe (M, 16' d'un LM…) : pas d'unisson à
         // séparer, on garde son partiel de mesure, mais le strobe a quand
