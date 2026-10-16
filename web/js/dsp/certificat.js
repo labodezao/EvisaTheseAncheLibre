@@ -23,7 +23,7 @@
 // v64 (PROMOTION) : une lecture certifiée est elle-même la valeur affichée et le « sûr » : le traqueur, qui ne voit pas le biais de modulation de phase des
 // fenêtres courtes, n'est plus le goulot du temps de pose.
 //
-// Le calcul est réparti sur les images du moteur (générateur : `CERT.PAS_PAR_IMAGE` itérations par image de 85 ms).
+// Le calcul est fait par un Worker dédié (v66, cert-calcul.js / cert-worker.js) ; sans lui, il est réparti sur les images du moteur (générateur : `CERT.PAS_PAR_IMAGE` itérations par image de 85 ms).
 import { lireBesselGen, NLS_LLR_SUR } from './nls-bessel.js';
 import { lireTrioGen } from './nls-trio.js';
 import { centsBetween } from '../music.js';
@@ -56,21 +56,38 @@ export const CERT = {
   ITER: 15,                  // ajustement : itérations de l'étape finale
   COUT_PAR_IMAGE: 200,      // bancs (v64) : travail par image en milliers de partiels-échantillons évalués (déterministe) ; null : PAS_PAR_IMAGE
   PAS_PAR_IMAGE: 20,         // itérations de Levenberg-Marquardt par image (bancs et tests : calcul déterministe)
-  MS_PAR_IMAGE: null,        // si donné (l'application : 15 ms), c'est le temps qui borne le travail de chaque image, pas le nombre de pas
+  MS_PAR_IMAGE: null,        // si donné (repli de l'application sans Worker dédié : 40 ms, réglé par adapterBudget ; les bancs : COUT_PAR_IMAGE), c'est le temps qui borne le travail de chaque image, pas le nombre de pas
   ACCORD_SUR_C: 1e9,         // C8 (v64, éteint) : quand le traqueur se dit LUI AUSSI sûr, les deux lectures ne se contredisent pas de plus que cela (essayé à 1 ¢ : 48 % de notes posées au lieu de 63 %, le traqueur étant sûr et faux sur 30 % des notes favorables ; le cas qu'il attrapait, trois raies pures, l'est par LLR_AFFECT_MIN)
   ACCORD_C: 1e9,             // C8 : abandonné en v64 (3 ¢ refuse toute note que le traqueur lit mal, et il en lit mal beaucoup : PB12, +51 notes posées sans lui) ; la vérification de l'étiquette est interne (rival des deux côtés, raie étrangère jamais latérale, deux moitiés)
   CONFIRME_C: 0.3,           // C9 : deux ajustements successifs (fenêtres décalées d'au moins 0,5 s) d'accord à ce point près
   LLR_MIN: NLS_LLR_SUR,      // C4
+  IDENT3_ECART: 0.05,        // v66 (F10) : trois anches dont les deux écarts Δ− et Δ+ sont égaux à cette part près ET dont moins de IDENT3_KU_MAX partiels sont nets : indiscernable d'UNE anche modulée (vibrato, tirage), jamais « sûr »
+  IDENT3_KU_MAX: 2,
+  ABSENTE_DB: 35,            // v66 (F10) : une des trois anches à plus de ce nombre de dB sous la plus forte : elle ne sonne pas (registre fermé), le texte le dit
+  SIGMA_TOL_C: 99,           // v66 (C7 de l'audit du 15/10) : marge de précision : 3 σ + 0,02 ¢ de l'ajustement au plus ce nombre de ¢ (99 : éteint ; réglé par plan d'expériences)
   KOT_MIN: 1.5,              // C3
   R_MAX: 0.05,               // C2 : résidu relatif du modèle (juste sans raie étrangère : 0,01 ; avec : jusqu'à 0,08 ; deux anches manquées : 0,085 et plus)
   PLANCHER_MAX_DB: -28,      // C2 : plancher hors modèle, partiels 1 et 2
   BETA_MAX: 0.45,           // C2 : indice de modulation de phase. Au-delà de 0,4 (audit § 1.3) la porteuse n'est plus la raie dominante aux partiels hauts (J0(kβ) < J1(kβ)) et le modèle de Bessel ne tient plus : La5 du 14/10 (β 0,46 à 1,1, raies non proportionnelles au rang) lue à +0,6 ¢ avec une borne à 0,6. La borne de l'ajustement est 0,7, où se collent les faux modèles
+  BETA_FORT: 0.45,           // v66 (F8) REFUSÉ, éteint : au-dessus de cet indice de phase estimé, exiger en plus LLR_BETA_FORT, une modulation d'amplitude ≤ M_FORT et des moitiés d'accord à CONFIRME_MOITIE_FORT_C
+                             // attrape la note à β vrai 0,48 (β̂ 0,36, m̂ 0,23) que le plan B laisse passer hors du domaine, mais coûte 90 % des notes posées du plan J (β 0,38-0,45, DANS le domaine : 24 sur 50 -> 1 à 5) ;
+                             // réglages essayés (plans DOE1, DOE2 et confirmation, docs/CERTIFICAT.md § v66) : 0,35 / 0,15 / 100 / 0,2 et M_FORT 0,2.
+  LLR_BETA_FORT: 100,
+  M_FORT: 0.15,
+  CONFIRME_MOITIE_FORT_C: 0.2,
   M_MAX: 0.3,                // C2 (v64) : indice de modulation d'amplitude ; collé à sa borne (0,45) il est la marque d'un faux modèle où des raies latérales jouent l'anche faible (banc : trois lectures fausses de 16 ¢ sur trois, 0 sur 200 fenêtres justes)
   LLR_AFFECT_MIN: 150,       // C4 (v64) : rapport de vraisemblance minimal de l'échange de rôle entre une anche et la raie étrangère adoptée
   COUPLAGE_MIN: 0.03,        // C4 (v64) : en dessous de cet indice (phase ou amplitude) les anches ne se tirent pas assez pour qu'on lise leur rôle contre une raie étrangère
   LIBRE_VS_FAIBLE_DB: 12,    // une raie étrangère plus faible que l'anche la plus faible de plus que cela (dB) ne compte pas dans l'échange de rôle
   MARGE_ETIQ_DB: 20,         // C4 (v64) : la raie de l'anche faible n'est pas plus de ce nombre de dB sous la raie latérale que l'anche forte met au même endroit (banc : -35 dB = faux modèle ; -10 dB et moins = lectures justes)
   LAG_MAX_C: 0.3,            // v64 : |dérive| · (âge du milieu de la fenêtre) au plus ce nombre de ¢ : une valeur plus vieille que cela cesse d'être « sûre » (lecture à +0,52 ¢ d'une note qui dérive à 0,22 ¢/s, 2,4 s d'âge)
+  CONTREDIT_C: 0.3,          // v66 (F1) : une lecture complète qui s'écarte du certificat de plus que max(ce seuil, CONTREDIT_SIGMA σ) + la dérive l'invalide, même si elle est elle-même refusée (0 : éteint)
+  CONTREDIT_SIGMA: 3,
+  CONTREDIT_DERIVE_MAX_C: 1,
+  SENTINELLE: true,          // v66 (F1) : tant qu'un certificat tient, une lecture chaude courte (SENT_FEN_S) toutes les SENT_PERIODE_S vérifie que l'anche n'a pas bougé (un saut de hauteur tombe en ~0,5 s au lieu de 1,5 s)
+  SENT_FEN_S: 0.6,
+  SENT_PERIODE_S: 0.25,
+  SENT_SIGMA: 4,             // tolérance de la sentinelle : max(CONTREDIT_C, SENT_SIGMA σ) (fenêtre courte : plus de fausses alarmes à 3 σ)
   SAUT_C: 0.5,               // v64 : un nouvel ajustement qui s'écarte de plus que cela du certificat en cours l'invalide ; il faut deux fenêtres décalées d'accord pour en poser un autre
   REFUS_RAISONS: ['niveau'], // les refus qui comptent pour REFUS_RECENTS
   REFUS_RECENTS: 3,          // v64 : une lecture n'est posée que si moins de REFUS_RECENTS des 4 ajustements précédents ont été refusés pour le niveau (une anche à plus de 22 dB : le modèle prend alors une raie latérale pour l'anche faible ; 0 = éteint). Banc : plan A, 1 lecture fausse hors domaine (25 dB, Ω 0,3 Hz, β 0,4) devenue 0 ; plans de validation inchangés (116/280 et 223/384 posées) ; avec le peigne et l'étiquette en plus : 9 points de notes posées perdus
@@ -82,12 +99,13 @@ export const CERT = {
   HORLOGE_MAX_PPM: 100,      // C10 : incertitude maximale de l'horloge du micro (100 ppm = 0,17 ¢) ; cfg.horlogeIncertPpm l'annonce (0 : horloge exacte, fichier)
   MARGE_REFUS_C: 1.5,        // marge posée sur une lecture non certifiée
   TENUE_C: 0.25,              // le certificat tient tant que le moteur reste à ce point de lui
-  OMEGA_MIN: 0.2,            // Hz : en dessous, pas de battement à lire
+  OMEGA_MIN: 0.4,            // Hz : en dessous, pas de battement à lire (v66, F2 : 0,2 en v65 ; sous 0,4 Hz 5 lectures « sûr » fausses sur 51, jusqu'à 0,9 ¢, audit Fable final)
+  OMEGA_SUR_MIN: 0.8,        // Hz : la HAUTEUR de chaque anche n'est dite « sûre » qu'au-dessus (raison `lent`, le battement reste mesuré dès 0,4 Hz). EXCEPTION à la règle « seuils sur la synthèse » : la synthèse (450 notes à Ω 0,45-1 Hz, désaccord 2-8 ¢) ne donne AUCUNE lecture fausse (max 0,37 ¢), mais le rejeu des prises H6 du 14/10 au budget de l'application en donne trois à 0,50-0,63 ¢ (Ω vrai 0,40, 0,55 et 0,58 Hz) ; 0,8 laisse la marge du bruit sur Ω ; à reprendre quand la synthèse saura reproduire ce biais (audit Fable final, § 10)
   OMEGA_MAX: 60,             // Hz : au-delà, hors domaine (anches « presque deux notes » ; 25 en v63 ; 50 ¢ à A6 font 51 Hz)
 };
 
 // Raisons de refus : clés de langue (ui/langues) et ordre de gravité (la plus parlante d'abord).
-export const RAISONS = ['trois', 'horloge', 'trous', 'niveau', 'ecartees', 'accordees', 'peigne', 'resolution', 'etiquette', 'stabilite', 'accord', 'verification', 'domaine'];
+export const RAISONS = ['trois', 'ident3', 'absente', 'horloge', 'trous', 'niveau', 'ecartees', 'accordees', 'lent', 'peigne', 'resolution', 'etiquette', 'stabilite', 'accord', 'verification', 'domaine'];
 
 // Jugement d'une seconde lecture. nls : sortie de lireBessel (deux anches) ou lireTrio (trois) ; moteur : { f: [...] } (Hz, calibrés) ; calib : facteur d'horloge.
 // Rend { ok, raisons: [...] , detail }.
@@ -103,15 +121,26 @@ export function juger(nls, moteur, { calib = 1, zeros = false, opts = CERT, deri
   const cents = (a, b) => 1200 * Math.log2(a / b);
   detail.accord = Math.max(...f.map((v, j) => Math.abs(cents(moteur.f[j], v))));
   const omMin = trio ? Math.min(...nls.Om) : nls.Om, omMax = trio ? Math.max(...nls.Om) : nls.Om;
-  detail.kot = nls.K * omMin * nls.T;
+  detail.kot = (trio && Number.isFinite(nls.Ku) ? nls.Ku : nls.K) * omMin * nls.T;       // v66 (F10) : K_utile (partiels nets) pour trois anches
   detail.plancher = Math.max(...nls.plancherDb.slice(0, 2).map((v) => (v == null || Number.isNaN(v) ? 999 : v)));
   if (omMax > opts.OMEGA_MAX) raisons.push('ecartees');
   else if (omMin < opts.OMEGA_MIN) raisons.push('accordees');
+  else if (omMin < opts.OMEGA_SUR_MIN) raisons.push('lent');
   const faible = trio ? Math.min(...nls.niveauxDb) : nls.niveauDb;        // niveau de l'anche la plus faible sous la plus forte (dB, négatif)
-  if (faible != null && faible < -opts.NIVEAU_MIN_DB) raisons.push('niveau');
+  if (trio && faible != null && faible < -opts.ABSENTE_DB) raisons.push('absente');
+  else if (faible != null && faible < -opts.NIVEAU_MIN_DB) raisons.push('niveau');
+  if (trio && Math.abs(nls.Om[1] - nls.Om[0]) <= opts.IDENT3_ECART * 0.5 * (nls.Om[0] + nls.Om[1]) && (nls.Ku ?? 4) <= opts.IDENT3_KU_MAX) raisons.push('ident3');
   const ms = [].concat(nls.m, nls.m2 ?? []).filter((v) => Number.isFinite(v));
-  if (!(nls.r <= opts.R_MAX) || !(detail.plancher <= opts.PLANCHER_MAX_DB) || Math.max(...nls.b.map(Math.abs)) > opts.BETA_MAX || Math.max(0, ...ms.map(Math.abs)) > opts.M_MAX) raisons.push('peigne');
-  if (!(detail.kot >= opts.KOT_MIN)) raisons.push('resolution');
+  const bMax = Math.max(...nls.b.map(Math.abs)), mMax = Math.max(0, ...ms.map(Math.abs));
+  detail.beta = bMax; detail.m = mMax;
+  const fort = bMax > opts.BETA_FORT && (!(nls.llr >= opts.LLR_BETA_FORT) || mMax > opts.M_FORT);
+  if (!(nls.r <= opts.R_MAX) || !(detail.plancher <= opts.PLANCHER_MAX_DB) || bMax > opts.BETA_MAX || mMax > opts.M_MAX || fort) {
+    raisons.push('peigne');
+    // la cause, pour que l'écran dise le geste (F6) : anches presque accrochées, micro traité, autre anche qui sonne
+    detail.causePeigne = bMax > opts.BETA_MAX || mMax > opts.M_MAX || fort ? 'accrochees' : !(detail.plancher <= opts.PLANCHER_MAX_DB) ? 'micro' : nls.libre ? 'etrangere' : 'micro';
+  }
+  detail.sigma = Math.max(...(nls.sigmaC ?? [0]).map((x) => (Number.isFinite(x) ? x : 99)));
+  if (!(detail.kot >= opts.KOT_MIN) || 3 * detail.sigma + 0.02 > opts.SIGMA_TOL_C) raisons.push('resolution');
   // Rôle des raies : quand une raie étrangère notable (plus haute que −LIBRE_SIG_DB) est adoptée, l'échange de rôle avec chaque anche doit être nettement pire (trois raies
   // pures d'égale force : indécidable, rapport 37 à 120 ; les lectures justes : 360 à 10 000)
   // Sans aucun couplage ajusté (|β| et |m| presque nuls), rien dans le son ne distingue une anche d'une raie étrangère : seul le rapport de vraisemblance de l'échange de rôle
@@ -128,7 +157,7 @@ export function juger(nls, moteur, { calib = 1, zeros = false, opts = CERT, deri
 
 // Ajustement d'une fenêtre : l'ajustement entier ; s'il passe C1 à C8 et que les moitiés se résolvent, les deux moitiés (point de départ chaud : la lecture
 // entière) pour C9 par moitiés. Générateur : un `yield` par pas, comme lireBesselGen. n : 2 ou 3 anches.
-function* ajusterFenetre(n, x, sr, fc, optsFit, opts, calib, moteur) {
+export function* ajusterFenetre(n, x, sr, fc, optsFit, opts, calib, moteur) {
   const lire = n === 3 ? lireTrioGen : lireBesselGen;
   const main = yield* lire(x, 0, x.length, sr, fc, optsFit);
   if (main.ok && opts.CONFIRME_MODE >= 1) {
@@ -144,6 +173,14 @@ function* ajusterFenetre(n, x, sr, fc, optsFit, opts, calib, moteur) {
     }
   }
   return main;
+}
+
+// Un travail complet (v66, F4) : une description sans fonctions, exécutable dans le Worker du certificat ou en ligne. Rend le résultat SANS le modèle (`mod`, lourd, non transférable).
+export function* executerTravail(spec) {
+  const lire = spec.n === 3 ? lireTrioGen : lireBesselGen;
+  const nls = spec.sentinelle ? yield* lire(spec.x, 0, spec.x.length, spec.sr, spec.fc, spec.optsFit) : yield* ajusterFenetre(spec.n, spec.x, spec.sr, spec.fc, spec.optsFit, spec.opts, spec.calib, spec.moteur);
+  if (nls && nls.ok) { const { mod, debug, ...reste } = nls; void mod; void debug; return reste; }
+  return nls;
 }
 
 // Battement d'une note tenue (Ewen, 16/10/2026 : « 25, puis 27, puis 26, puis 25 battements/min : c'est quoi la vraie valeur ? »). Les battements Ω des ajustements
@@ -247,7 +284,7 @@ export const methodesCertificat = {
     const vs = [...g.voices].sort((a, b) => a.target - b.target);
     const ok = (v) => v?.tracked && !v.held && !v.coarse && !v.merged && Number.isFinite(v.fMeas);
     if (!this.anneau) this.initAnneau();
-    for (const v of vs) if (v) { v.refus = null; v.cert = null; }
+    for (const v of vs) if (v) { v.refus = null; v.refusCause = null; v.cert = null; }
     // le battement affiché ne saute pas quand l'état de la note est perdu un instant (le traqueur change de note, une anche manque une image) : 1,5 s de mémoire
     this.batMemo ??= new Map();
     const memo = this.batMemo.get(cle);
@@ -273,7 +310,18 @@ export const methodesCertificat = {
     // 1. les calculs en cours se partagent le travail de cette image (un pas chacun à tour de rôle). Le travail se compte en temps réel dans l'application
     //    (MS_PAR_IMAGE), en unités de coût déterministes dans les bancs (COUT_PAR_IMAGE : milliers de partiels-échantillons évalués, ~ 0,35 ms sur un PC de bureau),
     //    à défaut en nombre de pas (PAS_PAR_IMAGE, v63).
-    if (st.jobs.length) {
+    if (this.certExec) {
+      // v66 (F4) : les ajustements se font dans un Worker dédié ; ici on ne fait que recevoir ce qui est fini
+      for (const res of this.certExec.recuperer(cle, tNow)) {
+        const i = st.jobs.findIndex((j) => j.id === res.id);
+        if (i < 0) continue;                                       // la note a changé entre-temps : résultat périmé
+        const job = st.jobs.splice(i, 1)[0];
+        job.msCalcul = res.ms;
+        if (res.erreur) { st.derniere = { ok: false, raisons: ['domaine'], t: tNow, erreur: String(res.erreur) }; st.cands = []; continue; }
+        if (job.sentinelle) this.finirSentinelle(st, job, res.nls, tNow, calib, opts); else this.finirAjustement(st, job, res.nls, tNow, calib, opts, n);
+      }
+      st.jobs = st.jobs.filter((j) => tNow - j.tFin < 12);        // un travail qui ne revient jamais (Worker mort) ne bloque pas la note
+    } else if (st.jobs.length) {
       const tDebut = opts.MS_PAR_IMAGE ? performance.now() : 0;
       let cout = 0;
       for (let i = 0; st.jobs.length && (opts.MS_PAR_IMAGE ? i === 0 || performance.now() - tDebut < opts.MS_PAR_IMAGE : opts.COUT_PAR_IMAGE ? cout < opts.COUT_PAR_IMAGE : i < pasI); i++) {
@@ -283,7 +331,7 @@ export const methodesCertificat = {
         cout += typeof r.value === 'number' && !r.done ? r.value : 0.5;
         if (r.done) {
           st.jobs.splice(st.jobs.indexOf(job), 1);
-          this.finirAjustement(st, job, r.value, tNow, calib, opts, n);
+          if (job.sentinelle) this.finirSentinelle(st, job, r.value, tNow, calib, opts); else this.finirAjustement(st, job, r.value, tNow, calib, opts, n);
         }
       }
     }
@@ -292,7 +340,7 @@ export const methodesCertificat = {
     const certTient = st.cert?.ok && this.certAccord(st.cert, vs, tNow, opts);
     const aRafraichir = certTient && tNow - st.cert.t >= opts.RAFRAICHIR_S;
     const tPeut = tNow - st.tFenFin >= opts.REESSAI_S;
-    if (st.jobs.length < opts.JOBS_MAX && (!certTient || aRafraichir) && age >= opts.AGE_MIN_S && tPeut && st.essais < opts.ESSAIS_MAX) {
+    if (st.jobs.filter((j) => !j.sentinelle).length < opts.JOBS_MAX && (!certTient || aRafraichir) && age >= opts.AGE_MIN_S && tPeut && st.essais < opts.ESSAIS_MAX) {
       const iFin = this.samplesTotal;
       // la fenêtre attend d'avoir de quoi séparer les raies (K·Ω·T ≥ KOT_MIN, au moins NB_MIN battements) et de quoi lire assez juste pour la hauteur de la note
       // (FEN_F0_S / f : en ¢, l'erreur d'une fréquence est en 1/f) ; elle vise FEN_MAX_S mais jamais moins que ce besoin, jamais plus que FEN_ABS_MAX_S
@@ -320,11 +368,23 @@ export const methodesCertificat = {
             // à chaud seulement si la fenêtre n'a pas trop bougé depuis l'ajustement d'où l'on part (au-delà, les paramètres faibles — indices de modulation, phases — ne sont plus un bon départ)
             if (chaud && Math.abs((tNow - fen / 2) - chaud.tMilieu) > opts.CHAUD_DT_MAX_S) chaud = null;
             const prior = chaud ? chaud.f.map((f) => f / calib) : fMoteur().map((f) => f / calib);
-            st.jobs.push({
-              gen: ajusterFenetre(n, x, this.sr, g.center, { prior, priorFirst: !!chaud, chaud: !!chaud, pInit: chaud?.sol ?? null, dt: chaud ? (tNow - fen / 2) - chaud.tMilieu : 0, libreInit: chaud?.sol && chaud.libre ? chaud.sol[n === 3 ? 13 : 8] : null, Kmax: opts.KMAX, iter: opts.ITER, nLibre: opts.NLIBRE, nDeparts: chaud ? 1 : opts.NDEPARTS }, opts, calib, { f: fMoteur(), sur: moteurSur }),
-              fMoteur: fMoteur(), moteurSur, tMilieu: tNow - fen / 2, tFin: tNow, T: fen, zeros,
-            });
+            this.lancerTravail(st, cle, tNow, { n, x, sr: this.sr, fc: g.center, optsFit: { prior, priorFirst: !!chaud, chaud: !!chaud, pInit: chaud?.sol ?? null, dt: chaud ? (tNow - fen / 2) - chaud.tMilieu : 0, libreInit: chaud?.sol && chaud.libre ? chaud.sol[n === 3 ? 13 : 8] : null, Kmax: opts.KMAX, iter: opts.ITER, nLibre: opts.NLIBRE, nDeparts: chaud ? 1 : opts.NDEPARTS }, opts, calib, moteur: { f: fMoteur(), sur: moteurSur } },
+              { fMoteur: fMoteur(), moteurSur, tMilieu: tNow - fen / 2, tFin: tNow, T: fen, zeros });
           } else if (zeros) { st.derniere = { ok: false, raisons: ['trous'], t: tNow }; st.cands = []; }
+        }
+      }
+    }
+
+    // 2 bis. sentinelle (F1)
+    if (opts.SENTINELLE && certTient && !st.jobs.some((j) => j.sentinelle) && tNow - (st.tSent ?? -1e9) >= opts.SENT_PERIODE_S && st.cert.sol) {
+      const fenS = Math.min(opts.SENT_FEN_S, age - opts.DEBUT_S);
+      if (fenS >= 0.45) {
+        const xs = this.extraireAnneau(this.samplesTotal - Math.round(fenS * this.sr), this.samplesTotal);
+        if (xs && plagesDeZeros(xs, 0, xs.length, this.sr) < 0) {
+          st.tSent = tNow;
+          const ch = st.cert;
+          this.lancerTravail(st, cle, tNow, { n, sentinelle: true, x: xs, sr: this.sr, fc: g.center, optsFit: { prior: ch.f.map((f) => f / calib), priorFirst: true, chaud: true, pInit: ch.sol, dt: (tNow - fenS / 2) - ch.tMilieu, libreInit: ch.sol && ch.libre ? ch.sol[n === 3 ? 13 : 8] : null, Kmax: opts.KMAX, iter: opts.ITER, nLibre: 0, nDeparts: 1 } },
+            { sentinelle: true, tMilieu: tNow - fenS / 2, tFin: tNow, T: fenS });
         }
       }
     }
@@ -333,7 +393,7 @@ export const methodesCertificat = {
     const certOk = st.cert?.ok && this.certAccord(st.cert, vs, tNow, opts);
     const raisons = certOk ? [] : st.derniere && !st.derniere.ok ? st.derniere.raisons : ['verification'];
     const dernier = st.cert ?? st.derniere;
-    for (const v of vs) { v.cert = dernier ? { ok: !!certOk, llr: dernier.nls?.llr ?? null, r: dernier.nls?.r ?? null, derive: dernier.nls?.derive ?? null, raisons: certOk ? [] : (st.derniere?.raisons ?? null), essais: st.essais } : null; }
+    for (const v of vs) { v.cert = dernier ? { ok: !!certOk, llr: dernier.nls?.llr ?? null, r: dernier.nls?.r ?? null, derive: dernier.nls?.derive ?? null, raisons: certOk ? [] : (st.derniere?.raisons ?? null), essais: st.essais, beta: dernier.detail?.beta ?? null, m: dernier.detail?.m ?? null, plancher: dernier.detail?.plancher ?? null, kot: dernier.detail?.kot ?? null, libre: dernier.nls?.libre ?? null, sigmaC: dernier.nls?.sigmaC ?? null } : null; }
     // Battement affiché (deux anches) : une valeur qui converge, qui ne change que si l'écart dépasse son incertitude, arrondie à la précision réelle
     if (n === 2 && st.omegas?.length >= 2) {
       const e = estimerBattement(st.omegas);
@@ -342,7 +402,7 @@ export const methodesCertificat = {
         const seuil = Math.max(e.sigmaBpm, 0.2);
         if (!st.bat || Math.abs(e.bpm - st.bat.bpm) > seuil) st.bat = { bpm: Math.round(e.bpm / pas) * pas };
         const posee = e.n >= 3 && e.sigmaBpm <= 0.5 && e.duree >= 2;
-        const b = { bpm: st.bat.bpm, hz: st.bat.bpm / 60, sigmaBpm: e.sigmaBpm, sigmaHz: e.sigmaHz, pas, tendance: e.tendance, tendanceBpmS: e.tendanceBpmS, n: e.n, duree: e.duree, posee };
+        const b = { serie: st.omegas.slice(-30).map((p) => ({ t: p.t, T: p.T, bpm: p.om * 60 })), bpm: st.bat.bpm, hz: st.bat.bpm / 60, sigmaBpm: e.sigmaBpm, sigmaHz: e.sigmaHz, pas, tendance: e.tendance, tendanceBpmS: e.tendanceBpmS, n: e.n, duree: e.duree, posee };
         for (const v of vs) v.beatCert = b;
         this.batMemo.set(cle, { b, t: tNow });
       }
@@ -371,9 +431,21 @@ export const methodesCertificat = {
         v.etatAnche = 'en cours';
         v.margeAnche = Math.max(v.margeAnche || 0, opts.MARGE_REFUS_C);
         v.refus = motif;
+        v.refusCause = motif === 'peigne' ? (st.derniere?.detail?.causePeigne ?? null) : null;
         v.tBesoin = null;
       }
     }
+  },
+
+  // Met un travail en route : dans le Worker du certificat (`this.certExec`, v66) ou, à défaut, en ligne par tranches (bancs, tests).
+  lancerTravail(st, cle, tNow, spec, meta) {
+    if (this.certExec?.mort) this.certExec = null;                  // le Worker du certificat a planté : calcul en ligne
+    if (this.certExec) {
+      const id = (this.certSeq = (this.certSeq ?? 0) + 1);
+      if (spec.x.byteOffset !== 0 || spec.x.buffer.byteLength !== spec.x.byteLength) spec.x = Float32Array.from(spec.x);
+      this.certExec.soumettre({ id, cle, ...spec }, tNow);
+      st.jobs.push({ ...meta, id });
+    } else st.jobs.push({ ...meta, gen: executerTravail(spec) });
   },
 
   // Un ajustement est fini : jugement C1 à C8, puis C9 (les deux moitiés, ou deux fenêtres décalées d'au moins DECALAGE_MIN_S, d'accord à CONFIRME_C).
@@ -385,7 +457,7 @@ export const methodesCertificat = {
     const v = juger(nls, { f: job.fMoteur, sur: job.moteurSur }, { calib, zeros: false, opts, derive: deriveM });
     const f = nls.ok ? nls.f.map((x) => x * calib) : null;
     // battement de la note : les ajustements dont seule la confirmation ou l'accord manque donnent un Ω aussi bon que les autres
-    if (n === 2 && nls.ok && v.raisons.every((q) => ['verification', 'accord', 'stabilite'].includes(q)) && nls.r <= opts.R_MAX) (st.omegas ??= []).push({ t: job.tMilieu, T: job.T, om: nls.Om * calib });
+    if (n === 2 && nls.ok && v.raisons.every((q) => ['verification', 'accord', 'stabilite', 'lent'].includes(q)) && nls.r <= opts.R_MAX) { (st.omegas ??= []).push({ t: job.tMilieu, T: job.T, om: nls.Om * calib }); if (st.omegas.length > 150) st.omegas.shift(); }
     st.essais++;
     st.tDernierFit = tNow;
     const refusModele = (r) => !r.ok && r.raisons?.some((q) => opts.REFUS_RAISONS.includes(q));
@@ -407,14 +479,21 @@ export const methodesCertificat = {
     // Un ajustement qui contredit le certificat en cours (écart > SAUT_C) alors que la note n'a pas changé : l'un des deux est faux (étiquette échangée, raie latérale
     // prise pour une anche). Le certificat tombe et il faut deux fenêtres décalées d'accord (pas seulement les deux moitiés d'une même fenêtre) pour en poser un autre.
     let exigeDecalage = !!st.saut;
-    if (v.ok && st.cert?.ok && st.cert.f && ecart(f, st.cert.f) > opts.SAUT_C && tNow - st.cert.t <= opts.CERT_AGE_MAX_S) {
-      st.cert = null; st.saut = true; st.cands = []; exigeDecalage = true;
+    if (st.cert?.ok && st.cert.f && f && tNow - st.cert.t <= opts.CERT_AGE_MAX_S) {
+      const e = ecart(f, st.cert.f);
+      // v66 (F1, audit Fable final : saut de hauteur en cours de note, 25 « sûr » faux jusqu'à 2,9 ¢) : une lecture COMPLÈTE qui contredit le certificat l'invalide, qu'elle passe les
+      // critères ou non (une fenêtre qui chevauche le saut échoue en `peigne` ou en `stabilite` : c'est justement le signe du saut). Tolérance : max(CONTREDIT_C, k σ) plus la
+      // dérive connue sur l'écart des centres des deux fenêtres.
+      const sig = Math.max(...(nls.sigmaC ?? [0]).map((x) => (Number.isFinite(x) ? x : 0)));
+      const tolC = Math.max(opts.CONTREDIT_C, opts.CONTREDIT_SIGMA * sig) + Math.min(opts.CONTREDIT_DERIVE_MAX_C, Math.abs(st.cert.derive ?? 0) * Math.abs(job.tMilieu - st.cert.tMilieu));
+      if ((v.ok && e > opts.SAUT_C) || (opts.CONTREDIT_C > 0 && nls.ok && e > tolC)) { st.cert = null; st.saut = true; st.cands = []; exigeDecalage = true; st.invalides = (st.invalides ?? 0) + 1; }
     }
-    if (v.ok && opts.REFUS_RECENTS > 0 && nRefusRecents >= opts.REFUS_RECENTS) { v.ok = false; v.raisons = ['peigne']; st.cands = []; }
+    if (v.ok && opts.REFUS_RECENTS > 0 && nRefusRecents >= opts.REFUS_RECENTS) { v.ok = false; v.raisons = ['niveau']; st.cands = []; }
     if (v.ok) {
       const parDecalage = st.cands.find((q) => Math.abs(job.tMilieu - q.tMilieu) >= opts.DECALAGE_MIN_S && ecart(f, q.f) <= opts.CONFIRME_C);
       const mo = nls.moities;
-      const parMoities = mo && mo.every(Boolean) && mo.every((h) => ecart(h.map((x) => x * calib), f) <= opts.CONFIRME_MOITIE_C);
+      const tolMoitie = Math.max(...nls.b.map(Math.abs)) > opts.BETA_FORT ? Math.min(opts.CONFIRME_MOITIE_C, opts.CONFIRME_MOITIE_FORT_C) : opts.CONFIRME_MOITIE_C;
+      const parMoities = mo && mo.every(Boolean) && mo.every((h) => ecart(h.map((x) => x * calib), f) <= tolMoitie);
       const ami = exigeDecalage || opts.CONFIRME_MODE === 0 ? parDecalage : opts.CONFIRME_MODE === 1 ? (mo ? parMoities : parDecalage) : (parDecalage && (!mo || parMoities));
       st.cands.push({ f, tMilieu: job.tMilieu, t: tNow, sol, libre: !!nls.libre });
       if (ami) {
@@ -425,6 +504,17 @@ export const methodesCertificat = {
       v.ok = false; v.raisons = ['verification'];
     } else if (!v.raisons.every((q) => q === 'accord')) st.cands = [];
     st.derniere = { ...v, t: tNow, tMilieu: job.tMilieu, nls: resumeNls(nls), f };
+  },
+
+  // La sentinelle (F1) : une lecture chaude sur la fin du son seulement. Elle ne pose rien et ne compte pas parmi les essais : elle invalide un certificat que la note a quitté.
+  finirSentinelle(st, job, nls, tNow, calib, opts) {
+    const ch = st.cert;
+    if (!nls?.ok || !ch?.ok || !ch.f || nls.Om == null) return;
+    const f = nls.f.map((x) => x * calib);
+    const e = Math.max(...f.map((x, j) => Math.abs(1200 * Math.log2(x / ch.f[j]))));
+    const sig = Math.max(...(nls.sigmaC ?? [0]).map((x) => (Number.isFinite(x) ? x : 0)));
+    const tol = Math.max(opts.CONTREDIT_C, opts.SENT_SIGMA * sig) + Math.min(opts.CONTREDIT_DERIVE_MAX_C, Math.abs(ch.derive ?? 0) * Math.abs(job.tMilieu - ch.tMilieu));
+    if (e > tol) { st.cert = null; st.saut = true; st.cands = []; st.invalides = (st.invalides ?? 0) + 1; st.sentinelles = (st.sentinelles ?? 0) + 1; }
   },
 
   // v64 : la seconde lecture certifiée est la valeur affichée.
@@ -465,5 +555,5 @@ export const methodesCertificat = {
 
 function resumeNls(r) {
   if (!r?.ok) return { ok: false, raison: r?.raison ?? null };
-  return { f: r.f, Om: r.Om, b: r.b, m: r.m, llr: r.llr, r: r.r, K: r.K, T: r.T, Ku: r.Ku, derive: r.derive, agit: r.agit, warpC: r.warpC, plancherDb: r.plancherDb, niveauxDb: r.niveauxDb ?? null, sigmaC: r.sigmaC, ms: r.ms };
+  return { f: r.f, Om: r.Om, b: r.b, m: r.m, llr: r.llr, r: r.r, K: r.K, T: r.T, Ku: r.Ku, derive: r.derive, agit: r.agit, warpC: r.warpC, libre: r.libre ? { dB: r.libre.dB } : null, plancherDb: r.plancherDb, niveauxDb: r.niveauxDb ?? null, sigmaC: r.sigmaC, ms: r.ms };
 }

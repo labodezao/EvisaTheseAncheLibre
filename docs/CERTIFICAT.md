@@ -1,8 +1,142 @@
-# Certificat des lectures « sûres » (v64, 16/10/2026)
+# Certificat des lectures « sûres » (v66, 16/10/2026)
 
 Audit Fable du 15/10/2026 (`J:\claude\audits\2026-10-17-accordeur-fable\RAPPORT-AUDIT.md`, R1 à R14) puis ses suites du 16/10 (critères d'Ewen : niveau professionnel,
 musette et super musette, Do2 à A6, tout micro USB, pose courte, refus expliqués). Règle d'Ewen : un accordeur professionnel ne dit « sûr » que s'il peut le prouver ;
 zéro lecture « sûre » fausse (erreur de plus de 0,5 ¢ sur une anche), avec n'importe quel micro. Journal des versions : `docs/JOURNAL-DES-VERSIONS.md`.
+
+## 0. La v66 (audit Fable final du 16/10/2026) : ce qui a changé, ce qui est refusé
+
+Audit : `J:\claude\audits\2026-10-16-accordeur-fable-final\RAPPORT-AUDIT-FINAL.md` (F1 à F12). Verdict de l'audit sur la v65 : instrument de contrôle professionnel (bonne prise, battements de 2 à 20 Hz, note tenue
+sans à-coup), pas encore accordeur de travail à l'établi (30 « sûr » faux dans le domaine annoncé sur les cas adverses, 3 notes sur 27 posées dans l'application, l'écran montrait 93 à 100 % du temps la lecture brute du traqueur
+qui bouge de ±1 ¢). La v66 corrige ce qui pouvait l'être **sans faux** ; ce qui ne passait pas est refusé et dit.
+
+| F | Sujet | Statut | Résultat |
+|---|---|---|---|
+| F1 | invalider un « sûr » que la note a quitté | **fait** | toute lecture complète qui contredit le certificat l'invalide (`CONTREDIT_C`), et une sentinelle (lecture chaude de 0,6 s toutes les 0,25 s) le fait tomber en ~0,5 s : plan D3 (saut de 2 à 4,5 ¢) 25 faux (jusqu'à 2,9 ¢) -> **0** ; plans de validation : 215 posées sur 384 (223 en v65) |
+| F2 | domaine à 0,4 Hz | **fait, et plus** | `OMEGA_MIN` 0,4 Hz (le battement reste mesuré dès là) ; la HAUTEUR « sûre » exige 0,8 Hz (`OMEGA_SUR_MIN`, raison `lent`) : voir § 0.3, c'est une exception à la règle « seuils sur la synthèse » |
+| F3 | lire à 0,5 battement | **refusé** | `NB_MIN` 0,5 : +7 notes posées sur 632 mais un « sûr » à **6,4 ¢** (plan de validation, Ω 0,8 Hz, f0 218 Hz) ; `FEN_F0_S` 250 : +37 posées mais mêmes erreurs : le zéro faux ne tient pas, la musette sous 2 Hz n'est pas mieux couverte |
+| F4 | certificat au budget réel | **fait** | Worker dédié (`dsp/cert-worker.js`), file qui saute les demandes périmées, sentinelles prioritaires, budget du repli en ligne réglé sur le temps mesuré ; Chrome : charge du Worker de mesure 47,9 % -> 7,7 %, calcul du moteur par image 44,5 -> 7,2 ms (§ 0.4) ; le démarrage à chaud depuis le traqueur n'est pas fait (inutile avec un cœur dédié : un ajustement à froid de 350 ms revient en 0,35 s) |
+| F5 | poser après l'attaque sans délai fixe | **refusé** | `FENETRE_ADAPTIVE` : +26 notes posées mais des « sûr » faux sur les sauts (D3) et le couplage fort ; `AGE_MIN_S` 0,7 : +2 lectures fausses ; classe « avec attaque » inchangée (3,5 s) |
+| F6 | écran sobre | **fait** | chiffre provisoire (médiane de 1,5 s au demi-cent, gris, plus petit, une bande) puis chiffre certifié (dixième de cent) ; une raison seulement si elle demande un geste ; courbe du battement repliée ; courbe d'accordage en pointillé tant que rien n'est certifié (§ 0.5) |
+| F7 | bancs en CI | **fait** | `test/pose-ci.test.mjs` (77 notes : validation, super musette, sauts, couplage fort, battements lents) dans `npm test` ; échoue si `BETA_MAX` passe à 0,6 ou si la sentinelle est éteinte ; le JSON des bancs garde β̂, m̂, plancher, K·Ω·T, raie étrangère, σ, battement certifié |
+| F8 | couplage fort | **refusé (éteint)** | exiger LLR 100, m̂ ≤ 0,15 et des moitiés à 0,2 ¢ au-dessus de β̂ 0,35 attrape la note à β vrai 0,48 (β̂ 0,36, m̂ 0,23) mais coûte 90 % des notes posées du plan J (β 0,38-0,45, DANS le domaine : 24 sur 50 -> 1) ; 1 note hors domaine reste posée sur le plan B (80 notes) |
+| F9 | prise PC / H6 en même temps | **geste d'Ewen, non fait** | la prise PC reste à 0 note sur 27 ; rien ne prouve qu'un micro USB grand public donne un « sûr » juste |
+| F10 | super musette | **fait** | raison `ident3` (écarts égaux à 5 % et moins de 2 partiels nets : indiscernable d'UNE anche modulée), raison `absente` (une anche à plus de 35 dB), C3 sur K_utile ; 20 notes « une anche modulée » : 0 « sûr » |
+| F11 | téléphone | **partiel** | pas d'appareil ni d'adb ici : le coût est simulé (cœur 4 fois plus lent, Chrome en CPU x4 : fil principal 20,9 %, Worker de mesure 8,3 %) ; la pose tombe de 6 à 2 notes sur 27 ; à mesurer sur un vrai téléphone |
+| F12 | doc/code | **fait** | titre, C3, C7, C8, commentaire 15 ms, renvoi, test R2, `bench_reel` étiqueté « accrochage », texte d'aide de l'horloge (plus de NTP), vérité `porteuse` expliquée (§ 0.6) |
+
+Points de R1 à R14 repris : refus « 3 anches ou 1 modulée » (F10) ; gestes pour les 6 refus sans geste, `peigne` séparé en trois causes (`accrochees`, `micro`, `etrangere`), `verification`, `etiquette` et `accord` jamais affichés ; la raison `niveau`
+imposée par `REFUS_RECENTS` n'est plus réécrite en `peigne` ; K_utile ; vérité porteuse comparée à la vérité « phase totale » (§ 0.6) ; C7 (marge 3 σ + 0,02 ¢) essayé : `SIGMA_TOL_C` reste éteint, l'écart type statistique de l'ajustement
+(0,005 ¢ en médiane, 0,02 ¢ au p99 sur 751 lectures sûres) n'a aucun rapport avec l'erreur réelle (jusqu'à 0,4 ¢) : le biais du modèle domine, pas le bruit ; C5 (accord des partiels impairs et pairs) : non fait.
+
+### 0.1 Tous les plans rejoués (VERITE=porteuse, verdict de l'interface, domaine : rapport ≤ 22 dB, β ≤ 0,45, Ω de 0,8 à 60 Hz)
+
+| jeu | notes | dans le domaine (Ω ≥ 0,8 Hz) | posées v65 | **posées v66** | lectures « sûr » | fausses v65 | **fausses v66** | erreur max (¢) | T médian (s) |
+|---|---|---|---|---|---|---|---|---|---|
+| calibration 300 x4 | 1200 | 988 | 649/1200 | **644** | 5349 | 0 | **0** | 0.43 | 3 |
+| validation 64 x6 | 384 | 318 | 223/384 | **215** | 1864 | 0 | **0** | 0.40 | 2.75 |
+| conditions neuves 150 x3 | 450 | 348 | 208/450 | **201** | 1607 | 0 | **0** | 0.39 | 2.5 |
+| coins (plan A) | 320 | 80 | 19/320 | **15** | 84 | 0 | **0** | 0.22 | 2.5 |
+| plan A de validation | 320 | 225 | 116/320 | **117** | 839 | 0 | **0** | 0.27 | 3.25 |
+| réaliste 16 x10 | 160 | 80 | 81/160 | **66** | 772 | 0 | **0** | 0.19 | 1.75 |
+| adverse 60 x3 (vibrato, trémolo) | 180 | 180 | 39/180 | **38** | 272 | 0 | **0** | 0.38 | 3 |
+| domaine 96 x2 | 192 | 94 | 45/192 | **46** | 292 | 0 | **0** | 0.24 | 3.25 |
+| super musette, calibration | 240 | 192 | 58/240 | **44** | 197 | 0 | **0** | 0.35 | 3.5 |
+| super musette, validation | 192 | 152 | 49/192 | **44** | 288 | 0 | **0** | 0.29 | 3 |
+| confirmation Fable 120 x3 (graine 7777) | 360 | 282 | 120/360 | **134** | 888 | 0 | **0** | 0.27 | 2.5 |
+| confirmation Fable trio 60 x2 (graine 8888) | 120 | 108 | 31/120 | **24** | 115 | 0 | **0** | 0.27 | 3 |
+| D3 saut de hauteur 2 à 4,5 ¢ | 60 | 50 | 47/60 | **37** | 252 | 25 | **0** | 0.44 | 1.75 |
+| F raie étrangère forte | 60 | 30 | 11/60 | **7** | 33 | 4 | **0** | 0.31 | 3 |
+| J lisière du domaine (β 0,38-0,45, Ω 0,2-1,2 Hz) | 80 | 18 | 38/80 | **12** | 43 | 1 | **0** | 0.13 | 4 |
+| B couplage fort (hors domaine) | 80 | 4 | 7/80 | **3** | 7 | hors 4 | **0 (+1 hors domaine)** | 0.28 | 2.25 |
+| D dérive + attaque | 80 | 68 | 40/80 | **36** | 203 | 0 | **0** | 0.40 | 2.25 |
+| D2 dérive qui se retourne | 60 | 50 | 35/60 | **33** | 166 | 0 | **0** | 0.29 | 2 |
+| A anche faible | 80 | 28 | 8/80 | **6** | 14 | 0 | **0** | 0.16 | 4.75 |
+| C vibrato de soufflet | 80 | 80 | 4/80 | **4** | 15 | 0 | **0** | 0.22 | 3 |
+| G super musette asymétrique | 80 | 70 | 16/80 | **9** | 37 | 0 | **0** | 0.18 | 3.5 |
+| H deux anches égales | 64 | 32 | 20/64 | **13** | 57 | 0 | **0** | 0.20 | 2.25 |
+| I bruit 15-25 dB | 80 | 66 | 69/80 | **59** | 665 | 0 | **0** | 0.29 | 2 |
+| Ω lents 0,2-0,6 Hz (40 x3, nouveau) | 120 | 0 | 1/120 | **0** | 0 | 0 | **0** | - | - |
+| Ω 0,4-3 Hz (100 x3, nouveau) | 300 | 198 | - | **94** | 672 | - | **0** | 0.40 | 3.25 |
+| avec attaque (60 x3, nouveau) | 180 | 180 | - | **128** | 770 | - | **0** | 0.35 | 3.5 |
+
+TOTAL lectures sûres dans le domaine 15501, fausses 0
+
+Zéro lecture « sûr » fausse dans le domaine sur ces 15 501 lectures. Les « posées » de la v66 comptent toutes les notes du jeu (le domaine de la v66 est plus étroit : Ω ≥ 0,8 Hz pour la hauteur sûre) ; quand la v65 posait une note de 0,2 à 0,8 Hz, la v66 la refuse avec « battement lent ».
+Les deux confirmations à graines neuves (7777, 8888) : 134 notes posées sur 360 et 24 sur 120, 0 fausse. Plan C (chaîne micro) : 45 posées sans calibration d'horloge, 93 calibrée à 30 ppm, 0 fausse sur 497 et 969 lectures (erreur max 0,36 ¢). Chaîne combinée (porte,
+suppression, compression, ronflement, bande, 150 ppm) : refusée en bloc (`trous`), 0 posée ; résidu d'horloge de 40, 80 ou +100 ppm déclaré à 40 : 0 faux (max 0,31 ¢). Vérité « phase totale » (v63, la modulation de phase du tirage
+comprise) rejouée sur la validation 64 x6, la confirmation 120, les conditions neuves 150, D3 et les Ω lents : 0 fausse, erreur max 0,49 ¢ (D3), contre 0,44 ¢ avec la porteuse.
+
+Hors domaine : la note à β vrai 0,48 (plan B) est encore posée une fois sur 80 notes (F8 refusé) ; 3 notes posées hors domaine (conditions neuves, plan A de validation) sont justes.
+
+### 0.2 Plans d'expériences des réglages (règle 12)
+
+- **DOE1** : criblage Plackett-Burman 12 lignes, 11 facteurs (NB_MIN, FEN_F0_S, BETA_MAX, DERIVE_MAX, EXC_MAX, M_MAX, R_MAX, FENETRE_ADAPTIVE, AGE_MIN_S, F8, FEN_MAX_S), 8 lots (632 notes dans le domaine par ligne, plus de 7 600 notes). Effets (haut - bas) sur les notes posées :
+  `FEN_MAX_S` 2,5 : **-54** ; `FEN_F0_S` 250 : **+37** (mais +2,0 lectures fausses) ; F8 : **-33** ; `FENETRE_ADAPTIVE` : **+26** ; `AGE_MIN_S` 0,7 : -10 (+2,0 fausses) ; `DERIVE_MAX` 1 : -8 ; `NB_MIN` 0,5 : +7 (erreur max +1,9 ¢) ; `BETA_MAX` 0,6 : -6 ; `EXC_MAX` 1,2 : -4 ; `R_MAX`, `M_MAX` : sans effet.
+  Les deux lignes à 6,4 ¢ d'erreur ont `NB_MIN` 0,5, `FEN_F0_S` 250 et `FENETRE_ADAPTIVE` éteint.
+- **DOE2** : fractionné 2^(8-4) résolution IV, 16 lignes (FEN_F0_S, M_FORT, LLR_BETA_FORT, CONFIRME_MOITIE_FORT_C, REFUS_RECENTS, NIVEAU_MIN_DB, LAG_MAX_C, DERIVE_MAX), `FENETRE_ADAPTIVE` allumée et F8 à 0,35 en base. Toutes les lignes ont 2 à 5 lectures
+  fausses (les mêmes notes : D3 et B, causées par la fenêtre adaptative), d'où le refus de F5. Effets : `M_FORT` 0,25 : +23 posées ; `LAG_MAX_C` 0,5 : +16 posées et +1 fausse ; `FEN_F0_S` 280 : +13 et +1 fausse ; `CONFIRME_MOITIE_FORT_C` 0,4 : +6 et +0,5 fausse ;
+  `NIVEAU_MIN_DB` 25 (+4), `REFUS_RECENTS` 0 (+1,6), `DERIVE_MAX` 1 (+2,6) : sans effet sur les fausses, mais les plans n'ont ni rapport > 22 dB ni dérive extrême, donc rien ne prouve qu'on puisse les relâcher : **seuils gardés** (22 dB, 3 sur 4, 0,5 ¢/s).
+  Ces seuils (`REFUS_RECENTS`, `NIVEAU_MIN_DB`, `LAG_MAX_C`) avaient été posés sur des échecs isolés ; les voici reposés par plan : aucun n'est contredit, aucun n'est mieux justifié qu'avant.
+- **Confirmation F8** (plans B, J, valid, lent) : `M_FORT` 0,15 : plan J 24 -> 1 posée ; `M_FORT` 0,2 : 24 -> 5 ; éteint : 24, avec une note hors domaine fausse sur B.
+- **Ω lents** : 450 notes (Ω 0,45-1 Hz, désaccord 2-8 ¢, `OMEGA_SUR_MIN` à 0,4) : 0 fausse, erreur max 0,37 ¢ ; 120 notes Ω 0,2-0,6 Hz : 0 posée.
+
+### 0.3 L'exception : `OMEGA_SUR_MIN` 0,8 Hz posé après les prises réelles
+
+Les règles d'Ewen interdisent de régler un seuil sur ses prises. Ici la synthèse ne donne **aucune** fausse lecture à Ω 0,45-1 Hz, mais le rejeu des prises H6 du 14/10 au budget de l'application (exécutant simulé) en donne trois à 0,50-0,63 ¢ : Ω vrai 0,40 Hz
+(cœur 4 fois plus lent), 0,55 Hz (Fa#4, à 6,8 s) et 0,58 Hz. La synthèse ne sait pas reproduire ce biais (l'incertitude 1 de l'audit : la preuve de zéro faux vit dans un monde simulé). Par prudence la hauteur « sûre » exige Ω ≥ 0,8 Hz (marge pour le bruit sur le Ω
+mesuré). Coût : les notes de 0,4 à 0,8 Hz (musette lente) ne sont plus dites sûres ; leur battement reste mesuré dès 0,4 Hz. À reprendre quand la synthèse reproduira ces erreurs (question posée à Ewen).
+
+### 0.4 Usage réel : les prises H6 rejouées au budget de l'application
+
+`test/outils/perf/usage_reel.mjs` : le moteur et son certificat sur les 27 notes de l'essai 1 et les 12 de l'essai 2, avec `lireTick` à chaque image. « Avant » : v65 dans l'application (40 ms de calcul par image, audit § 7). « Après » : la v66 avec le Worker dédié (horloge virtuelle du son, un ajustement dure
+son coût x 0,26 ms, x1 ou x4).
+
+| mesure | v65 application (avant) | v66, cœur dédié x1 | v66, cœur x4 (portable) |
+|---|---|---|---|
+| essai 1 : notes posées / 27 | 3 | **6** (banc v65 : 7) | 2 |
+| essai 2 : notes posées / 12 | 2 | 2 | 1 |
+| essai 1 : temps de pose médian | 3,4 s | 5,0 s (les notes lentes ne sont plus posées) | 3,8 s |
+| part du temps (notes tenues > 1 s) avec un chiffre certifié à l'écran | 1 % (99 % de brut) | 3 % | 1 % |
+| écart type du chiffre affiché avant la pose (essai 1 / 2) | 0,83 / 1,0 ¢ | **0,30 / 0,49 ¢** | 0,39 / 0,53 ¢ |
+| sauts de plus de 0,3 ¢ par seconde | 1,5 à 1,8 | **0,7 à 0,9** | 0,7 à 0,8 |
+| lectures « sûr » fausses (vérité du verrou, > 0,5 ¢) | 0 | **0 sur 55 et 4** | 0 sur 9 et 0 |
+| prises H6 (reel_prises, budget des bancs) : posées / 27 ; fausses | 7 ; 0 | 6 ; 0 sur 46 (H6 gauche 5, droit 4) | |
+| prise PC : posées / 27 | 0 | 0 | |
+
+Lecture honnête : le calcul n'était pas la cause principale du « 3 notes sur 27 » (le plafond propre aux critères est à 8 sur 27, audit § 7) : le Worker dédié l'enlève du fil de mesure et supprime le retard, mais la couverture réelle reste au mieux un quart des notes. Le refus dominant sur le H6 est `peigne`
+(indice de phase β estimé > 0,45 pour 114 ajustements sur 126) ; `BETA_MAX` ne peut pas monter (La5 lue à +0,6 ¢ avec 0,6) et la synthèse ne contient pas de couplage réel plus fort que 0,45 : il faut d'abord comprendre les quatre notes aiguës (La5, Sol#5, Fa#5, Si5).
+Le chiffre à l'écran est devenu calme (écart type divisé par 2 à 3) mais ne devient « sûr » que sur une note sur quatre.
+
+Profil Chrome (`test/outils/perf/profil.mjs`, prise H6 de l'essai 2 rejouée par `?wav=`, 60 s ; la note est verrouillée sur Ré#4 : valable pour le coût, pas pour la pose) :
+
+| | v65 x1 | v66 x1 | v65 x4 | v66 x4 |
+|---|---|---|---|---|
+| fil principal | 4,0 % | 4,0 % | 19,8 % | 20,9 % |
+| tâches longues (> 50 ms) | 0 | 0 | 2 (66 ms) | 2 (65 ms) |
+| charge du Worker de mesure | **47,9 %** | **7,7 %** | 47,9 % | 8,3 % |
+| calcul du moteur par image (moyenne / p95) | 44,5 / 52,4 ms | **7,2 / 8,8 ms** | 44,4 / 53,3 | 7,7 / 10,6 |
+| retard du moteur sur le son à la fin | 34,8 ms | 9,3 ms | 47,2 ms | 2,0 ms |
+| tas JS maximal | 11,1 Mo | 11,3 Mo | 12,6 | 13,5 |
+
+Le calcul du certificat tourne maintenant dans son propre Worker (un autre cœur) : il ne rame plus sur le fil de mesure, et sur un portable (x4) l'image du moteur reste à 8 ms au lieu de 44.
+
+### 0.5 L'écran sobre (F6)
+
+Avant la preuve, le chiffre n'est plus la lecture brute image par image : c'est la médiane de la dernière seconde et demie arrondie au demi-cent (au plus un demi-cent toutes les secondes, seulement si l'écart dépasse 0,75 ¢), en gris et plus petit, avec une seule bande (±) ; sa couleur d'état
+et ses flèches sont neutres. Quand la lecture est certifiée il passe en grand et en couleur, au dixième de cent, et ne bouge que si la valeur bouge d'un dixième (un jitter de 0,04 ¢ ne le fait pas bouger : `test/affichage.test.mjs`). Si la preuve tombe (la note a bougé), le chiffre provisoire revient tout de suite.
+La médiane est de 1,5 s et non 1 s comme le proposait l'audit : sur la prise H6 la fluctuation est lente et corrélée (le traqueur moyenne sur ~1 s), une seconde laissait 0,9 saut par seconde. Raisons affichées : un geste, jamais `verification`, `etiquette` ni `accord`. La raison `horloge` dit le temps restant de la mesure de l'horloge du micro (60 s)
+et la valeur déjà mesurée pour ce micro est reprise dès le démarrage (v64).
+
+### 0.6 Vérité porteuse et vérité « phase totale »
+
+Les bancs jugent par défaut la fréquence MOYENNE DE LA PORTEUSE de l'anche (`VERITE=porteuse`), celle que le modèle ajuste (donc en partie circulaire), sur min(T, 3) s ; la vérité « phase totale » (v63, modulation de phase du tirage comprise, nombre entier de battements) est la définition demandée par l'audit.
+Rejouées toutes les deux (§ 0.1) : 0 fausse dans les deux cas, erreurs maximales de 0,44 ¢ (porteuse) et 0,49 ¢ (phase totale, D3). La marge sous le seuil de 0,5 ¢ reste mince : un luthier qui veut 0,2 ¢ verra environ une lecture sûre sur cent au-delà (p99 : 0,22 ¢ ; maximum 0,44 ¢).
+
+### 0.7 Ce qui reste
+
+F9 (geste d'Ewen : H6 et micro USB sans effet Windows en même temps, un la de référence, une minute de silence) ; la couverture réelle (6 notes sur 27 : le couplage réel des quatre notes aiguës) ; F3 et F5 refusés (le zéro faux ne tient pas) ; F8 éteint ; le coût sur un vrai téléphone ; la comparaison à Dirk's
+(calibration à faire par Ewen) ; C5 ; une synthèse qui reproduise le biais des Ω lents réels (§ 0.3).
 
 ## 1. Les chiffres, avant et après
 
@@ -155,20 +289,57 @@ ne peut pas être « stable » : il suit la tendance (pente retrouvée 0,79 et 1
 rapide ou à attaque où la valeur saute de moitié) ; v64 sur les notes posées (6 notes) : médian 0,20, moyen 0,27, maximum 0,60, avec un écart médian à la vérité du H6 de 0,25 batt/min. Les notes non posées n'affichent pas de valeur certifiée.
 
 
-## 3. Les critères d'une lecture « sûre » (C1 à C10)
+### 2.10 La courbe du battement et le battement ramené au niveau (v65, Ewen, 16/10/2026)
+
+Ewen : « afficher juste un battement ne dit pas grand-chose, la pression change avec le soufflet et ça change beaucoup les battements ; il faut peut-être une courbe ; il faut que ce soit lisible. »
+
+**Ce qui s'affiche** (Accorder, mode luthier, sous la courbe d'accordage, seulement quand une note à deux anches bat) : en grand « 26,9 ± 0,1 bat/min » (vert quand la valeur est posée) ; dessous « à −31 dB (niveau de la note) · fixer ce niveau »
+et « +1,1 bat/min par dB » (ou « la pression ne change pas le battement ici ») ; en petit « à cet instant 27,9 · −29 dB ». À gauche, la courbe du battement dans le temps (même axe de 15 s que la courbe d'accordage) : les mesures des ajustements (points),
+le battement affiché à chaque image (trait fin), la valeur de référence ou la droite « selon la pression » avec sa bande d'incertitude, et le niveau sonore lissé en trace discrète (pointillé). À droite, le nuage « battement / niveau » avec la droite
+ajustée, le niveau de référence (trait vertical) et la valeur de référence (rond plein). Survol : une fiche lisible (temps, battement, niveau, battement prédit par la pression).
+
+**Calcul** (`ui/battement-niveau.js`, pur, testé) : le battement de chaque ajustement contre le niveau moyen (en dB) de sa fenêtre ; droite pesée par la durée des fenêtres ; l'incertitude compte les fenêtres indépendantes ; la pente n'est retenue que si l'étendue du niveau
+dépasse 3 dB, qu'il y a 5 points au moins et que la pente dépasse 2,5 écarts types. La valeur de référence est le battement à un niveau de référence : le niveau médian de la note (« auto »), ou celui que le luthier fixe d'un clic (`reglages.niveauRefBat`).
+Sans pente sûre, la valeur de référence est la moyenne pesée. **Le niveau d'une image ne dit rien de la pression** : deux anches de même force le font battre à 100 % ; il est donc moyenné sur au moins une période de battement (60 / bat/min, de 0,6 à 4 s). Limite
+physique : une variation de pression plus rapide qu'une période de battement ne se voit pas dans ce niveau.
+
+**Banc** (`bat_pression.mjs` : deux anches dont la hauteur suit la pression chacune à sa façon, soufflet ±4 dB, 6 tirages par cas ; vérité = la fréquence de chaque anche à chaque instant) :
+
+| cas | pente vraie (bat/min par dB) | pente retrouvée | valeur de référence : erreur (± annoncé) | battement affiché à chaque instant : erreur RMS, v63 / v64 | droite « selon la pression » (v65) |
+|---|---|---|---|---|---|
+| La4 25 bat/min, κ 0,20 / 0,25 ¢/dB | −0,77 | −0,79 à −0,80 | 0,08 à 0,10 (0,08 à 0,11) | 3,42 / 3,37 | 0,55 |
+| Fa#4 40 bat/min, κ 0,15 / 0,30 ¢/dB | −1,93 | −1,95 à −2,04 | −0,13 à −0,53 (0,18 à 0,58) | 8,71 / 7,98 | 1,08 |
+| Do#5 60 bat/min, κ 0,20 / 0,22 ¢/dB | −0,39 | −0,39 à −0,40 | −0,02 à 0,02 (0,07 à 0,08) | 1,74 / 1,60 | 0,15 |
+| La4 25 bat/min, pression constante | (−0,77) | non retenue (étendue 0,7 dB) | 0,16 à 0,24 (0,06 à 0,07) | 0,24 / 0,27 | — |
+
+Quand le battement suit vraiment la pression, le chiffre affiché par la v63 comme par la v64 (médiane glissante ou moyenne de la plage) s'écarte du battement vrai de 3 à 8 bat/min (RMS) : il retarde sur la pression. La valeur ramenée à un niveau de référence est juste à
+0,1 bat/min près, et la droite « selon la pression » suit le battement vrai à 0,15 à 1,1 bat/min près. Dans le cas à pression constante, l'écart de 0,2 vient des ±0,3 dB de niveau qui restent (0,77 × 0,3 = 0,2) : la pente n'est pas retenue, la valeur reste dans la bande de l'incertitude du niveau.
+
+**Prises du H6** (`battement_niveau_reel.py`, 14/10/2026, 12 notes avec un battement mesuré) : pente significative sur 3 notes (Si3 −0,88 ± 0,22, Ré4 −3,08 ± 0,33, La4 −0,73 ± 0,14 bat/min par dB ; étendue du niveau 3,3 à 3,7 dB) : sur ces notes le battement dépend réellement de la
+pression, de 3 à 11 bat/min sur 3,7 dB pour Ré4. Valeur de référence contre le verrou de phase du H6 (9 notes avec vérité) : écart médian 0,07 bat/min, contre 0,18 pour la moyenne simple.
+
+**Lisibilité** : grands chiffres tabulaires (jusqu'à 56 px), peu de texte, unités en clair (bat/min, dB), couleurs des jetons du thème (clair et sombre), aucune couleur en dur ; le chiffre ne change que si l'écart dépasse l'incertitude.
+
+**Survol des graphes (le « carré noir »).** Dans le mode recherche (`ancien.html`) et dans la version de la thèse, la fiche de lecture au survol de la courbe d'accordage avait un fond noir fixe (`rgba(16,20,26,0.92)`) et un texte de la couleur du thème : en thème clair, du noir sur du noir,
+un rectangle sombre au bout du trait vertical (la capture d'Ewen du 14/10). Corrigé : fond et texte du thème, cadre, une ligne par anche avec sa pastille, placée dans le tracé. Dans l'interface principale (`ui/composants/infobulle.js`) : la fiche prend les couleurs du thème
+si leur contraste est d'au moins 4,5, sinon un couple sûr (couleurs système), reste dans le tracé et ne se dessine jamais vide ; le même composant sert à la courbe du battement. Captures avant / après : `test/outils/capture/` (`serveur.mjs`, `ancien.html`, `courbe.html`, `battement.html`, `prise.sh` : Chrome sans fenêtre).
+
+## 3. Les critères d'une lecture « sûre » (C1 à C12, v66)
 
 | | Critère | Seuil (`CERT`) |
 |---|---|---|
 | C1 | pas de plage de zéros dans la fenêtre lue (R11) | 0,4 ms |
 | C2 | peigne sain : résidu relatif, plancher entre les raies, indice de phase β, indice d'amplitude m | r ≤ 0,05 ; ≤ −28 dB ; β ≤ 0,45 ; m ≤ 0,3 |
-| C3 | résolution des raies et au moins un battement | K·Ω·T ≥ 1,5 ; T ≥ 1/Ω |
+| C3 | résolution des raies (K_utile pour trois anches) ; la fenêtre vise au moins un battement (`NB_MIN` = 1, règle de fenêtre, non testée par `juger`) | K·Ω·T ≥ 1,5 |
 | C4 | étiquette : rapport de vraisemblance, raie de l'anche faible contre la raie latérale qui la recouvre, rôle de la raie étrangère | LLR ≥ 25 ; ≥ −20 dB ; voir 2.4 |
 | C5 | niveau : aucune anche à plus de 22 dB sous la plus forte ; et jamais « sûr » si 3 des 4 ajustements précédents ont été refusés pour le niveau (§ 2.8) | 22 dB ; 3 sur 4 |
 | C6 | stabilité : dérive mesurée sur les deux moitiés de la fenêtre | ≤ 0,5 ¢/s ou 0,6 ¢ sur la fenêtre |
-| C7 | âge : |dérive| × âge du milieu de la fenêtre | ≤ 0,3 ¢ |
-| C8 | accord avec le traqueur | éteint (3 ¢ si réglé ; voir 2.3) |
+| C7 | âge : |dérive| × âge du milieu de la fenêtre (vit dans `certAccord`, pas dans `juger`) ; marge 3 σ + 0,02 ¢ essayée en v66, éteinte (`SIGMA_TOL_C`) | ≤ 0,3 ¢ |
+| C8 | (abandonné en v64 : `ACCORD_C` = 1e9, le traqueur ne contrôle plus la seconde lecture) | - |
 | C9 | répétabilité : les deux moitiés de la fenêtre (ajustement chaud de chacune), ou deux fenêtres décalées de 0,5 s | 0,4 ¢ ; 0,3 ¢ |
 | C10 | horloge du micro connue | ≤ 100 ppm (0,17 ¢) |
+| C11 | (v66) pas de contradiction : toute lecture complète ou sentinelle plus récente s'écarte du certificat d'au plus max(0,3 ¢, 3 σ) + la dérive | `CONTREDIT_C`, `SENT_SIGMA` 4 |
+| C12 | (v66) Ω ≥ 0,8 Hz pour la hauteur sûre (raison `lent`), ≥ 0,4 Hz pour le battement ; trois anches : écarts différents de plus de 5 % (`ident3`), aucune anche à plus de 35 dB (`absente`) | voir § 0 |
 
 Fenêtre : au moins max(0,6 s ; 1 battement ; 350 / f s ; 1,65 / (K·Ω) s), visée à 1,5 s, jamais plus de 4 s. Un ajustement qui contredit le certificat en cours de plus de 0,5 ¢
 l'invalide ; il faut alors deux fenêtres décalées d'accord (pas seulement les deux moitiés) pour en poser un autre.
@@ -248,6 +419,7 @@ node test/outils/pose/reel_prises.mjs --src=h6|h6L|h6R|pc [--prise=0] [--ppm=-12
 node test/outils/pose/pc_vs_h6.mjs --essai=1|2                                                  # prise PC contre H6 sur les mêmes fenêtres
 node test/outils/pose/cpu63.mjs ; node test/outils/pose/etalon_cout.mjs                          # coût (R9)
 node test/outils/pose/battement_calib.mjs                                                      # étalonnage de l'incertitude du battement (§ 2.9)
+node test/outils/pose/bat_pression.mjs ; python test/outils/pose/battement_niveau_reel.py reel.json             # v65 : le battement contre la pression (§ 2.10)
 node test/outils/pose/battement_stab.mjs                                                       # écart type du battement affiché, v63 contre v64
 python test/outils/pose/battement_reel.py reel_h6_v63.json reel_h6.json                        # idem sur les prises du H6 (reel_prises.mjs --out=...)
 python test/outils/pose/doe_cert.py plans/crible_v64b.csv --base '{...}' --sortie dossier      # plan d'expériences sur les réglages
