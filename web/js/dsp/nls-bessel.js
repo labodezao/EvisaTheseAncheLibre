@@ -1,5 +1,5 @@
 // Lecture d'une note à deux anches par moindres carrés non linéaires multi-partiels, avec un PEIGNE DE BESSEL (v63, audit Fable du
-// 15/10/2026, recommandations R1 et R2 ; docs/AUDIT-FABLE-ACCORDEUR.md).
+// 15/10/2026, recommandations R1 et R2 ; J:\claude\audits\2026-10-17-accordeur-fable\RAPPORT-AUDIT.md et docs/CERTIFICAT.md).
 //
 // Modèle. Deux anches r = 1, 2 de fréquences f1 et f2 = f1 + Ω (Ω : le battement). Elles se tirent par le trou de soupape : chacune
 // est modulée en phase ET en amplitude au rythme du battement. Le partiel k de l'anche r est

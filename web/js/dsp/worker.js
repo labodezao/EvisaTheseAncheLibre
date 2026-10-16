@@ -12,6 +12,7 @@
 // de la mémoire vive (session-stockage.js).
 
 import { Engine } from './engine.js';
+import { ExecutantWorker } from './cert-calcul.js';
 import { LecteurNote } from './lecteur-note.js';
 import { ControlePrise } from './prise.js';
 import { RetireSecteur } from './secteur.js';
@@ -20,6 +21,26 @@ import {
 } from '../session-format.js';
 
 let engine = null;
+
+// Moteur neuf. v66 (F4) : le calcul du certificat (ajustements des anches) tourne dans un Worker dédié ; sans Worker imbriqué, ou s'il plante, le moteur calcule en ligne
+// (cfg.certificat.MS_PAR_IMAGE, réglé par adapterBudget selon le temps que l'image prend).
+function nouveauMoteur(sr, cfg) {
+  const e = new Engine(sr, cfg || {});
+  if (typeof Worker !== 'undefined' && cfg?.certificat?.EXEC !== 'ligne' && cfg?.certificat?.actif !== false) {
+    try { e.certExec = new ExecutantWorker(); } catch { e.certExec = null; }
+  }
+  return e;
+}
+function finirMoteur() {
+  try { engine?.certExec?.arreter?.(); } catch { /* sans effet */ }
+}
+const PERIODE_IMAGE_MS = 85;
+function adapterBudget(dspMs) {
+  const c = engine?.cfg?.certificat;
+  if (!c || engine.certExec || !c.MS_PAR_IMAGE) return;
+  if (dspMs > 0.6 * PERIODE_IMAGE_MS) c.MS_PAR_IMAGE = Math.max(8, c.MS_PAR_IMAGE - 6);
+  else if (dspMs < 0.4 * PERIODE_IMAGE_MS) c.MS_PAR_IMAGE = Math.min(60, c.MS_PAR_IMAGE + 2);
+}
 
 // Contrôle de la prise de son (prise.js) : regarde les échantillons et, en lecture directe, les dates des blocs.
 // Chaque image du moteur porte `prise` ({ douteuse, codes }) ; la page reçoit un message `prise` quand les défauts
@@ -143,6 +164,7 @@ function onChunk(chunk) {
   if (result) {
     // Charge DSP : temps de calcul rapporté à la période d'analyse.
     result.dspMs = performance.now() - t0;
+    adapterBudget(result.dspMs);
     const prise = priseEtat();
     if (prise) {
       // Le contrôle a vu un ronflement : l'annuleur se règle (fréquence réelle du secteur, harmoniques présentes).
@@ -181,7 +203,7 @@ async function readStream(readable) {
     try {
       if (!engine || engine.sr !== ad.sampleRate) {
         const cfg = engine ? engine.cfg : pendingCfg;
-        engine = new Engine(ad.sampleRate, cfg || {});
+        finirMoteur(); engine = nouveauMoteur(ad.sampleRate, cfg);
         nouveauControle(ad.sampleRate);
         if (dev || pendingDev) devStart();
         self.postMessage({ type: 'capture', direct: true, sampleRate: ad.sampleRate, format: ad.format, canaux: ad.numberOfChannels });
@@ -221,7 +243,7 @@ async function lireFichier(blob, vitesse = 1) {
   const tete = new Uint8Array(await blob.slice(0, Math.min(blob.size, 1 << 16)).arrayBuffer());
   const info = lireEnteteWav(tete, blob.size);
   if (!info) throw new Error('WAV illisible'); // interne
-  engine = new Engine(info.sr, pendingCfg || {});
+  finirMoteur(); engine = nouveauMoteur(info.sr, pendingCfg);
   nouveauControle(info.sr);
   if (dev || pendingDev) devStart();
   self.postMessage({ type: 'capture', direct: false, sampleRate: info.sr, fichier: true, duree: info.n / info.sr });
@@ -269,7 +291,7 @@ function devFin(req) {
 self.onmessage = (e) => {
   const d = e.data;
   if (d.type === 'init') {
-    engine = new Engine(d.sampleRate, d.cfg || {});
+    finirMoteur(); engine = nouveauMoteur(d.sampleRate, d.cfg);
     nouveauControle(d.sampleRate);
     pendingCfg = d.cfg || {}; pendingDev = !!d.dev;
     verrouRegler(d.verrou);
@@ -278,6 +300,7 @@ self.onmessage = (e) => {
     if (d.port) d.port.onmessage = (ev) => onChunk(ev.data);
   } else if (d.type === 'stream') {
     // Le moteur est recréé à la fréquence réelle du micro au premier bloc.
+    finirMoteur();
     engine = null;
     readStream(d.readable).catch((err) => self.postMessage({ type: 'capture', error: String(err) }));
   } else if (d.type === 'fichier') {
