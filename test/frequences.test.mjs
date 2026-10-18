@@ -281,6 +281,7 @@ for (const delta of [0.3, 0.5]) {
     }
   }
   const p95 = (v) => [...v].sort((u, w) => u - w)[Math.floor(0.95 * v.length)];
+  if (delta === 0.3) console.log('DBG', dEnv.length, imgs.length, JSON.stringify(imgs.filter((im) => im.t > 9).map((im) => { const b = voix(im, ids[1]); return [im.t.toFixed(2), b?.tracked, b?.beatMeas, b?.beatSource, b?.etatAnche]; })));
   assert(p95(dEnv) < 0.03, `Δ = ${delta} Hz : battement par l'enveloppe à ${(p95(dEnv) * 1000).toFixed(0)} mHz (p95) de la vérité`);
   assert(p95(centre) < 0.7, `Δ = ${delta} Hz : le centre des deux anches à ${p95(centre).toFixed(2)} ¢ de la vérité (p95 ; le vibrato de 2 ¢ à 0,5 Hz est du même ordre que Δ)`);
   assert(surTot == null || surTot >= 2 / delta - 0.1, `Δ = ${delta} Hz : aucune anche dite sûre avant deux périodes (${(2 / delta).toFixed(1)} s) : première à ${surTot == null ? 'jamais' : surTot.toFixed(1) + ' s'}`);
