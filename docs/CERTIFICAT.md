@@ -1,8 +1,86 @@
-# Certificat des lectures « sûres » (v66, 16/10/2026)
+# Certificat des lectures « sûres » (v67, 18/10/2026)
 
 Audit Fable du 15/10/2026 (`J:\claude\audits\2026-10-17-accordeur-fable\RAPPORT-AUDIT.md`, R1 à R14) puis ses suites du 16/10 (critères d'Ewen : niveau professionnel,
 musette et super musette, Do2 à A6, tout micro USB, pose courte, refus expliqués). Règle d'Ewen : un accordeur professionnel ne dit « sûr » que s'il peut le prouver ;
 zéro lecture « sûre » fausse (erreur de plus de 0,5 ¢ sur une anche), avec n'importe quel micro. Journal des versions : `docs/JOURNAL-DES-VERSIONS.md`.
+
+## 0A. La v67 (audit Fable n° 3 du 17/10/2026) : la physique de l'anche mise dans la mesure
+
+Audit : `J:\claude\audits\2026-10-17-accordeur-fable-3\RAPPORT-AUDIT-3.md` (G1 à G5, P1 à P5), résumé des plans `DOE-RESUME.md`. Verdict de l'audit sur la v66 : instrument de contrôle (zéro faux), pas accordeur d'établi : 6 notes sur 27 posées sur le H6, 3 % du temps certifié. Cause : le modèle d'anches, ni le bruit ni le calcul.
+
+**Ce qui est validé sur UN SEUL instrument, UN SEUL micro** (Zoom H6, un accordéon, un jour, 19 notes à vérité sûre) : la physique mesurée du § 3 de l'audit (AM propre à chaque partiel, anches en quadrature, indice de phase plus fort aux rangs 1-2, notes aiguës à β ≈ 1) et donc le gain « 6 -> 14 notes sur 27 ». La généralisation repose sur la **synthèse à paramètres larges** (`SYNTH=large`, § 0A.5), pas calée sur le H6, et sur des banques d'échantillons d'autres accordéons (§ 0A.6). Les prises du 11/10, du 13/10 et du 14/10 au micro USB sont **traitées par Windows** (effet vocal) : elles ne servent que de test de robustesse, jamais de réglage ni de preuve de généralisation. Enregistrements propres qui manquent : § 0A.7.
+
+### 0A.1 Ce qui est fait, partiel, refusé
+
+| G | Sujet | Statut | Résultat |
+|---|---|---|---|
+| G4 | synthèse à la physique mesurée | **fait** | `bench63.mjs` : `SYNTH=h6` (valeurs du H6) et `SYNTH=large` (phase relative 0 à 2π, profils m_k variés, rangs 1-2 de 0,6 à 2,2 fois la loi ∝ k, second harmonique, notes aiguës, timbres de pente variée) ; mêmes notes que l'ancienne synthèse (générateur de hasard à part). La v66 rejouée dessus **perd son zéro faux** (§ 0A.4). Réglage du générateur par plan (PB 12+2) : le second harmonique de modulation aux rangs 3-4 multiplie r par 6 (écarté) |
+| G1 | modèle d'anches corrigé | **fait, autrement que proposé** | modèle `struct` (`nls-bessel.js`) : AM RÉELLE par partiel (m_k, χ_k), phase de modulation par anche (θ1, θ2), indice des rangs 1-2 × ρ12, K_utile par résidu de partiel (`RK_MAX_AM`). Le modèle proposé par l'audit (porteuse + deux bandes latérales libres par anche et par partiel, `libre`) est **refusé** : les bandes latérales imitent l'anche faible, étiquette décalée d'un battement, « sûr » faux de 5,3 ¢ ; une AM réelle a deux bandes égales, une anche faible une seule. C2 juge sur r (`R_MAX_AM` 0,01), le plancher et les LLR, plus deux gardes physiques ci-dessous. Coût : le même que la v66 par évaluation (les paramètres d'AM d'un partiel ne réévaluent que ce partiel), 3 à 4 fois moins par ajustement (K_utile) |
+| G2 | battements lents 0,4-0,8 Hz | **fait** | la fenêtre est un nombre ENTIER (≥ `ENTIER_NB` = 2) de battements ; tout ce que le couplage fait au son est périodique au battement et s'y annule. `OMEGA_SUR_MIN` 0,8 Hz n'est plus un seuil sur la synthèse mais une règle (sous 0,8 Hz : fenêtre entière, sinon « lent »). La question posée à Ewen (0,8 / 0,6 / 0,4 Hz) est **sans objet** |
+| G3 | fenêtre plus tôt | **refusé** | plan PB 12+2 : fenêtre de 1,0 s (`FEN_MAX_S`) +24 notes posées mais 6 à 10 faux ; `DEBUT_S` 0,15 + `FEN_F0_S` 200 : +6 en synthèse mais 1 faux sur 94 lectures sûres du H6. Valeurs de la v66 gardées |
+| G5 | incertitude de pression | **fait** | `incertitudePression` : étendue du niveau commun (nœuds du warp) × pente de repli 0,2 ¢/dB (la pente propre de la note, bornée par le repli, ne peut que la baisser) ; affichée « pression ±0,3 ¢ » sous le Hz d'une lecture sûre quand elle dépasse 0,1 ¢. Sur les notes posées du H6, ≤ 0,3 ¢ tant que l'étendue du niveau ≤ 1,5 dB. Sans capteur, c'est une présentation honnête, pas une correction |
+| P2 | démarrage à chaud | **fait, mince** | `PRIOR_FIRST` : la paire du traqueur passe en tête des départs (portable ×4 : 5 -> 6 notes sur 39) |
+| P3 | trace des ajustements | **fait** | `reel_prises.mjs` garde la trace de chaque ajustement dans le JSON |
+| P4 | les trois « faux » réels à 0,50-0,63 ¢ | **fait** | cas-test : La3 (n° 27, Ω 0,59 Hz), v66 avec `OMEGA_SUR_MIN` 0,4 : fenêtre 1,59 s (0,94 battement), LLR 1447, r 4,9e-3, β̂ 0,18/-0,09, m̂ 0,05, erreur -0,60/-0,39 ¢. La v67 la lit sur 2 battements entiers : sans faux |
+| P1, F9, capteur, enregistrements 8'+ bouché / 8' bouché | **gestes d'Ewen, non faits** | pas inventés |
+| P5 | téléphone réel, Dirk's, C5 | inchangés |
+
+Deux gardes physiques du modèle `struct`, trouvées par des graines neuves (ces fausses lectures n'existaient que dans le monde où la synthèse contient la physique) :
+- `MK_MAX` 0,6 : l'AM d'un partiel est bornée à 0,6 (H6 : 0,13 à 0,59). Au-delà, une porteuse et ses deux bandes latérales imitent deux anches : « sûr » faux de 43 ¢ (D3, m̂ 0,75).
+- `M_ST_MARGE_DB` 0 : l'anche faible doit être au moins aussi forte que la bande latérale de l'AM de la forte, 20 log10(m̂/2) dB sous elle (planA_valid : 48 ¢ de faux avec une anche faible à -17 dB et m̂ 0,53, fenêtre de 0,67 s). Une borne globale m̂ ≤ 0,5 régla aussi ce cas mais coûta 16 -> 9 notes du H6 : refusée.
+`LLR_MIN` passe de 25 à 100 (un ajustement décalé d'un battement, LLR 49, avait posé un « sûr » à 5,3 ¢ : plan hypercube, graine 31) ; la sentinelle est resserrée (`SENT_PERIODE_S` 0,15, `SENT_SIGMA` 3, `CONTREDIT_C` 0,2).
+
+### 0A.2 Plans d'expériences (règle 12)
+
+| plan | type | facteurs | résultat |
+|---|---|---|---|
+| calibration du générateur | PB 12 + 2 centres | ampMul, pm12, amphSd, jitS, h2c3 | h2c3 domine (r × 6) : écarté pour les rangs 3-4 ; le générateur reste 2 fois plus dur que le H6 en r médian (plancher dû à la quadrature) : choix conservateur |
+| G1 réglages | PB 12 + 2 | `MARGE_ETIQ_ST_DB`, `R_MAX_AM`, `RK_MAX_AM`, `LLR_MIN`, `NDEPARTS` (6 jeux, β jusqu'à 1,5) | marge +49 posées, `R_MAX_AM` +15 (mais des faux à 0,05), `RK_MAX_AM` -7, `NDEPARTS` +4 ; retenu marge 20 dB, R 0,01 (138 posées, 0 faux). `RK_MAX_AM` repassé à 0,6 ensuite : à K_utile = 2 une lecture de 1,6 s était trop bruitée (trois fausses de 0,7 ¢ à 0,96 Hz) |
+| G2 | fractionnaire 2^(4-1) + 2 | `ENTIER_NB`, `ENTIER_TOL`, `KOT_MIN`, `CONFIRME_MOITIE_C` | `ENTIER_NB` 2 : +33 posées (lent_bas150 + omega_bas40), les autres sans effet |
+| G3 | PB 12 + 2 | `DEBUT_S`, `FEN_F0_S`, `FEN_MAX_S`, `DERIVE_MAX`, `NB_MIN`, `REESSAI_S` | fenêtre courte : +24 posées, 6 à 10 faux : refusé |
+| M_ST | 3 niveaux | `M_ST_MAX` {99 ; 0,5 ; 0,45} | 0,5 supprime le faux de 48 ¢ mais -8 % de posées en synthèse et 16 -> 9 notes du H6 ; remplacé par la garde de marge |
+Les plans et leurs réponses sont dans l'onglet Plans d'expériences de Wenou OS et dans le coffre (« Plans d'expériences »).
+
+### 0A.3 Les chiffres, v66 contre v67 (passes finales du 18/10/2026, graines neuves REP0=30, code gelé)
+
+Vérité = fréquence moyenne de la porteuse de chaque anche sur la fenêtre lue ; fausse = plus de 0,5 ¢ ; domaine : Ω ≥ 0,4 Hz pour le battement.
+
+| jeu | domaine | v66 : posées, sûres, fausses (max) | v67 : posées, sûres, fausses (max) |
+|---|---|---|---|
+| synthèse à la physique du H6 (`SYNTH=h6`, 21 plans) | 4065 | 1169 (29 %), 7761, 1 (0,599 ¢) | 1196 (29 %), 6493, 1 (0,562 ¢) |
+| synthèse LARGE (`SYNTH=large`, 12 plans, pas calée sur le H6) | 2528 | 407 (16 %), 2663, 2 (0,544 ¢) | 470 (19 %), 2167, 1 (0,531 ¢) |
+| ancienne synthèse, plans clés (D3, calibration, J, B, validation) | 1198 | non rejouée | 505 (42 %), 2734, 4 (0,715 ¢) |
+
+Les fausses lectures de la v67, toutes entre 0,51 et 0,72 ¢ (aucune grosse) :
+- D3 (saut de hauteur de 4,5 ¢ au milieu de la note) : 3 lectures dans les 0,2 s après le saut (Ω 1,4 à 5,2 Hz). La v66 les a aussi : limite de latence, pas un défaut du modèle.
+- B (ancienne synthèse) : 0,597 ¢. H6 adverse D3 : 0,562 ¢ (f0 1104 Hz, β 0,38).
+- LARGE, `lent100` plan 82 : 0,531 ¢ sur un Sol#2 (f0 103 Hz, Ω 1,87 Hz, β 0,21), à T = 5 s.
+Le zéro faux de la v66 sur l'ancienne synthèse ne tenait pas sur la synthèse à la physique : la v67 fait mieux partout, sans l'atteindre. Premier point de l'audit Fable n° 4.
+
+### 0A.4 Sur les vrais enregistrements
+
+| prise | v66 | v67 |
+|---|---|---|
+| Zoom H6, usage simulé ×1 (27 notes, essai 1) | 6/27 posées | **16/27**, 0 « sûr » faux sur 83, T médian 4,6 s, 7 % du temps certifié |
+| Zoom H6, essai 2 (12 notes) | 2/12 | 4/12, 0 faux sur 25 |
+| H6, voies gauche, droite, somme (`reel_prises`) | | 12, 10, 9 notes posées ; 0 lecture sûre fausse (115 lectures) |
+| PC 14/10 (effet vocal Windows) | 0 | 0 posée, 0 faux (refuse, comme il faut) |
+| sessions 11/10, 13/10, 14/10 (traitées par Windows, robustesse seulement) | 1, 3, 3 notes « sûr » | 4, 10, 8 ; aucun désaccord de plus de 0,5 ¢ avec la v66 sur les notes communes |
+| banque Serafini (autre accordéon, échantillons), MM et MMM | 1 note | 3 notes ; 0 désaccord |
+
+### 0A.5 Téléphone (usage simulé, calcul ×4 plus lent)
+
+H6 essai 1 : 1/27 posée (×1 : 16/27) ; essai 2 : 1/12. Les images p99 dépassent 1 s : **sur un téléphone milieu de gamme, la v67 refuse presque tout**, faute de temps de calcul (le certificat tourne déjà dans un Worker depuis la v66). Il faut alléger l'ajustement (décimation après le premier étage, moins de départs) puis mesurer sur un vrai téléphone (toujours à faire).
+
+### 0A.6 Banques d'échantillons
+
+Ballone Burini, Gaillard, Serafini, Saltarelle (SFZ et WAV) copiées dans `J:\claude\audits\donnees-accordeur\sf2\`. Notes courtes (1 segment) : peu de poses, aucune fausse ; elles ne prouvent pas la généralisation à elles seules (pas de vérité).
+
+### 0A.7 Ce qui manque pour généraliser (gestes d'Ewen)
+
+- Des prises PROPRES (Zoom H6 ou micro sans effet Windows) de **plusieurs autres accordéons** : un chromatique à voix musette lente, un à musette serrée, un diatonique, un bandonéon, un harmonium ; au moins 3 notes tenues 8 s par registre (16', 8', 4', musette 2 voix, 3 voix), du grave à l'aigu.
+- Des prises de **micros de téléphone** (Android et iPhone) et de **micros USB courants** avec les effets de la plateforme coupés, simultanées avec le H6 (prise de contrôle F9, toujours à faire).
+- La note MM tenue 10 s puis 8'+ bouché puis 8' bouché (tirage mesuré), et la courbe hauteur / pression avec le capteur XGZP6847 (G5 complet).
 
 ## 0. La v66 (audit Fable final du 16/10/2026) : ce qui a changé, ce qui est refusé
 

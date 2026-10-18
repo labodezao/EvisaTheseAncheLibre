@@ -26,14 +26,23 @@ const TWO_PI = 2 * Math.PI;
 const NM = 3;                                  // raies latérales de chaque côté (|n| <= 3)
 export const NLS_LLR_SUR = 25;                 // étiquette sûre (≈ 5 σ)
 export const NLS_BETA_MAX = 0.7;
-export const NP0 = 9;                          // paramètres avant le warp : f1, Ω, β1, β2, m1, ψ, θ, m2, f3 (raie étrangère)
+export const NP0 = 9;
+export const COUT_REL_AM = (typeof process !== "undefined" && process.env?.COUT_REL_AM) ? +process.env.COUT_REL_AM : 3;                  // v67 : coût relatif d'une évaluation du résidu du modèle à AM par partiel (6 colonnes au lieu de 2 ; banc cout_modele.mjs)
+export const RK_MAX = 0.3;                     // v67 : un partiel dont le résidu relatif dépasse ça n'est pas décrit par le modèle (les rangs ≥ 5 du H6) : K_utile s'arrête avant
+export const MK_MAX = 0.6;                       // v67 : borne physique de l AM réelle par partiel (H6 : 0,13 à 0,59) ; plus haut, la porteuse et ses deux bandes latérales imitent deux anches (étiquette décalée d un battement, D3 plan 5 : 43 ¢ de faux avec m = 0,75)
+export const KAM = 4;                          // v67 (modèle 'struct') : nombre de partiels qui ont leur propre modulation d'amplitude (m_k, χ_k)
+// paramètres avant le warp : f1, Ω, β1, β2, m1, ψ, θ, m2, f3 (raie étrangère) ; modèle 'struct' : f1, Ω, β1, β2, ρ12, θ2, θ1, (inutilisé), f3, puis le warp, puis (m_k, χ_k) k = 1..KAM
 
 export const centsDe = (f, r) => 1200 * Math.log2(f / r);
 
-const bornes = (J) => {
+const bornes = (J, struct = false) => {
   const LB = [-Infinity, 0.02, 0, -NLS_BETA_MAX, 0, -Infinity, -Infinity, -0.45, -Infinity], UB = [Infinity, Infinity, NLS_BETA_MAX, NLS_BETA_MAX, 0.45, Infinity, Infinity, 0.45, Infinity];
   for (let j = 0; j < J; j++) { LB.push(-3e-3); UB.push(3e-3); }
   for (let j = 0; j < J; j++) { LB.push(-0.6); UB.push(0.6); }
+  if (struct) {
+    LB[3] = 0; LB[4] = 0.5; UB[4] = 3; LB[7] = UB[7] = 0;                 // β2 ≥ 0 (le signe est dans θ2), ρ12 entre 0,5 et 3, p[7] inutilisé
+    for (let k = 0; k < KAM; k++) { LB.push(0, -Infinity); UB.push(MK_MAX, Infinity); }      // m_k <= MK_MAX (0,6 : H6 0,13 à 0,59), χ_k libre
+  }
   return { LB, UB };
 };
 
@@ -129,25 +138,45 @@ export function resoudreHerm(Gr, Gi, br, bi, nc) {
 // ---- modèle -----------------------------------------------------------------------------------------------------------------
 export class Modele {
   // ds : partiels démodulés (même grille de temps) ; J : nombre de nœuds du warp ; libre : avec une raie étrangère libre (f3).
-  constructor(ds, J = 3, { libre = false } = {}) {
-    this.ds = ds; this.Q = ds.length; this.n = ds[0].n; this.t = ds[0].t; this.J = J; this.libre = libre; this.nc = libre ? 3 : 2;
+  // am : MODELE v67 (G1, audit Fable n° 3). L'AM n'est plus un indice m unique par anche (non linéaire) mais, pour CHAQUE partiel de CHAQUE anche, trois amplitudes complexes libres
+  // (porteuse A, bandes latérales B+ et B− à ±Ω : variable projection) qui multiplient le peigne de Bessel ; chaque anche a SA phase de modulation (θ1 = p[6], θ2 = p[5]).
+  // Les paramètres non linéaires m1 (p[4]), m2 (p[7]) ne servent plus.
+  // am === 'struct' : MODELE STRUCTURE (v67, retenu) : AM RÉELLE PAR PARTIEL (1 + m_k cos(Φ + χ_k), m_k et χ_k propres à chaque partiel, communs aux deux anches : la modulation de
+  // timbre, pas la pression), phase de modulation PROPRE À CHAQUE ANCHE (θ1, θ2 : le H6 les montre en quadrature), indice de phase des rangs 1-2 multiplié par ρ12. Deux colonnes seulement
+  // (une par anche) : même coût que le modèle v66, et pas de dégénérescence d'étiquette (une AM réelle a des bandes latérales égales ; une anche faible n'en a qu'une).
+  // am === 'libre' : (refusé, voir docs/CERTIFICAT.md) trois amplitudes libres par anche et par partiel : les bandes latérales imitent l'anche faible (étiquette décalée d'un battement).
+  constructor(ds, J = 3, { libre = false, am = false } = {}) {
+    this.ds = ds; this.Q = ds.length; this.n = ds[0].n; this.t = ds[0].t; this.J = J; this.libre = libre;
+    const amL = am === 'libre', amS = am === 'struct';
+    this.amL = amL; this.amS = amS; this.am = amL;
+    // colonnes du modèle linéaire : { r: anche (0, 1), s: décalage de raie (0 porteuse, ±1 bande latérale) } ou { libre: true }
+    this.cdef = [{ r: 0, s: 0 }, { r: 1, s: 0 }];
+    if (libre) this.cdef.push({ libre: true });
+    if (amL) this.cdef.push({ r: 0, s: 1 }, { r: 0, s: -1 }, { r: 1, s: 1 }, { r: 1, s: -1 });
+    this.nc = this.cdef.length;
+    this.NW = amL ? NM + 1 : NM;                 // la table des e^{i n Ω τ} va de −NW à +NW (les bandes latérales décalent le peigne d'un cran)
+    this.fixes = amL ? [4, 7] : amS ? [7] : [];  // paramètres non linéaires inutilisés
+    this.coutRel = amL ? COUT_REL_AM : 1;        // coût d'une évaluation du résidu, relatif au modèle v66 (mesuré : banc cout_modele.mjs)
+    this.iAM = NP0 + 2 * J;                      // 'struct' : début des (m_k, χ_k)
+    if (amS) for (let k = this.Q; k < KAM; k++) this.fixes.push(this.iAM + 2 * k, this.iAM + 2 * k + 1);      // les partiels absents de ce modèle
     const n = this.n;
-    this.wr = Array.from({ length: 2 * NM + 1 }, () => new Float64Array(n));
-    this.wi = Array.from({ length: 2 * NM + 1 }, () => new Float64Array(n));
+    this.wr = Array.from({ length: 2 * this.NW + 1 }, () => new Float64Array(n));
+    this.wi = Array.from({ length: 2 * this.NW + 1 }, () => new Float64Array(n));
     this.tau = new Float64Array(n); this.dq = new Float64Array(n); this.gq = new Float64Array(n);
-    this.sr_ = Array.from({ length: 3 }, () => new Float64Array(n)); this.si_ = Array.from({ length: 3 }, () => new Float64Array(n));
+    this.sr_ = Array.from({ length: this.nc }, () => new Float64Array(n)); this.si_ = Array.from({ length: this.nc }, () => new Float64Array(n));
     this.cr = new Float64Array(2 * NM + 1); this.ci = new Float64Array(2 * NM + 1);
     this.J1 = new Float64Array(NM + 3); this.J2 = new Float64Array(NM + 3);
     this.Ndata = 2 * n * this.Q;
     this.N = this.Ndata + 2 * J;                 // + les pseudo-résidus de l'a priori sur le warp
-    this.npar = NP0 + 2 * J;
+    this.npar = NP0 + 2 * J + (amS ? 2 * KAM : 0);
+    this.warpFin = NP0 + 2 * J;
     // A priori doux sur le warp (écart type attendu : 0,5 ¢ en fréquence, 20 % en niveau), pesé comme un échantillon de bruit à 40 dB :
     // il ne joue que pour les modes que les données ne contraignent pas (en zig-zag), sans quoi le moindre pas de Gauss-Newton les fait exploser.
     let e = 0; for (const d of ds) for (let q = 0; q < d.n; q++) e += d.re[q] ** 2 + d.im[q] ** 2;
     this.energie = e;
     const nu = 1e-4 * e / this.Ndata;
     this.wd = Math.sqrt(nu) / 3e-4; this.wg = Math.sqrt(nu) / 0.2;
-    this.amp = Array.from({ length: this.Q }, () => new Float64Array(6));      // A_c (re, im) pour c < 3
+    this.amp = Array.from({ length: this.Q }, () => new Float64Array(2 * this.nc));      // A_c (re, im) : porteuses des deux anches, raie libre, puis les bandes latérales (am)
     this.iw = new Int32Array(n); this.uw = new Float64Array(n);
     const t0 = this.t[0], span = this.t[n - 1] - t0 || 1;
     for (let q = 0; q < n; q++) {
@@ -155,7 +184,9 @@ export class Modele {
       const j = Math.min(J - 2, Math.max(0, Math.floor(s)));
       this.iw[q] = J > 1 ? j : 0; this.uw[q] = J > 1 ? s - j : 0;
     }
-    const b = bornes(J); this.LB = b.LB; this.UB = b.UB;
+    const b = bornes(J, amS); this.LB = b.LB; this.UB = b.UB;
+    if (amL) { this.LB[3] = 0; this.LB[4] = this.UB[4] = 0; this.LB[7] = this.UB[7] = 0; }      // β2 ≥ 0 (le signe est dans θ2), m1 et m2 supprimés
+    this.Jt = new Float64Array(NM + 3);
     // chapeaux des nœuds (moyenne retirée) et ∂τ/∂d_j : intégrale cumulée du chapeau
     this.H = Array.from({ length: J }, () => new Float64Array(n));
     this.W = Array.from({ length: J }, () => new Float64Array(n));
@@ -183,6 +214,37 @@ export class Modele {
     }
   }
 
+  // Modèle structuré : coefficients d'une anche r au partiel k (indices 1..) : C_n = [J_n e^{inθ} + (m/2) e^{iχ} J_{n−1} e^{i(n−1)θ} + (m/2) e^{−iχ} J_{n+1} e^{i(n+1)θ}] · gain du filtre.
+  // Φ_r = 2πΩτ + θ_r pour le peigne de phase ; χ_k est la phase ABSOLUE de l'AM (celle du battement), commune aux deux anches.
+  coefsS(p, r, k, delta, Om, M, sr) {
+    const { cr, ci, Jt } = this;
+    const beta = (r ? p[3] : p[2]) * (k <= 2 ? p[4] : 1), th = r ? p[5] : p[6];
+    const m = k <= KAM ? p[this.iAM + 2 * (k - 1)] : 0, chi = k <= KAM ? p[this.iAM + 2 * (k - 1) + 1] : 0;
+    besselJ(k * beta, NM, Jt);
+    const hm = 0.5 * m, cc = Math.cos(chi), sc = Math.sin(chi);
+    for (let n = -NM; n <= NM; n++) {
+      const g = droop(delta + n * Om, M, sr), j0 = Jn(Jt, n);
+      let re = j0 * Math.cos(n * th), im = j0 * Math.sin(n * th);
+      if (m > 0) {
+        const jm = Jn(Jt, n - 1), jp = Jn(Jt, n + 1), a1 = (n - 1) * th, a2 = (n + 1) * th;
+        // (m/2) e^{iχ} J_{n−1} e^{i(n−1)θ}
+        re += hm * jm * (cc * Math.cos(a1) - sc * Math.sin(a1)); im += hm * jm * (cc * Math.sin(a1) + sc * Math.cos(a1));
+        // (m/2) e^{−iχ} J_{n+1} e^{i(n+1)θ}
+        re += hm * jp * (cc * Math.cos(a2) + sc * Math.sin(a2)); im += hm * jp * (cc * Math.sin(a2) - sc * Math.cos(a2));
+      }
+      cr[n + NM] = g * re; ci[n + NM] = g * im;
+    }
+  }
+
+  // Peigne de Bessel PUR d'une anche (am) : C_n = J_n(kβ) e^{inθ}, filtré au décalage de la raie (n + s)Ω ; s = décalage de colonne (bande latérale).
+  coefsAM(J, th, delta, Om, M, sr, s) {
+    const { cr, ci } = this;
+    for (let n = -NM; n <= NM; n++) {
+      const g = droop(delta + (n + s) * Om, M, sr), a = Jn(J, n) * g, ang = n * th;
+      cr[n + NM] = a * Math.cos(ang); ci[n + NM] = a * Math.sin(ang);
+    }
+  }
+
   // Le warp : τ(t) = t + ∫ (d − d̄), et le niveau commun g(t) = 1 + (g − ḡ)
   calculerTau(p) {
     const { n, t, tau, dq, gq, iw, uw, J } = this;
@@ -205,13 +267,14 @@ export class Modele {
 
   // Colonnes du partiel qi pour les paramètres p (w déjà calculés) : remplit this.sr_[c], this.si_[c].
   colonnes(p, qi) {
+    if (this.amL) return this.colonnesAM(p, qi);
     const { ds, n, tau, gq, wr, wi, cr, ci } = this;
     const f1 = p[0], Om = p[1], b1 = p[2], b2 = p[3], m = p[4], psi = p[5], th = p[6], m2 = p[7], f3 = p[8], f2 = f1 + Om;
     const d = ds[qi], k = d.k, M = d.M, sr = d.sr;
     besselJ(k * b1, NM, this.J1); besselJ(k * b2, NM, this.J2);
     for (let r = 0; r < 2; r++) {
       const del = k * (r ? f2 : f1) - d.mu, sRe = this.sr_[r], sIm = this.si_[r];
-      this.coefs(r ? this.J2 : this.J1, r ? m2 : m, psi, th, del, Om, M, sr);
+      if (this.amS) this.coefsS(p, r, k, del, Om, M, sr); else this.coefs(r ? this.J2 : this.J1, r ? m2 : m, psi, th, del, Om, M, sr);
       for (let q = 0; q < n; q++) {
         let ar = 0, ai = 0;
         for (let j = 0; j < 2 * NM + 1; j++) { ar += cr[j] * wr[j][q] - ci[j] * wi[j][q]; ai += cr[j] * wi[j][q] + ci[j] * wr[j][q]; }
@@ -225,6 +288,33 @@ export class Modele {
       for (let q = 0; q < n; q++) {
         const ph = TWO_PI * (del * tau[q] + d.mu * (tau[q] - this.t[q])), gg = gq[q];
         sRe[q] = gg * Math.cos(ph); sIm[q] = gg * Math.sin(ph);
+      }
+    }
+  }
+
+  colonnesAM(p, qi) {
+    const { ds, n, tau, gq, wr, wi, cr, ci, NW } = this;
+    const f1 = p[0], Om = p[1], b1 = p[2], b2 = p[3], th1 = p[6], th2 = p[5], f3 = p[8], f2 = f1 + Om;
+    const d = ds[qi], k = d.k, M = d.M, sr = d.sr;
+    besselJ(k * b1, NM, this.J1); besselJ(k * b2, NM, this.J2);
+    for (let c = 0; c < this.nc; c++) {
+      const def = this.cdef[c], sRe = this.sr_[c], sIm = this.si_[c];
+      if (def.libre) {
+        const del = k * f3 - d.mu;
+        for (let q = 0; q < n; q++) {
+          const ph = TWO_PI * (del * tau[q] + d.mu * (tau[q] - this.t[q])), gg = gq[q];
+          sRe[q] = gg * Math.cos(ph); sIm[q] = gg * Math.sin(ph);
+        }
+        continue;
+      }
+      const del = k * (def.r ? f2 : f1) - d.mu, o = NW + def.s;
+      this.coefsAM(def.r ? this.J2 : this.J1, def.r ? th2 : th1, del, Om, M, sr, def.s);
+      for (let q = 0; q < n; q++) {
+        let ar = 0, ai = 0;
+        for (let j = 0; j < 2 * NM + 1; j++) { ar += cr[j] * wr[j + o - NM][q] - ci[j] * wi[j + o - NM][q]; ai += cr[j] * wi[j + o - NM][q] + ci[j] * wr[j + o - NM][q]; }
+        const ph = TWO_PI * (del * tau[q] + d.mu * (tau[q] - this.t[q])), cc = Math.cos(ph), ss = Math.sin(ph);
+        const gg = gq[q];
+        sRe[q] = gg * (ar * cc - ai * ss); sIm[q] = gg * (ar * ss + ai * cc);
       }
     }
   }
@@ -250,16 +340,16 @@ export class Modele {
 
   // Résidu projeté (concaténé sur les partiels) ; rend la SSR. Remplit `res` (taille N) si fourni ; `garder` : mémorise les A et les colonnes.
   residu(p, res, garder = false) {
-    const { ds, Q, n, tau, wr, wi, nc } = this;
+    const { ds, Q, n, tau, wr, wi, nc, NW } = this;
     const Om = p[1];
     this.calculerTau(p);
     for (let q = 0; q < n; q++) {
       const ang = TWO_PI * Om * tau[q], c1 = Math.cos(ang), s1 = Math.sin(ang);
-      wr[NM][q] = 1; wi[NM][q] = 0;
-      for (let j = 1; j <= NM; j++) {
-        const pr = wr[NM + j - 1][q], pi = wi[NM + j - 1][q];
+      wr[NW][q] = 1; wi[NW][q] = 0;
+      for (let j = 1; j <= NW; j++) {
+        const pr = wr[NW + j - 1][q], pi = wi[NW + j - 1][q];
         const nr = pr * c1 - pi * s1, ni = pr * s1 + pi * c1;
-        wr[NM + j][q] = nr; wi[NM + j][q] = ni; wr[NM - j][q] = nr; wi[NM - j][q] = -ni;
+        wr[NW + j][q] = nr; wi[NW + j][q] = ni; wr[NW - j][q] = nr; wi[NW - j][q] = -ni;
       }
     }
     let ssr = 0, o = 0, prior = 0;
@@ -268,7 +358,7 @@ export class Modele {
       this.colonnes(p, qi);
       const N = this.normales(qi), { xr, xi } = N.A, yr = ds[qi].re, yi = ds[qi].im;
       if (garder) {
-        const A = this.amp[qi]; for (let a = 0; a < 3; a++) { A[2 * a] = a < nc ? xr[a] : 0; A[2 * a + 1] = a < nc ? xi[a] : 0; }
+        const A = this.amp[qi]; for (let a = 0; a < nc; a++) { A[2 * a] = xr[a]; A[2 * a + 1] = xi[a]; }
         if (!this.ptsS) this.ptsS = Array.from({ length: Q }, () => ({}));
         const P = this.ptsS[qi];
         P.s = Array.from({ length: nc }, (_, a) => ({ r: Float64Array.from(this.sr_[a]), i: Float64Array.from(this.si_[a]) }));
@@ -289,6 +379,36 @@ export class Modele {
     return ssr;
   }
 
+  // Différence finie d'un paramètre d'AM d'un seul partiel (modèle structuré) : seul le bloc de ce partiel change, les autres sont ceux du résidu de base r0 (même warp, même Ω).
+  // Rend vrai si le paramètre est de ce type (r1 est alors rempli), faux sinon (l'appelant fait un résidu complet).
+  residuFD(q, r1, r0, idx) {
+    if (!this.amS || idx < this.iAM || idx >= this.iAM + 2 * KAM) return false;
+    const qi = (idx - this.iAM) >> 1;
+    if (qi >= this.Q) return false;
+    const { n, tau, wr, wi, NW } = this;
+    this.calculerTau(q);
+    const Om = q[1];
+    for (let i = 0; i < n; i++) {
+      const ang = TWO_PI * Om * tau[i], c1 = Math.cos(ang), s1 = Math.sin(ang);
+      wr[NW][i] = 1; wi[NW][i] = 0;
+      for (let j = 1; j <= NW; j++) {
+        const pr = wr[NW + j - 1][i], pi = wi[NW + j - 1][i];
+        const nr = pr * c1 - pi * s1, ni = pr * s1 + pi * c1;
+        wr[NW + j][i] = nr; wi[NW + j][i] = ni; wr[NW - j][i] = nr; wi[NW - j][i] = -ni;
+      }
+    }
+    r1.set(r0);
+    this.colonnes(q, qi);
+    const Nn = this.normales(qi), { xr, xi } = Nn.A, yr = this.ds[qi].re, yi = this.ds[qi].im, nc = this.nc;
+    let o = qi * 2 * n;
+    for (let i = 0; i < n; i++) {
+      let mr = 0, mi = 0;
+      for (let a = 0; a < nc; a++) { mr += xr[a] * this.sr_[a][i] - xi[a] * this.si_[a][i]; mi += xr[a] * this.si_[a][i] + xi[a] * this.sr_[a][i]; }
+      r1[o++] = yr[i] - mr; r1[o++] = yi[i] - mi;
+    }
+    return true;
+  }
+
   // Colonnes de la jacobienne (dr/dd_j et dr/dg_j) par la dérivée analytique de variable projection (Kaufman) : dr/dp = -P_perp (dS/dp) A.
   // À appeler juste après residu(p, ., true). Remplit cols[NP0 + j] (warp) et cols[NP0 + J + j] (niveau).
   jacobienneWarp(p, cols) {
@@ -304,17 +424,19 @@ export class Modele {
       besselJ(k * p[2], NM, this.J1); besselJ(k * p[3], NM, this.J2);
       Er.fill(0); Ei.fill(0); Mr.fill(0); Mi.fill(0);
       for (let r = 0; r < nc; r++) {
-        const Ar = A[2 * r], Ai = A[2 * r + 1];
-        if (r < 2) {
-          const fr = r ? f2 : f1, del = k * fr - d.mu;
-          this.coefs(r ? this.J2 : this.J1, r ? p[7] : p[4], p[5], p[6], del, Om, M, sr);
-          const { cr, ci } = this;
+        const Ar = A[2 * r], Ai = A[2 * r + 1], def = this.cdef[r];
+        if (!def.libre) {
+          const rr = def.r, sh = def.s, fr = rr ? f2 : f1, del = k * fr - d.mu;
+          if (this.amL) this.coefsAM(rr ? this.J2 : this.J1, rr ? p[5] : p[6], del, Om, M, sr, sh);
+          else if (this.amS) this.coefsS(p, rr, k, del, Om, M, sr);
+          else this.coefs(rr ? this.J2 : this.J1, rr ? p[7] : p[4], p[5], p[6], del, Om, M, sr);
+          const { cr, ci } = this, o0 = this.NW + sh - NM;
           for (let q = 0; q < n; q++) {
             let ar = 0, ai = 0, br = 0, bi = 0;
             for (let jj = 0; jj < 2 * NM + 1; jj++) {
-              const wr_ = P.wr[jj][q], wi_ = P.wi[jj][q], ur = cr[jj] * wr_ - ci[jj] * wi_, ui = cr[jj] * wi_ + ci[jj] * wr_;
+              const wr_ = P.wr[jj + o0][q], wi_ = P.wi[jj + o0][q], ur = cr[jj] * wr_ - ci[jj] * wi_, ui = cr[jj] * wi_ + ci[jj] * wr_;
               ar += ur; ai += ui;
-              const fl = k * fr + (jj - NM) * Om; br += ur * fl; bi += ui * fl;
+              const fl = k * fr + (jj - NM + sh) * Om; br += ur * fl; bi += ui * fl;
             }
             const ph = TWO_PI * (del * tau[q] + d.mu * (tau[q] - t[q])), c = Math.cos(ph), s = Math.sin(ph);
             const g = gq[q];
@@ -325,7 +447,7 @@ export class Modele {
           }
         } else {
           // raie libre : s3 = g · porteuse ; ∂s3/∂τ = i 2π (k f3) s3
-          const s3r = P.s[2].r, s3i = P.s[2].i, w3 = TWO_PI * k * f3;
+          const s3r = P.s[r].r, s3i = P.s[r].i, w3 = TWO_PI * k * f3;
           for (let q = 0; q < n; q++) {
             const dr_ = -w3 * s3i[q], di_ = w3 * s3r[q];
             Er[q] += Ar * dr_ - Ai * di_; Ei[q] += Ar * di_ + Ai * dr_;
@@ -359,10 +481,11 @@ export class Modele {
   }
 }
 
-export const pasFD = (T, J) => {
+export const pasFD = (T, J, struct = false) => {
   const s = [1e-3 / T, 1e-3 / T, 2e-3, 2e-3, 2e-3, 2e-3, 2e-3, 2e-3, 1e-3 / T];
   for (let j = 0; j < J; j++) s.push(2e-5);
   for (let j = 0; j < J; j++) s.push(2e-3);
+  if (struct) for (let k = 0; k < KAM; k++) s.push(2e-3, 2e-3);
   return s;
 };
 
@@ -383,17 +506,19 @@ export function* ajusterLMg(mod, p0, libres, steps, { iter = 25, tol = 1e-5 } = 
   const J = Array.from({ length: P }, () => new Float64Array(N));
   const T = mod.ds[0].T, fmax = 0.25 / T;
   const NP = mod.NP ?? NP0, freqIdx = mod.freqIdx ?? [0, 1, 8];
-  const warpIdx = new Map(); libres.forEach((idx, a) => { if (idx >= NP) warpIdx.set(idx, a); });
-  const colsW = Array.from({ length: mod.npar }, (_, i) => (i >= NP ? new Float64Array(N) : null));
+  const wFin = mod.warpFin ?? Infinity;                  // les nœuds du warp (dérivées analytiques) sont dans [NP, wFin)
+  const estWarp = (idx) => idx >= NP && idx < wFin;
+  const warpIdx = new Map(); libres.forEach((idx, a) => { if (estWarp(idx)) warpIdx.set(idx, a); });
+  const colsW = Array.from({ length: mod.npar }, (_, i) => (estWarp(i) ? new Float64Array(N) : null));
   for (; it < iter; it++) {
     // base (mémorise colonnes et Gram) puis dérivées analytiques du warp, puis différences finies des autres
     if (warpIdx.size) { mod.residu(p, r0, true); mod.jacobienneWarp(p, colsW); }
     for (let a = 0; a < P; a++) {
       const idx = libres[a], Ja = J[a];
-      if (idx >= NP) { Ja.set(colsW[idx]); continue; }
+      if (estWarp(idx)) { Ja.set(colsW[idx]); continue; }
       const q = Float64Array.from(p), h = steps[idx];
       q[idx] += h;
-      mod.residu(q, r1);
+      if (!(mod.residuFD && mod.residuFD(q, r1, r0, idx))) mod.residu(q, r1);
       for (let i = 0; i < N; i++) Ja[i] = (r1[i] - r0[i]) / h;
     }
     const A = new Float64Array(P * P), g = new Float64Array(P);
@@ -422,7 +547,7 @@ export function* ajusterLMg(mod, p0, libres, steps, { iter = 25, tol = 1e-5 } = 
       lam *= 5;
     }
     if (!ok) break;
-    yield (P + 2) * mod.n * mod.Q * 1e-3;       // coût de l'itération en milliers de « partiel-échantillon évalué » (une évaluation du résidu par paramètre, plus le pas et son essai) : le temps de calcul se compte en ça, pas en nombre de pas
+    yield (P + 2) * mod.n * mod.Q * 1e-3 * (mod.coutRel ?? 1);       // coût de l'itération en milliers de « partiel-échantillon évalué » (une évaluation du résidu par paramètre, plus le pas et son essai) : le temps de calcul se compte en ça, pas en nombre de pas
   }
   return { p, ssr: S, it };
 }
@@ -475,13 +600,18 @@ export function lireBessel(x, i0, i1, sr, fc, opts = {}) {
 }
 export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
   const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
-  const { plageBasC = 50, plageHautC = 110, prior = null, priorFirst = false, chaud = false, pInit = null, libreInit = null, dt = 0, Kmax = 4, iter = 15, iterEtape = 5, tol = 1e-4, nGarde = 99, nLibre = 1, nDeparts = 5, noeudsS = 0.5, omegaMax = 60, libre = true } = opts;
+  const { plageBasC = 50, plageHautC = 110, prior = null, priorFirst = false, chaud = false, pInit = null, libreInit = null, dt = 0, Kmax = 4, iter = 15, iterEtape = 5, tol = 1e-4, nGarde = 99, nLibre = 1, nDeparts = 5, noeudsS = 0.5, omegaMax = 60, libre = true, modele = null, rkMax = RK_MAX } = opts;
+  // v67 (G1) : modele = 'struct' (ou 'am') : AM réelle par partiel, phase de modulation par anche, K_utile par résidu de partiel ; 'libre' : refusé (étiquette dégénérée) ; null : le modèle v66
+  const AMK = modele == null ? false : modele === 'libre' ? 'libre' : 'struct';
+  const AM = !!AMK, STR = AMK === 'struct';
+  const nouveau = (ds, extra = {}) => new Modele(ds, J, { ...extra, am: AMK });
   const T = (i1 - i0) / sr;
   if (!(T > 0.3)) return { ok: false, raison: 'court' };
   const fLo = fc * 2 ** (-plageBasC / 1200), fHi = fc * 2 ** (plageHautC / 1200);   // l'anche basse à ±35 ¢ de la note, l'autre jusqu'à ~55 ¢ plus haut
   const K = Math.max(1, Math.min(Kmax, Math.floor(0.42 * sr / fHi)));
   const ks = Array.from({ length: K }, (_, i) => i + 1);
   const J = Math.max(2, Math.min(9, Math.ceil(T / noeudsS) + 1));
+  const iAM = NP0 + 2 * J, nPar = NP0 + 2 * J + (STR ? 2 * KAM : 0);
   // étage 1 : large bande autour de la note, pour trouver les pics
   const fm = (fLo + fHi) / 2, D1 = Math.min(sr / 2, Math.max(60, 1.2 * K * (fHi - fLo)));
   const ds1 = ks.map((k) => demodPartiel(x, i0, i1, k, k * fm, sr, D1));
@@ -528,8 +658,8 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
     if (!cache.has(clef)) cache.set(clef, ks.map((k) => demodPartiel(x, i0, i1, k, k * centre, sr, D)));
     return cache.get(clef);
   };
-  const steps = pasFD(T, J);
-  const toutes = (mod, avecF3) => Array.from({ length: mod.npar }, (_, i) => i).filter((i) => avecF3 || i !== 8);
+  const steps = pasFD(T, J, STR);
+  const toutes = (mod, avecF3) => Array.from({ length: mod.npar }, (_, i) => i).filter((i) => (avecF3 || i !== 8) && !mod.fixes.includes(i));
   const sols = [];
   const vus = [];
   let rMin = Infinity;
@@ -540,25 +670,52 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
     // θ de départ : le meilleur de quatre sur le partiel 2 (ajustement chaud : les paramètres de l'ajustement d'avant)
     let best = null;
     if (chaud && pInit) {
-      const p = new Float64Array(NP0 + 2 * J);
+      const p = new Float64Array(nPar);
       for (let i = 0; i < NP0; i++) p[i] = pInit[i] ?? 0;
       p[0] = f1d; p[1] = Omd;
       p[6] += TWO_PI * Omd * dt;      // θ est la phase du battement au CENTRE de la fenêtre : le centre a bougé de dt secondes depuis l'ajustement d'où l'on part
+      if (AM) p[5] += TWO_PI * Omd * dt;
+      if (STR) for (let k = 0; k < KAM; k++) { p[iAM + 2 * k] = pInit[NP0 + 2 * k] ?? 0.1; p[iAM + 2 * k + 1] = (pInit[NP0 + 2 * k + 1] ?? 0) + TWO_PI * Omd * dt; }
       best = { S: 0, p };
+    } else if (STR) {
+      // modèle structuré : le meilleur de 4 × 3 (θ1 ; θ2 − θ1 = −1 rad, +1 rad, π) sur les deux premiers partiels, AM de départ 0,1
+      const m2 = nouveau(ds.slice(0, Math.min(2, K)));
+      for (const th of [0, 1.5708, 3.1416, 4.7124]) for (const dth of [-1, 1, 3.1416]) {
+        const p = new Float64Array(nPar); p[0] = f1d; p[1] = Omd; p[2] = 0.12; p[3] = 0.12; p[4] = 1; p[6] = th; p[5] = th + dth;
+        for (let k = 0; k < KAM; k++) { p[iAM + 2 * k] = 0.1; p[iAM + 2 * k + 1] = th; }
+        const S = m2.residu(p);
+        if (!best || S < best.S) best = { S, p };
+      }
+    } else if (AM) {
+      // deux phases de modulation libres : le départ est le meilleur de 4 × 3 (θ1 ; θ2 − θ1 = −1 rad, +1 rad, π) sur les deux premiers partiels
+      const m2 = nouveau(ds.slice(0, Math.min(2, K)));
+      for (const th of [0, 1.5708, 3.1416, 4.7124]) for (const dth of [-1, 1, 3.1416]) {
+        const p = new Float64Array(NP0 + 2 * J); p[0] = f1d; p[1] = Omd; p[2] = 0.12; p[3] = 0.12; p[6] = th; p[5] = th + dth;      // 'libre'
+        const S = m2.residu(p);
+        if (!best || S < best.S) best = { S, p };
+      }
     } else {
       const m2 = new Modele(ds.slice(0, Math.min(2, K)), J);
       for (const th of [0, 1.5708, 3.1416, 4.7124]) {
-        const p = new Float64Array(NP0 + 2 * J); p[0] = f1d; p[1] = Omd; p[2] = 0.12; p[3] = -0.12; p[4] = 0.05; p[6] = th; p[7] = -0.05;
+        const p = new Float64Array(nPar); p[0] = f1d; p[1] = Omd; p[2] = 0.12; p[3] = -0.12; p[4] = 0.05; p[6] = th; p[7] = -0.05;
         const S = m2.residu(p);
         if (!best || S < best.S) best = { S, p };
       }
     }
     // continuation sur les partiels : 1, 2, 3, 4 … (le warp se cale sur les bas partiels, peu sensibles à la phase)
-    let pp = best.p, elague = false;
+    let pp = best.p, elague = false, ku = K, ppPrec = null;
     const etapes = [1, 2, 3, 4, 6].filter((q) => q < K).concat([K]);      // aussi à chaud : le warp se cale sur les bas partiels avant les hauts (sans quoi la dérive de la fenêtre fait décrocher le partiel 4)
     for (const q of etapes) {
-      const mod = new Modele(ds.slice(0, q), J);
+      const mod = nouveau(ds.slice(0, q));
+      ppPrec = pp;
       pp = (yield* ajusterLMg(mod, pp, toutes(mod, false), steps, { iter: q === K ? iter : iterEtape, tol })).p;
+      // K_utile (v67) : le partiel qu'on vient d'ajouter n'est pas décrit par le modèle (résidu relatif > rkMax) : on s'arrête avant lui. Les rangs ≥ 5 du H6, et les partiels 1-2 des notes aiguës, ne s'y plient pas.
+      if (AM && q >= 3) {
+        const res = new Float64Array(mod.N); mod.residu(pp, res);
+        const dq = mod.ds[q - 1], o = (q - 1) * 2 * dq.n;
+        let er = 0, ey = 0; for (let i = 0; i < dq.n; i++) { er += res[o + 2 * i] ** 2 + res[o + 2 * i + 1] ** 2; ey += dq.re[i] ** 2 + dq.im[i] ** 2; }
+        if (er > rkMax * ey) { ku = q - 1; pp = ppPrec; break; }
+      }
       // élagage : un départ dont le résidu relatif, aux deux premiers partiels, est bien pire que celui du meilleur ne sera pas rattrapé
       if (q === Math.min(2, K)) {
         mod.residu(pp);
@@ -568,8 +725,8 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
       }
     }
     if (elague) return null;
-    const mod = new Modele(ds, J);
-    return { p: pp, ssr: mod.residu(pp), ssrData: mod.ssrData, mod, depart: [f1d, Omd] };
+    const mod = nouveau(ds.slice(0, ku));
+    return { p: pp, ssr: mod.residu(pp), ssrData: mod.ssrData, mod, depart: [f1d, Omd], ku };
   }
   for (const [f1d, Omd] of dep) {
     if (sols.length >= nDeparts) break;
@@ -596,9 +753,10 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
   if (sols.length > nGarde) { sols.sort((u, v) => u.ssrData - v.ssrData); sols.length = nGarde; }
   const lo = Math.min(...sols.map((q) => q.p[0])), hi = Math.max(...sols.map((q) => q.p[0] + q.p[1]));
   const centreC = (lo + hi) / 2, DC = Dm(hi - lo);
-  const commun = ks.map((k) => demodPartiel(x, i0, i1, k, k * centreC, sr, DC));
+  const kC = AM ? Math.max(1, Math.min(...sols.map((q) => q.ku ?? K))) : K;      // les hypothèses se comparent sur les mêmes partiels : ceux que TOUTES savent décrire
+  const commun = ks.slice(0, kC).map((k) => demodPartiel(x, i0, i1, k, k * centreC, sr, DC));
   for (const q of sols) {
-    const mod = new Modele(commun, J);
+    const mod = nouveau(commun);
     const r = yield* ajusterLMg(mod, q.p, toutes(mod, false), steps, { iter: 4 });
     q.p = r.p; q.mod = mod; q.ssr = mod.residu(r.p); q.ssrData = mod.ssrData; q.libre = false;
   }
@@ -615,7 +773,7 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
   // Raie étrangère : chaque hypothèse sérieuse (les trois meilleures) peut avoir une raie libre de plus. Une fuite à −15 dB à 0,3 Hz d'une anche
   // fait préférer à un ajustement sans elle un « modèle » où elle est la seconde anche et où la vraie seconde anche manque (r plus petit !).
   {
-    const dofDe = (m) => Math.max(1, m.Ndata - m.npar - 4 * m.Q);
+    const dofDe = (m) => Math.max(1, m.Ndata - (m.npar - m.fixes.length) - (AMK === 'libre' ? 12 : 4) * m.Q);
     for (const q of sols.slice(0, chaud ? 1 : nLibre)) {      // à chaud : la meilleure seulement
       if (!libre) break;
       const resB = new Float64Array(q.mod.N);
@@ -634,7 +792,7 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
       const cand = pics(spR, 6, 'G').find((c) => Math.abs(c.f - fa) > garde && Math.abs(c.f - fb) > garde && !lateral(c.f));
       yield;
       if (!cand) continue;
-      const modL = new Modele(commun, J, { libre: true });
+      const modL = nouveau(commun, { libre: true });
       const p0 = Float64Array.from(q.p); p0[8] = cand.f;
       const r = yield* ajusterLMg(modL, p0, toutes(modL, true), steps, { iter: 10 });
       modL.residu(r.p);
@@ -648,7 +806,7 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
   }
   const best = sols[0], pb = best.p, mod = best.mod;
   const rival = sols.slice(1).find((s) => Math.abs(s.p[0] - pb[0]) > 0.4 * pb[1] || Math.abs(s.p[1] - pb[1]) > 0.3 * pb[1]);
-  const dof = Math.max(1, mod.Ndata - mod.npar - 4 * mod.Q);
+  const dof = Math.max(1, mod.Ndata - (mod.npar - mod.fixes.length) - (AMK === 'libre' ? 12 : 4) * mod.Q);
   const s2 = best.ssrData / dof;
   // Qui est l'anche, qui est la raie étrangère ? Quand une raie étrangère est adoptée, chaque anche peut changer de rôle avec elle (la raie étrangère devient l'anche,
   // l'anche devient étrangère) : si ce modèle-là n'est pas pire de plus de LLR_MIN σ², le rôle des trois raies est indécidable (trois raies pures comparables : un autre
@@ -661,7 +819,7 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
       const [lo, hi] = [fEtr, fRest].sort((u, v) => u - v);
       if (hi - lo < 1.2 * res1) continue;
       const p0 = Float64Array.from(pb); p0[0] = lo; p0[1] = hi - lo; p0[8] = fOut;
-      const modA = new Modele(commun, J, { libre: true });
+      const modA = nouveau(commun, { libre: true });
       const rr = yield* ajusterLMg(modA, p0, toutes(modA, true), steps, { iter: 12, tol: 1e-5 });
       modA.residu(rr.p);
       llrAffectation = Math.min(llrAffectation, (modA.ssrData - best.ssrData) / s2);
@@ -694,7 +852,35 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
     return Math.hypot(j0 + 0.5 * m * Math.cos(psi) * (jm + jp), 0.5 * m * Math.sin(psi) * (jm - jp));
   };
   let margeEtiquette = Infinity;
-  for (let qi = 0; qi < Math.min(2, mod.Q); qi++) {
+  // am : amplitude (module) de la raie d'ordre mo de l'anche r au partiel qi = A·J_mo e^{i mo θ} + B+·J_{mo−1} e^{i(mo−1)θ} + B−·J_{mo+1} e^{i(mo+1)θ} (porteuse et bandes latérales libres)
+  const ligneAM = (qi, r, mo) => {
+    const A = mod.amp[qi], k = mod.ds[qi].k, Jb = new Float64Array(NM + 3), th = r ? pb[5] : pb[6], base = best.libre ? 3 : 2;
+    besselJ(k * pb[2 + r], NM + 1, Jb);
+    const J2 = (n) => (Math.abs(n) > NM + 1 ? 0 : Jn(Jb, n));
+    let re = 0, im = 0;
+    for (const [col, dn] of [[r, 0], [base + 2 * r, -1], [base + 2 * r + 1, 1]]) {
+      const n = mo + dn, a = J2(n), c = Math.cos(n * th), sn = Math.sin(n * th), xr = A[2 * col], xi = A[2 * col + 1];
+      re += a * (xr * c - xi * sn); im += a * (xr * sn + xi * c);
+    }
+    return Math.hypot(re, im);
+  };
+  // struct : même définition, avec les coefficients du modèle structuré (amplitude de la porteuse de l'anche × coefficient de la raie d'ordre mo)
+  const ligneS = (qi, r, mo) => {
+    const A = mod.amp[qi], k = mod.ds[qi].k;
+    mod.coefsS(pb, r, k, 0, 0, 1, 1);
+    return Math.hypot(A[2 * r], A[2 * r + 1]) * Math.hypot(mod.cr[mo + NM], mod.ci[mo + NM]);
+  };
+  for (let qi = 0; STR && qi < Math.min(2, mod.Q); qi++) {
+    const a1 = ligneS(qi, 0, 0), a2 = ligneS(qi, 1, 0), fort = a1 >= a2 ? 0 : 1;
+    const lateral = ligneS(qi, fort, fort === 0 ? 1 : -1), faible = Math.min(a1, a2);
+    margeEtiquette = Math.min(margeEtiquette, 20 * Math.log10(Math.max(faible, 1e-300) / Math.max(lateral, 1e-300)));
+  }
+  for (let qi = 0; AMK === 'libre' && qi < Math.min(2, mod.Q); qi++) {
+    const a1 = ligneAM(qi, 0, 0), a2 = ligneAM(qi, 1, 0), fort = a1 >= a2 ? 0 : 1;
+    const lateral = ligneAM(qi, fort, fort === 0 ? 1 : -1), faible = Math.min(a1, a2);
+    margeEtiquette = Math.min(margeEtiquette, 20 * Math.log10(Math.max(faible, 1e-300) / Math.max(lateral, 1e-300)));
+  }
+  for (let qi = 0; !AM && qi < Math.min(2, mod.Q); qi++) {
     const d = mod.ds[qi], A = mod.amp[qi], k = d.k;
     const a1 = Math.hypot(A[0], A[1]) * coefMag(pb[2], pb[4], pb[5], k, 0), a2 = Math.hypot(A[2], A[3]) * coefMag(pb[3], pb[7], pb[5], k, 0);
     const fort = a1 >= a2 ? 0 : 1;                        // 0 : l'anche basse est la plus forte, la faible est à +Ω ; 1 : l'inverse
@@ -708,18 +894,26 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
     const A = mod.amp[0], n3 = Math.hypot(A[4], A[5]), n12 = Math.max(Math.hypot(A[0], A[1]), Math.hypot(A[2], A[3]));
     libreInfo = { f: pb[8], dB: 20 * Math.log10(n3 / Math.max(n12, 1e-300)) };
   }
+  // am : indice d'amplitude effectif de chaque anche (|B+| + |B−|)/|A|, médiane sur les partiels (descriptif : le critère C2 juge sur r et le LLR)
+  let mAM = [pb[4], pb[7]];
+  const mk = STR ? Array.from({ length: Math.min(mod.Q, KAM) }, (_, k) => pb[iAM + 2 * k]) : null;
+  if (STR) mAM = [Math.max(0, ...mk), 0];
+  if (AMK === 'libre') {
+    const base = best.libre ? 3 : 2;
+    mAM = [0, 1].map((r) => { const v = []; for (let qi = 0; qi < mod.Q; qi++) { const A = mod.amp[qi]; v.push((Math.hypot(A[2 * (base + 2 * r)], A[2 * (base + 2 * r) + 1]) + Math.hypot(A[2 * (base + 2 * r + 1)], A[2 * (base + 2 * r + 1) + 1])) / Math.max(1e-300, Math.hypot(A[2 * r], A[2 * r + 1]))); } v.sort((a, b) => a - b); return v[v.length >> 1]; });
+  }
   // dérive (pente) et agitation (écart type autour de la pente) du warp, en ¢/s et ¢
   const dw = Array.from({ length: J }, (_, j) => pb[NP0 + j]);
   const moy = dw.reduce((a, b) => a + b, 0) / J, tj = dw.map((_, j) => (j / (J - 1) - 0.5) * T);
   const sxx = tj.reduce((a, b) => a + b * b, 0), pente = tj.reduce((a, b, j) => a + b * (dw[j] - moy), 0) / sxx;
   const agit = Math.sqrt(dw.reduce((a, v, j) => a + (v - moy - pente * tj[j]) ** 2, 0) / J) * C_CENTS;
   return {
-    ok: true, f: [f1, f2], margeEtiquette, niveauDb: (() => { const A = mod.amp[0]; const a = Math.hypot(A[0], A[1]), b = Math.hypot(A[2], A[3]); return -Math.abs(20 * Math.log10(Math.max(a, 1e-300) / Math.max(b, 1e-300))); })(), sigmaC: sigC, Om: pb[1], b: [pb[2], pb[3]], m: pb[4], m2: pb[7], psi: pb[5], th: pb[6], libre: libreInfo,
-    derive: pente * C_CENTS, agit, warpC: dw.map((v) => (v - moy) * C_CENTS), r: best.ssrData / Math.max(1e-300, energie), ssr: best.ssrData, dof, s2, K, Ku, T, J, snr, plancherDb: plancher, nPics: pk.length,
+    ok: true, f: [f1, f2], margeEtiquette, niveauDb: (() => { const A = mod.amp[0]; const a = Math.hypot(A[0], A[1]), b = Math.hypot(A[2], A[3]); return -Math.abs(20 * Math.log10(Math.max(a, 1e-300) / Math.max(b, 1e-300))); })(), sigmaC: sigC, Om: pb[1], b: [pb[2], pb[3]], m: mAM[0], m2: mAM[1], psi: pb[5], th: pb[6], libre: libreInfo, modele: AMK || 'v66', mk, rho: STR ? pb[4] : null,
+    derive: pente * C_CENTS, agit, warpC: dw.map((v) => (v - moy) * C_CENTS), niveauWarpDb: Array.from({ length: J }, (_, j) => pb[NP0 + J + j]), r: best.ssrData / Math.max(1e-300, energie), ssr: best.ssrData, dof, s2, K: AM ? mod.Q : K, Ku, T, J, snr, plancherDb: plancher, nPics: pk.length,
     llr: rival ? (rival.ssrData - best.ssrData) / s2 : Infinity, llrAffectation,
     rival: rival ? { f: [rival.p[0], rival.p[0] + rival.p[1]], ssr: rival.ssr } : null,
     debug: opts.debug ? { pics: pk, departs: dep, sols: sols.map((s) => [s.p[0], s.p[1], s.ssr, s.libre]) } : undefined,
-    sol: pb, mod, ms: typeof performance !== 'undefined' ? performance.now() - t0 : 0,
+    sol: STR ? Float64Array.from([...pb.slice(0, NP0), ...pb.slice(iAM, iAM + 2 * KAM)]) : pb, mod, ms: typeof performance !== 'undefined' ? performance.now() - t0 : 0,
   };
 }
 

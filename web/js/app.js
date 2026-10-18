@@ -24,7 +24,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '66';
+const APP_VERSION = '67';
 // Le pied de page lit la version ici : jamais de numéro écrit en dur dans index.html.
 { const pied = document.getElementById('appVersion'); if (pied) pied.textContent = `version ${APP_VERSION}`; }
 function versionMismatch(what, got) {
