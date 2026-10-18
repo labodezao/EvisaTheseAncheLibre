@@ -36,13 +36,13 @@ export const CERT = {
   FEN_MIN_S: 0.6,
   REESSAI_S: 0.4,            // nouvelle tentative quand 0,5 s de son de plus est arrivé
   ESSAIS_MAX: 40,
-  JOBS_MAX: 2,               // ajustements menés de front (v64 : 2)
+  JOBS_MAX: 2,               // ajustements menés de front (v64 : 2). v68 : 1 testé en machine rapide (plan 2^3 H4, CERTIFICAT.md § 0B) et REFUSÉ : en changeant l'ordre des fenêtres essayées, il a fait poser un « sûr » à -21,5 ¢ (mauvaise étiquette, AM de 0,5 : hypercube4 plan 91 graine 32, SYNTH=h6) que le réglage de la v67 évite par hasard ; réservé aux machines lentes (LENT_JOBS_MAX)
   DECALAGE_MIN_S: 0.5,       // C9 : écart minimal des milieux des deux fenêtres confirmées
   RAFRAICHIR_S: 0.8,         // un certificat est rafraîchi par un nouvel ajustement (point de départ chaud) quand il a cet âge (v64)
   CERT_AGE_MAX_S: 4,         // un certificat qui n'a pas été rafraîchi depuis ce temps tombe
   CERT_AGE_MAX3_S: 2,        // idem pour trois anches (le traqueur n'y sert pas de témoin d'un changement de note)
   PROMOTION: true,          // v64 : la seconde lecture devient la valeur affichée quand elle est certifiée (le « sûr » ne dépend plus de l'état du traqueur)
-  NDEPARTS: 5,               // ajustement : nombre de points de départ
+  NDEPARTS: 5,               // ajustement : nombre de points de départ (v68 : 2 testé en machine rapide et refusé, comme JOBS_MAX 1 ; réservé aux machines lentes : LENT_NDEPARTS)
   NLIBRE: 2,                 // ajustement : nombre d'hypothèses d'étiquette qui reçoivent une raie étrangère libre (la vraie paire doit pouvoir s'en servir comme la fausse : avec 1, la fausse seule la recevait et gagnait)
   FEN_F0_S: 350,             // v64 : la fenêtre dure au moins FEN_F0_S / f (s) : en ¢, l'erreur d'une fréquence est en 1/f (banc trio : 0,05 ¢ à 1 s au-dessus de 500 Hz, 0,2 ¢ à 2,5 s vers 80 Hz)
   NB_MIN: 1,                 // v64 : la fenêtre couvre au moins ce nombre de battements (en plus de K·Ω·T ≥ KOT_MIN)
@@ -54,6 +54,10 @@ export const CERT = {
   KOT_MOITIE: 1.0,           // C9 par moitiés : K·Ω·T/2 minimal pour que chaque moitié soit lue
   KMAX: 4,                   // ajustement : nombre de partiels
   ITER: 15,                  // ajustement : itérations de l'étape finale
+  MS_LENT: 500,              // v68 (H4) : si un ajustement À FROID dure en moyenne plus que cela (ms, mesuré dans le Worker : PC de l'audit 340 ms, portable 2 fois plus lent 680 ms, téléphone 4 fois plus lent 1 400 ms), le calcul passe en mode léger (LENT_NDEPARTS, LENT_ITER, LENT_JOBS_MAX) : H6 réel ×4 1 -> 10 notes posées sur 27, ×2 7 -> 11, sans rien changer à une machine rapide (16/27)
+  LENT_ITER: 8,              // v68 (H4) : itérations de l'étape finale d'une machine lente (MS_LENT)
+  LENT_NDEPARTS: 2,
+  LENT_JOBS_MAX: 1,          // v68 (H4) : ajustements de front sur une machine lente (MS_LENT) ; le cœur du Worker revient aux sentinelles et le premier ajustement finit deux fois plus tôt
   COUT_PAR_IMAGE: 200,      // bancs (v64) : travail par image en milliers de partiels-échantillons évalués (déterministe) ; null : PAS_PAR_IMAGE
   PAS_PAR_IMAGE: 20,         // itérations de Levenberg-Marquardt par image (bancs et tests : calcul déterministe)
   MS_PAR_IMAGE: null,        // si donné (repli de l'application sans Worker dédié : 40 ms, réglé par adapterBudget ; les bancs : COUT_PAR_IMAGE), c'est le temps qui borne le travail de chaque image, pas le nombre de pas
@@ -86,8 +90,18 @@ export const CERT = {
   CONTREDIT_DERIVE_MAX_C: 1,
   SENTINELLE: true,          // v66 (F1) : tant qu'un certificat tient, une lecture chaude courte (SENT_FEN_S) toutes les SENT_PERIODE_S vérifie que l'anche n'a pas bougé (un saut de hauteur tombe en ~0,5 s au lieu de 1,5 s)
   SENT_FEN_S: 0.6,
-  SENT_PERIODE_S: 0.15,
-  SENT_SIGMA: 3,             // tolérance de la sentinelle : max(CONTREDIT_C, SENT_SIGMA σ) (fenêtre courte : plus de fausses alarmes à 3 σ)
+  SENT_PERIODE_S: 0.1,       // v68 (PB12 H2b, CERTIFICAT.md § 0B) : 0,10 s (0,15 en v67)
+  SENT_PRIO: true,           // v68 (H2) : le calcul en ligne (bancs, repli sans Worker) fait passer la sentinelle AVANT les ajustements principaux, comme le fait `FileCalcul` dans le Worker : sinon elle attendait son tour (0,34 à 0,5 s au lieu de 0,1 s) et le retard après un saut montait à 0,6 s (audit n° 4)
+  SENT_ADAPT: 0,             // v68 (H2) : la période de la sentinelle est au moins SENT_ADAPT fois la durée mesurée de la dernière (0 : période fixe SENT_PERIODE_S)
+  DEPUIS_SENT: false,        // v68 (essai) : après une invalidation par la sentinelle, la fenêtre d'une nouvelle pose ne remonte pas avant la fenêtre qui a contredit le certificat (un saut de hauteur dans la fenêtre lue donne un « sûr » périmé : D3 plan 27 et plan 12, 0,6 s après le saut)
+  CONFIRME_SENT: false,      // v68 REFUSÉ (plan PB12 de l'audit n° 4, CERTIFICAT.md § 0B) : une PREMIÈRE pose n'était montrée « sûre » qu'après une sentinelle lancée APRÈS elle et d'accord avec elle. Elle devait fermer le cas d'une fenêtre qui chevauche un saut de hauteur (D3 h6, plan 1 rep 31 et plan 9 rep 30 : 1 à 2 images « sûr » à 1,7 ¢ ou 0,8 ¢, 0,6 à 1,1 s après le saut), mais coûte -7,4 notes posées sur 27 au H6 réel (-4,6 à -5,1 sur les sauts, -2,3 en validation) et la sentinelle chaude, partie de la solution du certificat, ne la contredit pas (écart de 0,18 ¢ pour un saut de 4,2 ¢ : le warp à 7 nœuds absorbe le saut dans la modulation du battement)
+  CONF_FEN_BAT: 1.0,         // v68 : fenêtre de la sentinelle de confirmation : au moins ce nombre de périodes de battement (à Ω 0,7 Hz, 0,6 s ne contient pas un battement : σ de 1 ¢, la sentinelle ne contredit rien ; 1,4 s en contient un)
+  CONF_SENT_SIGMA_MAX: 0.5,  // v68 : la sentinelle ne confirme une première pose que si elle sait la contredire : 3 σ de sa lecture au plus ce nombre de ¢ (à Ω 0,7 Hz, 0,6 s ne contient qu'un battement : σ de 0,9 à 1,2 ¢, elle confirmerait n'importe quoi) ; sinon c'est un ajustement principal d'accord, au moins DECALAGE_MIN_S plus tard, qui confirme
+  SENT_FEN_BAT: 0.7,           // v68 (essai) : la fenêtre de la sentinelle contient au moins ce nombre de battements (0 : éteint) : à Ω 0,64 Hz, 0,6 s ne contient pas un battement, σ de 0,5 à 1 ¢, la sentinelle ne voit un saut de 2,5 ¢ qu'après 0,5 à 0,8 s
+  SENT_FEN_BAT_MAX: 1.5,
+  SENT_ITER: 6,           // v68 : itérations de la sentinelle (null : ITER) ; son coût fait son retard dans le Worker (un téléphone ×4 : 0,5 s)
+  SENT_KMAX: null,           // v68 : partiels de la sentinelle (null : KMAX) ; la sentinelle ne pose rien, elle ne peut qu'invalider
+  SENT_SIGMA: 3,             // tolérance de la sentinelle : max(CONTREDIT_C, SENT_SIGMA σ) (fenêtre courte : plus de fausses alarmes à 3 σ). v68 : 2 testé (PB12 H2b) et refusé : la part du temps où le chiffre est certifié passe de 7 % à 3-5 % (fausses alarmes)
   SAUT_C: 0.5,               // v64 : un nouvel ajustement qui s'écarte de plus que cela du certificat en cours l'invalide ; il faut deux fenêtres décalées d'accord pour en poser un autre
   REFUS_RAISONS: ['niveau'], // les refus qui comptent pour REFUS_RECENTS
   REFUS_RECENTS: 3,          // v64 : une lecture n'est posée que si moins de REFUS_RECENTS des 4 ajustements précédents ont été refusés pour le niveau (une anche à plus de 22 dB : le modèle prend alors une raie latérale pour l'anche faible ; 0 = éteint). Banc : plan A, 1 lecture fausse hors domaine (25 dB, Ω 0,3 Hz, β 0,4) devenue 0 ; plans de validation inchangés (116/280 et 223/384 posées) ; avec le peigne et l'étiquette en plus : 9 points de notes posées perdus
@@ -115,6 +129,18 @@ export const CERT = {
   PRESSION_REPLI_C_DB: 0.2,   // v67 (G5) : pente hauteur / niveau de repli (¢ par dB) quand celle de la note n'est pas significative (loi : la fréquence baisse quand la pression monte, -0,15 à -0,25 ¢/dB, AUDIT-REPETABILITE.md ; sur le H6 la pente de la note est de signe variable)
   PRESSION_T_MIN: 2.5,        // v67 (G5) : |t| de la pente propre de la note au-dessus duquel elle remplace la pente de repli
   PRESSION_MIN_C: 0.1,        // v67 (G5) : en dessous, l'incertitude de pression n'est pas affichée (sobriété)
+  ETIQ_COH_C: 3,             // v68 (mécanisme trouvé par les passes finales, CERTIFICAT.md § 0B) : une lecture n'est certifiable que si aucun ajustement plausible de la note (r <= 0,05, LLR >= 25) des ETIQ_COH_S dernières secondes ne s'en écarte de plus de ce nombre de ¢ (0 : éteint). Une note dont la fenêtre donne tantôt la bonne étiquette (erreur 0), tantôt l'anche faible lue une bande latérale plus bas (-21,5 ¢, hypercube4 plan 91 graine 32) est ambiguë : refus `etiquette`
+  ETIQ_COH_S: 4,
+  RIVAL_MOITIE: true,        // v68 (H9) : un battement ajusté dont la moitié est sous OMEGA_MIN est confronté à son rival Ω/2 (même modèle) ; pas pire de LLR_MIN σ² : refusé `accordees` (Δ = 0,3 Hz lu à 0,6 Hz sur Linux / Node 22, test F10)
+  ENV_ACCORD: 0.25,          // v68 (H9) : un Ω d'ajustement n'entre dans le battement affiché que s'il est d'accord à cette part près avec le battement de l'enveloppe, quand celle-ci en a un (c'est la définition du luthier)
+  PRESENT: false,            // v68 (H2d) : la fréquence promue est ramenée de la fin de la fenêtre lue (le milieu + T/2) quand la dérive est significative (|t| >= PRESSION_T_MIN) et <= DERIVE_MAX ; éteint : la vérité des bancs est la moyenne de la fenêtre (voir CERTIFICAT.md § 0B)
+  NB_MIN_POST: 1,            // v68 (H1) : APRÈS l'ajustement, la fenêtre contient au moins ce nombre de battements MESURÉS (T · Ω̂) ; la fenêtre est planifiée sur l'Ω du traqueur, qui peut le surestimer (B plan 33 : 0,7 battement mesuré, posé faux de 0,6 ¢). 0 : éteint
+  DERIVE_FIT: false,         // v68 (H1) REFUSÉ tel quel : C6 jugeait sur la plus grande des deux dérives, celle des deux moitiés et celle de l'ajustement (B plan 33 : 1,35 ¢/s ajustés, ignorés quand les moitiés en donnaient moins). Plan PB12 (CERTIFICAT.md § 0B) : -5,7 notes posées sur 27 au H6 (la dérive de l'ajustement suit la modulation au rythme du battement : médiane 0,3 ¢/s, p90 1,0 sur les ajustements qui passent)
+  DERIVE_FIT_SEUIL: 1.2,     // v68 (H1) : variante retenue : la dérive de l'ajustement ne compte que si elle dépasse ce seuil (¢/s ; 0 : éteint ; p95 des ajustements du H6 qui passent : 1,08 ; B plan 33 : 1,35)
+  KU_SUR_MIN_GRAVE: 3,       // v68 (H3, RETENU) : sous F0_GRAVE_HZ, une lecture sûre exige au moins ce nombre de partiels décrits par le modèle (lent100 plan 82 : raie étrangère non résolue à 103 Hz avec 2 partiels, faux de 0,53 ¢). Plan 2^3 (CERTIFICAT.md § 0B) : H6 réel 16/27 inchangé, lent100 14 -> 11 posées et 1 -> 0 faux ; GLOBAL (tous les registres), 3 coûte 38 notes sur 364 (plan 2^(5-2) de l'audit n° 4)
+  F0_GRAVE_HZ: 150,
+  KU_LIBRE_GRAVE: 0,         // v68 (H3, variante ciblée, mesurée équivalente et non retenue) : sous F0_GRAVE_HZ, une raie étrangère adoptée par le modèle exige au moins ce nombre de partiels décrits (H6 réel 16/27, lent100 14 -> 11 posées et 1 -> 0 faux, comme KU_SUR_MIN_GRAVE)
+  KU_LIBRE_MIN: 0,           // v68 (H3, variante) : une raie étrangère adoptée par le modèle exige au moins ce nombre de partiels décrits (0 : éteint) ; la raie étrangère non résolue de lent100 plan 82 était adoptée avec 2 partiels
   OMEGA_MAX: 60,             // Hz : au-delà, hors domaine (anches « presque deux notes » ; 25 en v63 ; 50 ¢ à A6 font 51 Hz)
 };
 
@@ -182,7 +208,17 @@ export function juger(nls, moteur, { calib = 1, zeros = false, opts = CERT, deri
   // La raie étrangère ne compte que si elle est du même ordre que l'anche la plus faible (LIBRE_VS_FAIBLE_DB) ; sinon les deux anches sont les deux raies les plus fortes, sans équivoque.
   const affect = nls.libre && faible != null && nls.libre.dB > faible - opts.LIBRE_VS_FAIBLE_DB && (!(nls.llrAffectation >= opts.LLR_AFFECT_MIN) || couplage < opts.COUPLAGE_MIN);
   if (!(nls.llr >= opts.LLR_MIN) || affect || !(trio || nls.modele === 'libre' || (nls.margeEtiquette ?? 0) >= -(nls.modele === 'struct' ? opts.MARGE_ETIQ_ST_DB : opts.MARGE_ETIQ_DB))) raisons.push('etiquette');      // am : les bandes latérales sont libres, la « marge » contre la raie latérale n'a plus de sens ; restent le LLR des deux étiquettes et l'échange de rôle
-  const d = derive ?? nls.derive;
+  // v68 (H1) : après l'ajustement, la fenêtre doit contenir NB_MIN_POST battements mesurés (la fenêtre est planifiée sur l'Ω du traqueur) ; une garde à coût nul (plan 2^(5-2) de l'audit n° 4)
+  if (!trio && (opts.NB_MIN_POST ?? 0) > 0 && nls.T * omMin < opts.NB_MIN_POST && !raisons.includes('lent') && !raisons.includes('accordees') && !raisons.includes('ecartees')) raisons.push('lent');
+  // v68 (H9) : le rival Ω/2 d'un battement lent (ajusté dans nls-bessel.js) : pas pire de LLR_MIN σ² -> le battement est peut-être le double du vrai
+  if (!trio && Number.isFinite(nls.llrOmega2) && nls.llrOmega2 < opts.LLR_MIN && !raisons.includes('accordees')) raisons.push('accordees');
+  // v68 (H3) : au grave, trois partiels décrits au moins (KU_SUR_MIN_GRAVE) ; variantes mesurées et non retenues : KU_LIBRE_GRAVE (raie étrangère adoptée au grave), KU_LIBRE_MIN (à toute hauteur)
+  if (!trio && opts.KU_LIBRE_MIN > 0 && nls.libre && (nls.K ?? 4) < opts.KU_LIBRE_MIN) raisons.push('resolution');
+  if (!trio && opts.KU_LIBRE_GRAVE > 0 && nls.libre && f[0] < opts.F0_GRAVE_HZ && (nls.K ?? 4) < opts.KU_LIBRE_GRAVE) raisons.push('resolution');
+  if (!trio && opts.KU_SUR_MIN_GRAVE > 0 && f[0] < opts.F0_GRAVE_HZ && (nls.K ?? 4) < opts.KU_SUR_MIN_GRAVE) raisons.push('resolution');
+  const dBrute = derive ?? nls.derive;
+  const dFit = Math.abs(nls.derive ?? 0);
+  const d = derive != null && (opts.DERIVE_FIT || (opts.DERIVE_FIT_SEUIL > 0 && dFit > opts.DERIVE_FIT_SEUIL)) ? Math.max(Math.abs(derive), dFit) : dBrute;
   if (!sauterStabilite && (!(Math.abs(d) <= opts.DERIVE_MAX || Math.abs(d) * nls.T <= (opts.EXC_MAX ?? 0)) || !(nls.agit <= opts.AGIT_MAX))) raisons.push('stabilite');
   if (!(detail.accord <= (moteur.sur ? Math.min(opts.ACCORD_C, opts.ACCORD_SUR_C) : opts.ACCORD_C))) raisons.push('accord');
   return { ok: raisons.length === 0, raisons, detail };
@@ -288,9 +324,9 @@ export const methodesCertificat = {
   },
 
   // Appelée par fuserBattement après etatPaire pour le groupe à deux anches.
-  certifierPaire(g, tNow) {
+  certifierPaire(g, tNow, envHz = null) {
     const c = this.cohEtat?.get(`${g.key}:${g.center}`);
-    this.certifierGroupe(g, tNow, 2, c?.t0 ?? null);
+    this.certifierGroupe(g, tNow, 2, c?.t0 ?? null, envHz);
   },
   // Super musette : le groupe à trois voix. L'âge de la note est compté ici (le traqueur de paire n'en suit pas).
   certifierTrio(g, tNow) {
@@ -310,7 +346,7 @@ export const methodesCertificat = {
 
   // Pose `refus` / `cert` sur les voix et, si la lecture n'est pas certifiée, ramène `etatAnche` à « en cours » avec une marge. v64 (`PROMOTION`) :
   // une seconde lecture certifiée devient la valeur affichée et le « sûr » (le traqueur peut être encore « en cours » ou « au centre »).
-  certifierGroupe(g, tNow, n, t0Note) {
+  certifierGroupe(g, tNow, n, t0Note, envHz = null) {
     const opts = { ...CERT, ...(this.cfg.certificat ?? {}) };
     if (this.cfg.certificat?.actif === false) return;
     const cle = `${g.key}:${g.center}`;
@@ -334,6 +370,7 @@ export const methodesCertificat = {
       this.certEtat.set(cle, st);
     }
     st.vu = tNow;
+    st.envHz = envHz;
     const calib = 1 + (this.cfg.calibrationPpm || 0) * 1e-6;
     const age = tNow - st.t0;
     const pasI = opts.PAS_PAR_IMAGE ?? CERT.PAS_PAR_IMAGE;
@@ -350,6 +387,7 @@ export const methodesCertificat = {
         if (i < 0) continue;                                       // la note a changé entre-temps : résultat périmé
         const job = st.jobs.splice(i, 1)[0];
         job.msCalcul = res.ms;
+        if (!job.sentinelle && job.froid && Number.isFinite(res.ms)) this.msFroid = this.msFroid == null ? res.ms : 0.6 * this.msFroid + 0.4 * res.ms;       // v68 (H4) : la vitesse de la machine, mesurée sur les ajustements à froid
         if (res.erreur) { st.derniere = { ok: false, raisons: ['domaine'], t: tNow, erreur: String(res.erreur) }; st.cands = []; continue; }
         if (job.sentinelle) this.finirSentinelle(st, job, res.nls, tNow, calib, opts); else this.finirAjustement(st, job, res.nls, tNow, calib, opts, n);
       }
@@ -358,7 +396,7 @@ export const methodesCertificat = {
       const tDebut = opts.MS_PAR_IMAGE ? performance.now() : 0;
       let cout = 0;
       for (let i = 0; st.jobs.length && (opts.MS_PAR_IMAGE ? i === 0 || performance.now() - tDebut < opts.MS_PAR_IMAGE : opts.COUT_PAR_IMAGE ? cout < opts.COUT_PAR_IMAGE : i < pasI); i++) {
-        const job = st.jobs[i % st.jobs.length];
+        const job = (opts.SENT_PRIO && st.jobs.find((j) => j.sentinelle)) || st.jobs[i % st.jobs.length];
         let r;
         try { r = job.gen.next(); } catch (e) { st.jobs.splice(st.jobs.indexOf(job), 1); st.derniere = { ok: false, raisons: ['domaine'], t: tNow, erreur: String(e?.message ?? e) }; st.cands = []; continue; }
         cout += typeof r.value === 'number' && !r.done ? r.value : 0.5;
@@ -373,7 +411,10 @@ export const methodesCertificat = {
     const certTient = st.cert?.ok && this.certAccord(st.cert, vs, tNow, opts);
     const aRafraichir = certTient && tNow - st.cert.t >= opts.RAFRAICHIR_S;
     const tPeut = tNow - st.tFenFin >= opts.REESSAI_S;
-    if (st.jobs.filter((j) => !j.sentinelle).length < opts.JOBS_MAX && (!certTient || aRafraichir) && age >= opts.AGE_MIN_S && tPeut && st.essais < opts.ESSAIS_MAX) {
+    // v68 (H4) : machine lente (durée moyenne d'un ajustement à froid mesurée dans le Worker) : ajustements plus légers et un seul de front ; hystérésis (le mode léger raccourcit lui-même les ajustements : sans elle la machine passerait de l'un à l'autre)
+    if (this.msFroid != null) this.lente = this.msFroid > opts.MS_LENT || (this.lente && this.msFroid > 0.7 * opts.MS_LENT);
+    const lente = !!this.lente;
+    if (st.jobs.filter((j) => !j.sentinelle).length < (lente ? opts.LENT_JOBS_MAX : opts.JOBS_MAX) && (!certTient || aRafraichir) && age >= opts.AGE_MIN_S && tPeut && st.essais < opts.ESSAIS_MAX) {
       const iFin = this.samplesTotal;
       // la fenêtre attend d'avoir de quoi séparer les raies (K·Ω·T ≥ KOT_MIN, au moins NB_MIN battements) et de quoi lire assez juste pour la hauteur de la note
       // (FEN_F0_S / f : en ¢, l'erreur d'une fréquence est en 1/f) ; elle vise FEN_MAX_S mais jamais moins que ce besoin, jamais plus que FEN_ABS_MAX_S
@@ -387,7 +428,7 @@ export const methodesCertificat = {
       let besoin = omOk ? Math.max(opts.FEN_MIN_S, (opts.NB_MIN ?? 0) / om, (opts.FEN_F0_S ?? 0) / fm[n >> 1], 1.1 * opts.KOT_MIN / (K * om)) : opts.FEN_MIN_S;
       if (entier) besoin = Math.max(besoin, opts.ENTIER_NB / om);
       const plafond = Math.min(entier ? opts.FEN_ENTIER_MAX_S : opts.FEN_ABS_MAX_S, this.anneau.length / this.sr - 0.1);
-      let fen0 = Math.min(Math.min(plafond, Math.max(Math.min(st.fenCap ?? opts.FEN_MAX_S, opts.FEN_MAX_S), besoin)), age - opts.DEBUT_S);
+      let fen0 = Math.min(Math.min(plafond, Math.max(Math.min(st.fenCap ?? opts.FEN_MAX_S, opts.FEN_MAX_S), besoin)), age - opts.DEBUT_S, opts.DEPUIS_SENT && st.depuis != null ? tNow - st.depuis : 99);
       if (entier) fen0 = Math.floor(fen0 * om + 1e-6) / om;
       if (fen0 >= besoin - 1e-6) {
         let x = this.extraireAnneau(iFin - Math.round(fen0 * this.sr), iFin);
@@ -405,22 +446,25 @@ export const methodesCertificat = {
             // à chaud seulement si la fenêtre n'a pas trop bougé depuis l'ajustement d'où l'on part (au-delà, les paramètres faibles — indices de modulation, phases — ne sont plus un bon départ)
             if (chaud && Math.abs((tNow - fen / 2) - chaud.tMilieu) > opts.CHAUD_DT_MAX_S) chaud = null;
             const prior = chaud ? chaud.f.map((f) => f / calib) : fMoteur().map((f) => f / calib);
-            this.lancerTravail(st, cle, tNow, { n, x, sr: this.sr, fc: g.center, optsFit: { prior, priorFirst: !!chaud || (opts.PRIOR_FIRST && n === 2 && vs.every(ok)), chaud: !!chaud, pInit: chaud?.sol ?? null, dt: chaud ? (tNow - fen / 2) - chaud.tMilieu : 0, libreInit: chaud?.sol && chaud.libre ? chaud.sol[n === 3 ? 13 : 8] : null, Kmax: opts.KMAX, iter: opts.ITER, nLibre: opts.NLIBRE, nDeparts: chaud ? 1 : opts.NDEPARTS, modele: opts.MODELE, rkMax: opts.RK_MAX_AM }, opts, calib, moteur: { f: fMoteur(), sur: moteurSur } },
-              { fMoteur: fMoteur(), moteurSur, tMilieu: tNow - fen / 2, tFin: tNow, T: fen, zeros });
+            this.lancerTravail(st, cle, tNow, { n, x, sr: this.sr, fc: g.center, optsFit: { prior, priorFirst: !!chaud || (opts.PRIOR_FIRST && n === 2 && vs.every(ok)), chaud: !!chaud, pInit: chaud?.sol ?? null, dt: chaud ? (tNow - fen / 2) - chaud.tMilieu : 0, libreInit: chaud?.sol && chaud.libre ? chaud.sol[n === 3 ? 13 : 8] : null, Kmax: opts.KMAX, iter: lente ? opts.LENT_ITER : opts.ITER, nLibre: opts.NLIBRE, nDeparts: chaud ? 1 : (lente ? opts.LENT_NDEPARTS : opts.NDEPARTS), modele: opts.MODELE, rkMax: opts.RK_MAX_AM, omegaMin: opts.RIVAL_MOITIE && n === 2 ? opts.OMEGA_MIN : 0 }, opts, calib, moteur: { f: fMoteur(), sur: moteurSur } },
+              { fMoteur: fMoteur(), moteurSur, tMilieu: tNow - fen / 2, tFin: tNow, T: fen, zeros, froid: !chaud });
           } else if (zeros) { st.derniere = { ok: false, raisons: ['trous'], t: tNow }; st.cands = []; }
         }
       }
     }
 
     // 2 bis. sentinelle (F1)
-    if (opts.SENTINELLE && certTient && !st.jobs.some((j) => j.sentinelle) && tNow - (st.tSent ?? -1e9) >= opts.SENT_PERIODE_S && st.cert.sol) {
-      const fenS = Math.min(opts.SENT_FEN_S, age - opts.DEBUT_S);
+    const attente = !!st.cert?.ok && !!st.cert.enAttente && !st.cert.sentFlou && this.certAccord({ ...st.cert, enAttente: false }, vs, tNow, opts);
+    if (opts.SENTINELLE && (certTient || attente) && !st.jobs.some((j) => j.sentinelle) && (attente || tNow - (st.tSent ?? -1e9) >= Math.max(opts.SENT_PERIODE_S, (opts.SENT_ADAPT ?? 0) * (st.sentDur ?? 0))) && st.cert.sol) {
+      const omS = st.cert?.nls?.Om;
+      const fenBat = opts.SENT_FEN_BAT > 0 && Number.isFinite(omS) && omS > 0 ? Math.min(opts.SENT_FEN_BAT_MAX, opts.SENT_FEN_BAT / omS) : 0;      // v68 : battement lent, la sentinelle voit au moins SENT_FEN_BAT battement(s)
+      const fenS = Math.min(Math.max(attente && Number.isFinite(omS) && omS > 0 ? Math.max(opts.SENT_FEN_S, opts.CONF_FEN_BAT / omS) : opts.SENT_FEN_S, fenBat), age - opts.DEBUT_S, attente ? Math.max(opts.SENT_FEN_S, st.cert.nls?.T ?? 9) : 99);
       if (fenS >= 0.45) {
         const xs = this.extraireAnneau(this.samplesTotal - Math.round(fenS * this.sr), this.samplesTotal);
         if (xs && plagesDeZeros(xs, 0, xs.length, this.sr) < 0) {
           st.tSent = tNow;
           const ch = st.cert;
-          this.lancerTravail(st, cle, tNow, { n, sentinelle: true, x: xs, sr: this.sr, fc: g.center, optsFit: { prior: ch.f.map((f) => f / calib), priorFirst: true, chaud: true, pInit: ch.sol, dt: (tNow - fenS / 2) - ch.tMilieu, libreInit: ch.sol && ch.libre ? ch.sol[n === 3 ? 13 : 8] : null, Kmax: opts.KMAX, iter: opts.ITER, nLibre: 0, nDeparts: 1, modele: opts.MODELE, rkMax: opts.RK_MAX_AM } },
+          this.lancerTravail(st, cle, tNow, { n, sentinelle: true, x: xs, sr: this.sr, fc: g.center, optsFit: { prior: ch.f.map((f) => f / calib), priorFirst: true, chaud: true, pInit: ch.sol, dt: (tNow - fenS / 2) - ch.tMilieu, libreInit: ch.sol && ch.libre ? ch.sol[n === 3 ? 13 : 8] : null, Kmax: opts.SENT_KMAX ?? opts.KMAX, iter: opts.SENT_ITER ?? opts.ITER, nLibre: 0, nDeparts: 1, modele: opts.MODELE, rkMax: opts.RK_MAX_AM } },
             { sentinelle: true, tMilieu: tNow - fenS / 2, tFin: tNow, T: fenS });
         }
       }
@@ -430,7 +474,7 @@ export const methodesCertificat = {
     const certOk = st.cert?.ok && this.certAccord(st.cert, vs, tNow, opts);
     const raisons = certOk ? [] : st.derniere && !st.derniere.ok ? st.derniere.raisons : ['verification'];
     const dernier = st.cert ?? st.derniere;
-    for (const v of vs) { v.cert = dernier ? { ok: !!certOk, llr: dernier.nls?.llr ?? null, r: dernier.nls?.r ?? null, derive: dernier.nls?.derive ?? null, raisons: certOk ? [] : (st.derniere?.raisons ?? null), essais: st.essais, beta: dernier.detail?.beta ?? null, m: dernier.detail?.m ?? null, plancher: dernier.detail?.plancher ?? null, kot: dernier.detail?.kot ?? null, libre: dernier.nls?.libre ?? null, sigmaC: dernier.nls?.sigmaC ?? null } : null; }
+    for (const v of vs) { v.cert = dernier ? { ok: !!certOk, llr: dernier.nls?.llr ?? null, r: dernier.nls?.r ?? null, derive: dernier.nls?.derive ?? null, raisons: certOk ? [] : (st.derniere?.raisons ?? null), essais: st.essais, beta: dernier.detail?.beta ?? null, m: dernier.detail?.m ?? null, plancher: dernier.detail?.plancher ?? null, kot: dernier.detail?.kot ?? null, libre: dernier.nls?.libre ?? null, sigmaC: dernier.nls?.sigmaC ?? null, fenMilieu: dernier.tMilieu ?? null, fenT: dernier.nls?.T ?? null } : null; }
     // Battement affiché (deux anches) : une valeur qui converge, qui ne change que si l'écart dépasse son incertitude, arrondie à la précision réelle
     if (n === 2 && st.omegas?.length >= 2) {
       const e = estimerBattement(st.omegas);
@@ -455,7 +499,9 @@ export const methodesCertificat = {
           const moy = vs.reduce((a, v, j) => a + (suivies[j] ? 1200 * Math.log2(v.fMeas / fit[j]) : 0), 0) / suivies.filter(Boolean).length;
           st.corr = st.corr == null ? moy : 0.5 * st.corr + 0.5 * moy;
         }
-        const corr = Math.max(-0.5, Math.min(0.5, st.corr ?? 0));
+        let corr = Math.max(-0.5, Math.min(0.5, st.corr ?? 0));
+        const dT = st.cert.nls?.deriveT, dd = st.cert.derive ?? st.cert.nls?.derive;
+        if (opts.PRESENT && n === 2 && Number.isFinite(dT) && Math.abs(dT) >= opts.PRESSION_T_MIN && Math.abs(dd) <= opts.DERIVE_MAX) corr += dd * (st.cert.nls.T / 2);
         this.promouvoir(vs, st.cert, tNow, corr);
       }
       return;
@@ -494,7 +540,7 @@ export const methodesCertificat = {
     const v = juger(nls, { f: job.fMoteur, sur: job.moteurSur }, { calib, zeros: false, opts, derive: deriveM });
     const f = nls.ok ? nls.f.map((x) => x * calib) : null;
     // battement de la note : les ajustements dont seule la confirmation ou l'accord manque donnent un Ω aussi bon que les autres
-    if (n === 2 && nls.ok && v.raisons.every((q) => ['verification', 'accord', 'stabilite', 'lent'].includes(q)) && nls.r <= opts.R_MAX) { (st.omegas ??= []).push({ t: job.tMilieu, T: job.T, om: nls.Om * calib }); if (st.omegas.length > 150) st.omegas.shift(); }
+    if (n === 2 && nls.ok && v.raisons.every((q) => ['verification', 'accord', 'stabilite', 'lent'].includes(q)) && nls.r <= opts.R_MAX && (st.envHz == null || Math.abs(nls.Om * calib - st.envHz) <= opts.ENV_ACCORD * st.envHz)) { (st.omegas ??= []).push({ t: job.tMilieu, T: job.T, om: nls.Om * calib }); if (st.omegas.length > 150) st.omegas.shift(); }
     st.essais++;
     st.tDernierFit = tNow;
     const refusModele = (r) => !r.ok && r.raisons?.some((q) => opts.REFUS_RAISONS.includes(q));
@@ -525,6 +571,12 @@ export const methodesCertificat = {
       const tolC = Math.max(opts.CONTREDIT_C, opts.CONTREDIT_SIGMA * sig) + Math.min(opts.CONTREDIT_DERIVE_MAX_C, Math.abs(st.cert.derive ?? 0) * Math.abs(job.tMilieu - st.cert.tMilieu));
       if ((v.ok && e > opts.SAUT_C) || (opts.CONTREDIT_C > 0 && nls.ok && e > tolC)) { st.cert = null; st.saut = true; st.cands = []; exigeDecalage = true; st.invalides = (st.invalides ?? 0) + 1; }
     }
+    if (nls.ok && n === 2 && opts.ETIQ_COH_C > 0) {
+      const vus = (st.vus ??= []);
+      while (vus.length && tNow - vus[0].t > opts.ETIQ_COH_S) vus.shift();
+      if (v.ok && vus.some((q) => ecart(f, q.f) > opts.ETIQ_COH_C)) { v.ok = false; v.raisons = ['etiquette']; st.cands = []; }
+      if (nls.r <= 0.05 && nls.llr >= NLS_LLR_SUR) vus.push({ t: tNow, f });
+    }
     if (v.ok && opts.REFUS_RECENTS > 0 && nRefusRecents >= opts.REFUS_RECENTS) { v.ok = false; v.raisons = ['niveau']; st.cands = []; }
     if (v.ok) {
       const parDecalage = st.cands.find((q) => Math.abs(job.tMilieu - q.tMilieu) >= opts.DECALAGE_MIN_S && ecart(f, q.f) <= opts.CONFIRME_C);
@@ -534,8 +586,11 @@ export const methodesCertificat = {
       const ami = exigeDecalage || opts.CONFIRME_MODE === 0 ? parDecalage : opts.CONFIRME_MODE === 1 ? (mo ? parMoities : parDecalage) : (parDecalage && (!mo || parMoities));
       st.cands.push({ f, tMilieu: job.tMilieu, t: tNow, sol, libre: !!nls.libre });
       if (ami) {
-        st.cert = { ...v, t: tNow, tMilieu: job.tMilieu, nls: resumeNls(nls), f, moteurAuFit: job.fMoteur, sol, libre: !!nls.libre, derive: deriveM ?? nls.derive };
-        st.derniere = st.cert; st.corr = null; st.saut = false;
+        const pend = st.cert?.ok && st.cert.enAttente ? st.cert : null;
+        const parFenetre = !!pend && job.tMilieu - pend.tMilieu >= opts.DECALAGE_MIN_S && ecart(f, pend.f) <= opts.CONFIRME_C;      // une première pose en attente est confirmée par un ajustement d'accord, d'une fenêtre décalée
+        const premiere = !(st.cert?.ok && !st.cert.enAttente) && !parFenetre;
+        st.cert = { ...v, t: tNow, tMilieu: job.tMilieu, nls: resumeNls(nls), f, moteurAuFit: job.fMoteur, sol, libre: !!nls.libre, derive: deriveM ?? nls.derive, enAttente: !!opts.CONFIRME_SENT && premiere && !!opts.SENTINELLE };
+        st.derniere = st.cert; st.corr = null; st.saut = false; st.depuis = null;
         return;
       }
       v.ok = false; v.raisons = ['verification'];
@@ -545,13 +600,18 @@ export const methodesCertificat = {
 
   // La sentinelle (F1) : une lecture chaude sur la fin du son seulement. Elle ne pose rien et ne compte pas parmi les essais : elle invalide un certificat que la note a quitté.
   finirSentinelle(st, job, nls, tNow, calib, opts) {
+    st.sentDur = tNow - job.tFin;                                    // durée mesurée de la sentinelle (de son lancement à son résultat), pour la période adaptée
     const ch = st.cert;
     if (!nls?.ok || !ch?.ok || !ch.f || nls.Om == null) return;
     const f = nls.f.map((x) => x * calib);
     const e = Math.max(...f.map((x, j) => Math.abs(1200 * Math.log2(x / ch.f[j]))));
     const sig = Math.max(...(nls.sigmaC ?? [0]).map((x) => (Number.isFinite(x) ? x : 0)));
     const tol = Math.max(opts.CONTREDIT_C, opts.SENT_SIGMA * sig) + Math.min(opts.CONTREDIT_DERIVE_MAX_C, Math.abs(ch.derive ?? 0) * Math.abs(job.tMilieu - ch.tMilieu));
-    if (e > tol) { st.cert = null; st.saut = true; st.cands = []; st.invalides = (st.invalides ?? 0) + 1; st.sentinelles = (st.sentinelles ?? 0) + 1; }
+    if (e > tol) { st.cert = null; st.saut = true; st.cands = []; st.invalides = (st.invalides ?? 0) + 1; st.sentinelles = (st.sentinelles ?? 0) + 1; st.depuis = job.tMilieu - job.T / 2; }
+    else if (ch.enAttente && job.tFin >= ch.t - 1e-9) {
+      // v68 : la première pose est confirmée par une sentinelle lancée après elle, si celle-ci est assez précise pour la contredire ; sinon elle attend un ajustement principal d'accord
+      if (3 * sig <= opts.CONF_SENT_SIGMA_MAX) ch.enAttente = false; else ch.sentFlou = true;
+    }
   },
 
   // v64 : la seconde lecture certifiée est la valeur affichée.
@@ -577,7 +637,7 @@ export const methodesCertificat = {
   // Le certificat tient-il encore ? Le traqueur reste là où il était, par rapport à la seconde lecture, à la dérive près (son écart fixe, son biais de
   // modulation de phase, n'est pas un mouvement de la note). Un certificat de plus de CERT_AGE_MAX_S sans rafraîchissement tombe.
   certAccord(cert, vs, tNow, opts) {
-    if (!cert?.ok || !cert.f) return false;
+    if (!cert?.ok || !cert.f || cert.enAttente) return false;
     if (tNow - cert.t > (vs.length === 3 ? opts.CERT_AGE_MAX3_S : opts.CERT_AGE_MAX_S)) return false;
     const dt = Math.max(0, tNow - (cert.tMilieu ?? cert.t));
     // âge de la valeur affichée : la hauteur qui dérive de d ¢/s l'a quittée de d · (âge du milieu de la fenêtre) ; au-delà de LAG_MAX_C la valeur ne dit plus « maintenant »
@@ -612,7 +672,16 @@ export function incertitudePression(nls, opts = CERT) {
   return { etenduDb, pente, propre, sigmaC: pente * etenduDb };
 }
 
+// v68 : t de Student de la pente du warp (dérive significative ?), même régression que incertitudePression
+function tDerive(r) {
+  const P = r?.warpC, T = r?.T;
+  if (!Array.isArray(P) || P.length < 4 || !(T > 0)) return null;
+  const J = P.length, tj = P.map((_, j) => (j / (J - 1) - 0.5) * T), mp = P.reduce((a, b) => a + b, 0) / J, sxx = tj.reduce((a, b) => a + b * b, 0);
+  const b = tj.reduce((a, t, j) => a + t * (P[j] - mp), 0) / sxx, rss = P.reduce((a, v, j) => a + (v - mp - b * tj[j]) ** 2, 0), se = Math.sqrt(rss / (J - 2) / sxx);
+  return se > 0 ? b / se : null;
+}
+
 function resumeNls(r) {
   if (!r?.ok) return { ok: false, raison: r?.raison ?? null };
-  return { pression: incertitudePression(r), f: r.f, Om: r.Om, b: r.b, m: r.m, modele: r.modele, llr: r.llr, r: r.r, K: r.K, T: r.T, Ku: r.Ku, derive: r.derive, agit: r.agit, warpC: r.warpC, libre: r.libre ? { dB: r.libre.dB } : null, plancherDb: r.plancherDb, niveauxDb: r.niveauxDb ?? null, sigmaC: r.sigmaC, ms: r.ms };
+  return { pression: incertitudePression(r), deriveT: tDerive(r), f: r.f, Om: r.Om, b: r.b, m: r.m, modele: r.modele, llr: r.llr, r: r.r, K: r.K, T: r.T, Ku: r.Ku, derive: r.derive, agit: r.agit, warpC: r.warpC, libre: r.libre ? { dB: r.libre.dB } : null, plancherDb: r.plancherDb, niveauxDb: r.niveauxDb ?? null, sigmaC: r.sigmaC, ms: r.ms };
 }

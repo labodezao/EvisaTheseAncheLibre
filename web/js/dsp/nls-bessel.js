@@ -600,7 +600,7 @@ export function lireBessel(x, i0, i1, sr, fc, opts = {}) {
 }
 export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
   const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
-  const { plageBasC = 50, plageHautC = 110, prior = null, priorFirst = false, chaud = false, pInit = null, libreInit = null, dt = 0, Kmax = 4, iter = 15, iterEtape = 5, tol = 1e-4, nGarde = 99, nLibre = 1, nDeparts = 5, noeudsS = 0.5, omegaMax = 60, libre = true, modele = null, rkMax = RK_MAX } = opts;
+  const { plageBasC = 50, plageHautC = 110, prior = null, priorFirst = false, chaud = false, pInit = null, libreInit = null, dt = 0, Kmax = 4, iter = 15, iterEtape = 5, tol = 1e-4, nGarde = 99, nLibre = 1, nDeparts = 5, noeudsS = 0.5, omegaMax = 60, omegaMin = 0, libre = true, modele = null, rkMax = RK_MAX } = opts;
   // v67 (G1) : modele = 'struct' (ou 'am') : AM réelle par partiel, phase de modulation par anche, K_utile par résidu de partiel ; 'libre' : refusé (étiquette dégénérée) ; null : le modèle v66
   const AMK = modele == null ? false : modele === 'libre' ? 'libre' : 'struct';
   const AM = !!AMK, STR = AMK === 'struct';
@@ -808,6 +808,18 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
   const rival = sols.slice(1).find((s) => Math.abs(s.p[0] - pb[0]) > 0.4 * pb[1] || Math.abs(s.p[1] - pb[1]) > 0.3 * pb[1]);
   const dof = Math.max(1, mod.Ndata - (mod.npar - mod.fixes.length) - (AMK === 'libre' ? 12 : 4) * mod.Q);
   const s2 = best.ssrData / dof;
+  // v68 (H9, audit n° 4) : un battement dont la MOITIÉ est sous le domaine (Ω/2 < omegaMin ≤ Ω) peut être le double d'un vrai battement lent (Δ = 0,3 Hz lu à 0,6-0,67 Hz : deux
+  // minimums proches du résidu, Ω et 2Ω ; lequel gagne dépend des arrondis flottants, donc de la plate-forme). Le rival Ω/2 (mêmes paramètres, départ chaud, un seul départ) est
+  // ajusté sur les mêmes données : l'ambiguïté est levée par une règle (rapport de vraisemblance), plus par le hasard.
+  let llrOmega2 = null;
+  if (omegaMin > 0 && pb[1] >= omegaMin && pb[1] / 2 < omegaMin) {
+    const p0 = Float64Array.from(pb); p0[1] = pb[1] / 2;
+    const rr = yield* ajusterLMg(mod, p0, toutes(mod, !!best.libre), steps, { iter: 8, tol: 1e-5 });
+    mod.residu(rr.p);
+    const ssrRival = mod.ssrData;
+    mod.residu(pb);                                                       // le modèle revient à la solution retenue (le calcul de la covariance et des résidus la relit)
+    llrOmega2 = (ssrRival - best.ssrData) / s2;
+  }
   // Qui est l'anche, qui est la raie étrangère ? Quand une raie étrangère est adoptée, chaque anche peut changer de rôle avec elle (la raie étrangère devient l'anche,
   // l'anche devient étrangère) : si ce modèle-là n'est pas pire de plus de LLR_MIN σ², le rôle des trois raies est indécidable (trois raies pures comparables : un autre
   // son à −3 dB, test de la v58 « raie étrangère à 1,7 Δ » : l'ajustement lisait +4 et +6 ¢ avec un rapport de vraisemblance de 106 contre la vraie paire).
@@ -910,7 +922,7 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
   return {
     ok: true, f: [f1, f2], margeEtiquette, niveauDb: (() => { const A = mod.amp[0]; const a = Math.hypot(A[0], A[1]), b = Math.hypot(A[2], A[3]); return -Math.abs(20 * Math.log10(Math.max(a, 1e-300) / Math.max(b, 1e-300))); })(), sigmaC: sigC, Om: pb[1], b: [pb[2], pb[3]], m: mAM[0], m2: mAM[1], psi: pb[5], th: pb[6], libre: libreInfo, modele: AMK || 'v66', mk, rho: STR ? pb[4] : null,
     derive: pente * C_CENTS, agit, warpC: dw.map((v) => (v - moy) * C_CENTS), niveauWarpDb: Array.from({ length: J }, (_, j) => pb[NP0 + J + j]), r: best.ssrData / Math.max(1e-300, energie), ssr: best.ssrData, dof, s2, K: AM ? mod.Q : K, Ku, T, J, snr, plancherDb: plancher, nPics: pk.length,
-    llr: rival ? (rival.ssrData - best.ssrData) / s2 : Infinity, llrAffectation,
+    llr: rival ? (rival.ssrData - best.ssrData) / s2 : Infinity, llrAffectation, llrOmega2,
     rival: rival ? { f: [rival.p[0], rival.p[0] + rival.p[1]], ssr: rival.ssr } : null,
     debug: opts.debug ? { pics: pk, departs: dep, sols: sols.map((s) => [s.p[0], s.p[1], s.ssr, s.libre]) } : undefined,
     sol: STR ? Float64Array.from([...pb.slice(0, NP0), ...pb.slice(iAM, iAM + 2 * KAM)]) : pb, mod, ms: typeof performance !== 'undefined' ? performance.now() - t0 : 0,

@@ -37,21 +37,49 @@ export class FileCalcul {
   get taille() { return this.attente.length; }
 }
 
-// Exécutant simulé sur l'horloge du son. Un seul cœur de calcul (comme le Worker dédié), sentinelles prioritaires.
+// Exécutant simulé sur l'horloge du son. UN SEUL cœur de calcul, comme le Worker dédié (cert-worker.js : un fil, des tranches de 10 ms), les sentinelles passent devant un ajustement principal
+// et le PRÉEMPTENT (le temps d'une sentinelle est pris sur le cœur : l'ajustement principal en cours finit plus tard). v68 (audit n° 4, H2) : jusqu'à la v67 deux voies tournaient en parallèle
+// (une pour les sentinelles, une pour les ajustements : deux cœurs), ce qui cachait le coût des sentinelles ; `voies: 2` rend l'ancien comportement (comparaison avec les chiffres des audits 3 et 4).
 //   msParUnite : durée d'une unité de coût sur la machine mesurée (0,26 ms sur le PC de l'audit, banc etalon_cout) ; facteurCpu : machine plus lente (4 : un portable).
 export class ExecutantSimule {
-  constructor({ msParUnite = 0.26, facteurCpu = 1 } = {}) {
-    this.msParUnite = msParUnite; this.facteurCpu = facteurCpu;
+  constructor({ msParUnite = 0.26, facteurCpu = 1, voies = 1 } = {}) {
+    this.msParUnite = msParUnite; this.facteurCpu = facteurCpu; this.voies = voies;
     this.file = new FileCalcul(); this.libreA = { principal: 0, sentinelle: 0 }; this.finis = [];
-    this.stats = { travaux: 0, msTotal: 0, retardMax: 0, sentinelles: 0 };
+    this.stats = { travaux: 0, msTotal: 0, retardMax: 0, sentinelles: 0, msSentinelles: 0 };
+    this.t = 0; this.actifs = [];        // un cœur : { id, cle, nls, duree, reste, sentinelle, tSoumis, commence }
   }
   soumettre(travail, tNow) {
-    this.file.ajouter({ ...travail, tSoumis: tNow });
+    if (this.voies === 2) { this.file.ajouter({ ...travail, tSoumis: tNow }); this.avancer(tNow); return; }
     this.avancer(tNow);
+    const genre = !!travail.sentinelle;
+    // comme FileCalcul : une demande de même note et de même genre qui n'a pas commencé est remplacée
+    this.actifs = this.actifs.filter((q) => !(q.cle === travail.cle && q.sentinelle === genre && !q.commence));
+    const { nls, cout } = calculerTravail(travail);
+    const duree = cout * this.msParUnite * this.facteurCpu / 1000;
+    this.actifs.push({ id: travail.id, cle: travail.cle, nls, duree, reste: duree, sentinelle: genre, tSoumis: tNow, commence: false });
   }
-  // Fait tourner la file jusqu'à l'instant tNow (horloge du son) : tout travail qui démarre avant tNow est calculé (en vrai, tout de suite) et daté de sa fin virtuelle.
-  // Deux voies : les sentinelles (courtes) ne font pas la queue derrière un ajustement principal, comme dans le Worker qui les intercale.
+  // Fait tourner le cœur jusqu'à l'instant tNow (horloge du son). Priorité aux sentinelles (la plus ancienne d'abord), puis aux ajustements dans l'ordre d'arrivée.
   avancer(tNow) {
+    if (this.voies === 2) return this.avancer2(tNow);
+    let t = this.t;
+    while (t < tNow - 1e-12) {
+      const prets = this.actifs.filter((q) => q.tSoumis <= t + 1e-12);
+      if (!prets.length) { t = Math.min(tNow, ...this.actifs.map((q) => q.tSoumis)); continue; }
+      const cour = prets.filter((q) => q.sentinelle).sort((a, b) => a.tSoumis - b.tSoumis)[0] ?? prets.sort((a, b) => a.tSoumis - b.tSoumis)[0];
+      cour.commence = true;
+      const dt = Math.min(cour.reste, tNow - t);
+      cour.reste -= dt; t += dt;
+      if (cour.reste <= 1e-12) {
+        this.actifs.splice(this.actifs.indexOf(cour), 1);
+        this.stats.travaux++; this.stats.msTotal += cour.duree * 1000; this.stats.retardMax = Math.max(this.stats.retardMax, t - cour.tSoumis);
+        if (cour.sentinelle) { this.stats.sentinelles++; this.stats.msSentinelles += cour.duree * 1000; }
+        this.finis.push({ id: cour.id, cle: cour.cle, nls: cour.nls, ms: cour.duree * 1000, tFin: t });
+      }
+    }
+    this.t = Math.max(this.t, tNow);
+  }
+  // Ancien comportement (v66, v67) : deux voies indépendantes, sentinelles et ajustements ne se gênent pas.
+  avancer2(tNow) {
     for (let encore = true; encore; ) {
       encore = false;
       for (const voie of ['sentinelle', 'principal']) {
@@ -63,7 +91,7 @@ export class ExecutantSimule {
         const { nls, cout } = calculerTravail(cand);
         const duree = cout * this.msParUnite * this.facteurCpu / 1000;
         this.libreA[voie] = debut + duree;
-        this.stats.travaux++; if (voie === 'sentinelle') this.stats.sentinelles++;
+        this.stats.travaux++; if (voie === 'sentinelle') { this.stats.sentinelles++; this.stats.msSentinelles += duree * 1000; }
         this.stats.msTotal += duree * 1000; this.stats.retardMax = Math.max(this.stats.retardMax, this.libreA[voie] - cand.tSoumis);
         this.finis.push({ id: cand.id, cle: cand.cle, nls, ms: duree * 1000, tFin: this.libreA[voie] });
         encore = true;

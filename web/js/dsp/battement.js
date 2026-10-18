@@ -155,7 +155,7 @@ export const methodesBattement = {
       if (g === premier && g.voices.length === 2) {
         this.cohererPaire(g, st, tNow, envHz, envSure);
         this.etatPaire?.(g, tNow, envHz, envSure);
-        this.certifierPaire?.(g, tNow);
+        this.certifierPaire?.(g, tNow, envHz);
       }
       if (g === premier && g.voices.length >= 3) this.certifierTrio?.(g, tNow);
       for (const v of autres) {

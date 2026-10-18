@@ -1,8 +1,156 @@
-# Certificat des lectures « sûres » (v67, 18/10/2026)
+# Certificat des lectures « sûres » (v68, 18/10/2026)
 
 Audit Fable du 15/10/2026 (`J:\claude\audits\2026-10-17-accordeur-fable\RAPPORT-AUDIT.md`, R1 à R14) puis ses suites du 16/10 (critères d'Ewen : niveau professionnel,
 musette et super musette, Do2 à A6, tout micro USB, pose courte, refus expliqués). Règle d'Ewen : un accordeur professionnel ne dit « sûr » que s'il peut le prouver ;
 zéro lecture « sûre » fausse (erreur de plus de 0,5 ¢ sur une anche), avec n'importe quel micro. Journal des versions : `docs/JOURNAL-DES-VERSIONS.md`.
+
+## 0B. La v68 (audit Fable n° 4 du 18/10/2026) : la généralisation hors du Zoom H6, mesurée et bornée
+
+Audit : `J:\claude\audits\2026-10-18-accordeur-fable-4\RAPPORT-AUDIT-4.md` (H1 à H9, consigne § 9), résumé des plans `DOE-RESUME.md`. Verdict de l'audit sur la v67 : zéro lecture fausse au sens strict sur ~12 000 lectures de synthèse, mais « niveau pro » non atteint à l'établi et non prouvé hors du Zoom H6 (3 % de notes posées à physique large, 14 % à conditions modérées, 0 % en 16', en 4' aigu, sous 0,8 Hz et avec un micro USB à gain automatique). La v68 applique les recommandations qui se règlent par le code et les plans ; celles qui demandent des enregistrements (H8) ne sont pas faisables sans Ewen.
+
+**Ce que cette version ne prouve toujours pas.** Les seuils et les gardes sont réglés sur la synthèse (`SYNTH=h6`, `SYNTH=large`) et sur UN instrument (le H6 d'Ewen, 27 notes). Un « zéro faux » de banc vaut « zéro faux sur ces graines, ce jour » (le banc est déterministe à une note près par millier). Les enregistrements du § 7 de l'audit (autres registres, autres instruments, micros, limage, soupape qui fuit) sont la seule façon de dire « pro sur tous les accordéons ».
+
+### 0B.0 Trois corrections de mesure faites avant de régler quoi que ce soit
+
+1. **La vérité des plans à saut de hauteur était fausse pendant 3 s.** Elle était la moyenne de la porteuse sur les 3 dernières secondes : après un saut de 4 ¢, elle ment de 0,5 ¢ pendant 0,33 s puis de plus, alors que la valeur certifiée est (à raison) la moyenne de SA fenêtre. Sur les plans à saut (`sautT`), `eval63.mjs` garde maintenant `errFen` (erreur à la moyenne de la fenêtre lue par le certificat, milieu ± T/2 : le biais du modèle, sans le retard), et `errNow` (erreur à la hauteur de l'instant, porteuse moyennée sur 0,4 s). Les « faux » de la v67 qui restaient en D3 plans 19, 27 et 12 et les deux « straddle » trouvés en cours de route (D3 h6, plan 1 rep 31 et plan 9 rep 30) disparaissent avec la bonne vérité : ils n'étaient pas des erreurs du modèle mais une vérité décalée. Les autres plans gardent la vérité d'avant (les chiffres restent comparables à ceux de la v67).
+2. **Le retard est une grandeur, pas une fausse lecture.** `verdict.mjs` mesure, pour les notes sûres avant un saut d'au moins 1 ¢ (`SAUT_MIN_C` : en dessous l'ancienne valeur reste juste à 0,5 ¢ près), le délai jusqu'à la première image non sûre (médiane, p90) et l'**exposition** : les images « sûres » à plus de `RETARD_S` = 0,35 s du saut dont l'erreur à la hauteur de l'instant dépasse 0,5 ¢. `eval63.mjs` lit CHAQUE image (85 ms) autour du saut, plus la grille de 0,25 s (qui masquait des images fausses d'une seule image).
+3. **Le banc peut tourner comme l'application.** `CPUX=1|4` (variable d'environnement de `eval63.mjs`) met le certificat dans un `ExecutantSimule` (Worker simulé sur l'horloge du son, 1 ou 4 fois plus lent que le PC de l'audit) au lieu du calcul en ligne à budget déterministe. Le retard après un saut y est plus grand (p90 0,41 s au lieu de 0,32 s sur D3 ancienne) : c'est lui qui compte pour l'application.
+
+
+### 0B.1 Ce qui est fait, partiel, refusé
+
+| H | Sujet | Statut | Résultat |
+|---|---|---|---|
+| H1 | gardes contre la lecture sur moins d'un battement mesuré | **fait, en partie autrement** | `NB_MIN_POST` 1 retenu (B plan 33 tombe, coût nul sur le H6) ; `DERIVE_FIT` tel que proposé **refusé** (-3,8 notes du H6 : la dérive de l'ajustement suit la modulation du battement) et remplacé par `DERIVE_FIT_SEUIL` 1,2 ¢/s (coût nul) |
+| H2 | retard après un saut : grandeur mesurée, bornée, compensée | **fait, en partie** | métrique (médiane, p90, exposition) et vérité alignée sur la fenêtre lue ; sentinelle prioritaire, moins chère, plus fréquente, fenêtre ≥ 0,7 battement : p90 dans le Worker simulé ×1 0,41 -> 0,32 s (ancienne), exposition 5 -> 1 images ; **(d) valeur ramenée à l'instant : implémentée (`PRESENT`), sans effet mesuré sur 160 notes, éteinte** ; la cible p90 ≤ 0,35 s est tenue en ×1 (0,32 / 0,33 / 0,39 en ancienne / H6 / LARGE : LARGE un peu au-dessus), pas en ×4 (0,38 à 0,39) |
+| H3 | graves : 3 partiels exigés sous 150 Hz | **fait, au prix de notes** | `KU_SUR_MIN_GRAVE` 3 : le faux de `lent100` plan 82 est fermé, H6 réel inchangé ; mais -7 notes sur 89 de la synthèse H6 (`lhs300_calib`, graine 30) : ce sont les graves à raie étrangère adoptée avec 2 partiels (variante ciblée : mêmes chiffres) |
+| H4 | téléphone | **fait, réservé aux machines lentes** | H6 réel ×4 : 1 -> 10 notes sur 27 ; ×2 : 7 -> 11 ; ×1 inchangé (16). 2 départs et un seul ajustement de front sur machine rapide **refusés** (une mauvaise étiquette posée à -21,5 ¢) |
+| H5 | domaine annoncé et banc CI | **fait** | § 0B.5 ; seuil de la validation 16 -> 12 notes posées, écrit et justifié |
+| H6 | super musette : modèle `struct` | **non fait, reporté (v69)** | aucune mesure de super musette avec vérité (la banque Serafini n'en a pas : 0 note posée sur 24 en MMM, avant comme après) ; écrire la physique du trio sans elle serait inventer |
+| H7 | prise traitée : le contrôle de prise comme barrière testée | **fait** | § 0B.4 |
+| H8 | enregistrements d'Ewen | **non fait (gestes d'Ewen)** | liste dans l'audit n° 4 § 7 et dans les gestes de Wenou OS |
+| H9 | battement doublé de la thèse (F10) | **fait** | § 0B.3 |
+
+Trouvé en cours de route : **une mauvaise étiquette posée « sûre » à -21,5 ¢** (§ 0B.2, `ETIQ_COH_C`) et **le simulateur du Worker à deux cœurs** (§ 0B.2, H4). Les deux « faux » restants de la v67 en D3 (0,51 à 0,72 ¢) étaient une vérité décalée (§ 0B.0).
+
+### 0B.2 Plans d'expériences (règle 12 : jamais un facteur à la fois)
+
+**Plan H2 : PB12 sur la sentinelle et les gardes** (`doe.py plan --type pb`, graine 68, 8 facteurs, 12 cellules, la cellule 12 est la v67). Jeux par cellule : D3 ancienne synthèse (60 notes, graines 30-31), D3 `SYNTH=h6` (60), validation LARGE (64, graine 70), H6 réel ×1 (27 notes, `usage_reel`). Effets (moyenne haut moins bas ; vérité de ce plan : l'ancienne, moyenne des 3 dernières secondes, voir § 0B.0) :
+
+| facteur (bas ; haut) | H6 posées /27 | D3 anc. posées | D3 h6 posées | validation posées /64 | retard p90 D3 anc. (s) | retard p90 D3 h6 (s) | décision |
+|---|---|---|---|---|---|---|---|
+| `NB_MIN_POST` 0 ; 1 | -0,2 | +0,3 | -0,2 | +0,3 | +0,01 | +0,05 | **retenu** (ferme B plan 33 sans coût) |
+| `DERIVE_FIT` non ; oui | **-3,8** | -0,3 | +0,5 | -0,3 | -0,01 | +0,07 | **refusé tel quel** (la dérive de l'ajustement suit la modulation du battement : médiane 0,3 ¢/s, p90 1,0 sur les ajustements du H6 qui passent) ; remplacé par `DERIVE_FIT_SEUIL` 1,2 |
+| `KU_SUR_MIN_GRAVE` 0 ; 3 | -0,5 | -1,7 | -3,2 | 0,0 | -0,01 | +0,01 | voir plan H3 |
+| `SENT_PRIO` non ; oui | +0,5 | +1,0 | +0,2 | 0,0 | **-0,06** | **-0,10** | **retenu** (la sentinelle passe avant les ajustements principaux dans le calcul en ligne, comme dans le Worker) |
+| `CONFIRME_SENT` non ; oui | **-5,8** | **-4,3** | **-5,5** | **-2,3** | +0,04 | -0,02 | **refusé** (une première pose confirmée par une sentinelle : -6 notes du H6 pour un problème qui, mesuré avec la bonne vérité, n'existe pas) |
+| `SENT_PERIODE_S` 0,15 ; 0,30 | +0,5 | +0,7 | +0,2 | 0,0 | **+0,18** | +0,09 | 0,15 gardé |
+| `SENT_FEN_S` 0,6 ; 0,45 | +0,2 | -1,0 | +0,2 | +0,7 | +0,10 | +0,03 | 0,6 gardé |
+| `SENT_ADAPT` 0 ; 2 | -0,5 | -1,3 | -0,2 | 0,0 | +0,04 | -0,02 | **refusé** (la période adaptée au coût allonge le retard ; dans le Worker la période est déjà bornée par la durée de la sentinelle en vol) |
+
+Aucune cellule ne donne de lecture « sûre » fausse sur le H6 réel ; la cellule 12 (v67) donne 16/27, comme avant.
+
+**Plan H3 : 2^3 complet sur les graves** (graine 681 ; `KU_SUR_MIN_GRAVE` 0 ; 3, `KU_LIBRE_MIN` 0 ; 3, `FEN_F0_S` 350 ; 500). Jeux par cellule : `lent100` LARGE (100 notes, graine 32, dont le faux de 0,53 ¢ du plan 82), les 40 notes graves (f0 < 150 Hz) de `gen160b_v68` en LARGE et en H6 (80 notes chacun, graines 50-51), H6 réel ×1. La cellule 1 est la v67.
+
+| cellule | `KU_SUR_MIN_GRAVE` | `KU_LIBRE_MIN` | `FEN_F0_S` | lent100 posées / faux | graves LARGE | graves H6 | H6 réel /27 |
+|---|---|---|---|---|---|---|---|
+| 1 (v67) | 0 | 0 | 350 | 14 / **1** | 2 | 6 | 16 |
+| 2 | **3** | 0 | 350 | **11 / 0** | 1 | 0 | **16** |
+| 3 | 0 | 3 | 350 | 7 / 0 | 1 | 0 | 7 |
+| 4 | 3 | 3 | 350 | 7 / 0 | 1 | 0 | 7 |
+| 5 | 0 | 0 | 500 | 10 / 0 | 0 | 0 | 15 |
+| 6 | 3 | 0 | 500 | 10 / 0 | 0 | 0 | 15 |
+| 7 | 0 | 3 | 500 | 5 / 0 | 0 | 0 | 10 |
+| 8 | 3 | 3 | 500 | 5 / 0 | 0 | 0 | 10 |
+
+Retenu : la cellule 2, `KU_SUR_MIN_GRAVE` 3 (H3 de l'audit tel quel) : le faux de `lent100` plan 82 est fermé, le H6 réel ne perd rien (16/27), `lent100` perd 3 notes sur 100 et les graves de synthèse H6 que la v67 posait (6 sur 80) sont refusés : d'après la variante ciblée ci-dessous, c'étaient des lectures à raie étrangère adoptée avec 2 partiels, du même genre que le faux. `KU_LIBRE_MIN` (la même règle à toute hauteur, dès qu'une raie étrangère est adoptée) coûte 5 à 9 notes du H6 : refusé. `FEN_F0_S` 500 coûte 1 note du H6 et 4 de `lent100` sans rien de plus : refusé. Variante ciblée (`KU_LIBRE_GRAVE` : raie étrangère adoptée ET f0 < 150 Hz ET moins de 3 partiels) : mêmes chiffres que la cellule 2 (H6 16/27, `lent100` 11 / 0), gardée comme option éteinte. Le test F 11 (midi 48, 130 Hz, Δ = 1,5 Hz : ce timbre de synthèse n'offre que 2 partiels au-dessus du bruit) ne demande plus que « jamais faux, jamais avant l'heure, la raison est affichée » pour les notes sous 150 Hz.
+
+**Plan H4 : 2^3 complet sur le calcul du téléphone** (graine 683 ; `NDEPARTS` 5 ; 2, `ITER` 15 ; 8, `JOBS_MAX` 2 ; 1 ; la cellule 1 est la v67 avec les sentinelles de la v68). Réponses : notes posées sur le H6 réel (essai 1 ×1 et ×4, essai 2 ×4), sauts D3 `SYNTH=h6` ×1 et ancienne ×4 (Worker simulé), validation LARGE ×1.
+
+| cellule | `NDEPARTS` | `ITER` | `JOBS_MAX` | H6 ×1 /27 | H6 ×4 /27 | essai 2 ×4 /12 | D3 H6 ×1 | D3 anc. ×4 | validation LARGE ×1 |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 (v67) | 5 | 15 | 2 | 16 | **0** | 1 | 31 | 20 | 16 |
+| 2 | 2 | 15 | 2 | 15 | 6 | 3 | 35 | 26 | 20 |
+| 3 | 5 | 8 | 2 | 15 | 4 | 2 | 34 | 18 | 16 |
+| 4 | 2 | 8 | 2 | 14 | 8 | 3 | 35 | 24 | 19 |
+| 5 | 5 | 15 | 1 | 15 | 5 | 3 | 35 | 24 | 19 |
+| 6 | 2 | 15 | 1 | **17** | 6 | 3 | 37 | 32 | 22 |
+| 7 | 5 | 8 | 1 | 16 | 5 | 4 | 36 | 22 | 23 |
+| 8 (cellule de l'audit) | 2 | 8 | 1 | 15 | **10** | 3 | 36 | 29 | 21 |
+
+Effets (haut moins bas) : `NDEPARTS` 2 : ×4 +4,0, D3 anc. ×4 +6,8, validation +2,0, ×1 -0,3 ; `JOBS_MAX` 1 : ×4 +2,0, ×1 +0,75, validation +3,5, essai 2 +1,0 ; `ITER` 8 : ×4 +2,5 mais ×1 -0,75. Aucun « sûr » faux dans les huit cellules, **mais** les passes finales avec la cellule 8 sur toutes les machines ont montré le contraire : `hypercube4` (1 200 notes, `SYNTH=h6`) pose, au plan 91 de la graine 32 (Do6, 928 Hz, Ω 11,5 Hz, anche faible à -10 dB), un « sûr » à **-21,5 ¢** (la mauvaise étiquette : l'anche faible lue une bande latérale plus bas, AM propre de 0,5 qui imite l'anche), avec `JOBS_MAX` 1 seulement ; avec `JOBS_MAX` 2 la même mauvaise lecture arrive aussi (t = 4,27 s) mais pendant qu'un certificat juste est en cours : elle l'invalide sans se poser (il faut alors deux fenêtres décalées d'accord). La v67 n'a donc pas de garde qui l'exclut : elle l'évite par l'ordre des fenêtres essayées. `M_ST_MAX` 0,5 l'exclurait mais coûte 7 notes sur 16 au H6 (9/27) : refusé. **Les 2 départs et le seul ajustement de front sont donc réservés aux machines lentes**, où la v67 ne pose presque rien : `NDEPARTS` 5 et `JOBS_MAX` 2 (réglage de la v67) tant qu'un ajustement à froid dure en moyenne moins de `MS_LENT` = 500 ms ; au-dessus (mesuré dans le Worker ; PC de l'audit 340 ms, portable 2 fois plus lent 680 ms, téléphone 4 fois plus lent 1 400 ms ; hystérésis 0,7) : `LENT_NDEPARTS` 2, `LENT_ITER` 8, `LENT_JOBS_MAX` 1. La mesure de vitesse vit dans le moteur (`msFroid`), d'une note à l'autre.
+
+**Le simulateur du Worker était optimiste.** `ExecutantSimule` (v66, v67) faisait tourner deux « voies » en parallèle (une pour les sentinelles, une pour les ajustements), c'est-à-dire deux cœurs, alors que `cert-worker.js` est UN fil qui intercale les sentinelles par tranches de 10 ms : la sentinelle prend du temps de calcul à l'ajustement principal. Il est corrigé (`voies: 1` par défaut, préemption des sentinelles ; `voies: 2` rend l'ancien comportement). Les cellules du plan H4 qui comptent (2/8/1, 2/15/1, 5/8/1) rejouées avec le simulateur corrigé donnent les mêmes notes posées (H6 ×1 / ×4 : 15 / 10, 17 / 6, 16 / 5), parce que les sentinelles ne tournent qu'après la première pose.
+
+### 0B.2 bis Une mauvaise étiquette que le banc de la v67 évitait par hasard : `ETIQ_COH_C`
+
+La passe finale d'un premier réglage de la v68 (2 départs, `JOBS_MAX` 1 sur tous les PC) a posé « sûr » à -21,5 ¢ une note de `hypercube4` (plan 91, graine 32, Do6, Ω 11,5 Hz). Rejouée une note à la fois, la cause n'est ni les départs ni les itérations, c'est l'ordre des fenêtres essayées : les ajustements successifs de cette même note donnent TANTÔT la bonne étiquette (erreur 0, AM 0,04, LLR 700 à 15 000), TANTÔT l'anche faible lue une bande latérale plus bas (-21,5 ¢, AM 0,5 qui imite l'anche, LLR 118 à 3 000, r 0,007 à 0,011), tous deux au-dessus de `LLR_MIN`. Avec le réglage de la v67 la mauvaise lecture arrive aussi, mais pendant qu'un bon certificat est en cours : elle l'invalide sans se poser. Aucun seuil existant ne l'exclut : `M_ST_MARGE_DB` 3 et 6 sans effet, `M_ST_MAX` 0,5 l'exclut mais coûte 7 notes sur 16 au H6 (9/27), le rapport des indices de phase des deux anches n'a pas de signature (des ajustements justes du H6 ont un rapport de 0 à 0,24 dans 10 % des cas).
+
+Garde retenue, avec la physique en tête (une note a UNE étiquette) : `ETIQ_COH_C` 3 ¢. Une lecture n'est certifiable que si aucun ajustement plausible de la même note (r ≤ 0,05, LLR ≥ 25) des 4 dernières secondes ne s'en écarte de plus de 3 ¢ ; sinon l'étiquette est ambiguë, refus `etiquette`. Coût : H6 réel ×1 16/27 et ×4 10/27 inchangés (1,5 ¢ en perd 2 et 3 ¢ n'en perd aucune ; 6 ¢ n'en perd aucune non plus), -2 notes sur 300 en synthèse H6. Test : `certificat.test.mjs` rejoue cette note avec le réglage qui la faisait poser (erreur max 21,58 ¢ sans la garde, 0,00 avec) et avec le réglage par défaut.
+
+### 0B.3 H9 : le battement doublé de la thèse (test F10), corrigé
+
+Diagnostic (reproduit ici avec Node 22 sous Windows, `npm install node@22` dans un dossier à part) : à Δ = 0,3 Hz (sous `OMEGA_MIN`), l'ajustement de Bessel a deux minimums proches, Ω et 2Ω ; lequel gagne dépend des arrondis flottants de V8, donc de la plate-forme. Node 22 donnait 0,667 / 0,6 Hz (2Ω, DANS le domaine), refusé `lent` seulement ; or `lent` est dans la liste des refus qui « donnent un Ω aussi bon que les autres » (`finirAjustement`) : le battement affiché (`beatCert`, source « certificat ») montrait 0,6 Hz à la place de 0,3 (F10 : 367 mHz d'écart au p95 ; Node 24 : 1 mHz).
+
+Correction en deux étages, une règle au lieu du hasard de l'arrondi :
+1. `nls-bessel.js` : un battement ajusté dont la MOITIÉ est sous `omegaMin` (Ω/2 < 0,4 ≤ Ω) est confronté à son rival Ω/2 (mêmes paramètres, départ chaud, un départ, 8 itérations, mêmes données) ; `llrOmega2 = (SSR_rival − SSR_meilleur) / s²` ; `juger` refuse `accordees` si `llrOmega2 < LLR_MIN` (`RIVAL_MOITIE`). Coût : `fit_cout.mjs` sur 150 notes de `lhs300_calib` : 1 397 -> 1 402 unités par ajustement (+0,4 %, le rival n'est calculé que sous 0,8 Hz).
+2. `certificat.js` : un Ω d'ajustement n'entre dans `st.omegas` (donc dans le battement affiché) que s'il n'est pas `accordees` ET d'accord à 25 % (`ENV_ACCORD`) avec le battement de l'enveloppe quand celle-ci en a un (`envHz`, passé par `fuserBattement` à `certifierPaire`) : le battement, pour le luthier, c'est l'enveloppe.
+
+Résultat : F10 vert sous Node 22 ET Node 24 (Δ = 0,3 Hz : 1 mHz au p95, aucune image de source « certificat » éloignée de l'enveloppe), avec le test remis à sa force (la version de la thèse jugeait l'enveloppe seulement quand la source n'était pas le certificat) et une assertion de plus. `omega_bas40` (120 notes, graines 30-32, 45 dans le domaine) : 0 posée, 0 faux en ancienne synthèse et en synthèse H6. CI GitHub : Linux / Node 22 ET Node 24 pour PolyReed (`tests.yml`, matrice) ; la thèse avait déjà Node 22.
+
+### 0B.4 H7 : la prise traitée par Windows, le contrôle de prise comme barrière testée
+
+Le certificat seul se laisse tromper par une prise traitée (sur la prise PC du 14/10, 4 « sûr » sur 6 notes à vérité sont faux, jusqu'à -4,1 ¢ : la prise elle-même est décalée en hauteur). La seule barrière est le contrôle de prise (`dsp/prise.js`, v61). `robustesse_sessions.mjs --prise=1` le fait tourner comme le Worker de l'application ; le nouveau test `test/prise-sessions.test.mjs` (4 sessions de l'audit, registre MM imposé, sur le PC d'Ewen : les fichiers ne sont pas dans la CI) exige **0 note « sûre » avec le contrôle** : [SESSIONS]. Sans le contrôle, le test imprime le nombre de « sûr » et les notes suspectes (écart au traqueur de plus de 2 ¢ sur les deux anches), sans assertion : aucune vérité sur ces prises. L'écran : quand la prise est douteuse, le message dit « hauteur non certifiée : prise douteuse : <raison> ».
+
+### 0B.5 H5 : le domaine annoncé, et un banc CI qui teste ce qu'il annonce
+
+Domaine annoncé : **β ≤ 0,45 « posé » ; de 0,45 à 1,5 « lu quand r ≤ 0,01 et que les gardes passent » ; au-delà, refus.** `verdict.mjs` sépare les deux colonnes (`[β ≤ 0.45 : x/y ; β 0.45-1.5 : x/y]`). Banc CI (`pose-ci.test.mjs`, `ci_seuils.json`) : lot « couplage fort » avec au moins une posée (il ne testait rien avec 0) ; lot `SYNTH=large` (40 notes de `lhs64_valid`, graine 70) ; les notes-pièges de l'audit avec leur graine (D3 plans 19, 12, 27 en ancienne synthèse, B plan 33, `lent100` plan 82 en LARGE, D3 plans 12, 1, 9 en H6) ; un lot peut maintenant fixer sa synthèse (`synth`) et lit le retard après un saut (`maxHautesApres`, `maxFaux`).
+
+### 0B.6 Les chiffres, v67 contre v68 (passes finales du 18/10/2026, graines neuves REP0=30, code gelé, mêmes outils pour les deux)
+
+Vérité : fréquence moyenne de la porteuse de chaque anche sur les 3 dernières secondes (plans ordinaires) ou sur la fenêtre lue (plans à saut) ; fausse = plus de 0,5 ¢ ; domaine Ω ≥ 0,4 Hz, rapport ≤ 22 dB, β ≤ 1,5. Les deux versions sont recomptées avec le même outil sur les mêmes plans à deux anches (les chiffres de la v67 diffèrent donc un peu du § 0A.3).
+
+| jeu | domaine | v67 : posées, fausses (max) | v68 : posées, fausses (max) |
+|---|---|---|---|
+| synthèse à la physique du H6 (`SYNTH=h6`, 22 plans) | 4247 | 1059 (24,9 %), 0 (0,393 ¢) | 941 (22,2 %), 0 (0,401 ¢) |
+| synthèse LARGE (`SYNTH=large`, 12 plans) | 2528 | 474 (18,8 %), 1 (0,531 ¢, `lent100`) | 420 (16,6 %), 0 (0,458 ¢) |
+| ancienne synthèse, plans clés (5 plans) | 1198 | 505 (42 %), 4 dont 3 de vérité décalée en D3 et B plan 33 (0,597 ¢) | 451 (38 %), 0 (0,402 ¢) |
+| GEN, physique et conditions larges (160 × 2) | 176 | 9 (5 %), 1 (0,556 ¢) | 9 (5 %), 1 (0,556 ¢) |
+| GEN-b, conditions modérées, LARGE / H6 / ancienne (160 chacune) | 160 | 22 / 36 / 45, 0 | 18 / 31 / 37, 0 |
+
+Lecture honnête : **zéro faux de plus et les deux vrais faux de la v67 (`lent100` plan 82, B plan 33) fermés, mais 11 % de notes posées en moins en synthèse (14 à 18 % en GEN-b)**. Presque tout vient de la règle des graves (H3, `lhs300_calib` H6 : 89 -> 82, et 89 sans elle), le reste de la garde d'étiquette (-2) et de la sentinelle qui prend du calcul dans le banc en ligne (-1 à -2). Le GEN large garde le même « faux » de 0,556 ¢ : la valeur est juste pour sa fenêtre (-0,02 ¢) mais en retard de 0,99 ¢ sur la hauteur de l'instant (gigue de 0,6 ¢ et dérive de 0,18 ¢/s) : c'est la limite de la vérité, pas une erreur du modèle.
+
+**Prises réelles (Zoom H6, essai 1 : 27 notes ; `usage_reel`, Worker simulé à un cœur)** :
+
+| calcul | v67 | v68 |
+|---|---|---|
+| ×1 (PC de l'audit) | 16/27, T médian 4,6 s, 7 % du temps certifié | **16/27**, T médian 4,7 s, 7 % |
+| ×2 (portable) | 7/27 | **11/27** |
+| ×4 (téléphone) | 1/27 | **10/27** |
+| ×8 | 1/27 | 2/27 |
+| essai 2 (12 notes) ×1 / ×4 | 4 / 1 | 4 / **3** |
+| `reel_prises` H6 L+R / gauche / droite | 9 / 12 / 10 | 10 / 11 / 9 |
+| prise PC traitée par Windows (avec le contrôle de prise) | 0 | 0 |
+
+0 « sûr » faux dans tous ces essais (72 lectures sûres au ×1, 46 au ×4, 36 à 68 en `reel_prises`). Le simulateur est celui à un cœur (§ 0B.2).
+
+**Retard après un saut de hauteur** (plan D3, 30 notes × graines, saut d'au moins 1 ¢ ; médiane / p90 du délai jusqu'à la première image non « sûre », et images « sûres » à plus de 0,5 ¢ de la hauteur de l'instant plus de 0,35 s après le saut) :
+
+| mode | v67 | v68 |
+|---|---|---|
+| calcul en ligne, ancienne synthèse | 0,14 / 0,33 s, 5 images (3 notes) | 0,13 / 0,32 s, 2 images (2 notes) |
+| calcul en ligne, H6 | 0,22 / 0,42 s, 3 images | 0,22 / 0,31 s, 1 image |
+| calcul en ligne, LARGE | 0,15 / 0,48 s, 1 image | 0,15 / 0,38 s, 1 image |
+| Worker simulé ×1, ancienne / H6 / LARGE | p90 0,41 / 0,38 / 0,48 s ; 5 / 0 / 3 images | p90 **0,32 / 0,33 / 0,39 s** ; 1 / 1 / 2 images |
+| Worker simulé ×4, ancienne / H6 / LARGE | p90 0,28 / - / - ; 1 image | p90 0,38 / 0,39 / 0,39 s ; 2 / 2 / 1 images (mais 30 / 28 / 16 notes posées contre 21 / - / -) |
+
+Aucune lecture « sûre » fausse (vérité de la fenêtre lue) dans aucun de ces essais ; les images restantes sont les battements lents (Ω < 1 Hz : 0,6 s de sentinelle ne contiennent pas un battement) et les gigues extrêmes.
+
+**Corpus d'autres accordéons échantillonnés** (`J:\claudeudits\donnees-accordeur\sf2\`, banques de tiers retouchées, aucune vérité, jamais pour régler un seuil ; `corpus_sf2.mjs`, test local `corpus-sf2.test.mjs`) : Serafini main droite, musette à trois voix lue en deux anches (24 notes) : notes « sûr » v67 3, v68 2, 4 notes communes, 0 désaccord de plus de 0,5 ¢, 0 écart au traqueur de plus de 2 ¢ ; en trois anches (MMM) 0 / 0 ; Serafini et Gaillard main gauche (basses et accords, mode automatique, 14 et 24 fichiers), Gaillard main droite (1 raie, 27), Saltarelle (diatonique, 38) et Ballone Burini (bandonéon, 60, 0,9 à 1,8 s) : 0 note « sûr » avant comme après, 0 erreur. L'outil refuse ou reste juste sur tout ce corpus ; il ne prouve rien de plus (échantillons bouclés, sans vérité).
+
+### 0B.7 Ce qui reste pour un niveau professionnel
+
+1. Les enregistrements propres d'Ewen (H8) : sans eux, « pro sur tous les accordéons » n'est pas démontrable. 2. La super musette (H6) : pas de mesure avec vérité, `nls-trio.js` sans modèle `struct`. 3. La couverture : 22 % des notes de synthèse H6 posées, 17 % en LARGE, 5 % à physique et conditions très larges ; 11 % de moins qu'en v67 par le prix des graves ; le banc ne sait pas dire si c'est la synthèse ou l'outil. 4. Les battements lents (Ω < 1 Hz) : la sentinelle y est aveugle pendant 0,5 à 0,8 s. 5. Une garde d'étiquette qui tient sur de très grands jeux avant de remettre 2 départs et un seul ajustement de front sur les PC (+18 % de notes posées). 6. Un vrai téléphone (le facteur 4 est une hypothèse). 7. La prise traitée : le contrôle de prise est la seule barrière.
 
 ## 0A. La v67 (audit Fable n° 3 du 17/10/2026) : la physique de l'anche mise dans la mesure
 

@@ -270,19 +270,21 @@ for (const delta of [0.3, 0.5]) {
   const { x, ids, cfg } = fabriquer(c);
   const imgs = rejoue(cfg, x);
   const L = fenetreEntiere(delta), centre = [], dEnv = [];
-  let surTot = null;
+  let surTot = null, doubles = 0;
   for (const im of imgs) {
     const [a, b] = ids.map((id) => voix(im, id));
     if (!a?.tracked || !b?.tracked) continue;
     if (a.etatAnche === 'sur' && surTot == null) surTot = im.t;
+    // v68 (H9, audit Fable n° 4) : sous le domaine du certificat (0,4 Hz), un battement de source « certificat » est le double d'un vrai battement lent (0,6 pour 0,3 Hz : deux minimums de l'ajustement, lequel gagne dépend de la plate-forme)
+    if (b.beatSource === 'certificat' && delta < 0.4 && Math.abs(b.beatMeas - delta) > 0.03) doubles++;
     if (im.t > 9) {
       centre.push(Math.abs(cents((a.fMeas + b.fMeas) / 2, (vraieEntiere(x, 0, im.t, L) + vraieEntiere(x, 1, im.t, L)) / 2)));
-      // v67 : sous OMEGA_MIN (0,4 Hz) le certificat est hors domaine ; sur le Node 22 / Linux de la CI il lit alors un battement double (0,6 Hz, source « certificat », état « au centre », jamais « sûr »), sur Windows / Node 24 la bonne valeur. L'enveloppe n'est donc jugée que quand le certificat n'est pas la source ou que Δ est dans son domaine.
-      if (b.beatSource !== 'certificat' || delta >= 0.4) dEnv.push(Math.abs(b.beatMeas - delta));
+      dEnv.push(Math.abs(b.beatMeas - delta));
     }
   }
   const p95 = (v) => [...v].sort((u, w) => u - w)[Math.floor(0.95 * v.length)];
-  assert(dEnv.length === 0 || p95(dEnv) < 0.03, `Δ = ${delta} Hz : battement par l'enveloppe à ${(p95(dEnv) * 1000).toFixed(0)} mHz (p95) de la vérité`);
+  assert(p95(dEnv) < 0.03, `Δ = ${delta} Hz : battement par l'enveloppe à ${(p95(dEnv) * 1000).toFixed(0)} mHz (p95) de la vérité`);
+  assert(doubles === 0, `Δ = ${delta} Hz : jamais un battement de source « certificat » éloigné de l'enveloppe quand Δ est sous 0,4 Hz (${doubles} image(s))`);
   assert(p95(centre) < 0.7, `Δ = ${delta} Hz : le centre des deux anches à ${p95(centre).toFixed(2)} ¢ de la vérité (p95 ; le vibrato de 2 ¢ à 0,5 Hz est du même ordre que Δ)`);
   assert(surTot == null || surTot >= 2 / delta - 0.1, `Δ = ${delta} Hz : aucune anche dite sûre avant deux périodes (${(2 / delta).toFixed(1)} s) : première à ${surTot == null ? 'jamais' : surTot.toFixed(1) + ' s'}`);
 }
@@ -311,9 +313,13 @@ for (const c of [
   // Battement sous 1 Hz avec un fort couplage (β ≥ 0,2) : la seconde lecture demande 2 battements et la précision d'une note grave (FEN_F0_S) ; la hauteur oscille avec le vibrato
   // de la synthèse (0,1 ¢ à 0,6 Hz : une dérive apparente de ±0,4 ¢/s). « Sûr » n'y est pas garanti, mais jamais faux ni avant l'heure ; l'écran dit pourquoi.
   const lent = c.delta < 1 && c.couple?.beta >= 0.2;
+  // v68 (H3, audit Fable n° 4) : sous F0_GRAVE_HZ (150 Hz) une lecture « sûre » exige 3 partiels décrits par le modèle (KU_SUR_MIN_GRAVE) ; ce timbre de synthèse (midi 48, 130 Hz) n'en offre que 2 au-dessus du bruit :
+  // la v67 le posait, la v68 le refuse (lent100 plan 82 : 0,53 ¢ de faux sans cette règle). « Sûr » n'y est plus garanti, mais jamais faux ni avant l'heure ; l'écran dit pourquoi.
+  const { CERT: CERTV68 } = await import('../web/js/dsp/certificat.js');
+  const grave = 440 * 2 ** ((c.midi - 69) / 12) < CERTV68.F0_GRAVE_HZ && CERTV68.KU_SUR_MIN_GRAVE > 0;
   const dernier = voix(imgs.at(-1), ids[0]);
-  assert(tropTot === 0 && faux === 0 && (lent || nSur > 20), `midi ${c.midi}, ${c.delta} Hz${c.couple ? `, β ${c.couple.beta}` : ''} : « sûr » dès ${premier?.toFixed(2)} s (T_besoin ${tB.toFixed(2)} s), ${faux} image(s) sûres à plus de 1 ¢, ${nSur} images sûres`);
-  if (lent && nSur <= 20) assert(nSur === 0 ? !!dernier?.refus || dernier?.etatAnche === 'centre' : true, `midi ${c.midi}, ${c.delta} Hz : peu de « sûr » (${nSur}), la raison est affichée (${dernier?.refus ?? dernier?.etatAnche})`);
+  assert(tropTot === 0 && faux === 0 && (lent || grave || nSur > 20), `midi ${c.midi}, ${c.delta} Hz${c.couple ? `, β ${c.couple.beta}` : ''} : « sûr » dès ${premier?.toFixed(2)} s (T_besoin ${tB.toFixed(2)} s), ${faux} image(s) sûres à plus de 1 ¢, ${nSur} images sûres`);
+  if ((lent || grave) && nSur <= 20) assert(nSur === 0 ? !!dernier?.refus || dernier?.etatAnche === 'centre' : true, `midi ${c.midi}, ${c.delta} Hz : peu de « sûr » (${nSur}), la raison est affichée (${dernier?.refus ?? dernier?.etatAnche})`);
 }
 {
   // Les mots : jamais « sûr » avec un σ de plus de 0,3 ¢ ; les raies latérales grandissent avec le rang du partiel
