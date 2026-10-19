@@ -1,28 +1,63 @@
-# Certificat des lectures « sûres » (v69, 19/10/2026)
+# Certificat des lectures « sûres » (v70, 19/10/2026)
 
 Audit Fable du 15/10/2026 (`J:\claude\audits\2026-10-17-accordeur-fable\RAPPORT-AUDIT.md`, R1 à R14) puis ses suites du 16/10 (critères d'Ewen : niveau professionnel,
 musette et super musette, Do2 à A6, tout micro USB, pose courte, refus expliqués). Règle d'Ewen : un accordeur professionnel ne dit « sûr » que s'il peut le prouver ;
 zéro lecture « sûre » fausse (erreur de plus de 0,5 ¢ sur une anche), avec n'importe quel micro. Journal des versions : `docs/JOURNAL-DES-VERSIONS.md`.
 
-## TABLEAU DE BORD (règle de convergence d'Ewen, 18/10/2026) : le même pour v66, v67, v68, v69
+## TABLEAU DE BORD (règle de convergence d'Ewen, 18/10/2026) : le même pour v66, v67, v68, v69, v70
 
 Neuf indicateurs fixes. « Publié » = chiffre écrit à l'époque (§ 0A.3, 0A.4, 0B.6, 0.1) : jeux, graines et outils ont changé d'une version à l'autre, ce n'est pas toujours comparable (dit case par case). La colonne **v68 recompté** est la seule strictement comparable à la v69 : mêmes plans, mêmes graines neuves (REP0=40, GEN 50), mêmes outils (vérité de la fenêtre lue pour toute lecture, `eval63.mjs` / `verdict.mjs` de la v69), code gelé de `origin/main` a720bdb contre la branche. Passes brutes : `J:\claude\tmp\v69\final\v68\` et `...\v69\`.
 
-| # | indicateur | v66 (publié) | v67 (publié) | v68 (publié) | **v68 recompté** | **v69** | variation v69 / v68 recompté |
-|---|---|---|---|---|---|---|---|
-| 1 | lectures « sûr » fausses (> 0,5 ¢), toutes passes | 3 (h6 1, large 2) | 6 (h6 1, large 1, ancienne 4) | 1 (GEN large, 0,556 ¢, retard de la vérité) | **1** (hypercube4 plan 233 graine 43, 0,56 ¢) | **1 (la même note, 0,562 ¢)** ; confirmation hypercube4 x 3 synthèses x 4 graines neuves (3 600 notes) : **0** | aucune de plus ; voir 0C.1 |
-| 2 | notes posées, synthèse h6 (32 plans) | 1 169 / 4 065 (28,8 %), 21 plans, non comparable | 1 059 / 4 247 (24,9 %), 22 plans | 941 / 4 247 (22,2 %) | 1 158 / 4 993 (23,2 %) | **1 486 / 4 993 (29,8 %)** | **+28 %** |
-| 3 | notes posées, synthèse LARGE (12 plans) | 407 / 2 528 (16,1 %) | 474 (18,8 %) | 420 (16,6 %) | 437 / 2 528 (17,3 %) | **590 (23,3 %)** | **+35 %** |
-| 4 | notes posées, ancienne synthèse (5 plans) | non rejouée | 505 / 1 198 (42 %) | 451 (38 %) | 468 / 1 198 (39,1 %) | **587 (49,0 %)** | **+25 %** |
-| 5 | H6 réel x1 (27 notes, essai 1) | 6 | 16 | 16 | 16 | **17** | +1 note |
-| 6 | H6 réel x4 (calcul 4 fois plus lent) | non mesuré | 1 | 10 | 10 | **10** | 0 |
-| 7 | graves f0 < 150 Hz posées (synthèse h6 / LARGE / GEN) | non mesuré | non mesuré | non comparable (autres jeux) | 16 / 1 355, 1 / 759, 1 / 161 | **70 / 1 355, 23 / 759, 6 / 161** | **x 4,4, x 23, x 6** (de 1 % à 3-5 %) |
-| 8 | corpus Serafini : voix « sûr » justes (vérité sinus) | 1 note | 3 notes, 6 voix, max 0,16 ¢ (Python) | 2 notes, 4 voix, max 0,16 ¢ (Python) | 2 notes, 4 voix, max 0,083 ¢ (port JS) | **3 notes, 6 voix, max 0,213 ¢** | +1 note, 0 > 0,3 ¢ |
-| 9 | retard p90 après un saut, Worker simulé x1 (ancienne / H6 / LARGE) | non mesuré | 0,41 / 0,38 / 0,48 s | 0,32 / 0,33 / 0,39 s | 0,33 / 0,41 / 0,38 s | **0,32 / 0,41 / 0,33 s** | = / = / -0,05 s ; D4 (Ω lent) H6 0,41 -> 0,33 s, LARGE 0,50 -> 0,41 s |
+| # | indicateur | v66 (publié) | v67 (publié) | v68 (publié) | **v68 recompté** | **v69** | variation v69 / v68 recompté | **v70** | variation v70 / v69 |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | lectures « sûr » fausses (> 0,5 ¢), toutes passes | 3 (h6 1, large 2) | 6 (h6 1, large 1, ancienne 4) | 1 (GEN large, 0,556 ¢, retard de la vérité) | **1** (hypercube4 plan 233 graine 43, 0,56 ¢) | **1 (la même note, 0,562 ¢)** ; confirmation hypercube4 x 3 synthèses x 4 graines neuves (3 600 notes) : **0** | aucune de plus ; voir 0C.1 | **0** : la note 233/43 est lue juste (0,01 / 0,05 ¢) ; 0 sur toutes les passes ; confirmation hypercube4 x 3 synthèses x 4 graines neuves REP0=48 (3 600 notes) : **0**, max 0,44 ¢ | le « 1 » est fermé |
+| 2 | notes posées, synthèse h6 (32 plans) | 1 169 / 4 065 (28,8 %), 21 plans, non comparable | 1 059 / 4 247 (24,9 %), 22 plans | 941 / 4 247 (22,2 %) | 1 158 / 4 993 (23,2 %) | **1 486 / 4 993 (29,8 %)** | **+28 %** | **1 428 / 4 065** (même décompte que v69 : 1 424) | +0,3 % |
+| 3 | notes posées, synthèse LARGE (12 plans) | 407 / 2 528 (16,1 %) | 474 (18,8 %) | 420 (16,6 %) | 437 / 2 528 (17,3 %) | **590 (23,3 %)** | **+35 %** | **584 / 2 528** (v69 : 590) | -1,0 % |
+| 4 | notes posées, ancienne synthèse (5 plans) | non rejouée | 505 / 1 198 (42 %) | 451 (38 %) | 468 / 1 198 (39,1 %) | **587 (49,0 %)** | **+25 %** | **586 / 1 198** (v69 : 587) | -0,2 % |
+| 5 | H6 réel x1 (27 notes, essai 1) | 6 | 16 | 16 | 16 | **17** | +1 note | **17** | 0 |
+| 6 | H6 réel x4 (calcul 4 fois plus lent) | non mesuré | 1 | 10 | 10 | **10** | 0 | **10** | 0 |
+| 7 | graves f0 < 150 Hz posées (synthèse h6 / LARGE / GEN) | non mesuré | non mesuré | non comparable (autres jeux) | 16 / 1 355, 1 / 759, 1 / 161 | **70 / 1 355, 23 / 759, 6 / 161** | **x 4,4, x 23, x 6** (de 1 % à 3-5 %) | **82 / 2 002, 22 / 801, 2 / 164** (v69 recompté par le même script : 82, 23, 2 ; f0 < 150 Hz) | = / -1 note / = |
+| 8 | corpus Serafini : voix « sûr » justes (vérité sinus) | 1 note | 3 notes, 6 voix, max 0,16 ¢ (Python) | 2 notes, 4 voix, max 0,16 ¢ (Python) | 2 notes, 4 voix, max 0,083 ¢ (port JS) | **3 notes, 6 voix, max 0,213 ¢** | +1 note, 0 > 0,3 ¢ | **3 notes, 6 voix, max 0,213 ¢** | 0 |
+| 9 | retard p90 après un saut, Worker simulé x1 (ancienne / H6 / LARGE) | non mesuré | 0,41 / 0,38 / 0,48 s | 0,32 / 0,33 / 0,39 s | 0,33 / 0,41 / 0,38 s | **0,32 / 0,41 / 0,33 s** | = / = / -0,05 s ; D4 (Ω lent) H6 0,41 -> 0,33 s, LARGE 0,50 -> 0,41 s | **0,33 / 0,41 s** (D4 h6 / LARGE, Worker simulé x1) | = |
 
 Le « 1 » de la ligne 1 : une note de `lhs300_calib` (graine 43, f0 164 Hz, Ω 1,21 Hz, anche faible à 17,8 dB avec une raie étrangère à -15 dB, RSB 25 dB) lue à -0,56 ¢ sur la fenêtre lue (-0,40 puis -0,56 ¢ : l'anche faible entraînée par la raie étrangère). **Elle est identique dans la v68 et la v69** : ce n'est pas une régression ; elle n'apparaissait pas dans les passes de la v68 parce que celles-ci jugeaient la plupart des plans contre la moyenne des 3 dernières secondes (colonne « v67 » du verdict : 3 lectures sûres à plus de 0,5 ¢ de cette moyenne, pour les deux versions). Avec la vérité unifiée de la v69 (I7), la v68 n'a donc pas « zéro faux » non plus. Aucune rustine n'est ajoutée sans plan (I9) : le cas est livré à l'audit n° 6.
 
 **Critère de convergence.** La v69 ne se fusionne que si (1) reste à 0 et qu'aucun des indicateurs (2) à (9) ne recule de plus de 3 % sans gain qui le justifie. Résultat : (2) à (4) montent de 25 à 35 %, (5) à (9) ne reculent pas (le seul recul chiffré est GEN large à physique très large, 9 -> 8 posées sur 176, 1 note, justifié par les +25 à +35 % des trois synthèses). (1) n'est pas à 0, mais à la même valeur que la v68 recomptée avec la même vérité, sur la même note, et à 0 sur 3 600 notes de confirmation à graines neuves. **La branche n'est donc pas fusionnée par l'agent** : la règle d'Ewen dit « (1) reste à 0 », et ce « 1 » est antérieur à la v69 ; la décision de fusion est laissée au coordinateur (PR ouverte, contrôles GitHub verts).
+
+**Critère de convergence de la v70 (tenu).** (1) = 0 sur toutes les passes, la note 233/43 comprise ; (2) à (4) ne reculent pas de plus de 3 % (le pire : LARGE -1,0 %) ; H6 réel x1 17/27 et x4 10/27 (= v69). Passes finales aux mêmes graines que la v69 (REP0=40, GEN 50), code gelé, `J:\claude\tmp\v70\final\v70\` contre `J:\claude\tmp\v69\final\v69\`. Détail : 0D.
+
+## 0D. La v70 (audit Fable n° 6 du 18/10/2026) : la consigne CONSIGNE-V70 appliquée (J1 et J2 ; J3 attend la session Android d'Ewen)
+
+Audit : `J:\claude\audits\2026-10-18-accordeur-fable-6\RAPPORT-AUDIT-6.md` (§ 9). Un seul changement de code : `LIBRE_DOUBLON`. Aucun seuil réglé sur les prises du 11, 13, 14/10 ni sur le corpus.
+
+**J1 : `LIBRE_DOUBLON`.** Mécanisme (audit n° 6, § 2) : la note 233/43 (f0 164 Hz, Ω 1,21 Hz, anche faible à 17,8 dB, raie étrangère à -15 dB à 0,32 Hz de l'anche forte) est dans la garde de la recherche à 2 partiels, la raie n'est jamais candidate ; une raie libre glisse alors en DOUBLON de l'anche forte (0,036 Hz, -3,5 dB), absorbe l'écart et tire l'anche faible (-0,56 ¢ sur la fenêtre lue). Règle (`nls-bessel.js`) : une raie libre ajustée à moins de `DOUBLON_DIST`/(K·T) d'une anche ou d'une de leurs raies latérales f_r + nΩ (n = ±1..3), et à moins de `DOUBLON_DB` dB sous l'anche la plus proche, n'est pas adoptée. Éteinte, elle ne change aucun calcul. Plan 2^2 complet (`outils/doe.py`, graine 44), graines neuves REP0=44 :
+
+| `DOUBLON_DIST` ; `DOUBLON_DB` | posées h6 /300 | posées LARGE /300 | graves h6 /40 | H6 x1 | H6 x4 | faux | note 233/43 |
+|---|---|---|---|---|---|---|---|
+| v69 (règle éteinte) | 104 | 85 | 5 | 17 | 10 | 0 | doublon -3,6 dB, lue à -0,40 / -0,45 ¢ |
+| **0,5 ; 6 (retenu)** | **108** | **83** | 5 | **17** | **10** | 0 | juste (0,01 / 0,05 ¢), vraie raie -15,6 dB |
+| 1,0 ; 6 | 107 | 82 | 5 | 16 | 11 | 0 | juste |
+| 0,5 ; 99 | 109 | 82 | 5 | 16 | 9 | 0 | juste |
+| 1,0 ; 99 (prototype de l'audit) | 105 | 74 | 4 | 16 | 9 | 0 | juste |
+
+Plan saturé (4 essais) : aucun effet significatif au sens de Lenth ; le seul écart de taille est celui du prototype (1,0 ; 99) en LARGE, -11 notes (-13 %), que la condition de niveau (6 dB) ramène à -2 (-2,4 %). Retenu : la cellule qui garde H6 17/27 et 10/27 et le plus de posées sans dépasser -3 %. **Confirmation** hypercube4 x 3 synthèses x 4 graines neuves (REP0=48, 3 600 notes) : h6 448 / 1 199 posées, LARGE 320 / 1 200, ancienne 585 / 1 200 ; **0 faux** partout, max 0,44 ¢. Passes finales contre la v69 aux mêmes graines : h6 1 424 -> 1 428, LARGE 590 -> 584, ancienne 587 -> 586, GEN 121 -> 122, Worker simulé 422 -> 419 sur 1 000 ; le « sûr » faux de la v69 (hypercube4 plan 233 graine 43) disparaît. Banc CI : la note 233/43 y est ajoutée (`ci_seuils.json`) ; elle fait échouer le banc quand `LIBRE_DOUBLON` est éteint (1 faux) et le passe allumé (0).
+
+**J2 : diagnostic du résidu des partiels 1-4 après l'ajustement final** (`test/outils/pose/residu_h6.mjs`, aucun changement de modèle). Pour chaque note posée : dernier ajustement jugé ok rejoué, résidu complexe de chaque partiel analysé par DFT (Hann), rapporté à l'énergie du partiel et réparti entre les raies de chaque anche (k f_r + mΩ) : porteuse (m = 0, à ±1/T), ±Ω, ±2Ω et ±3Ω, ailleurs. À égalité de raie (les deux anches se recouvrent) la classe d'ordre le plus bas gagne. Dernière colonne : part qu'aurait un résidu blanc (nombre de cases).
+
+H6 réel, essai 1 : 17 notes posées (partiels 3 et 4 : 7 et 5 notes seulement, ceux que le modèle sait décrire).
+
+| partiel | résidu / énergie (médiane) | porteuse | ±Ω | ±2Ω, ±3Ω | ailleurs | résidu blanc : porteuse / ±Ω / ±2Ω±3Ω / ailleurs |
+|---|---|---|---|---|---|---|
+| 1 | 0,12 % | 8 % | 15 % | 57 % | 20 % | 4 / 5 / 10 / 81 % |
+| 2 | 5,02 % | 29 % | 39 % | 23 % | 9 % | 5 / 6 / 9 / 80 % |
+| 3 | 0,55 % | 10 % | 39 % | 39 % | 12 % | 5 / 9 / 10 / 76 % |
+| 4 | 1,50 % | 13 % | 43 % | 36 % | 8 % | 5 / 11 / 14 / 70 % |
+
+Synthèse h6 (20 notes posées, graine 44) : résidu 0,35 à 0,57 %, 70 à 78 % « ailleurs » (blanc : 82 à 90 %), ±Ω 12 à 19 %, ±2Ω±3Ω 6 à 8 %.
+
+**Lecture : quelle physique manque.** (1) Sur l'instrument réel, le résidu des partiels 2 à 4 n'est pas du bruit : 90 % de son énergie tombe sur les raies de modulation (blanc : 20 à 30 %), alors que la synthèse en laisse 70 à 80 % dans le bruit. (2) Il est réparti sur les bandes latérales ±Ω (39 à 43 %, environ 4 fois la part d'un résidu blanc) et ±2Ω, ±3Ω (36 à 39 %, 3 à 4 fois), très peu sur la porteuse (10 à 13 %) : ce sont les amplitudes et phases des bandes latérales d'ordres 1 à 3 qui ne sont pas celles du peigne de Bessel d'une modulation sinusoïdale (modulation non sinusoïdale de l'anche, AM propre des bandes), pas la fréquence des anches. (3) Le profil par raie décroît avec l'ordre (environ 10 % par raie à ±Ω contre 4,5 % à ±2Ω et ±3Ω) : une simple dérive de Ω l'aurait fait croître avec m ; elle n'est pas indiquée comme cause principale. Entrée de l'audit n° 7 : une harmonique de modulation (β_k,2 sin 2Φ par anche) à essayer sur le H6 réel et la synthèse LARGE enrichie, par plan 2^2. Limites : 17 notes d'un seul instrument et d'un seul micro, partiels 3-4 sur 5 à 7 notes ; la classe « ±2Ω, ±3Ω » est ce qui reste après les raies d'ordre plus bas des deux anches.
+
+**J3** (session Android, `calcul.msFroid`) : en attente du geste d'Ewen, rien inventé ; le facteur x4 du tableau de bord reste une hypothèse.
 
 ## 0C. La v69 (audit Fable n° 5 du 18/10/2026) : la consigne CONSIGNE-V69 appliquée
 
