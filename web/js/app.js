@@ -11,6 +11,8 @@ import { TABLES_MUSETTE, tableMusette, beatCurveDe } from './tables-accordage.js
 import { estimerLa, texteLa } from './accordage.js';
 import { graphiquesRapport } from './courbes.js';
 import { uidDe } from './report.js';
+import { activerGlisser } from './glisser.js';
+import { choixDe, GRANDEURS, selectionActive, courbeUnique, aReprendre } from './courbe-unique.js';
 import { dispositions, dispositionDe, Protocole, SENS, CHROMATIQUE_DEFAUT } from './protocole.js';
 import { ligneMicro, consignes, informations, plateforme, propositionMicro, blocMicro, classerMicro, mentionDouteuse, choisirMicro } from './prise-micro.js';
 import {
@@ -2112,6 +2114,7 @@ function refreshReport() {
     sel: state.sel ?? null,
     detail: !!cfg.rapportDetail,
     onRefaire: refaireCase,
+    onDeplacer: deplacerMesureVers,
     onSelect: (sel) => selectionner(sel, false),
     onAction: (type, { uids }) => editerRapport(() => report.basculerSens(uids, suite)),
     onSelection: (uids) => { state.selection = uids; majEdition(); },
@@ -2131,6 +2134,7 @@ function refreshReport() {
   majProtocoleAffichage();
   majPlanClavier();
   majComparaison();
+  majCourbeUnique();
   majEdition();
   surbrillance();
 }
@@ -2153,7 +2157,7 @@ function surbrillance() {
   const sel = state.sel;
   if (!sel) return;
   for (const td of $('tuneGrid').querySelectorAll('td[data-midi]')) td.classList.toggle('sel', Number(td.dataset.midi) === sel.midi && cfg.bellows === sel.dir);
-  for (const c of document.querySelectorAll('#reportCourbes svg circle[data-midi], #compareOut svg circle[data-midi]')) c.classList.toggle('sel', Number(c.dataset.midi) === sel.midi);
+  for (const c of document.querySelectorAll('#reportCourbes svg circle[data-midi], #cuGraph svg circle[data-midi], #compareOut svg circle[data-midi]')) c.classList.toggle('sel', Number(c.dataset.midi) === sel.midi);
   for (const b of $('planClavier').querySelectorAll('.plan-btn')) {
     b.classList.toggle('sel', (sel.uid && b.dataset.uid === sel.uid) || (!sel.uid && Number(b.dataset.midi) === sel.midi && b.dataset.dir === sel.dir));
   }
@@ -2174,6 +2178,9 @@ function majPlanClavier() {
   for (const b of el.querySelectorAll('.plan-btn')) {
     b.onclick = () => selectionner({ uid: b.dataset.uid, midi: Number(b.dataset.midi), dir: b.dataset.dir });
   }
+  // glisser un bouton mesuré sur une autre case (plan du clavier ou ligne du rapport)
+  activerGlisser(el, { source: '.plan-btn.fait, .plan-btn.reprendre', cible: '.plan-btn, #reportTable tr[data-uid]',
+    libelle: (b) => b.textContent, onDepose: (a, b) => deplacerMesureVers(a.dataset.uid, b.dataset.uid) });
 }
 
 // ---- Édition du rapport : bascule tiré / poussé, réaffectation, annuler / rétablir ----
@@ -2185,6 +2192,29 @@ function editerRapport(action) {
   state.protoCle = null;
   report.recalculer(cfg);
   refreshReport();
+}
+// Glisser-déposer : déplace une mesure vers une autre case (autre bouton, rangée
+// ou sens). Case cible déjà remplie : échanger ou remplacer, au choix d'Ewen.
+function deplacerMesureVers(srcUid, dstUid) {
+  if (srcUid === dstUid) return;
+  if (!protocoleActif()) {
+    // saisie libre : seule la ligne du sens opposé est une cible (bascule tiré / poussé)
+    const tr = [...document.querySelectorAll('#reportTable tr[data-uid]')].find((x) => x.dataset.uid === dstUid);
+    if (tr && tr.dataset.dir !== String(srcUid).split('|')[1]) editerRapport(() => report.basculerSens([srcUid], null));
+    return;
+  }
+  const cas = protocole.suite.find((c) => c.id === dstUid);
+  if (!cas) return;
+  const nom = `${cas.nomRang} bouton ${cas.bouton}, ${SENS[cas.sens]}`;
+  let mode = 'refuser';
+  if ([...report.rows.values()].some((r) => r.cas === cas.id)) {
+    if (confirm(`${nom} est déjà mesuré.
+OK : échanger les deux mesures.
+Annuler : proposer de remplacer.`)) mode = 'echanger';
+    else if (confirm(`Remplacer la mesure de ${nom} ? (elle sera effacée ; « Annuler » du rapport la rend)`)) mode = 'remplacer';
+    else return;
+  }
+  editerRapport(() => report.deplacerMesure(srcUid, cas, mode));
 }
 function majEdition() {
   $('btnAnnuler').disabled = !report.peutAnnuler;
@@ -2351,13 +2381,59 @@ function enregistrerMesure(t, auto) {
   const r = protocole.entrer({ midi: t.playedMidi + (cfg.transpose || 0), sens: dir });
   let n = 0;
   if (r.cas && (r.type === 'ok' || r.type === 'saut')) {
-    n = report.record(t, cfg, dir, r.cas);
+    n = report.record(t, cfg, r.cas.sens, r.cas); // le sens de l'étape fixe la case, jamais le moteur
     if (r.suivante && r.suivante.sens !== cfg.bellows) setBellows(r.suivante.sens);
   } else {
     beep(330, 0.12);
   }
   refreshReport();
   return n;
+}
+
+// ---- La courbe unique : un graphique, des cases à cocher, la liste « à reprendre » ----
+function majCourbeUnique() {
+  const choix = choixDe(cfg.courbe);
+  cfg.courbe = choix;
+  const unite = cfg.uniteBatt === 'hz' ? 'hz' : 'bpm';
+  const series = report.series(cfg);
+  const rangsDispo = [...new Set([...series.map((x) => x.rang), ...(protocole && protocoleActif() ? protocole.suite.map((c) => c.rang) : [])].filter((x) => x != null))].sort();
+  const act = selectionActive(choix, { courante: protocoleActif() ? protocole.courante() : null, bellows: cfg.bellows, rangsDispo });
+  const sources = [{ nom: state.cmp?.nomA ?? 'rapport', series }];
+  if (state.cmp) sources.push({ nom: state.cmp.nomB, series: state.cmp.seriesB });
+  const visibles = sources.filter((x) => !choix.sources.includes(x.nom));
+  const esc = (x) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const caseA = (id, texte, coche, desactive = false) => `<label class="inline"><input type="checkbox" data-cu="${id}"${coche ? ' checked' : ''}${desactive ? ' disabled' : ''}> ${texte}</label>`;
+  $('cuChoix').innerHTML = caseA('auto', "suivre l'étape en cours", choix.auto)
+    + (rangsDispo.length ? '<span class="hint">rangées</span>' + rangsDispo.map((r) => caseA(`rang:${r}`, `R${r}`, act.rangs.includes(r))).join('') : '')
+    + '<span class="hint">sens</span>' + caseA('sens:T', 'tiré', act.sens.includes('T')) + caseA('sens:P', 'poussé', act.sens.includes('P'))
+    + '<span class="hint">courbe</span>' + GRANDEURS.map((g) => caseA(`g:${g.id}`, g.nom, choix.g[g.id])).join('')
+    + (state.cmp ? '<span class="hint">rapports</span>' + sources.map((x) => caseA(`src:${x.nom}`, esc(x.nom), !choix.sources.includes(x.nom))).join('') : '');
+  for (const c of $('cuChoix').querySelectorAll('input[data-cu]')) {
+    c.onchange = () => {
+      const [k, v] = c.dataset.cu.split(':');
+      if (k === 'auto') choix.auto = c.checked;
+      else if (k === 'rang' || k === 'sens') {
+        if (choix.auto) { choix.auto = false; choix.rangs = [...act.rangs]; choix.sens = [...act.sens]; }
+        const liste = k === 'rang' ? choix.rangs : choix.sens;
+        const val = k === 'rang' ? Number(v) : v;
+        const i = liste.indexOf(val);
+        if (c.checked && i < 0) liste.push(val); else if (!c.checked && i >= 0) liste.splice(i, 1);
+      } else if (k === 'g') choix.g[v] = c.checked;
+      else if (k === 'src') { const i = choix.sources.indexOf(v); if (!c.checked && i < 0) choix.sources.push(v); else if (c.checked && i >= 0) choix.sources.splice(i, 1); }
+      saveCfg();
+      majCourbeUnique();
+      surbrillance();
+    };
+  }
+  const liste = aReprendre(series, cfg, unite, act);
+  const d = unite === 'hz' ? 2 : 1;
+  $('cuListe').innerHTML = `<h3>À reprendre (${liste.length})</h3>` + (liste.length
+    ? '<ol>' + liste.slice(0, 8).map((x) => `<li data-midi="${x.midi}" data-dir="${x.dir}"><b>${esc(x.note)}</b> ${x.rang ? `R${x.rang}` : ''}${x.bouton ? ` b${x.bouton}` : ''} ${x.dir === 'P' ? 'poussé' : 'tiré'} ${esc(x.voix)} : ${x.ecart >= 0 ? '+' : ''}${x.ecart.toFixed(x.unite === '¢' ? 1 : d)} ${x.unite}, ${x.geste}</li>`).join('') + '</ol>'
+      + (liste.length > 8 ? `<p class="hint">… et ${liste.length - 8} autres (tableau plus bas)</p>` : '')
+    : '<p class="hint">Rien à reprendre dans cette sélection.</p>');
+  for (const li of $('cuListe').querySelectorAll('li[data-midi]')) li.onclick = () => selectionner({ uid: null, midi: Number(li.dataset.midi), dir: li.dataset.dir });
+  const res = courbeUnique(visibles, cfg, unite, choix, act);
+  $('cuGraph').innerHTML = res.refus ? `<p class="hint">${esc(res.refus)}</p>` : res.svg;
 }
 
 // ---- Comparaison de deux rapports (banc / en caisse) --------------------------------
@@ -2373,7 +2449,9 @@ function majComparaison() {
   state.cmp = cmp;
   const esc = (x) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;');
   out.innerHTML = `<h3>Comparaison : ${esc(cmp.nomA)} et ${esc(cmp.nomB)} (différence = ${esc(cmp.nomB)} moins ${esc(cmp.nomA)})</h3>`
-    + `<ul>${cmp.resume.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>${cmp.graphiques.map((g) => g.svg).join('')}`;
+    + `<p class="hint">Les deux rapports se superposent sur la courbe unique (cases ci-dessus).</p>`
+    + `<ul>${cmp.resume.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>`
+    + `<details><summary>Courbes de la comparaison (superposition et différence)</summary>${cmp.graphiques.map((g) => g.svg).join('')}</details>`;
   $('btnCompareCsv').classList.remove('hidden');
   $('btnCompareFin').classList.remove('hidden');
 }

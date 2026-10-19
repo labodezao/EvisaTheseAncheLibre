@@ -32,7 +32,7 @@ export function seriesDe(lignes, cfg, unite = 'bpm') {
     const cle = `${type}|${r.rang ?? '-'}|${dir}|${r.voiceId}`;
     let s = map.get(cle);
     if (!s) {
-      s = { cle, type, rang: r.rang ?? null, nomRang: r.nomRang ?? null, dir, voiceId: r.voiceId,
+      s = { cle, type, rang: r.rang ?? null, nomRang: r.nomRang ?? null, dir, voiceId: r.voiceId, signe: a.signe,
         label: r.label ?? r.voiceId, points: new Map() };
       map.set(cle, s);
     }
@@ -152,9 +152,9 @@ export function courbeSvg(spec) {
   spec.series.forEach((se, i) => {
     const c = se.couleur ?? PALETTE[i % PALETTE.length];
     const d = se.points.map((p) => `${X(p.midi).toFixed(1)},${Y(p.y).toFixed(1)}`);
-    s += `<polyline points="${d.join(' ')}" fill="none" stroke="${c}" stroke-width="1.6"${se.tirets ? ' stroke-dasharray="5 3"' : ''}/>`;
+    s += `<polyline points="${d.join(' ')}" fill="none" stroke="${c}" stroke-width="1.6"${se.tirets ? ' stroke-dasharray="5 3"' : se.pointille ? ' stroke-dasharray="1 3"' : ''}/>`;
     for (const p of se.points) {
-      s += `<circle data-midi="${p.midi}" cx="${X(p.midi).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="2.2" fill="${c}"/>`;
+      s += `<circle data-midi="${p.midi}" cx="${X(p.midi).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="2.2" fill="${se.creux ? '#fff' : c}"${se.creux ? ` stroke="${c}"` : ''}/>`;
       if (p.hors) s += `<circle cx="${X(p.midi).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="5.5" fill="none" stroke="#dc2626" stroke-width="1.6"/>`;
     }
   });

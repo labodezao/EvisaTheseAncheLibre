@@ -6,6 +6,7 @@
 // Les calculs (cibles, écarts, unités) sont dans accordage.js, les courbes et
 // la comparaison de deux rapports dans courbes.js.
 
+import { activerGlisser } from './glisser.js';
 import { noteLabel, centsClass } from './music.js';
 import {
   analyser, recalculerLignes, classeBatt, formatBatt, enUnite, depuisUnite, UNITES_BATT, decimalesUnite,
@@ -273,6 +274,33 @@ export class Report {
     return this._deplacer([uid], (r) => ({ ...r, cas: cas.id, rang: cas.rang, bouton: cas.bouton, nomRang: cas.nomRang, dir: cas.sens }));
   }
 
+  // Déplace une mesure (glisser-déposer) vers une case de la suite. Si la case est
+  // déjà remplie : mode 'refuser' (rien ne change, `occupee` est rendu),
+  // 'echanger' (les deux mesures se croisent) ou 'remplacer' (la mesure de la
+  // case cible est effacée). Un seul pas d'annulation dans tous les cas.
+  deplacerMesure(uid, cas, mode = 'refuser') {
+    const src = [...this.rows.values()].filter((r) => uidDe(r) === uid);
+    if (!src.length) return { ok: false, raison: 'rien à déplacer', n: 0 };
+    if (src[0].cas === cas.id) return { ok: false, raison: '', n: 0 };
+    const occupant = [...this.rows.values()].some((r) => r.cas === cas.id);
+    if (!occupant) return this.reaffecter(uid, cas);
+    if (mode === 'refuser') return { ok: false, occupee: true, raison: '', n: 0 };
+    const a = src[0];
+    const casA = { id: a.cas, rang: a.rang, bouton: a.bouton, nomRang: a.nomRang, sens: a.dir || 'T' };
+    const vers = (r, c) => ({ ...r, cas: c.id, rang: c.rang, bouton: c.bouton, nomRang: c.nomRang, dir: c.sens });
+    const cle = (r) => `${r.midi}|${r.voiceId}|${r.dir || 'T'}${r.cas ? `|${r.cas}` : ''}`;
+    this._empiler();
+    const nouv = [];
+    for (const r of this.rows.values()) {
+      if (uidDe(r) === uid) nouv.push(vers(r, cas));
+      else if (r.cas === cas.id) { if (mode === 'echanger' && casA.id) nouv.push(vers(r, casA)); }
+      else nouv.push(r);
+    }
+    this.rows = new Map(nouv.map((r) => [cle(r), r]));
+    this.save();
+    return { ok: true, n: src.length };
+  }
+
   // ---- La vue « à l'instrument » : une ligne par bouton ---------------------------------
   // Sections (rangée × sens) de lignes par bouton. `suite` : la suite attendue du
   // protocole, pour montrer aussi les boutons pas encore mesurés ; `courante` : la
@@ -359,7 +387,7 @@ export class Report {
           return `<td class="${classeBatt(x.a.ecartBatt, x.a.battVoulu)} gros"><b>${formatBatt(x.a.battMes, u)}</b> <small>/ ${formatBatt(x.a.battVoulu, u)} · ${x.a.ecartBatt == null ? '—' : signe(enUnite(x.a.ecartBatt, u), d)}</small></td>`;
         }).join('');
         html += `<tr class="${cls}" data-uid="${esc(b.uid)}" data-midi="${b.midi}" data-dir="${s.dir}">`
-          + (edition ? `<td>${b.mesure ? `<input type="checkbox" data-sel="${esc(b.uid)}" title="Sélectionner">` : ''}</td>` : '')
+          + (edition ? `<td>${b.mesure ? `<span class="poignee" data-glisse="${esc(b.uid)}" title="Saisir et lâcher sur une autre case">⠿</span><input type="checkbox" data-sel="${esc(b.uid)}" title="Sélectionner">` : ''}</td>` : '')
           + `<td>${b.bouton ?? ''}</td><td class="gros"><b>${lbl}</b></td><td class="gros">${juste}</td>${cases}`
           + `<td class="etat-${b.etat}">${b.courant ? 'à jouer' : ETATS[b.etat]}</td>`
           + (edition ? `<td>${b.mesure ? `<button class="mini" data-act="sens" data-uids="${esc(b.uid)}" title="Basculer en ${s.dir === 'P' ? 'tiré' : 'poussé'}">⇄</button>`
@@ -408,6 +436,10 @@ export class Report {
         opts.onSelect?.({ uid: tr.dataset.uid, midi: Number(tr.dataset.midi), dir: tr.dataset.dir });
       });
     });
+    if (opts.onDeplacer) {
+      activerGlisser(el, { source: '.poignee[data-glisse]', cible: 'tr[data-uid]', libelle: (h) => h.closest('tr').querySelector('.gros')?.textContent ?? '',
+        onDepose: (h, tr) => opts.onDeplacer(h.dataset.glisse, tr.dataset.uid) });
+    }
     el.querySelectorAll('input[data-sel]').forEach((c) => {
       c.addEventListener('change', () => opts.onSelection?.([...el.querySelectorAll('input[data-sel]:checked')].map((x) => x.dataset.sel)));
     });
@@ -490,7 +522,7 @@ export class Report {
     const nom = (c, n) => `${LIEUX[c.lieu] ?? c.lieu}${c.date ? ` ${c.date}` : ''}${n ? ` (${n})` : ''}`;
     const nomA = nom(this.contexte, '');
     const nomB = nom(autre.contexte, '');
-    return { comp, nomA, nomB, resume: texteResume(comp.resume, u, cfg), graphiques: graphiquesComparaison(comp, nomA, nomB, cfg, u) };
+    return { comp, nomA, nomB, seriesA: a, seriesB: b, resume: texteResume(comp.resume, u, cfg), graphiques: graphiquesComparaison(comp, nomA, nomB, cfg, u) };
   }
 
   csvComparaison(cmp, cfg) { return csvComparaison(cmp.comp, cmp.nomA, cmp.nomB, cfg, unite(cfg)); }
