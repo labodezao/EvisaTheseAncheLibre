@@ -330,7 +330,7 @@ async function startAudio() {
       // à-coups (±6 ¢ toutes les ~2 s, mesuré) — cf. worker.js, readStream.
       const track = mediaStream.getAudioTracks()[0];
       if (typeof MediaStreamTrackProcessor !== 'undefined' && !cfg.forceWebAudio) {
-        const proc = new MediaStreamTrackProcessor({ track });
+        const proc = new MediaStreamTrackProcessor({ track, maxBufferSize: 256 });   // ~2,5 s de trames : un calcul lent du Worker ne fait plus jeter de son (trous « retard », session du 19/10)
         worker.postMessage({ type: 'stream', readable: proc.readable }, [proc.readable]);
         state.capture = { direct: true };
       } else {

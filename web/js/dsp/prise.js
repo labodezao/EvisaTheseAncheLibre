@@ -55,6 +55,7 @@ export const SEUILS = Object.freeze({
   trouMs: 5,                // écart date / échantillons
   trouChauffe_s: 5,         // les 5 premières secondes : un saut de date est le démarrage du périphérique (v62, Ewen : 870 ms au lancement), pas une perte ; le compteur repart de la nouvelle date
   trouTenue_s: 15,
+  trouAlerteMs: 400,        // Ewen, 19/10/2026 : un trou de moins de 0,4 s est seulement journalisé (CSV, JSON), sans alerte ni verdict bloqué ; seule la fenêtre qui le contient est écartée
   // écrêtage
   ecreteNiveau: 0.985,
   ecreteSuite: 3,           // 3 échantillons d'affilée au maximum
@@ -240,7 +241,7 @@ export class ControlePrise {
       if (c && Math.abs(ms) > 0.6 * this.s.trouMs && Math.sign(ms) === Math.sign(c.ms)) {
         this.trous.push({ t_s: c.t, ms: Math.round(c.ms * 10) / 10, cause: Math.abs(c.ms) <= 1.5 * (c.retard || 0) + 20 ? 'retard' : 'flux' });
         if (this.trous.length > 500) this.trous.shift();
-        this.dernierTrou = this.temps;
+        if (Math.abs(c.ms) > this.s.trouAlerteMs) this.dernierTrou = this.temps;   // l'alerte (prise douteuse) : seulement au-delà de trouAlerteMs
         this.rRef = r;
         this.candidat = null;
       } else {
@@ -368,7 +369,7 @@ export class ControlePrise {
       out.gate = { premiere: ev[0], derniere: ev[ev.length - 1], n: gate.length + palier.length,
         detail: { zeros: gate.length, coupures: palier.length, plusLongue_ms: Math.round(this.zeroMax * 10000) / 10 } };
     }
-    if (this.trous.length && t - this.dernierTrou <= s.trouTenue_s) {
+    if (this.trous.length && this.dernierTrou > -1e8 && t - this.dernierTrou <= s.trouTenue_s) {
       out.trous = { premiere: this.dernierTrou, derniere: this.dernierTrou, n: this.trous.length,
         detail: { dernier_ms: this.trous[this.trous.length - 1].ms, dernier_t_s: Math.round(this.trous[this.trous.length - 1].t_s * 10) / 10,
           cause: this.trous[this.trous.length - 1].cause, total: this.trous.length } };
