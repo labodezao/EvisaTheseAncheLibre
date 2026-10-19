@@ -12,6 +12,7 @@ import { estimerLa, texteLa } from './accordage.js';
 import { graphiquesRapport } from './courbes.js';
 import { uidDe } from './report.js';
 import { activerGlisser } from './glisser.js';
+import { ajuster, texteFit, titreFit, ciblesDepuis, MIN_NOTES } from './reharmonisation.js';
 import { choixDe, GRANDEURS, selectionActive, courbeUnique, aReprendre } from './courbe-unique.js';
 import { dispositions, dispositionDe, Protocole, SENS, CHROMATIQUE_DEFAUT } from './protocole.js';
 import { ligneMicro, consignes, informations, plateforme, propositionMicro, blocMicro, classerMicro, mentionDouteuse, choisirMicro } from './prise-micro.js';
@@ -34,6 +35,21 @@ const $ = (id) => document.getElementById(id);
 const APP_VERSION = '70';
 // Le pied de page lit la version ici : jamais de numéro écrit en dur dans index.html.
 { const pied = document.getElementById('appVersion'); if (pied) pied.textContent = `version ${APP_VERSION}`; }
+// À côté : la révision de l'interface (celle du cache du service worker, « r4 »), pour voir
+// d'un coup d'oeil qu'une mise à jour du rapport est bien arrivée.
+(async () => {
+  const pied = document.getElementById('appVersion');
+  if (!pied) return;
+  let rev = null;
+  try {
+    const noms = (await caches.keys()).filter((k) => k.startsWith(`aal-shell-v${APP_VERSION}-`)).sort();
+    rev = noms.at(-1)?.split('-').pop() ?? null;
+  } catch { /* pas de Cache API */ }
+  if (!rev) {
+    try { rev = /aal-shell-v[0-9]+-([a-z0-9]+)/.exec(await (await fetch('sw.js', { cache: 'no-store' })).text())?.[1] ?? null; } catch { /* hors ligne */ }
+  }
+  if (rev) pied.textContent = `version ${APP_VERSION} · ${rev}`;
+})();
 function versionMismatch(what, got) {
   const b = document.getElementById('versionBanner');
   if (!b) return;
@@ -2432,8 +2448,46 @@ function majCourbeUnique() {
       + (liste.length > 8 ? `<p class="hint">… et ${liste.length - 8} autres (tableau plus bas)</p>` : '')
     : '<p class="hint">Rien à reprendre dans cette sélection.</p>');
   for (const li of $('cuListe').querySelectorAll('li[data-midi]')) li.onclick = () => selectionner({ uid: null, midi: Number(li.dataset.midi), dir: li.dataset.dir });
-  const res = courbeUnique(visibles, cfg, unite, choix, act);
+  const ajust = ajuster(series, cfg);
+  state.ajust = ajust;
+  majReharmonisation(ajust, unite, esc);
+  const res = courbeUnique(visibles, cfg, unite, choix, act, ajust);
   $('cuGraph').innerHTML = res.refus ? `<p class="hint">${esc(res.refus)}</p>` : res.svg;
+}
+
+// ---- Réharmonisation : ajustement robuste, courbe de l'instrument, notes à retoucher ----
+function majReharmonisation(ajust, unite, esc) {
+  const el = $('reharmoTexte');
+  if (!el) return;
+  if (!ajust.assez) {
+    el.innerHTML = `<p class="hint">Pas encore assez de notes (${MIN_NOTES} au moins par voix et par sens) pour ajuster la courbe de l'instrument.</p>`;
+    $('btnReharmoCible').disabled = true;
+    return;
+  }
+  $('btnReharmoCible').disabled = !ajust.fits.some((f) => f.type === 'battement');
+  const d = unite === 'hz' ? 2 : 1;
+  el.innerHTML = ajust.fits.map((f) => `<p><b>${esc(titreFit(f))}</b><br>${esc(texteFit(f, unite))}</p>`
+    + (f.retoucher.length
+      ? '<ol class="reharmo-notes">' + f.retoucher.slice(0, 6).map((x) => `<li data-midi="${x.midi}" data-dir="${f.dir}"><b>${esc(x.note)}</b>${x.rang ? ` R${x.rang}` : ''}${x.bouton ? ` b${x.bouton}` : ''} : ${f.type === 'battement'
+        ? `${x.ecart >= 0 ? '+' : ''}${(unite === 'hz' ? x.ecart : x.ecart * 60).toFixed(d)} ${unite === 'hz' ? 'Hz' : 'bat/min'} par rapport à la courbe` : `${x.ecart >= 0 ? '+' : ''}${x.ecart.toFixed(1)} ¢ par rapport à la courbe`}, ${esc(x.geste)}</li>`).join('') + '</ol>'
+        + (f.retoucher.length > 6 ? `<p class="hint">… et ${f.retoucher.length - 6} autres (rapport imprimable)</p>` : '')
+      : '<p class="hint">Aucune note à retoucher.</p>')).join('');
+  for (const li of el.querySelectorAll('li[data-midi]')) li.onclick = () => selectionner({ uid: null, midi: Number(li.dataset.midi), dir: li.dataset.dir });
+}
+function prendreCourbeAjustee() {
+  const fits = (state.ajust?.fits ?? []).filter((f) => f.type === 'battement');
+  if (!fits.length) return;
+  const fit = fits.find((f) => f.voiceId === '8+' && f.dir === 'T') ?? fits.slice().sort((a, b) => b.n - a.n)[0];
+  const facteur = 1 + (Number($('reharmoFacteur').value) || 0) / 100;
+  const cibles = ciblesDepuis(fit, 36, 96, facteur);
+  cfg.beatCurve.table = null; // ce n'est plus une table prédéfinie
+  cfg.beatCurve.overrides = { ...cibles };
+  cfg.beatCurve.manuel = { ...cibles };
+  saveCfg();
+  majTableInfo();
+  pushConfig();
+  report.recalculer(cfg);
+  refreshReport();
 }
 
 // ---- Comparaison de deux rapports (banc / en caisse) --------------------------------
@@ -3091,6 +3145,7 @@ function bindControls() {
     refreshReport();
     alert(`${n} battements copiés vers la liste cible.`);
   };
+  $('btnReharmoCible').onclick = prendreCourbeAjustee;
   $('btnClear').onclick = () => {
     if (confirm('Effacer toutes les mesures enregistrées ?')) { report.clear(); creerProtocole(); refreshReport(); }
   };

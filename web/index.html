@@ -447,6 +447,14 @@
         <div id="cuChoix" class="row gap"></div>
         <div class="cu-corps"><div id="cuListe"></div><div id="cuGraph"></div></div>
       </div>
+      <details id="reharmoBloc" open>
+        <summary>Réharmonisation : courbe d'accordage de l'instrument et notes à retoucher</summary>
+        <div id="reharmoTexte"></div>
+        <div class="row gap">
+          <label>Relever la cible de <input type="number" id="reharmoFacteur" value="0" step="1" min="-50" max="100" size="4"> %</label>
+          <button id="btnReharmoCible" title="Les battements voulus du rapport deviennent la courbe ajustée, au lieu d'une table prédéfinie">Prendre la courbe ajustée comme cible</button>
+        </div>
+      </details>
       <details id="courbesDetail"><summary>Toutes les courbes (détail : battement, écart, justesse, par rangée et par sens)</summary>
         <div id="reportCourbes"></div>
       </details>

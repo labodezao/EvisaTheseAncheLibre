@@ -7,6 +7,8 @@
 // la comparaison de deux rapports dans courbes.js.
 
 import { activerGlisser } from './glisser.js';
+import { ajuster, texteFit, titreFit } from './reharmonisation.js';
+import { courbeUnique, choixDe } from './courbe-unique.js';
 import { noteLabel, centsClass } from './music.js';
 import {
   analyser, recalculerLignes, classeBatt, formatBatt, enUnite, depuisUnite, UNITES_BATT, decimalesUnite,
@@ -533,6 +535,19 @@ export class Report {
     const lieu = LIEUX[this.contexte.lieu] ?? this.contexte.lieu;
     const graphs = graphiquesRapport(this.series(cfg), cfg, u).map((g) => g.svg).join('');
     const tables = this.htmlRapport(cfg, { imprime: true, detail: true, suite: opts.suite ?? null });
+    let reharmo = '';
+    {
+      const series = this.series(cfg);
+      const aj = ajuster(series, cfg);
+      if (aj.assez) {
+        const rangs = [...new Set(series.map((x) => x.rang).filter((x) => x != null))];
+        const ch = choixDe(null);
+        ch.g = { ecart: false, mesure: true, cible: false, justesse: false, ajustee: true };
+        const svg = courbeUnique([{ nom: 'rapport', series }], cfg, u, ch, { rangs, sens: ['T', 'P'] }, aj).svg;
+        const notes = aj.fits.filter((f) => f.retoucher.length).map((f) => `<h3>Notes à retoucher : ${esc(titreFit(f))}</h3><ol>${f.retoucher.map((x) => `<li>${esc(x.note)}${x.rang ? ` rangée ${x.rang}` : ''}${x.bouton ? ` bouton ${x.bouton}` : ''} : ${f.type === 'battement' ? `${x.ecart >= 0 ? '+' : ''}${enUnite(x.ecart, u).toFixed(decimalesUnite(u))} ${UNITES_BATT[u]}` : `${x.ecart >= 0 ? '+' : ''}${x.ecart.toFixed(1)} ¢`} par rapport à la courbe ajustée, ${esc(x.geste)}</li>`).join('')}</ol>`).join('');
+        reharmo = `<h2>Réharmonisation : la courbe d'accordage de l'instrument</h2><ul>${aj.fits.map((f) => `<li>${esc(texteFit(f, u))}</li>`).join('')}</ul>${svg}${notes}`;
+      }
+    }
     let comparaison = '';
     if (cmp) {
       comparaison = `<h2>Comparaison : ${esc(cmp.nomA)} et ${esc(cmp.nomB)}</h2>
@@ -554,6 +569,7 @@ export class Report {
 <div class="meta">Instrument : <b>${esc(this.name) || '—'}</b> · ${esc(lieu)}${this.contexte.date ? ` ${esc(this.contexte.date)}` : ''} · ${date} ·
  ${esc(this.enTete(cfg))} · ${this.rows.size} mesures</div>
 ${graphs}
+${reharmo}
 ${tables}
 ${comparaison}
 <p>Généré par Accordeur Anche Libre Pro.</p>
