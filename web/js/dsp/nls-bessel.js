@@ -600,7 +600,7 @@ export function lireBessel(x, i0, i1, sr, fc, opts = {}) {
 }
 export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
   const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
-  const { plageBasC = 50, plageHautC = 110, prior = null, priorFirst = false, chaud = false, pInit = null, libreInit = null, dt = 0, Kmax = 4, iter = 15, iterEtape = 5, tol = 1e-4, nGarde = 99, nLibre = 1, nDeparts = 5, noeudsS = 0.5, omegaMax = 60, omegaMin = 0, libre = true, modele = null, rkMax = RK_MAX, kMin = 1, kcMax = false, kcPropre = false } = opts;
+  const { plageBasC = 50, plageHautC = 110, prior = null, priorFirst = false, chaud = false, pInit = null, libreInit = null, dt = 0, Kmax = 4, iter = 15, iterEtape = 5, tol = 1e-4, nGarde = 99, nLibre = 1, nDeparts = 5, noeudsS = 0.5, omegaMax = 60, omegaMin = 0, libre = true, modele = null, rkMax = RK_MAX, kMin = 1, kcMax = false, kcPropre = false, libreDoublon = false, doublonDist = 1, doublonDb = 99 } = opts;
   // v67 (G1) : modele = 'struct' (ou 'am') : AM réelle par partiel, phase de modulation par anche, K_utile par résidu de partiel ; 'libre' : refusé (étiquette dégénérée) ; null : le modèle v66
   const AMK = modele == null ? false : modele === 'libre' ? 'libre' : 'struct';
   const AM = !!AMK, STR = AMK === 'struct';
@@ -774,10 +774,22 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
     }
     sols.sort((u, v) => u.ssr - v.ssr);
   }
+  let libreDoublonRejete = false;
   // Raie étrangère : chaque hypothèse sérieuse (les trois meilleures) peut avoir une raie libre de plus. Une fuite à −15 dB à 0,3 Hz d'une anche
   // fait préférer à un ajustement sans elle un « modèle » où elle est la seconde anche et où la vraie seconde anche manque (r plus petit !).
   {
     const dofDe = (m) => Math.max(1, m.Ndata - (m.npar - m.fixes.length) - (AMK === 'libre' ? 12 : 4) * m.Q);
+    // v70 (J1, audit n° 6) : une raie libre ajustée à moins de doublonDist/(K·T) d'une anche ou d'une de leurs raies latérales f_r + nΩ (n = ±1..3), et à moins de doublonDb dB sous l'anche la plus proche,
+    // est un doublon de cette anche qui absorbe un défaut de modèle (note 233/43 : raie glissée à 0,036 Hz de l'anche forte, -3,5 dB) : elle n'est pas adoptée.
+    const doublon = (pp, m) => {
+      const g = doublonDist / (commun.length * T), f3 = pp[8], fr = [pp[0], pp[0] + pp[1]];
+      const proche = fr.some((f) => Math.abs(f3 - f) < g) || fr.some((f) => [-3, -2, -1, 1, 2, 3].some((n) => Math.abs(f3 - (f + n * pp[1])) < g));
+      if (!proche) return false;
+      if (!(doublonDb < 90)) return true;
+      const A = m.amp[0], n3 = Math.hypot(A[4], A[5]), na = Math.hypot(A[0], A[1]), nb = Math.hypot(A[2], A[3]);
+      const nr = Math.abs(f3 - fr[0]) <= Math.abs(f3 - fr[1]) ? na : nb;      // anche la plus proche de la raie (en fréquence)
+      return 20 * Math.log10(Math.max(n3, 1e-300) / Math.max(nr, 1e-300)) > -doublonDb;
+    };
     for (const q of sols.slice(0, chaud ? 1 : nLibre)) {      // à chaud : la meilleure seulement
       if (!libre) break;
       const resB = new Float64Array(q.mod.N);
@@ -802,7 +814,9 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
       modL.residu(r.p);
       const s2 = q.ssrData / dofDe(q.mod);
       // adoptée si elle fait mieux de plus de 25 σ² (≈ 5 σ) et si ses deux anches n'ont pas bougé de plus d'un quart de battement (sinon c'est une autre hypothèse)
-      if ((q.ssrData - modL.ssrData) / s2 >= NLS_LLR_SUR && Math.abs(r.p[0] - q.p[0]) < 0.25 * Math.abs(q.p[1]) + res1 && Math.abs(r.p[1] - q.p[1]) < 0.25 * Math.abs(q.p[1]) + res1) {
+      const dbl = libreDoublon && doublon(r.p, modL);
+      if (dbl) libreDoublonRejete = true;
+      if (!dbl && (q.ssrData - modL.ssrData) / s2 >= NLS_LLR_SUR && Math.abs(r.p[0] - q.p[0]) < 0.25 * Math.abs(q.p[1]) + res1 && Math.abs(r.p[1] - q.p[1]) < 0.25 * Math.abs(q.p[1]) + res1) {
         q.p = r.p; q.mod = modL; q.ssr = modL.residu(r.p); q.ssrData = modL.ssrData; q.libre = true;
       }
     }
@@ -939,9 +953,9 @@ export function* lireBesselGen(x, i0, i1, sr, fc, opts = {}) {
   return {
     ok: true, f: [f1, f2], margeEtiquette, niveauDb: (() => { const A = mod.amp[0]; const a = Math.hypot(A[0], A[1]), b = Math.hypot(A[2], A[3]); return -Math.abs(20 * Math.log10(Math.max(a, 1e-300) / Math.max(b, 1e-300))); })(), sigmaC: sigC, Om: pb[1], b: [pb[2], pb[3]], m: mAM[0], m2: mAM[1], psi: pb[5], th: pb[6], libre: libreInfo, modele: AMK || 'v66', mk, rho: STR ? pb[4] : null,
     derive: pente * C_CENTS, agit, warpC: dw.map((v) => (v - moy) * C_CENTS), niveauWarpDb: Array.from({ length: J }, (_, j) => pb[NP0 + J + j]), r: best.ssrData / Math.max(1e-300, energie), ssr: best.ssrData, dof, s2, K: AM ? mod.Q : Kn, Ku, T, J, snr, plancherDb: plancher, nPics: pk.length,
-    llr: llrCommun, llrAffectation, llrOmega2,
+    llr: llrCommun, llrAffectation, llrOmega2, libreDoublon: libreDoublonRejete,
     rival: rival ? { f: [rival.p[0], rival.p[0] + rival.p[1]], ssr: rival.ssr } : null,
-    debug: opts.debug ? { pics: pk, departs: dep, sols: sols.map((s) => [s.p[0], s.p[1], s.ssr, s.libre]) } : undefined,
+    debug: opts.debug ? { pics: pk, departs: dep, sols: sols.map((s) => [s.p[0], s.p[1], s.ssr, s.libre]), pb: Float64Array.from(pb) } : undefined,
     sol: STR ? Float64Array.from([...pb.slice(0, NP0), ...pb.slice(iAM, iAM + 2 * KAM)]) : pb, mod, ms: typeof performance !== 'undefined' ? performance.now() - t0 : 0,
   };
 }
