@@ -114,6 +114,15 @@ export function echantillonsWav(octets, info) {
 // ---- CSV de la session ---------------------------------------------------------------
 // Colonnes (devCsv, app.js:2012-2015) : une ligne par anche et par mesure ;
 // t_s = fin de la fenêtre d'analyse, même horloge que le WAV.
+// v69 (I5) : la vitesse de calcul de la machine, écrite dans le JSON de la session (msFroid : durée moyenne d'un ajustement à froid en ms ; lente : mode léger ;
+// dspMs : temps de calcul par image de 85 ms, n / p50 / p99). La valeur réelle (téléphone) décide de MS_LENT en v70 ; rien n'est déduit ici.
+export function blocCalcul(prise) {
+  const c = prise?.calcul;
+  if (!c) return null;
+  const nb = (v) => (Number.isFinite(v) ? v : null);
+  return { msFroid: nb(c.msFroid), lente: !!c.lente, dspMs: { n: nb(c.dspMs?.n) ?? 0, p50: nb(c.dspMs?.p50), p99: nb(c.dspMs?.p99) } };
+}
+
 export const PARTIELS_CSV = 8;
 export const COLONNES_SESSION = Object.freeze([
   't_s', 'note', 'midi', 'niveau_db', 'silence', 'groupe', 'anche', 'label', 'harmonique',

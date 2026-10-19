@@ -195,6 +195,15 @@ export function consigne(alerte, ctx = {}) {
         : 'In this order: 1) use an audio interface (for example the Zoom H6) instead of a bus-powered USB mic; 2) plug the mic into another USB port, directly on the computer (no hub, no front-panel port); 3) move mains cables away from the mic and its cable.',
       court: fr ? 'ronflement secteur' : 'mains hum',
     };
+    case 'echelle': return {
+      code: 'echelle',
+      titre: fr ? `La prise est transposée de ${nombre(d.cents, 1, 'fr')} ¢` : `The take is transposed by ${nombre(d.cents, 1, 'en')} ¢`,
+      texte: fr
+        ? `Le ronflement du secteur, qui est à ${d.hz != null ? nombre(d.hz, 2, 'fr') : '50'} Hz au lieu de sa fréquence nominale, indique que tout le son est décalé de ${nombre(d.cents, 1, 'fr')} ¢ (rééchantillonnage ou effet audio du système). Toutes les hauteurs lues sont décalées de la même quantité.`
+        : `The mains hum, at ${d.hz != null ? nombre(d.hz, 2, 'en') : '50'} Hz instead of its nominal frequency, shows that the whole sound is shifted by ${nombre(d.cents, 1, 'en')} ¢ (resampling or a system audio effect). Every pitch read is shifted by the same amount.`,
+      geste: ENTREE(nom, os, fr) + AUTRE_MICRO(fr),
+      court: fr ? 'prise transposée' : 'transposed take',
+    };
     case 'lent': return {
       code: 'lent',
       titre: fr ? 'Micro à faible fréquence d\'échantillonnage' : 'Low sample-rate mic',
@@ -233,13 +242,14 @@ export function consigne(alerte, ctx = {}) {
 export function informations(etat, ctx = {}) {
   const fr = ctx.lang !== 'en';
   return (etat?.infos ?? []).map((i) => {
+    if (i.code === 'echelleAvert') return { code: i.code, texte: fr ? `prise décalée de ${nombre(i.detail?.cents, 1, 'fr')} ¢ (d'après le secteur)` : `take shifted by ${nombre(i.detail?.cents, 1, 'en')} ¢ (from the mains)` };
     if (i.code === 'secteurRetire') return { code: i.code, texte: fr ? `ronflement ${i.detail?.hz ?? 50} Hz supprimé` : `${i.detail?.hz ?? 50} Hz hum removed` };
     return null;
   }).filter(Boolean);
 }
 
 // Ordre d'affichage : le plus grave d'abord.
-const ORDRE = ['gate', 'pompage', 'trous', 'bluetooth', 'lent', 'ecretage', 'secteur'];
+const ORDRE = ['gate', 'pompage', 'echelle', 'trous', 'bluetooth', 'lent', 'ecretage', 'secteur'];
 
 // Le bandeau : une consigne par alerte, la plus grave en tête. `etat` : la sortie de
 // ControlePrise.etat() (message `prise` du Worker). Rend [] si la prise est saine.

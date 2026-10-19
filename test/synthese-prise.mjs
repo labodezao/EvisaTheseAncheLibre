@@ -22,16 +22,21 @@ export const lin = (db) => 10 ** (db / 20);
 //   hum     : crête (dBFS) du ronflement à 50 Hz (et 100, 150), ou null
 //   porte   : 'zeros' (porte dure : plages de zéros) | 'plancher' (atténuation à ~1,3 LSB) | null
 //   agc     : force du gain automatique (0 = aucun)
+//   bruitFc : fréquence de coupure (Hz) du bruit de fond (v69) ; null : blanc
+//   coupure : porte réelle (v69) : niveau (dBFS, blocs de 5 ms) sous lequel elle se ferme en zéros exacts, juste après chaque note ; null : aucune
 export function accordeon(sec, sr, opts = {}) {
-  const { niveaux = [-32, -42, -36, -46], bruitDb = -74, hum = null, humHz = 50, porte = null, agc = 0, ampli = 1 } = opts;
+  const { niveaux = [-32, -42, -36, -46], bruitDb = -74, hum = null, humHz = 50, porte = null, agc = 0, ampli = 1, coupure = null, bruitFc = null } = opts;
   const n = Math.floor(sec * sr);
   const x = new Float32Array(n);
   const cycle = 7 * sr, note = 5 * sr;
   const freqs = [196, 220.5, 261.9, 329.8];
   const bruitSig = lin(bruitDb);
+  let bruitLP = 0;
+  const aLP = bruitFc ? 1 - Math.exp(-2 * Math.PI * bruitFc / sr) : 1, gainLP = Math.sqrt((2 - aLP) / aLP);       // bruit passe-bas (le soufflet et une chaîne filtrée : des suites de petites valeurs, donc des plages de zéros après quantification), même écart type
   for (let i = 0; i < n; i++) {
     const k = Math.floor(i / cycle), j = i % cycle;
-    let v = bruitSig * gauss();
+    let v;
+    if (bruitFc) { bruitLP += aLP * (gauss() - bruitLP); v = bruitSig * bruitLP * gainLP; } else v = bruitSig * gauss();
     if (j < note) {
       const a = lin(niveaux[k % niveaux.length]);
       const env = Math.min(1, j / (0.05 * sr)) * Math.min(1, (note - j) / (0.05 * sr));
@@ -68,6 +73,21 @@ export function accordeon(sec, sr, opts = {}) {
         // La porte flotte : fermée 15 ms, entrouverte 5 ms.
         const ouvre = porte === 'zeros' && Math.floor(o / bloc) % 4 === 0;
         for (let i = o; i < o + bloc; i++) x[i] = porte === 'zeros' ? (ouvre ? x[i] : 0) : x[i] * lin(-16);
+      }
+    }
+  }
+  if (coupure != null) {
+    // v69 (I4a) : porte RÉELLE d'un suppresseur de bruit : elle se ferme (zéros exacts) dès que le niveau, par blocs de 5 ms, reste sous `coupure` dBFS
+    // pendant 100 ms, c'est-à-dire juste après la fin d'une note ; les 300 premières ms elle bat (un bloc sur quatre rouvre), puis elle reste fermée.
+    const bloc = Math.round(0.005 * sr), nb = Math.floor(n / bloc), niv = new Float64Array(nb);
+    for (let b = 0; b < nb; b++) { let t = 0; for (let i = b * bloc; i < (b + 1) * bloc; i++) t += x[i] * x[i]; niv[b] = 10 * Math.log10(t / bloc + 1e-20); }
+    let calme = 0, depuis = -1;
+    for (let b = 0; b < nb; b++) {
+      if (niv[b] < coupure) calme++; else { calme = 0; depuis = -1; }
+      if (calme > 20) {
+        if (depuis < 0) depuis = b;
+        const bat = b - depuis < 60 && (b - depuis) % 4 === 0;
+        if (!bat) for (let i = b * bloc; i < (b + 1) * bloc; i++) x[i] = 0;
       }
     }
   }

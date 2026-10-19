@@ -1,8 +1,181 @@
-# Certificat des lectures « sûres » (v68, 18/10/2026)
+# Certificat des lectures « sûres » (v69, 19/10/2026)
 
 Audit Fable du 15/10/2026 (`J:\claude\audits\2026-10-17-accordeur-fable\RAPPORT-AUDIT.md`, R1 à R14) puis ses suites du 16/10 (critères d'Ewen : niveau professionnel,
 musette et super musette, Do2 à A6, tout micro USB, pose courte, refus expliqués). Règle d'Ewen : un accordeur professionnel ne dit « sûr » que s'il peut le prouver ;
 zéro lecture « sûre » fausse (erreur de plus de 0,5 ¢ sur une anche), avec n'importe quel micro. Journal des versions : `docs/JOURNAL-DES-VERSIONS.md`.
+
+## TABLEAU DE BORD (règle de convergence d'Ewen, 18/10/2026) : le même pour v66, v67, v68, v69
+
+Neuf indicateurs fixes. « Publié » = chiffre écrit à l'époque (§ 0A.3, 0A.4, 0B.6, 0.1) : jeux, graines et outils ont changé d'une version à l'autre, ce n'est pas toujours comparable (dit case par case). La colonne **v68 recompté** est la seule strictement comparable à la v69 : mêmes plans, mêmes graines neuves (REP0=40, GEN 50), mêmes outils (vérité de la fenêtre lue pour toute lecture, `eval63.mjs` / `verdict.mjs` de la v69), code gelé de `origin/main` a720bdb contre la branche. Passes brutes : `J:\claude\tmp\v69\final\v68\` et `...\v69\`.
+
+| # | indicateur | v66 (publié) | v67 (publié) | v68 (publié) | **v68 recompté** | **v69** | variation v69 / v68 recompté |
+|---|---|---|---|---|---|---|---|
+| 1 | lectures « sûr » fausses (> 0,5 ¢), toutes passes | 3 (h6 1, large 2) | 6 (h6 1, large 1, ancienne 4) | 1 (GEN large, 0,556 ¢, retard de la vérité) | **1** (hypercube4 plan 233 graine 43, 0,56 ¢) | **1 (la même note, 0,562 ¢)** ; confirmation hypercube4 x 3 synthèses x 4 graines neuves (3 600 notes) : **0** | aucune de plus ; voir 0C.1 |
+| 2 | notes posées, synthèse h6 (32 plans) | 1 169 / 4 065 (28,8 %), 21 plans, non comparable | 1 059 / 4 247 (24,9 %), 22 plans | 941 / 4 247 (22,2 %) | 1 158 / 4 993 (23,2 %) | **1 486 / 4 993 (29,8 %)** | **+28 %** |
+| 3 | notes posées, synthèse LARGE (12 plans) | 407 / 2 528 (16,1 %) | 474 (18,8 %) | 420 (16,6 %) | 437 / 2 528 (17,3 %) | **590 (23,3 %)** | **+35 %** |
+| 4 | notes posées, ancienne synthèse (5 plans) | non rejouée | 505 / 1 198 (42 %) | 451 (38 %) | 468 / 1 198 (39,1 %) | **587 (49,0 %)** | **+25 %** |
+| 5 | H6 réel x1 (27 notes, essai 1) | 6 | 16 | 16 | 16 | **17** | +1 note |
+| 6 | H6 réel x4 (calcul 4 fois plus lent) | non mesuré | 1 | 10 | 10 | **10** | 0 |
+| 7 | graves f0 < 150 Hz posées (synthèse h6 / LARGE / GEN) | non mesuré | non mesuré | non comparable (autres jeux) | 16 / 1 355, 1 / 759, 1 / 161 | **70 / 1 355, 23 / 759, 6 / 161** | **x 4,4, x 23, x 6** (de 1 % à 3-5 %) |
+| 8 | corpus Serafini : voix « sûr » justes (vérité sinus) | 1 note | 3 notes, 6 voix, max 0,16 ¢ (Python) | 2 notes, 4 voix, max 0,16 ¢ (Python) | 2 notes, 4 voix, max 0,083 ¢ (port JS) | **3 notes, 6 voix, max 0,213 ¢** | +1 note, 0 > 0,3 ¢ |
+| 9 | retard p90 après un saut, Worker simulé x1 (ancienne / H6 / LARGE) | non mesuré | 0,41 / 0,38 / 0,48 s | 0,32 / 0,33 / 0,39 s | 0,33 / 0,41 / 0,38 s | **0,32 / 0,41 / 0,33 s** | = / = / -0,05 s ; D4 (Ω lent) H6 0,41 -> 0,33 s, LARGE 0,50 -> 0,41 s |
+
+Le « 1 » de la ligne 1 : une note de `lhs300_calib` (graine 43, f0 164 Hz, Ω 1,21 Hz, anche faible à 17,8 dB avec une raie étrangère à -15 dB, RSB 25 dB) lue à -0,56 ¢ sur la fenêtre lue (-0,40 puis -0,56 ¢ : l'anche faible entraînée par la raie étrangère). **Elle est identique dans la v68 et la v69** : ce n'est pas une régression ; elle n'apparaissait pas dans les passes de la v68 parce que celles-ci jugeaient la plupart des plans contre la moyenne des 3 dernières secondes (colonne « v67 » du verdict : 3 lectures sûres à plus de 0,5 ¢ de cette moyenne, pour les deux versions). Avec la vérité unifiée de la v69 (I7), la v68 n'a donc pas « zéro faux » non plus. Aucune rustine n'est ajoutée sans plan (I9) : le cas est livré à l'audit n° 6.
+
+**Critère de convergence.** La v69 ne se fusionne que si (1) reste à 0 et qu'aucun des indicateurs (2) à (9) ne recule de plus de 3 % sans gain qui le justifie. Résultat : (2) à (4) montent de 25 à 35 %, (5) à (9) ne reculent pas (le seul recul chiffré est GEN large à physique très large, 9 -> 8 posées sur 176, 1 note, justifié par les +25 à +35 % des trois synthèses). (1) n'est pas à 0, mais à la même valeur que la v68 recomptée avec la même vérité, sur la même note, et à 0 sur 3 600 notes de confirmation à graines neuves. **La branche n'est donc pas fusionnée par l'agent** : la règle d'Ewen dit « (1) reste à 0 », et ce « 1 » est antérieur à la v69 ; la décision de fusion est laissée au coordinateur (PR ouverte, contrôles GitHub verts).
+
+## 0C. La v69 (audit Fable n° 5 du 18/10/2026) : la consigne CONSIGNE-V69 appliquée
+
+Audit : `J:\claude\audits\2026-10-18-accordeur-fable-5\RAPPORT-AUDIT-5.md` (I1 à I9, consigne § 9), résumé des plans `DOE-RESUME.md`. Verdict de l'audit sur la v68 : « niveau professionnel non atteint à l'établi, non prouvé hors du Zoom H6 » ; 11 % de notes posées en moins en synthèse (le prix des graves et d'une garde d'étiquette), sentinelle aveugle sous 1 Hz, prise 16 bits prise pour une porte, aucune mesure d'échelle, aucun enregistrement nouveau.
+
+**Ce que cette version ne prouve toujours pas** (inchangé) : rien sous 207 Hz (aucune note réelle plus grave n'a jamais été mesurée), rien en super musette réelle, rien sur un autre micro ni sur un vrai téléphone. Tout ce qui suit est mesuré sur la synthèse (`SYNTH=h6`, `SYNTH=large`, ancienne), sur les prises H6 (vérification, jamais réglage) et, pour la robustesse, sur les sessions traitées et le corpus sf2 (jamais un seuil).
+
+### 0C.1 I1 à I9 : fait, partiel, refusé
+
+| I | Sujet | Statut | Résultat |
+|---|---|---|---|
+| I1 | graves | **fait, en partie** | `F0_GRAVE_HZ` 150 -> 120 (plan 2^2 x 4 graines neuves) : graves posées 12 -> 29 sur 832, 0 faux, `lent100` plan 82 jamais « sûr ». Le diagnostic est écrit (0C.3) : le 3e partiel n'est PAS mal décrit par le modèle ; c'est la comparaison d'étiquettes qui ramène le gagnant à 2 partiels. Le réparer (`KC_MAX`, `KC_PROPRE`) n'a pas donné de gain global : refusé, options gardées éteintes |
+| I2 | pertes hors graves | **fait, mieux que prévu** | PB12 (7 facteurs) : un seul facteur compte, **2 départs et 1 ajustement de front** (+23,7 notes sur 300 en h6, +19,2 en LARGE, p < 10^-4) ; `REESSAI_S` 0,3 fait des « sûr » faux sur les prises H6 (refusé) ; les autres sont sans effet. Confirmation hypercube4 x 3 synthèses x 4 graines neuves (3 600 notes) : 0 faux |
+| I3 | sentinelle sur les partiels hauts | **refusé (hypothèse réfutée)** | plan 2^2 : `SENT_KMIN` 3 allonge le retard (p90 0,33 -> 0,58 s) et l'exposition (13 -> 63 images) ; la v68 (partiels 1 à 4, fenêtre 0,7 battement) est le meilleur des quatre |
+| I4 | prise | **fait** | (a) fausse alarme 16 bits corrigée (65 -> 0 s sur 211) ; (b) alerte `echelle` par le secteur ; (c) lot CI de chaînes ; (d) écran. Le critère « bande <= 10 s » n'est pas tenu (0C.4) |
+| I5 | téléphone, mesurer | **fait (code), geste d'Ewen en attente** | `msFroid`, `lente`, `dspMs` (p50, p99) dans la session et la bande luthier |
+| I6 | super musette, mesurer d'abord | **fait (diagnostic), pas de modèle** | `trio_diag.mjs` tourne sur les 5 notes équilibrées de Serafini md (0C.6) |
+| I7 | banc et CI | **fait** | vérité unifiée (fenêtre lue) ; déterminisme CI ; lot « objectif graves » ; gardes mortes retirées ; passes gardées |
+| I8 | généralisation du corpus | **fait** | `corpus_verite.mjs` (port de `verite_sinus.py`), `corpus_ecarts.mjs`, test local ; sfArk : geste d'Ewen (Polyphone) |
+| I9 | le modèle | **tenu** | aucune garde nouvelle sans plan ; les trois ajouts du code (`F0_GRAVE_HZ`, départs/front, `echelle`) ont leur plan ; `KC_MAX`, `KC_PROPRE` et `SENT_KMIN` (essayés) restent éteints |
+
+### 0C.2 Plans d'expériences (règle 12 ; plans fractionnaires quand ils suffisent, précision d'Ewen du 18/10)
+
+**I1 : plan 2^2 complet** (`F0_GRAVE_HZ` 150 ; 120 x `KU_SUR_MIN_GRAVE` 3 ; 2, graines neuves 33, 34, 35 ; `lent100` LARGE aussi à 32). Un plan fractionnaire ne ferait pas gagner de cellule à 2 facteurs. Jeux : `lent100` LARGE (400 notes), graves (f0 < 150 Hz, 40 lignes) de `gen160b` en LARGE et en h6 (120 chacun), `lhs300_calib` h6 (900 notes). Posées / graves posées :
+
+| `F0_GRAVE_HZ` ; `KU_SUR_MIN_GRAVE` | posées | « sûr » faux | graves posées (sur 832) | `lent100` plan 82 |
+|---|---|---|---|---|
+| 150 ; 3 (v68) | 296 | 0 | 12 | jamais sûr |
+| 150 ; 2 | 334 | 0 | 50 | **sûr une fois, à 0,33 ¢ (vérité de la fenêtre lue)** |
+| **120 ; 3 (retenu)** | 313 | 0 | 29 | jamais sûr |
+| 120 ; 2 | 334 | 0 | 50 | sûr une fois |
+
+Effets : `KU_SUR_MIN_GRAVE` 3 -> 2 rend 38 notes (la règle des graves elle-même) mais rouvre la note-piège de l'audit n° 4 ; la borne 120 rend 17 graves sans la rouvrir. `F0_GRAVE_HZ` n'a aucun effet quand la règle est à 2 (cellules identiques). Maximum d'erreur 0,365 ¢. Critère de l'audit « graves posées >= 2 x v68 sur les 4 jeux » : tenu en somme (29 contre 12, x 2,4), pas jeu par jeu (`lent100` 3 -> 5).
+
+**I2 : Plackett-Burman 12 cellules, 7 facteurs** (graine 69 ; résolution III : les effets principaux sont confondus avec des interactions à 2 facteurs, ce que l'analyse rappelle ; 4 degrés de liberté d'erreur). L'audit proposait `CONF_SENT_SIGMA_MAX` et `CONF_FEN_BAT` : **ils ne font rien** (ils appartiennent à `CONFIRME_SENT`, refusé et éteint en v68) ; remplacés par `CONFIRME_C`, `REESSAI_S` et `CONFIRME_MOITIE_C`, qui sont actifs. Facteurs (bas ; haut) : `ETIQ_COH_C` 3 ; 4,5 - `DECALAGE_MIN_S` 0,5 ; 0,35 - départs/front 5/2 ; 2/1 - `SENT_PERIODE_S` 0,10 ; 0,15 - `CONFIRME_C` 0,3 ; 0,4 - `REESSAI_S` 0,4 ; 0,3 - `CONFIRME_MOITIE_C` 0,4 ; 0,6. Jeux par cellule : `lhs300_calib` h6 et LARGE (graine 30), `lent100` h6, D3 h6 (Worker simulé x1), H6 réel x1 et x4.
+
+| cellule | ETIQ | DECAL | départs/front | PERIODE | CONF_C | REESSAI | MOITIE | h6 /300 | LARGE /300 | faux | retard p90 | H6 x1 | H6 x4 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | 4,5 | 0,35 | 5/2 | 0,15 | 0,4 | 0,3 | 0,4 | 81 | 58 | 2 | 0,33 | 16 | 10 |
+| 2 | 4,5 | 0,5 | 2/1 | 0,15 | 0,4 | 0,4 | 0,4 | 103 | 78 | 0 | 0,33 | 17 | 10 |
+| 3 | 3 | 0,35 | 2/1 | 0,15 | 0,3 | 0,4 | 0,4 | 103 | 78 | 0 | 0,33 | 17 | 10 |
+| 4 | 4,5 | 0,35 | 2/1 | 0,10 | 0,3 | 0,4 | 0,6 | 103 | 81 | 0 | 0,33 | 17 | 10 |
+| 5 | 4,5 | 0,35 | 5/2 | 0,10 | 0,3 | 0,3 | 0,4 | 81 | 58 | 2 | 0,33 | 16 | 10 |
+| 6 | 4,5 | 0,5 | 5/2 | 0,10 | 0,4 | 0,4 | 0,6 | 82 | 58 | 0 | 0,33 | 16 | 10 |
+| 7 | 3 | 0,5 | 5/2 | 0,15 | 0,3 | 0,3 | 0,6 | 81 | 61 | 2 | 0,33 | 14 | 10 |
+| 8 | 3 | 0,5 | 2/1 | 0,10 | 0,4 | 0,3 | 0,4 | 105 | 74 | 1 | 0,33 | 15 | 10 |
+| 9 | 3 | 0,35 | 5/2 | 0,15 | 0,4 | 0,4 | 0,6 | 82 | 58 | 0 | 0,33 | 16 | 10 |
+| 10 | 4,5 | 0,5 | 2/1 | 0,15 | 0,3 | 0,3 | 0,6 | 109 | 77 | 1 | 0,33 | 15 | 10 |
+| 11 | 3 | 0,35 | 2/1 | 0,10 | 0,4 | 0,3 | 0,6 | 108 | 76 | 1 | 0,33 | 15 | 10 |
+| 12 | 3 | 0,5 | 5/2 | 0,10 | 0,3 | 0,4 | 0,4 | 82 | 56 | 0 | 0,33 | 16 | 10 |
+
+Effets (haut moins bas, `doe.py analyser`) : **départs/front 2/1 : +23,7 notes h6 (p = 5.10^-5) et +19,2 en LARGE (p = 6.10^-5)** ; `REESSAI_S` 0,3 : +1,5 « sûr » faux (p = 8.10^-4, les 2 faux viennent des prises H6 réelles, `usage_reel`) et -1 à -2 notes du H6 réel x1 ; tout le reste |effet| <= 1,7 note, sans effet sur le retard (0,33 s partout) ni sur H6 x4 (10 partout). Les facteurs sans effet restent à leur valeur de la v68. **Retenu : `NDEPARTS` 2, `JOBS_MAX` 1, `ETIQ_COH_C` 3 (inchangé)**. C'est le « +18 % refusé en v68 » : la garde d'étiquette `ETIQ_COH_C` qui manquait alors est là. **Confirmation** (hypercube4 = `lhs300_calib`, 4 graines neuves à partir de 33, trois synthèses = 3 600 notes, `doe/conf/B.txt`) : h6 427 posées sur 1 200 (35,6 %), 0 faux, max 0,349 ¢ ; LARGE 321 (26,8 %), 0 faux, max 0,329 ¢ ; ancienne 547 (45,6 %), 0 faux, max 0,380 ¢. C'est là que la v68 avait trouvé le -21,5 ¢ : il n'est pas revenu.
+
+Sur une machine lente, le mode léger de la v68 (`MS_LENT`, mêmes 2 départs et 1 front, 8 itérations) reste ; la v69 rend ces 2/1 à toutes les machines et garde 15 itérations sur les rapides. Coût : image médiane 6,7 -> 11,2 ms (H6 réel x1), p99 433 -> 674 ms, T médian 4,7 -> 5,1 s (moins de calcul par note, mais plus d'ajustements gagnés), part du temps certifiée 7 -> 6 %.
+
+**I3 : plan 2^2 complet** (`SENT_KMIN` 1 ; 3 x `SENT_FEN_BAT` 0 ; 0,7), jeu neuf `adverses/D4.csv` : **80 notes** (hypercube latin, graine 69, Ω de 0,5 à 1,0 Hz, f0 200-900 Hz, saut de 2 à 4,5 ¢ à **t = 6,5 s** et non 3 s : à 3 s, 2 notes sur 40 étaient posées, Ω lent exigeant au moins 2 battements entiers, la mesure du retard n'avait rien à mesurer), h6 et LARGE, Worker simulé x1 et x4, 2 graines ; plus D3 h6 et H6 réel x1.
+
+| `SENT_KMIN` ; `SENT_FEN_BAT` | retard p90 D4 h6 x1 / LARGE x1 / h6 x4 / LARGE x4 (s) | exposition (images sûres à plus de 0,5 ¢ de la hauteur de l'instant) h6 x1 / LARGE x1 | D3 h6 : p90, exposition | posées D4 h6 x1 | H6 x1 |
+|---|---|---|---|---|---|
+| **1 ; 0,7 (v68, retenu)** | **0,33 / 0,41 / 0,33 / 0,33** | **13 / 8** | 0,33 s, 1 | 101 | 16, 7 % |
+| 3 ; 0,7 | 0,58 / 0,58 / 0,41 / 0,50 | 63 / 39 | 0,33 s, 3 | 104 | 16, 6 % |
+| 1 ; 0 | 0,58 / 0,50 / 0,41 / 0,24 | 50 / 18 | 0,38 s, 0 | 101 | 16, 7 % |
+| 3 ; 0 | 0,67 / 0,84 / 0,67 / 0,58 | 98 / 89 | 0,38 s, 5 | 105 | 16, 8 % |
+
+0 « sûr » faux dans les 4 x (4 x 160 + 60) notes. Lecture physique : sur les partiels 3 et 4, plus faibles, le warp (dérive et niveau) n'est plus calé par les bas partiels, et le rang bas qui dit « la note a bougé » est supprimé ; `SENT_KMIN` 3 allonge le retard au lieu de le raccourcir. L'hypothèse de l'audit est réfutée ; `SENT_KMIN` (code gardé, valeur 1) et `SENT_KMIN_OMEGA` restent des options éteintes. (Le critère de l'audit « part du temps certifiée >= 7 % » est de toute façon à 6-7 %.)
+
+### 0C.3 I1 : le diagnostic des graves (`test/outils/pose/diag_graves.mjs`)
+
+Dix notes graves perdues (`notes_perdues_gagnees.csv`, cause `grave<150+resolution`, plans 71, 120, 132, 138, 140, 149, 154, 176, 208, 214 de `lhs300_calib`, synthèse h6), fenêtre 350/f0 s finissant à 8 s, modèle structuré avec et sans raie étrangère libre, partiels forcés à 4 :
+
+| | partiel 1 | partiel 2 | partiel 3 | partiel 4 |
+|---|---|---|---|---|
+| résidu relatif médian SANS raie étrangère | 0,021 | 0,026 | 0,014 | 0,013 |
+| résidu relatif médian AVEC raie étrangère | 0,007 | 0,011 | 0,005 | 0,005 |
+
+Le modèle décrit donc très bien le 3e partiel (résidu relatif < 2 %) ; la raie étrangère adoptée est résolue au partiel 3 sur les dix notes (3 x delta contre 1,2/T : 0 note sur 10 non résolue). **Ce qui ramène K_utile à 2 est ailleurs** : `nls-bessel.js` compare les hypothèses d'étiquette sur « les partiels que TOUTES savent décrire » (`kC = min` des K_utile de toutes les hypothèses). Une hypothèse à mauvaise étiquette (décalée d'un battement, p. ex. 117,78 Hz au lieu de 116,03 Hz) ne décrit pas le 3e partiel (résidu relatif 0,80 à 0,95, contre 0,007 pour la bonne) : son K_utile est 2 et il ramène la MEILLEURE à 2 partiels, donc à une précision et à un `Ku` plus faibles, donc à `KU_SUR_MIN_GRAVE` : refus `resolution`. Avec `kcMax` (comparaison sur les partiels de la plus riche) les dix notes ont K_utile 4. Deux remèdes ont été jugés sur les mêmes graines (plan à 3 graines, 4 jeux) :
+
+| remède | posées (4 jeux) | graves posées | décision |
+|---|---|---|---|
+| aucun, (120 ; 3) | 313 | 29 | **retenu** |
+| `KC_MAX` (toutes les hypothèses jugées sur les partiels de la plus riche), cellule (150 ; 3) | 234 (contre 296 sans, mêmes graines, cellule (150 ; 3)) | 29 contre 12 | **refusé** : lhs300 h6 186 contre 247 (-25 %) ; l'hypothèse juste, qui n'a que 2 partiels, est jugée sur ceux qu'elle ne décrit pas |
+| `KC_PROPRE` (l'étiquette se juge sur les partiels communs, le gagnant est ensuite réajusté sur les siens), cellule (120 ; 3) | 301 | 45 contre 29 | **refusé** : -4 % posées (lhs300 245 contre 256), +55 % de graves ; gain sur un seul registre, que l'audit demande de ne pas régler sur la synthèse seule (aucune note réelle sous 207 Hz) |
+
+Les deux options restent dans le code, éteintes. **La question reste ouverte pour l'audit n° 6** : un 16' réel (geste d'Ewen) dira si le 3e partiel des anches graves est réellement décrit par le modèle, ce que la synthèse suppose.
+
+
+### 0C.4 I4 : la prise (contrôle de prise, `dsp/prise.js`)
+
+**(a) `gate` ne prend plus un convertisseur de 16 bits dans une pièce calme pour une porte.** Cause (reproduite sur `J:\claude\tmp\v69\wav\propre.wav`, la prise H6 de l'essai 1 réécrite en 16 bits par `chaines.py`) : un bruit de fond passe-bas dont l'écart type est de l'ordre de 1 LSB (-90 dBFS) donne des plages de zéros exacts de 1 à 25 ms PARTOUT, entre les notes comme sous elles ; la règle `gateZeroPart` (une plage ne compte pas si les zéros font plus de 60 % de son bloc de 100 ms) ne les écarte pas. Une porte réelle, elle, ferme sur un son : la plage de zéros commence juste après lui. Règle ajoutée (`gateVoisinDb`, -60 dBFS) : une plage de zéros ne compte que si le bloc de 100 ms qui la porte, le précédent ou le suivant dépasse ce niveau.
+
+Plan 2^3 complet (graine 69, `doe.py`), réponses : secondes douteuses (`prise_wav.mjs`, sans moteur) sur la prise H6 réécrite en 16 bits propre et traitée (bande 300-3 400 Hz, suppression spectrale, les deux avec compresseur) et, pour les quatre sessions traitées par Windows (11/10, 13/10, 14/10 x2), le NOMBRE MINIMAL de secondes douteuses par le seul code `gate` (le contrôle doit rester sûr de lui sur une prise vraiment traitée) :
+
+| cellule | `gateVoisinDb` | `gateEvents` | `gateZeroPart` | propre | bande | suppression | tout | sessions, gate (min) |
+|---|---|---|---|---|---|---|---|---|
+| 1 | -70 | 5 | 0,3 | 0 | 43 | 59 | 78 | 16 |
+| 2 | -50 | 5 | 0,3 | 0 | 43 | 0 | 0 | 0 |
+| 3 | -70 | 10 | 0,3 | 0 | 0 | 57 | 46 | 1 |
+| 4 | -50 | 10 | 0,3 | 0 | 0 | 0 | 0 | 0 |
+| 5 | -70 | 5 | 0,6 | 0 | 171 | 179 | 140 | 115 |
+| 6 | -50 | 5 | 0,6 | 0 | 121 | 160 | 117 | 108 |
+| 7 | -70 | 10 | 0,6 | 0 | 130 | 106 | 138 | 108 |
+| 8 | -50 | 10 | 0,6 | 0 | 71 | 47 | 116 | 9 |
+
+Lecture : `gateZeroPart` 0,3 tue la détection d'une vraie suppression (suppression 160 -> 0 s, sessions 108 -> 0 s) : refusé. `gateEvents` 10 ne gagne que sur la bande, au prix de la suppression : refusé. `gateVoisinDb` -70 -> -50 enlève la moitié des fausses alarmes de la bande (171 -> 121) sans perdre les sessions : retenu au milieu, -60, mesuré à part sur les mêmes chaînes : propre **0** s sur 211 (65 avant), suppression **168** s (191 avant), tout 132 s (144), bande 121 s (178). **Le critère « bande <= 10 s » de l'audit n'est PAS tenu** et ne peut pas l'être par ce détecteur : une bande étroite 300-3 400 Hz de la même pièce calme, en 16 bits, produit des plages de zéros collées aux notes comme une suppression de bruit (aucune cellule du plan ne donne à la fois suppression >= 150 s et bande <= 10 s). Ce n'est pas une erreur grave : les lectures « sûr » restent justes sous cette chaîne (0 faux sur 50 posées, max 0,28 ¢), le contrôle ne fait que refuser des notes en trop. Limite écrite : un convertisseur dont le bruit est sous 1 LSB (-93 dBFS et moins, `bruitDb -95`) reste pris pour une porte ; les micros USB ordinaires ont un bruit propre bien au-dessus.
+
+Tests (`test/prise.test.mjs`, `synthese-prise.mjs` : `bruitFc` bruit passe-bas, `coupure` porte réelle) : 16 bits, plancher -80, -85, -90 et -92 dBFS sans porte : aucune alerte ; porte réelle à -45 dBFS (zéros exacts dès 100 ms sous le niveau, battant 300 ms) à -80, -85 et -90 dBFS : alerte `gate`.
+
+**(b) L'échelle de la prise par le secteur.** Une prise rééchantillonnée ou transposée (la prise PC du 14/10 : +5 ¢, 6 « sûr » faux sur 6) n'a aucune signature dans le son de l'instrument, mais le ronflement du secteur (50 ou 60 Hz, ±0,1 % en régime normal) en est une référence EXTERNE : il se déplace de la même échelle. `prise.js` garde la fréquence affinée de chaque fenêtre de 2 s où la raie est présente (`affinerSecteur`, 0,01 Hz), prend la MÉDIANE sur 90 s (une fenêtre où une note accroche la recherche donne 49,80 au lieu de 50,15 : trois sur 31 sur les notes de synthèse) et, à partir de 25 fenêtres (50 s de ronflement), dit : alerte `echelle` (prise douteuse, « la prise est transposée de x ¢ ») si |f / f nominale - 1| > 2 ‰ (3,5 ¢) ; entre 1 et 2 ‰, information `echelleAvert` sans refus. Mesuré sur des notes de synthèse : +5 ¢ avec ronflement à -50 dBFS : 5,2 ¢ lus, alerte datée à 2 s (première fenêtre de ronflement) ; le ronflement le plus faible vu est celui dont la crête (après Hann : la moitié de l'amplitude) est à -85 dBFS, soit -79 dBFS d'amplitude. Fausses alarmes : réseau à 49,96 et 50,04 Hz (±0,08 %) : aucune ; 50,2 Hz (incident, 4 ‰) : alerte, ce qui est voulu (la prise est vraiment décalée de 6,9 ¢). **Limite : sans ronflement, une prise transposée ne se voit pas** (le la de référence en tête de session reste le seul autre témoin, geste d'Ewen).
+
+**(c) Chaînes de micro dans la CI** (`test/prise-chaines.test.mjs`) : 8 notes de `lhs64_valid` que l'ancienne synthèse pose sans chaîne (graine 70) x {compresseur, bande 100-8 000 Hz, suppression spectrale, porte à zéros} : 0 lecture « sûre » fausse, aucune erreur ; puis une prise de 63 s (7 rendus d'une même note, ronflement à -50 dBFS, +5 ¢ de rééchantillonnage, horloge dite exacte) : alerte `echelle` datée à 2,0 s, et toutes les images « sûres » (8) sont dans l'épisode.
+
+**(d) Écran** : `prise-micro.js` écrit le code `echelle` (titre, texte avec la transposition en ¢ et la fréquence lue du secteur, geste : désactiver les améliorations audio), la mention courte « prise transposée » et l'avertissement `echelleAvert`.
+
+### 0C.5 I5 : la vitesse de calcul de la machine, dans la session
+
+`worker.js` : `msFroid` (durée moyenne d'un ajustement à froid, ms), `lente` (le mode léger de la v68 est en route) et `dspMs` (temps de calcul par image de 85 ms : nombre, médiane, p99 sur les 8 000 dernières images) vont dans le bloc `prise.calcul` du dernier morceau de la session ; `app.js` les écrit en tête du JSON (`calcul`, par `session-format.js:blocCalcul`) ; la bande d'expert (mode luthier) montre « calcul 340 ms » ou « calcul 1 400 ms (léger) » (`expert.js`, textes en français et en anglais). Tests : `session.test.mjs` (champs présents, rien d'inventé sans mesure), `anche.test.mjs` (texte). **Aucune valeur n'est décidée en v69** : le geste d'Ewen est d'ouvrir l'accordeur sur son Android, de jouer 12 notes MM et d'exporter la session ; `calcul.msFroid` donne le vrai facteur (aujourd'hui l'hypothèse x4 = 1 400 ms) et décide de `MS_LENT` en v70. La décimation après le premier étage existe déjà (CIC3, `nls-bessel.js`, `demodPartiel`) : le levier qui reste est le nombre de départs.
+
+### 0C.6 I6 : super musette, diagnostic avant tout modèle
+
+Pas de modèle `struct` à trois anches en v69. `test/outils/pose/trio_diag.mjs` : pour chaque WAV, la vérité à trois anches (`corpus_verite.mjs`, somme de sinusoïdes : les trois fréquences, leurs σ, les niveaux relatifs, niveau et phase des partiels 1 à 3 de chaque anche), puis ce que le moteur lit en MMM (trois voix de la dernière image, écart à la vérité la plus proche, raisons de refus sur les 20 dernières images). Sur les cinq notes de Serafini md à trois anches équilibrées (écarts < 3 dB) :
+
+| fichier | note | trois fréquences de vérité (Hz) | niveaux (dB) | lecture MMM non certifiée : écart à la vérité (¢) | raisons de refus |
+|---|---|---|---|---|---|
+| 13-BR | Si3 | 246,020 / 247,688 / 248,515 | -1,6 / 0 / -0,3 | +0,13 / -0,24 / -0,02 | vérification, stabilité, lent |
+| 18-ER | Mi4 | 328,381 / 329,517 / 330,358 | 0 / -2,6 / -0,2 | -0,22 / -0,22 / -0,11 | résolution, peigne |
+| 19-FR | Fa4 | 348,316 / 349,312 / 350,826 | -1,6 / 0 / -2,2 | +0,15 / -0,42 / +0,17 | stabilité, peigne |
+| 25-BR | Si4 | 494,156 / 494,647 / 495,558 | 0 / -0,2 / -3,1 | +0,33 / -0,62 / -1,15 | lent, accordées |
+| 37-BR | Si5 | 987,850 / 988,663 / 990,471 | -3,8 / 0 / -2,7 | -1,59 / +0,03 / -1,18 | peigne, ident3, lent |
+
+Ce que cela dit : le traqueur trouve les trois anches à 0,1-0,4 ¢ près sur les trois premières notes (écarts de 1 à 2,5 Hz, bien résolus) et se trompe de 0,6-1,6 ¢ sur les deux dernières (écarts de 0,5 Hz à 494 Hz, 0,8 Hz à 988 Hz) ; le certificat ne pose jamais, pour des raisons différentes selon la note (pas d'une seule cause à corriger par un modèle). Les partiels 2 sont à -13/-28 dB sous le 1 et le partiel 3 à -5/-12 dB : le spectre n'est pas celui d'une anche seule par voix (le 3e partiel est plus fort que le 2e, signature d'un son échantillonné de plusieurs anches ou d'un timbre propre à l'instrument). Avant de modéliser : 12 notes MMM propres au H6 (geste d'Ewen).
+
+### 0C.7 I7 : le banc et la CI
+
+1. **Vérité unifiée** : `eval63.mjs` / `verdict.mjs` jugent toute lecture « sûre » contre la fenêtre que le certificat a lue (`errFen`), pas seulement sur les plans à saut ; la moyenne des 3 dernières secondes reste en colonne « v67 » du verdict (`faux67`, `errMax67`) pour comparer aux passes d'avant. Conséquence : sur les mêmes graines, la v68 n'a plus « zéro faux » (une note, voir le tableau de bord).
+2. **Passes gardées** : `J:\claude\tmp\v69\final\v68\` et `...\v69\` (tous les JSON), archive `J:\claude\audits\donnees-accordeur\passes\v69.zip`.
+3. **Déterminisme** (`pose-ci.test.mjs`) : les deux notes-pièges (`lent100` plan 82 graine 32 LARGE, `lhs300_calib` plan 91 graine 32 h6) jouées deux fois ont des JSON identiques à l'octet.
+4. **Lot « objectif graves »** (`ci_seuils.json`) : les 40 lignes de `gen160b_v68` sous 150 Hz, synthèse h6, graine 50 : 0 faux, au moins 2 posées (le résultat mesuré est 2 : la consigne demande `résultat - 1` avec un plancher de 2).
+5. **Gardes mortes retirées de `certificat.js`** : `DERIVE_FIT` (la variante stricte ; `DERIVE_FIT_SEUIL` 1,2 reste), `CONFIRME_SENT` et tout ce qui en dépendait (`enAttente`, `sentFlou`, `CONF_FEN_BAT`, `CONF_SENT_SIGMA_MAX`), `SENT_ADAPT`, `KU_LIBRE_MIN`, `DEPUIS_SENT`, `BETA_FORT`, `LLR_BETA_FORT`, `M_FORT`, `CONFIRME_MOITIE_FORT_C`, `ACCORD_SUR_C`, `ACCORD_C`, `SIGMA_TOL_C`, `X_MAX_AM`, `FENETRE_ADAPTIVE`. Gardées : `PRESENT` (éteinte, à rejuger avec la vérité unifiée), `KU_LIBRE_GRAVE`. Les deux tests qui exerçaient `ACCORD_C` et `DERIVE_FIT: true` sont remplacés par la preuve que ces réglages n'existent plus (la fonctionnalité est retirée, le test avec elle). Preuve que rien n'a bougé : `lhs64_valid` h6 graine 30, 2 répétitions, 128 notes, code de la v68 contre code sans les gardes mortes : 38 posées, 249 lectures sûres, 0 faux, identiques. Leur histoire reste dans les sections 0B et 0A.
+
+### 0C.8 I8 : la généralisation du corpus, contre une vérité indépendante
+
+`test/outils/pose/corpus_verite.mjs` porte `verite_sinus.py` (somme de sinusoïdes, 3 partiels par anche, amplitudes projetées, Levenberg-Marquardt sur les fréquences) ; `corpus_ecarts.mjs` donne, par voix « sûr », l'écart en cents à l'anche la plus proche de la vérité ; `corpus-sf2.test.mjs` exige 0,3 ¢ au plus. Le port et l'original Python diffèrent de 0,02 à 0,07 ¢ sur la même note (la σ annoncée, 0,001 ¢, ne vaut que pour la méthode, pas pour sa reproductibilité : c'est l'incertitude de la vérité). Résultat v69 : Serafini md, MM, 3 notes « sûr » (6 voix), écart maximal 0,213 ¢ (v68 recompté : 2 notes, 4 voix, 0,083 ¢) ; MMM, Gaillard md, les basses (Serafini, Gaillard main gauche, mode auto) : 0 note « sûr » avant comme après, 0 erreur. La 3e note « sûr » de la v69 est Ré3 (147 Hz, deux anches à 146,97 et 147,92 Hz), que la v67 posait et que la v68 refusait : la borne à 120 Hz la rend, juste à 0,2 ¢. sfArk : `web\soni-musicae-diato` reste à extraire par Polyphone (geste d'Ewen).
+
+### 0C.9 Prise traitée et robustesse (passes finales, sessions du 11, 13 et 14/10)
+
+Avec le contrôle de prise : 0 note « sûr » sur les quatre sessions traitées (v68 : 0, v69 : 0) ; lectures « sûr » refusées par le contrôle : v68 26, 250, 100, 26 -> v69 22, 224, 78, 26 (la fausse alarme 16 bits est corrigée, ces sessions restent douteuses par le ronflement et les zéros). Prise PC du 14/10 (`reel_prises --src=pc`) : 0 posée, 0 faux. Sans contrôle, ces sessions donnent des « sûr » (robustesse seulement, jamais une preuve). Prises H6 (`reel_prises`, budget déterministe) : somme L+R 10 -> 16 notes, voie gauche 11 -> 14, droite 9 -> 13, 0 lecture sûre fausse (49, 78, 68 lectures). Téléphone (Worker simulé, H6 essai 1) : x1 16 -> 17, x2 11 -> 12, x4 10 -> 10, x8 2 -> 2 ; essai 2 x1 4 -> 5, x4 3 -> 3 ; 0 faux partout.
+
+### 0C.10 Ce qui reste pour un niveau professionnel
+
+1. **Un « sûr » faux antérieur, trouvé par la vérité unifiée** : la note de `hypercube4` (graine 43, f0 164 Hz, Ω 1,21 Hz, anche faible à 17,8 dB, raie étrangère à -15 dB) lue à -0,56 ¢ par la v68 comme par la v69. Mécanisme probable : l'anche faible entraînée par la raie étrangère à 0,15-0,5 Hz, qui n'est pas résolue à 2 partiels. Pas de garde sans plan (I9) : audit n° 6.
+2. **Le modèle** : 2 partiels décrits sur 4 pour les graves, à cause de la comparaison d'étiquettes (0C.3), pas du modèle de la meilleure hypothèse ; trio sans physique mesurée (0C.6) ; taux de pose 23 % en LARGE, 30 % en h6, 5 % à physique et conditions très larges.
+3. **Les enregistrements d'Ewen** (rien n'est prouvé hors du H6 sans eux) : 16' du Do2 au Do4 (lève I1), MMM 12 notes (I6), micro USB 16 bits et téléphone Android simultanés au H6 (I4, I5), un deuxième accordéon MM (seuils d'Ω), la session Android avec `calcul` (I5).
+4. **Échelle sans ronflement** : une prise transposée sans secteur ne se voit toujours pas ; le la de référence en tête de session reste à écrire.
 
 ## 0B. La v68 (audit Fable n° 4 du 18/10/2026) : la généralisation hors du Zoom H6, mesurée et bornée
 

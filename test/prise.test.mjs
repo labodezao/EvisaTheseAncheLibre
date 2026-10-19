@@ -184,5 +184,41 @@ console.log('Épisodes et fin d\'alerte');
   assert(SEUILS.tenue_s === 30, 'tenue de 30 s');
 }
 
+console.log('v69 (I4a) : un convertisseur de 16 bits dans une pièce calme n\'est pas une porte, une porte réelle en est une');
+{
+  // bruit de fond passe-bas (300 Hz) quantifié sur 16 bits : des suites de petites valeurs, donc des plages de zéros exacts entre et sous les notes
+  // (avant la v69 : la prise H6 réécrite en 16 bits donnait 65 s douteuses sur 211, `gate`)
+  for (const bruitDb of [-80, -85, -90, -92]) {
+    const calme = passer(accordeon(70, 44100, { bruitDb, bruitFc: 300 }), 44100).e;
+    assert(!calme.codes.includes('gate'), `16 bits, plancher à ${bruitDb} dBFS, pas de porte : pas d'alerte (${calme.codes.join('+') || 'aucune'})`);
+  }
+  for (const bruitDb of [-80, -85, -90]) {
+    const porte = passer(accordeon(70, 44100, { bruitDb, bruitFc: 300, coupure: -45 }), 44100).e;
+    assert(porte.codes.includes('gate'), `16 bits, plancher à ${bruitDb} dBFS, porte réelle à -45 dBFS : alerte « gate »`);
+  }
+  assert(SEUILS.gateVoisinDb === -60, 'gateVoisinDb : -60 dBFS (plan 2^3, CERTIFICAT.md § 0C)');
+}
+
+console.log('v69 (I4b) : l\'échelle de la prise, par la fréquence du secteur');
+{
+  const SR2 = 44100, cents = (c) => 50 * 2 ** (c / 1200);
+  const lire = (c, hum, sec, bruitDb = -74) => { const r = passer(accordeon(sec, SR2, { hum, bruitDb, humHz: cents(c) }), SR2); return { e: r.e, c: r.c, infos: r.c.etat().infos.map((i) => i.code) }; };
+  for (const hum of [-60, -78]) {
+    const bruitDb = hum === -78 ? -95 : -74;
+    assert(!lire(0, hum, 75, bruitDb).e.codes.includes('echelle'), `ronflement ${hum} dBFS, sans décalage, 75 s : pas d'alerte d'échelle`);
+    const a5 = lire(5, hum, 75, bruitDb);
+    assert(a5.e.codes.includes('echelle'), `ronflement ${hum} dBFS, prise transposée de +5 ¢, 75 s : alerte « echelle » (${a5.c.echelle?.cents.toFixed(2)} ¢)`);
+    assert(Math.abs(a5.c.echelle.cents - 5) < 0.3, `l'échelle est mesurée à 0,3 ¢ près (${a5.c.echelle?.cents.toFixed(2)})`);
+    assert(!lire(5, hum, 30, bruitDb).e.codes.includes('echelle'), `${hum} dBFS, +5 ¢ mais 30 s seulement : pas encore dit (il faut 50 s de ronflement)`);
+    assert(!lire(5, null, 75).e.codes.includes('echelle'), 'sans ronflement : rien à dire, pas d\'alerte');
+  }
+  assert(!lire(2, -60, 75).e.codes.includes('echelle') && lire(2, -60, 75).infos.includes('echelleAvert'), '+2 ¢ : avertissement sans refus');
+  for (const f of [49.96, 50.04]) {
+    const r = passer(accordeon(75, SR2, { hum: -60, humHz: f }), SR2);
+    assert(!r.e.codes.includes('echelle'), `réseau à ${f} Hz (±0,08 %, régime normal) : pas d'alerte`);
+  }
+  assert(passer(accordeon(75, SR2, { hum: -60, humHz: 50.2 }), SR2).e.codes.includes('echelle'), 'réseau à 50,2 Hz (incident, 4 ‰) : alerte, la prise est douteuse');
+}
+
 console.log(failures === 0 ? '\nTous les tests de prise passent.' : `\n${failures} échec(s).`);
 process.exit(failures === 0 ? 0 : 1);
