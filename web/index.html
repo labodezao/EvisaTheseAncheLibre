@@ -442,7 +442,16 @@
         <p id="protoEtat" class="hint"></p>
         <ul id="protoAlertes" class="hint"></ul>
       </details>
+      <div id="planClavier"></div>
       <div id="reportCourbes"></div>
+      <div class="row gap" id="editBar">
+        <label class="inline"><input type="checkbox" id="rapportDetail"> afficher le détail (Hz, écart nominal, écrasement)</label>
+        <button id="btnSelSens" title="Coche des lignes, puis bascule tiré / poussé">⇄ Basculer la sélection tiré / poussé</button>
+        <label>Réaffecter la sélection à <select id="selReaffecter"></select></label>
+        <button id="btnReaffecter">Réaffecter</button>
+        <button id="btnAnnuler">↶ Annuler</button>
+        <button id="btnRetablir">↷ Rétablir</button>
+      </div>
       <div class="row gap">
         <button id="btnCompare">Comparer avec un rapport sauvegardé…</button>
         <button id="btnCompareCsv" class="hidden">CSV de la comparaison</button>

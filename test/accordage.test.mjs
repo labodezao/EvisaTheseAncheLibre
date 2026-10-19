@@ -7,6 +7,8 @@
 //   A 4  unité du battement (bat/min ou Hz) : tableau, imprimé, CSV (les deux colonnes)
 //   A 5  protocole : suite attendue (La/Ré, Sol/Do, chromatique 3 rangs), remplissage auto
 //        sur des mesures simulées (bouton sauté, sens inversé, note inattendue, case refaite)
+//   A 7  rapport rangée par rangée (une ligne par bouton), édition en un clic (tiré / poussé,
+//        réaffecter, annuler / rétablir), surbrillance d'une note
 //   A 6  courbes (battement, cible, différence, tolérance) et comparaison de deux rapports
 //
 // Exécution : node test/accordage.test.mjs
@@ -136,8 +138,8 @@ console.log('A 4 : unité du battement (bat/min ou Hz)');
   assert(enUnite(5.1, 'bpm') === 306, 'conversion');
   const htmlBpm = r.printableHtml({ ...cfg, uniteBatt: 'bpm' });
   const htmlHz = r.printableHtml({ ...cfg, uniteBatt: 'hz' });
-  assert(/Batt\. voulu \(bat\/min\)/.test(htmlBpm) && />306</.test(htmlBpm), 'rapport imprimé en bat/min (cible 306)');
-  assert(/Batt\. voulu \(Hz\)/.test(htmlHz) && />5\.10</.test(htmlHz), 'rapport imprimé en Hz (cible 5,10)');
+  assert(/\(bat\/min\) \/ cible/.test(htmlBpm) && /\/ 306 ·/.test(htmlBpm), 'rapport imprimé en bat/min (cible 306)');
+  assert(/\(Hz\) \/ cible/.test(htmlHz) && /\/ 5\.10 ·/.test(htmlHz), 'rapport imprimé en Hz (cible 5,10)');
   const lignesCsv = r.toCsv(cfg).split('\n');
   const col = lignesCsv[0].split(';');
   const l69 = lignesCsv.find((l) => l.includes(";69;") && l.includes("8'+")).split(';');
@@ -218,7 +220,7 @@ console.log('A 5 : protocole guidé');
     for (const l of rows) rp.rows.set(`${l.midi}|${l.voiceId}|${l.dir}|${l.cas}`, l);
   }
   assert([...rp.rows.values()].every((l) => l.rang && l.bouton && l.dir), 'chaque ligne porte rangée, bouton et sens');
-  assert(rp.groupes().length >= 1 && rp.groupes()[0].nomRang === gc[0].nomRang, 'tableaux par rangée et par sens');
+  assert(rp.sections(cfg, gc)[0].nomRang === gc[0].nomRang && rp.sections(cfg, gc)[0].dir === 'T', 'sections par rangée et par sens');
   assert(rp.retirerCase(cases[0].id) === 2 && rp.rows.size === 10, 'refaire une case efface ses mesures');
 }
 
@@ -273,6 +275,93 @@ console.log('A 6 : courbes et comparaison banc / en caisse');
   cfg.a4 = 442;
   const cmp2 = banc.comparerAvec({ name: 'x', contexte: caisse.contexte, rows: [...caisse.rows.values()] }, cfg);
   assert(cmp2.comp.resume.battement.n === NOTES.length, 'comparaison recalculée avec le La courant');
+}
+
+// ---- A 7 -------------------------------------------------------------------------------
+console.log('A 7 : rapport par rangée, une ligne par bouton, édition en un clic');
+{
+  const cfg = cfgDe();
+  const plan = dispositionDe('GC21').plan;
+  const suite = suiteAttendue(plan);
+  const mesures = suite.slice(0, 8);            // 8 boutons de la 1re rangée, tirés
+  const r = new Report();
+  const ajoute = (c, ecartCents = 0) => {
+    for (const l of lignes(cfg, [c.midi], { dir: c.sens, cas: () => c, bruit: () => ecartCents })) r.rows.set(`${l.midi}|${l.voiceId}|${l.dir}|${l.cas}`, l);
+  };
+  mesures.forEach((c, i) => ajoute(c, i === 3 ? 12 : 0)); // le 4e bouton est faux de 12 ¢
+  r.recalculer(cfg);
+  const protocole = new Protocole(plan);
+  protocole.restaurer([...r.rows.values()].map((l) => l.cas));
+  const courante = protocole.courante();
+
+  const secs = r.sections(cfg, suite, courante);
+  assert(secs.map((x) => `${x.dir}${x.rang}`).join(' ') === 'T1 P1 T2 P2', 'sections : rangée par rangée, tiré puis poussé dans chaque rangée');
+  assert(secs[0].boutons.map((b) => b.bouton).join(',') === [...Array(secs[0].boutons.length).keys()].map((i) => i + 1).join(','), 'boutons dans l\'ordre du clavier');
+  assert(secs[0].boutons[0].rows.length === 2 && secs.every((x) => x.boutons.length > 0), 'une ligne par bouton (les deux voix dans la même ligne)');
+  assert(secs[0].boutons.slice(0, 8).every((b, i) => b.etat === (i === 3 ? 'reprendre' : 'fait')), 'état : fait, et « à reprendre » pour le bouton faux');
+  assert(secs[0].boutons[8].etat === 'non' && secs[0].boutons[8].courant, 'bouton pas encore mesuré, et c\'est la case à jouer');
+  const html = r.htmlRapport(cfg, { suite, courante });
+  assert((html.match(/<tr class="[^"]*" data-uid=/g) || []).length === suite.length, `${suite.length} lignes (une par bouton, mesurées ou non)`);
+  assert(!/Soufflet/.test(html) && !/>0\.00</.test(html), 'plus de colonne Soufflet ni de « Batt. mes. 0.00 » sur la voix juste');
+  assert(/8&#39;\+ \(bat\/min\) \/ cible/.test(html) && /Voix juste \(¢\)/.test(html), 'colonnes : voix juste en cents, voix musette dans l\'unité avec sa cible');
+  assert(/à jouer/.test(html) && /pas encore mesuré/.test(html) && /à reprendre/.test(html), 'états lisibles');
+  assert(!/Cible \(Hz\)|écart nominal/.test(html) && /écart nominal/.test(r.htmlRapport(cfg, { suite, detail: true })), 'Hz et écart nominal seulement dans le détail');
+  assert(!/data-act=/.test(r.htmlRapport(cfg, { suite, imprime: true })) && /data-act="sens"/.test(html), 'commandes d\'édition à l\'écran, pas à l\'impression');
+
+  // surbrillance d'une note
+  const u0 = suite[2].id;
+  const htmlSel = r.htmlRapport(cfg, { suite, sel: { uid: u0, midi: 0, dir: 'T' } });
+  assert((htmlSel.match(/ sel" data-uid=/g) || []).length === 1 && new RegExp(`sel" data-uid="${u0}"`).test(htmlSel), 'la ligne du bouton choisi est en surbrillance (une seule)');
+  const m3 = suite[3].midi;
+  assert(/ sel" data-uid=/.test(r.htmlRapport(cfg, { suite, sel: { uid: null, midi: m3, dir: 'T' } })), 'sélection par note et sens (depuis la grille ou la courbe)');
+  assert((r.htmlRapport(cfg, { suite }).match(/ sel" data-uid=/g) || []).length === 0, 'sans sélection, rien n\'est surligné');
+
+  // bascule tiré -> poussé en un clic
+  const avant = r.toCsv(cfg);
+  const u3 = suite[3].id;
+  const nbT = r.sections(cfg, suite).find((x) => x.dir === 'T' && x.rang === 1).boutons.filter((b) => b.mesure).length;
+  let res = r.basculerSens([u3], suite);
+  assert(res.ok && res.n === 1, 'bascule d\'une mesure tiré -> poussé');
+  const secs2 = r.sections(cfg, suite);
+  const sT = secs2.find((x) => x.dir === 'T' && x.rang === 1);
+  const sP = secs2.find((x) => x.dir === 'P' && x.rang === 1);
+  assert(sT.boutons.filter((b) => b.mesure).length === nbT - 1 && sP.boutons.filter((b) => b.mesure).length === 1, 'la ligne a changé de section (rangée 1 poussé)');
+  const bP = sP.boutons.find((b) => b.mesure);
+  assert(bP.cas === `P-r1-b${suite[3].bouton}` && bP.rows.every((l) => l.dir === 'P' && l.cas === bP.cas), 'sa case devient celle du même bouton en poussé');
+  assert(r.toCsv(cfg) !== avant && r.toCsv(cfg).split('\n').filter((l) => l.includes(';pousser;')).length === 2, 'l\'export CSV suit (2 lignes poussées)');
+  const sj = r.series(cfg).filter((x) => x.type === 'justesse' && x.dir === 'P');
+  assert(sj.length === 1 && sj[0].points.length === 1 && sj[0].points[0].midi === m3, 'la courbe de justesse poussée a un point à cette note');
+  assert(!r.series(cfg).find((x) => x.type === 'justesse' && x.dir === 'T').points.some((p) => p.midi === m3), 'et la courbe tirée l\'a perdu');
+  // le protocole tient compte de la correction
+  protocole.restaurer([...r.rows.values()].map((l) => l.cas));
+  assert(!protocole.faits.has(u3) && protocole.faits.has(`P-r1-b${suite[3].bouton}`) && protocole.courante().id === u3, 'le protocole redemande le bouton tiré, la case poussée est faite');
+  // annuler / rétablir
+  assert(r.peutAnnuler && r.annuler() && r.toCsv(cfg) === avant, 'annuler : retour exact à l\'état d\'avant');
+  assert(r.peutRetablir && r.retablir() && r.sections(cfg, suite).find((x) => x.dir === 'P' && x.rang === 1).boutons.some((b) => b.mesure), 'rétablir : la bascule revient');
+  r.annuler();
+  // une rangée entière
+  const uidsRang1 = r.sections(cfg, suite)[0].boutons.filter((b) => b.mesure).map((b) => b.uid);
+  res = r.basculerSens(uidsRang1, suite);
+  assert(res.ok && res.n === 8 && r.sections(cfg, suite).find((x) => x.dir === 'P' && x.rang === 1).boutons.filter((b) => b.mesure).length === 8, 'toute la rangée bascule en poussé (8 boutons)');
+  r.annuler();
+  // réaffecter à un autre bouton / une autre rangée
+  const cible = suite.find((c) => c.sens === 'T' && c.rang === 2 && c.bouton === 3);
+  res = r.reaffecter(suite[1].id, cible);
+  const b3 = r.sections(cfg, suite).find((x) => x.dir === 'T' && x.rang === 2).boutons.find((b) => b.bouton === 3);
+  assert(res.ok && b3.mesure && b3.rows.every((l) => l.rang === 2 && l.bouton === 3 && l.cas === cible.id), 'réaffecter un bouton à la rangée 2, bouton 3');
+  protocole.restaurer([...r.rows.values()].map((l) => l.cas));
+  assert(protocole.faits.has(cible.id) && !protocole.faits.has(suite[1].id), 'le protocole suit la réaffectation');
+  r.annuler();
+  // refus quand la case d'arrivée est déjà mesurée
+  ajoute(suite.find((c) => c.sens === 'P' && c.rang === 1 && c.bouton === 1));
+  res = r.basculerSens([suite[0].id], suite);
+  assert(res.ok === false && /existe déjà/.test(res.raison), 'bascule refusée si le bouton est déjà mesuré dans l\'autre sens (rien n\'est écrasé)');
+  // sans protocole : sections par sens, une ligne par note
+  const libre = new Report();
+  for (const l of lignes(cfg, [57, 60, 64])) libre.rows.set(`${l.midi}|${l.voiceId}|T`, l);
+  const sl = libre.sections(cfg);
+  assert(sl.length === 1 && sl[0].boutons.length === 3 && sl[0].boutons.map((b) => b.midi).join() === '57,60,64', 'sans protocole : une ligne par note, du grave à l\'aigu');
+  assert(libre.basculerSens(['60|T']).ok && libre.sections(cfg).length === 2, 'sans protocole aussi : bascule tiré / poussé');
 }
 
 if (failures) { console.error(`\n${failures} échec(s)`); process.exit(1); }

@@ -154,7 +154,7 @@ export function courbeSvg(spec) {
     const d = se.points.map((p) => `${X(p.midi).toFixed(1)},${Y(p.y).toFixed(1)}`);
     s += `<polyline points="${d.join(' ')}" fill="none" stroke="${c}" stroke-width="1.6"${se.tirets ? ' stroke-dasharray="5 3"' : ''}/>`;
     for (const p of se.points) {
-      s += `<circle cx="${X(p.midi).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="2.2" fill="${c}"/>`;
+      s += `<circle data-midi="${p.midi}" cx="${X(p.midi).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="2.2" fill="${c}"/>`;
       if (p.hors) s += `<circle cx="${X(p.midi).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="5.5" fill="none" stroke="#dc2626" stroke-width="1.6"/>`;
     }
   });

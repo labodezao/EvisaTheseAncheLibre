@@ -149,6 +149,18 @@ export class Protocole {
     return { type, cas, suivante: this.courante() };
   }
 
+  // Relit les cases déjà mesurées dans le rapport (ids de cases) : au chargement,
+  // et après une correction du rapport (bascule tiré / poussé, réaffectation).
+  restaurer(ids) {
+    this.faits.clear();
+    let max = -1;
+    for (const id of ids) {
+      const i = this.suite.findIndex((c) => c.id === id);
+      if (i >= 0) { this.faits.set(id, { ts: 0 }); max = Math.max(max, i); }
+    }
+    this.index = 0; // la première case encore à faire (une case sautée ou corrigée revient)
+  }
+
   // Refaire une case : elle redevient la case attendue.
   refaire(id) {
     const i = this.suite.findIndex((c) => c.id === id);
