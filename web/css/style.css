@@ -571,3 +571,7 @@ button.note-chip { cursor: pointer; }
 #courbeUnique #cuGraph { flex: 1 1 420px; min-width: 0; overflow-x: auto; }
 #courbeUnique #cuGraph svg { max-width: 100%; height: auto; }
 @media (max-width: 700px) { #courbeUnique .cu-corps { flex-direction: column; } #courbeUnique #cuListe { order: -1; flex-basis: auto; width: 100%; } }
+
+#reharmoTexte p { margin: 6px 0 2px; }
+#reharmoTexte ol { margin: 0 0 6px; padding-left: 22px; }
+#reharmoTexte li { cursor: pointer; }

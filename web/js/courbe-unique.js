@@ -6,7 +6,7 @@
 // dans le rapport imprimable : rien n'est retiré.
 
 import { courbeSvg, bandeTable, bandeTolerance, PALETTE } from './courbes.js';
-import { UNITES_BATT, enUnite, decimalesUnite } from './accordage.js';
+import { UNITES_BATT, enUnite, decimalesUnite, classeBatt } from './accordage.js';
 import { noteLabel } from './music.js';
 
 export const GRANDEURS = Object.freeze([
@@ -14,10 +14,11 @@ export const GRANDEURS = Object.freeze([
   { id: 'mesure', nom: 'battement mesuré', groupe: 'absolu' },
   { id: 'cible', nom: 'battement cible', groupe: 'absolu' },
   { id: 'justesse', nom: 'justesse de la voix juste (¢)', groupe: 'cents' },
+  { id: 'ajustee', nom: 'courbe ajustée (réharmonisation)', groupe: null }, // s'ajoute à la famille affichée
 ]);
 const GROUPES = { ecart: 'écart (autour de zéro)', absolu: 'battement absolu', cents: 'cents' };
 
-export const CHOIX_DEFAUT = Object.freeze({ auto: true, rangs: [], sens: [], g: { ecart: true, mesure: false, cible: false, justesse: false }, sources: [] });
+export const CHOIX_DEFAUT = Object.freeze({ auto: true, rangs: [], sens: [], g: { ecart: true, mesure: false, cible: false, justesse: false, ajustee: false }, sources: [] });
 
 // Fusionne un choix enregistré avec les défauts (réglages anciens ou absents).
 export function choixDe(brut) {
@@ -70,9 +71,10 @@ export function aReprendre(series, cfg, unite, sel) {
 // Le graphique unique. `sources` : [{ nom, series }] (le rapport courant d'abord,
 // puis le rapport comparé s'il est chargé). Rend { svg, refus } : `refus` est un
 // message si les grandeurs cochées ne vont pas ensemble (échelles différentes).
-export function courbeUnique(sources, cfg, unite, choix, sel) {
-  const actives = GRANDEURS.filter((g) => choix.g[g.id]);
-  if (!actives.length) return { svg: '', refus: 'Cochez au moins une grandeur à afficher.' };
+export function courbeUnique(sources, cfg, unite, choix, sel, ajust = null) {
+  const actives = GRANDEURS.filter((g) => choix.g[g.id] && g.groupe);
+  if (!actives.length && !choix.g.ajustee) return { svg: '', refus: 'Cochez au moins une grandeur à afficher.' };
+  if (!actives.length) actives.push(GRANDEURS.find((g) => g.id === 'mesure'));
   const groupes = new Set(actives.map((g) => g.groupe));
   if (groupes.size > 1) {
     return { svg: '', refus: `Ces grandeurs n'ont pas la même échelle (${[...groupes].map((x) => GROUPES[x]).join(' et ')}) : une seule famille à la fois sur un même graphique.` };
@@ -89,12 +91,19 @@ export function courbeUnique(sources, cfg, unite, choix, sel) {
       const couleur = PALETTE[(rangIdx * 2 + (bat ? Math.max(0, listeVoix.indexOf(voix(s))) : 0)) % PALETTE.length];
       const court = `${s.rang != null ? `R${s.rang} ` : ''}${s.dir === 'P' ? 'poussé' : 'tiré'} ${s.label}${sources.length > 1 ? ` (${src.nom})` : ''}`;
       const base = { couleur, tirets: s.dir === 'P', creux: si > 0 };
+      const fit = choix.g.ajustee && si === 0 ? (ajust?.fits ?? []).find((f) => f.type === s.type && f.dir === s.dir && f.voiceId === s.voiceId && (f.rang == null || f.rang === s.rang)) : null;
+      if (fit && groupe === 'ecart' && bat) {
+        series.push({ ...base, nom: `${court} / ajustée`, points: s.points.map((p) => ({ midi: p.midi, y: enUnite(p.hz - fit.pred(p.midi), unite), hors: classeBatt(p.hz - fit.pred(p.midi), fit.pred(p.midi)) !== 'ok' })) });
+        continue;
+      }
       if (groupe === 'cents' && !bat) {
         series.push({ ...base, nom: court, points: s.points.map((p) => ({ midi: p.midi, y: p.y })) });
+        if (fit) series.push({ couleur: '#111', pointille: true, nom: `${court} ajustée`, points: s.points.map((p) => ({ midi: p.midi, y: fit.pred(p.midi) })) });
       } else if (bat && groupe === 'ecart') {
         series.push({ ...base, nom: court, points: s.points.map((p) => ({ midi: p.midi, y: enUnite(p.ecartHz, unite), hors: p.hors })) });
       } else if (bat && groupe === 'absolu') {
-        if (choix.g.mesure) series.push({ ...base, nom: `${court} mesuré`, points: s.points.map((p) => ({ midi: p.midi, y: p.y, hors: p.hors })) });
+        if (fit) series.push({ couleur: '#111', pointille: true, nom: `${court} ajustée`, points: s.points.map((p) => ({ midi: p.midi, y: enUnite(fit.pred(p.midi), unite) })) });
+        if (choix.g.mesure || !choix.g.cible) series.push({ ...base, nom: `${court} mesuré`, points: s.points.map((p) => ({ midi: p.midi, y: p.y, hors: p.hors })) });
         if (choix.g.cible) series.push({ ...base, tirets: false, pointille: true, nom: `${court} cible`, points: s.points.map((p) => ({ midi: p.midi, y: p.cible })) });
       }
     }
