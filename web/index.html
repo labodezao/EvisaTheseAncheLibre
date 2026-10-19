@@ -352,11 +352,16 @@
     <div class="panel">
       <h2>Liste de battements (tremolo)</h2>
       <div class="row gap">
+        <label>Table d'accordage <select id="tableAccordage"></select></label>
+      </div>
+      <p class="hint" id="tableInfo"></p>
+      <div class="row gap">
         <label>Batt. à <span id="bLowNote">Do3</span> (Hz) <input type="number" id="bLow" step="0.05" value="0.8"></label>
         <label>Batt. à <span id="bHighNote">Do7</span> (Hz) <input type="number" id="bHigh" step="0.05" value="3.0"></label>
       </div>
       <canvas id="beatCurve" width="330" height="120"></canvas>
-      <p class="hint">Courbe exponentielle entre les deux ancrages ; écrasements par note dans le rapport.</p>
+      <p class="hint">Sans table : courbe exponentielle entre les deux ancrages (en Hz) ; avec une table : battement voulu note par note ;
+      dans les deux cas, écrasements par note dans le rapport (modifiables).</p>
     </div>
     <div class="panel">
       <h2>Entrée audio</h2>
@@ -397,6 +402,7 @@
           <button id="btnRecord" class="primary" title="Raccourci : Entrée">● Enregistrer la mesure</button>
           <button id="btnReport">Rapport imprimable</button>
           <button id="btnCsv">Export CSV</button>
+          <button id="btnCsvCourbes">CSV courbes</button>
           <button id="btnSaveJson">Sauver</button>
           <button id="btnLoadJson">Charger</button>
           <button id="btnCopyBeats">Copier battements mesurés → liste cible</button>
@@ -405,12 +411,46 @@
       </h2>
       <div class="row gap">
         <label>Instrument <input type="text" id="instrName" placeholder="ex. Maugein 1954 n°1234"></label>
+        <label>Contexte <select id="lieuRapport"><option value="banc">banc d'accordage</option><option value="caisse">en caisse (remonté)</option><option value="autre">autre</option></select></label>
+        <label>Date <input type="date" id="dateRapport"></label>
         <span class="hint" id="reportCount"></span>
         <span class="hint">Raccourcis : Entrée = enregistrer · S = strobe plein écran · F = geler · L = verrouiller la note ·
           B = soufflet · T = son de référence</span>
       </div>
+      <div class="row gap">
+        <label>Table d'accordage <select id="tableAccordage2"></select></label>
+        <label>Battements en <select id="uniteBatt"><option value="bpm">bat/min</option><option value="hz">Hz</option></select></label>
+        <label>La de référence (Hz) <input type="number" id="a4Rapport" step="0.1" min="340" max="540" size="6"></label>
+      </div>
+      <div class="row gap" id="laBloc">
+        <span id="laInstr" class="hint">La de l'instrument : mesurez au moins 3 notes (voix juste).</span>
+        <button id="btnPrendreLa" class="hidden">Prendre ce La</button>
+        <label class="inline"><input type="checkbox" id="laAuto"> reconnaissance automatique</label>
+      </div>
+      <details id="protoBloc">
+        <summary>Protocole d'accordage guidé (la suite des boutons remplit le rapport toute seule)</summary>
+        <div class="row gap">
+          <label class="inline"><input type="checkbox" id="protoOn"> actif</label>
+          <label>Disposition du clavier <select id="protoDispo"></select></label>
+          <label class="inline"><input type="checkbox" id="protoInverse"> jouer l'autre rangée en premier</label>
+          <label>Chromatique : 1er bouton (MIDI) <input type="number" id="protoPremier" min="24" max="84" size="4"></label>
+          <label>boutons par rangée <input type="number" id="protoBoutons" min="6" max="20" size="3"></label>
+          <button id="btnProtoRaz">Recommencer</button>
+        </div>
+        <p class="hint">Ordre : 1re rangée tirée, 2e rangée tirée (3e au chromatique), puis les mêmes rangées poussées,
+        du grave vers l'aigu, bouton par bouton. Le sens du soufflet et la note sont reconnus par le moteur.</p>
+        <p id="protoEtat" class="hint"></p>
+        <ul id="protoAlertes" class="hint"></ul>
+      </details>
+      <div id="reportCourbes"></div>
+      <div class="row gap">
+        <button id="btnCompare">Comparer avec un rapport sauvegardé…</button>
+        <button id="btnCompareCsv" class="hidden">CSV de la comparaison</button>
+        <button id="btnCompareFin" class="hidden">Fermer la comparaison</button>
+      </div>
+      <div id="compareOut"></div>
       <div id="tuneGrid"></div>
-      <div id="reportTableWrap"><table id="reportTable"></table></div>
+      <div id="reportTableWrap"><div id="reportTable"></div></div>
     </div>
   </div>
 

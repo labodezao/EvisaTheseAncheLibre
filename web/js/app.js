@@ -7,6 +7,10 @@ import {
   midiToFreq, voiceTargetFreq, beatTarget, centsClass, overlappingAllan,
 } from './music.js';
 import { Report } from './report.js';
+import { TABLES_MUSETTE, tableMusette, beatCurveDe } from './tables-accordage.js';
+import { estimerLa, texteLa } from './accordage.js';
+import { graphiquesRapport } from './courbes.js';
+import { dispositions, dispositionDe, Protocole, SENS, CHROMATIQUE_DEFAUT } from './protocole.js';
 import { ligneMicro, consignes, informations, plateforme, propositionMicro, blocMicro, classerMicro, mentionDouteuse, choisirMicro } from './prise-micro.js';
 import {
   Enregistreur, choisirStockage, listerSessions, recupererSession, exporterSession,
@@ -67,6 +71,10 @@ const cfg = Object.assign({
   devMode: false,       // mode dev : garde le son et chaque mesure (export ZIP : WAV + CSV + JSON)
   devMaxMin: 60,        // durée maximale d'une session (min) : 10, 30, 60 ou 120 (v42)
   beatCurve: { midiLow: 48, bLow: 0.8, midiHigh: 96, bHigh: 3.0, overrides: {} },
+  uniteBatt: 'bpm',     // unité du battement dans le rapport : 'bpm' (bat/min) ou 'hz'
+  laAuto: false,        // reconnaissance automatique du La de l'instrument
+  // Protocole d'accordage guidé (protocole.js) : disposition du clavier et suite attendue.
+  protocole: { on: false, id: 'GC21', inverser: false, premier: CHROMATIQUE_DEFAUT.premier, boutons: CHROMATIQUE_DEFAUT.boutons },
 }, loadCfg());
 
 function loadCfg() {
@@ -495,10 +503,13 @@ function engineCfg() {
   // Sens du soufflet de la grille (v45) : le moteur en part et bascule à chaque inversion entendue.
   return { ...cfg, sens: cfg.bellows === 'P' ? 'poussé' : 'tiré' };
 }
-function pushConfig() {
+function pushConfig(recalcul = true) {
   saveCfg();
   worker?.postMessage({ type: 'config', cfg: engineCfg() });
   drawBeatCurve();
+  // Le La, le tempérament ou la table ont changé : tout le rapport suit
+  // (cibles, écarts, battements voulus, couleurs), sur les fréquences mesurées.
+  if (recalcul && report.rows.size) { report.recalculer(cfg); refreshReport(); }
 }
 
 // ---- Réception des analyses --------------------------------------------------
@@ -587,11 +598,12 @@ function onTick(t) {
       .join('');
   }
 
+  if (t.quiet || t.playedMidi == null) state.protoCle = null; // la note s'est arrêtée : la suivante comptera
   // Enregistrement automatique quand la mesure est convergée et stable.
   if ($('autoRecord').checked && t.playedMidi != null && !t.quiet && state.stableTicks > 8
       && t.groups.length && t.groups.every((g) => g.fill >= 0.999)
       && t.groups.every((g) => g.voices.every((v) => v.tracked || g.isSub))) {
-    if (report.record(t, cfg, cfg.bellows)) { refreshReport(); beep(1318, 0.05); }
+    if (enregistrerMesure(t, true)) { refreshReport(); beep(1318, 0.05); }
   }
   updateVoicesTable(t);
   updateReadout(t);
@@ -2087,18 +2099,205 @@ function stopTone() {
 
 // ---- Rapport -------------------------------------------------------------------
 function refreshReport() {
-  report.renderTable($('reportTable'), cfg, (midi, val) => {
-    if (val === '' || val == null) delete cfg.beatCurve.overrides[midi];
-    else cfg.beatCurve.overrides[midi] = Number(val);
+  const wrap = $('reportTable');
+  if (!wrap) return;
+  report.renderTable(wrap, cfg, (midi, val) => {
+    surchargeBattement(midi, val);
     pushConfig();
-    refreshReport();
-  });
+  }, { onRefaire: refaireCase });
   report.renderGrid($('tuneGrid'), cfg, cfg.bellows, state.tick?.playedMidi ?? null, (midi) => {
     cfg.lockNote = midi;
     updateLockButton();
-    pushConfig();
+    pushConfig(false);
   });
   $('reportCount').textContent = `${report.rows.size} mesures enregistrées`;
+  $('reportCourbes').innerHTML = graphiquesRapport(report.series(cfg), cfg, cfg.uniteBatt === 'hz' ? 'hz' : 'bpm').map((g) => g.svg).join('');
+  majLa();
+  majProtocoleAffichage();
+  majComparaison();
+}
+
+function initProtocoleUi() {
+  const c = cfg.protocole;
+  const sel = $('protoDispo');
+  const groupes = new Map();
+  for (const d of dispositions()) {
+    if (!groupes.has(d.groupe)) groupes.set(d.groupe, []);
+    groupes.get(d.groupe).push(d);
+  }
+  sel.innerHTML = [...groupes].map(([g, l]) => `<optgroup label="${g}">`
+    + l.map((d) => `<option value="${d.id}">${d.nom}${d.aConfirmer ? ' (à confirmer)' : ''}</option>`).join('') + '</optgroup>').join('');
+  sel.value = c.id;
+  $('protoOn').checked = !!c.on;
+  $('protoInverse').checked = !!c.inverser;
+  $('protoPremier').value = c.premier;
+  $('protoBoutons').value = c.boutons;
+  const changer = () => {
+    c.on = $('protoOn').checked;
+    c.id = sel.value;
+    c.inverser = $('protoInverse').checked;
+    c.premier = Number($('protoPremier').value) || CHROMATIQUE_DEFAUT.premier;
+    c.boutons = Number($('protoBoutons').value) || CHROMATIQUE_DEFAUT.boutons;
+    saveCfg();
+    creerProtocole();
+    state.protoCle = null;
+    const prochaine = protocole?.courante();
+    if (c.on && prochaine && prochaine.sens !== cfg.bellows) setBellows(prochaine.sens);
+    refreshReport();
+  };
+  for (const id of ['protoOn', 'protoDispo', 'protoInverse', 'protoPremier', 'protoBoutons']) $(id).onchange = changer;
+  $('btnProtoRaz').onclick = () => {
+    if (!confirm('Recommencer le protocole ? Les mesures rangées par case sont effacées.')) return;
+    for (const [k, r] of [...report.rows]) if (r.cas) report.rows.delete(k);
+    report.save();
+    changer();
+  };
+  creerProtocole();
+}
+
+// ---- Tables d'accordage prédéfinies --------------------------------------------
+// Une table devient le `beatCurve` du moteur (ancrages + un écrasement par note).
+// Les battements voulus modifiés à la main (`manuel`, en Hz) passent par-dessus
+// et survivent à un changement de table ou de La.
+function appliquerTable(id) {
+  const t = id ? tableMusette(id) : null;
+  if (!t) { cfg.beatCurve.table = null; return; }
+  const manuel = cfg.beatCurve.manuel || {};
+  const c = beatCurveDe(t, { a4: cfg.a4 });
+  c.manuel = { ...manuel };
+  Object.assign(c.overrides, manuel);
+  cfg.beatCurve = c;
+}
+function surchargeBattement(midi, hzOuVide) {
+  const c = cfg.beatCurve;
+  c.manuel = c.manuel || {};
+  if (hzOuVide === '' || hzOuVide == null) {
+    delete c.manuel[midi];
+    const t = c.table ? tableMusette(c.table) : null;
+    if (t) c.overrides[midi] = beatCurveDe(t, { a4: cfg.a4 }).overrides[midi];
+    else delete c.overrides[midi];
+  } else {
+    c.manuel[midi] = Math.round(Number(hzOuVide) * 100) / 100;
+    c.overrides[midi] = c.manuel[midi];
+  }
+}
+function remplirTables(sel) {
+  sel.innerHTML = '<option value="">courbe personnelle</option>'
+    + TABLES_MUSETTE.map((t) => `<option value="${t.id}">${t.nom}</option>`).join('');
+  sel.value = cfg.beatCurve.table || '';
+}
+function majTableInfo() {
+  const t = cfg.beatCurve.table ? tableMusette(cfg.beatCurve.table) : null;
+  $('tableInfo').textContent = t
+    ? `${t.description} Source : ${t.source}${/forme/.test(t.nature) ? ' — un seul point dans la source : la forme (cents constants) est à confirmer par Ewen.' : ''}`
+    : 'Courbe personnelle (ancrages et écrasements ci-dessous).';
+  $('tableAccordage').value = cfg.beatCurve.table || '';
+  $('tableAccordage2').value = cfg.beatCurve.table || '';
+  $('bLow').value = cfg.beatCurve.bLow;
+  $('bHigh').value = cfg.beatCurve.bHigh;
+}
+
+// ---- Le La de l'instrument -------------------------------------------------------
+function majLa() {
+  const e = estimerLa(report.rows, cfg);
+  const el = $('laInstr');
+  const btn = $('btnPrendreLa');
+  state.laProposition = e;
+  if (!e) {
+    el.textContent = 'La de l\'instrument : mesurez au moins 3 notes (voix juste).';
+    el.classList.remove('prop');
+    btn.classList.add('hidden');
+    return;
+  }
+  const diff = Math.abs(e.a4 - cfg.a4) >= 0.05;
+  el.textContent = texteLa(e) + (diff ? '' : ' (c\'est le La réglé)');
+  btn.classList.toggle('hidden', !diff);
+  btn.textContent = `Prendre ce La (${e.a4.toFixed(1).replace('.', ',')} Hz)`;
+  const propose = cfg.laAuto && e.assez && Math.abs(e.a4 - cfg.a4) >= 0.1;
+  el.classList.toggle('prop', propose);
+  if (propose && state.laSignale !== e.a4) { state.laSignale = e.a4; beep(880, 0.08); }
+}
+
+// ---- Protocole d'accordage guidé ---------------------------------------------------
+let protocole = null;
+function creerProtocole() {
+  const c = cfg.protocole;
+  const d = dispositionDe(c.id, { premier: c.premier, boutons: c.boutons });
+  protocole = d ? new Protocole(d.plan, { inverser: !!c.inverser }) : null;
+  if (!protocole) return;
+  // les cases déjà mesurées se lisent dans le rapport
+  let max = -1;
+  for (const r of report.rows.values()) {
+    if (!r.cas) continue;
+    const i = protocole.suite.findIndex((x) => x.id === r.cas);
+    if (i >= 0) { protocole.faits.set(r.cas, { ts: r.ts }); max = Math.max(max, i); }
+  }
+  protocole.index = max + 1;
+}
+const protocoleActif = () => cfg.protocole.on && protocole;
+function majProtocoleAffichage() {
+  const el = $('protoEtat');
+  if (!el) return;
+  if (!protocoleActif()) {
+    el.textContent = 'Protocole inactif : les mesures sont rangées par note.';
+    $('protoAlertes').innerHTML = '';
+    return;
+  }
+  const c = protocole.courante();
+  const nom = (x) => `${x.nomRang}, bouton ${x.bouton}, ${SENS[x.sens]}`;
+  el.innerHTML = protocole.termine
+    ? `Protocole terminé : ${protocole.nbFaits} cases mesurées.`
+    : `${protocole.nbFaits} / ${protocole.suite.length} cases. Prochaine case : <b>${nom(c)}</b> — <b>${noteLabel(c.midi).full}</b>.`;
+  $('protoAlertes').innerHTML = protocole.alertes.slice(-4)
+    .map((a) => `<li>${a.texte.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</li>`).join('');
+}
+function refaireCase(casId) {
+  const c = protocole?.refaire(casId);
+  report.retirerCase(casId);
+  if (c && c.sens !== cfg.bellows) setBellows(c.sens);
+  state.protoCle = null;
+  refreshReport();
+}
+const sensDe = (t) => (t.sens === 'poussé' ? 'P' : t.sens === 'tiré' ? 'T' : cfg.bellows);
+const mesurable = (t) => t?.playedMidi != null && t.groups?.some((g) => g.fill >= 0.999 && g.voices.some((v) => v.tracked));
+// Enregistre la mesure du moment, rangée à sa case si le protocole est actif.
+// Rend le nombre de lignes écrites. La note jouée est comparée à la note du
+// plan (celle de la transposition d'affichage : playedMidi + transpose).
+function enregistrerMesure(t, auto) {
+  if (!protocoleActif()) return report.record(t, cfg, cfg.bellows);
+  if (!mesurable(t)) return 0;
+  const dir = sensDe(t);
+  const cle = `${t.playedMidi}|${dir}`;
+  if (auto && state.protoCle === cle) return 0; // cette note est déjà traitée
+  state.protoCle = cle;
+  const r = protocole.entrer({ midi: t.playedMidi + (cfg.transpose || 0), sens: dir });
+  let n = 0;
+  if (r.cas && (r.type === 'ok' || r.type === 'saut')) {
+    n = report.record(t, cfg, dir, r.cas);
+    if (r.suivante && r.suivante.sens !== cfg.bellows) setBellows(r.suivante.sens);
+  } else {
+    beep(330, 0.12);
+  }
+  refreshReport();
+  return n;
+}
+
+// ---- Comparaison de deux rapports (banc / en caisse) --------------------------------
+function majComparaison() {
+  const out = $('compareOut');
+  if (!state.cmpSrc) {
+    out.innerHTML = '';
+    $('btnCompareCsv').classList.add('hidden');
+    $('btnCompareFin').classList.add('hidden');
+    return;
+  }
+  const cmp = report.comparerAvec(state.cmpSrc, cfg);
+  state.cmp = cmp;
+  const esc = (x) => String(x).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  out.innerHTML = `<h3>Comparaison : ${esc(cmp.nomA)} et ${esc(cmp.nomB)} (différence = ${esc(cmp.nomB)} moins ${esc(cmp.nomA)})</h3>`
+    + `<ul>${cmp.resume.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>${cmp.graphiques.map((g) => g.svg).join('')}`;
+  $('btnCompareCsv').classList.remove('hidden');
+  $('btnCompareFin').classList.remove('hidden');
 }
 
 // Confirmation sonore discrète (enregistrement, changement de soufflet).
@@ -2148,9 +2347,12 @@ function calibrateFromMeasure() {
 }
 
 function recordNow() {
-  const n = report.record(state.tick, cfg, cfg.bellows);
+  const n = enregistrerMesure(state.tick, false);
   if (!n) {
-    alert('Aucune mesure convergée à enregistrer — laissez sonner la note jusqu\'à « convergé ».');
+    // Avec le protocole, une note inattendue est signalée dans le bloc du protocole.
+    if (!protocoleActif() || !mesurable(state.tick)) {
+      alert('Aucune mesure convergée à enregistrer — laissez sonner la note jusqu\'à « convergé ».');
+    }
     return;
   }
   refreshReport();
@@ -2399,6 +2601,15 @@ function bindControls() {
   $('bLow').value = cfg.beatCurve.bLow;
   $('bHigh').value = cfg.beatCurve.bHigh;
   $('instrName').value = report.name;
+  remplirTables($('tableAccordage'));
+  remplirTables($('tableAccordage2'));
+  majTableInfo();
+  $('uniteBatt').value = cfg.uniteBatt === 'hz' ? 'hz' : 'bpm';
+  $('a4Rapport').value = cfg.a4;
+  $('laAuto').checked = !!cfg.laAuto;
+  $('lieuRapport').value = report.contexte.lieu || 'banc';
+  $('dateRapport').value = report.contexte.date || '';
+  initProtocoleUi();
   if (cfg.manualNotes) $('manualNotes').value = cfg.manualNotes.map((m) => noteLabel(m).full).join(' ');
   updateModeVisibility();
   drawVu(null);
@@ -2529,9 +2740,25 @@ function bindControls() {
     cfg.a4 = clamp(Number(v) || 440, 340, 540);
     $('a4').value = cfg.a4;
     $('qA4').value = cfg.a4;
+    $('a4Rapport').value = cfg.a4;
+    // Une table « en cents » dépend du La : on la recalcule (les battements réglés à la main restent).
+    if (cfg.beatCurve.table) appliquerTable(cfg.beatCurve.table);
     pushConfig();
   };
   $('a4').onchange = () => setA4($('a4').value);
+  $('a4Rapport').onchange = () => setA4($('a4Rapport').value);
+  $('btnPrendreLa').onclick = () => { if (state.laProposition) setA4(state.laProposition.a4); };
+  $('laAuto').onchange = () => { cfg.laAuto = $('laAuto').checked; state.laSignale = null; saveCfg(); majLa(); };
+  const choisirTable = (id) => {
+    appliquerTable(id);
+    majTableInfo();
+    pushConfig();
+  };
+  $('tableAccordage').onchange = () => choisirTable($('tableAccordage').value);
+  $('tableAccordage2').onchange = () => choisirTable($('tableAccordage2').value);
+  $('uniteBatt').onchange = () => { cfg.uniteBatt = $('uniteBatt').value; saveCfg(); refreshReport(); };
+  $('lieuRapport').onchange = () => { report.contexte.lieu = $('lieuRapport').value; report.save(); };
+  $('dateRapport').onchange = () => { report.contexte.date = $('dateRapport').value; report.save(); };
   // Le La de référence, visible et modifiable depuis tous les onglets.
   $('qA4').value = cfg.a4;
   $('qA4').onchange = () => setA4($('qA4').value);
@@ -2590,8 +2817,8 @@ function bindControls() {
   $('btnCalibrate').onclick = calibrateFromMeasure;
   $('applyManual').onclick = applyManual;
   $('manualNotes').onkeydown = (e) => { if (e.key === 'Enter') applyManual(); };
-  $('bLow').onchange = () => { cfg.beatCurve.bLow = Number($('bLow').value) || 0.8; pushConfig(); };
-  $('bHigh').onchange = () => { cfg.beatCurve.bHigh = Number($('bHigh').value) || 3.0; pushConfig(); };
+  $('bLow').onchange = () => { cfg.beatCurve.bLow = Number($('bLow').value) || 0.8; cfg.beatCurve.table = null; majTableInfo(); pushConfig(); };
+  $('bHigh').onchange = () => { cfg.beatCurve.bHigh = Number($('bHigh').value) || 3.0; cfg.beatCurve.table = null; majTableInfo(); pushConfig(); };
   $('deviceSel').onchange = () => { if (state.running) { stopAudio(); startAudio(); } };
   $('btnTone').onclick = toggleTone;
   // Analyser un enregistrement : utile pour mesurer à tête reposée une prise
@@ -2653,10 +2880,25 @@ function bindControls() {
   });
   $('btnReport').onclick = () => {
     const w = window.open('', '_blank');
-    w.document.write(report.printableHtml(cfg));
+    w.document.write(report.printableHtml(cfg, state.cmpSrc ? report.comparerAvec(state.cmpSrc, cfg) : null));
     w.document.close();
   };
   $('btnCsv').onclick = () => download(`rapport-${report.name || 'accordeon'}.csv`, report.toCsv(cfg), 'text/csv');
+  $('btnCsvCourbes').onclick = () => download(`courbes-${report.name || 'accordeon'}.csv`, report.csvCourbes(cfg), 'text/csv');
+  $('btnCompare').onclick = () => {
+    const inp = document.createElement('input');
+    inp.type = 'file';
+    inp.accept = '.json';
+    inp.onchange = async () => {
+      try {
+        state.cmpSrc = Report.lireJson(await inp.files[0].text());
+        refreshReport();
+      } catch (e) { alert(`Chargement impossible : ${e.message}`); }
+    };
+    inp.click();
+  };
+  $('btnCompareCsv').onclick = () => { if (state.cmp) download(`comparaison-${report.name || 'accordeon'}.csv`, report.csvComparaison(state.cmp, cfg), 'text/csv'); };
+  $('btnCompareFin').onclick = () => { state.cmpSrc = null; state.cmp = null; refreshReport(); };
   $('btnSaveJson').onclick = () => download(`accordage-${report.name || 'accordeon'}.json`, report.toJson(cfg), 'application/json');
   $('btnLoadJson').onclick = () => {
     const inp = document.createElement('input');
@@ -2666,6 +2908,10 @@ function bindControls() {
       try {
         report.fromJson(await inp.files[0].text(), cfg);
         $('instrName').value = report.name;
+        $('lieuRapport').value = report.contexte.lieu || 'banc';
+        $('dateRapport').value = report.contexte.date || '';
+        creerProtocole();
+        majTableInfo();
         pushConfig();
         refreshReport();
       } catch (e) { alert(`Chargement impossible : ${e.message}`); }
@@ -2674,12 +2920,14 @@ function bindControls() {
   };
   $('btnCopyBeats').onclick = () => {
     const n = report.copyBeatsTo(cfg.beatCurve);
+    cfg.beatCurve.table = null; // les battements copiés ne sont plus ceux d'une table
+    majTableInfo();
     pushConfig();
     refreshReport();
     alert(`${n} battements copiés vers la liste cible.`);
   };
   $('btnClear').onclick = () => {
-    if (confirm('Effacer toutes les mesures enregistrées ?')) { report.clear(); refreshReport(); }
+    if (confirm('Effacer toutes les mesures enregistrées ?')) { report.clear(); creerProtocole(); refreshReport(); }
   };
   $('aboutLink').onclick = (e) => { e.preventDefault(); $('aboutDlg').showModal(); };
 
