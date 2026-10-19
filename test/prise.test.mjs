@@ -135,7 +135,9 @@ console.log('Blocs perdus (dates du flux)');
   const perdu = flux(40);
   const e = perdu.etat();
   assert(perdu.trous.length === 1 && Math.abs(perdu.trous[0].ms - 40) < 2, `40 ms perdus : un trou de ${perdu.trous[0]?.ms} ms à ${perdu.trous[0]?.t_s?.toFixed(1)} s`);
-  assert(e.codes.includes('trous'), 'alerte « trous »');
+  assert(!e.codes.includes('trous'), '40 ms perdus : journalisé, sans alerte (seuil de 0,4 s, Ewen 19/10)');
+  const gros = flux(500);
+  assert(gros.trous.length === 1 && gros.etat().codes.includes('trous'), '500 ms perdus : alerte « trous »');
   // une date qui tremble d'un bloc (gigue de la capture) n'est pas un trou : un vrai trou décale tout ce qui suit
   const trembleur = new ControlePrise(sr);
   { let cum = 0; for (let b = 0; b < 2000; b++) { const gigue = b % 97 === 50 ? 9000 : b % 131 === 70 ? -9000 : 0; trembleur.bloc(1e6 + cum / sr * 1e6 + gigue, n); trembleur.alimenter(new Float32Array(n).map(() => lin(-70) * gauss())); cum += n; } }
