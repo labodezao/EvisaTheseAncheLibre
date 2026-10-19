@@ -25,6 +25,10 @@ function esc(s) {
 
 export const LIEUX = Object.freeze({ banc: 'banc d\'accordage', caisse: 'en caisse (remonté)', autre: 'autre' });
 
+// Identifiant d'une « unité » du rapport : un bouton dans un sens (sa case si le
+// protocole l'a rangée), sinon la note et le sens.
+export const uidDe = (r) => r.cas ?? `${r.midi}|${r.dir || 'T'}`;
+
 const unite = (cfg) => (cfg.uniteBatt === 'hz' ? 'hz' : 'bpm');
 const sensTexte = (d) => ((d || 'T') === 'P' ? 'pousser' : 'tirer');
 const signe = (x, d) => (x == null ? '—' : `${x >= 0 ? '+' : ''}${x.toFixed(d)}`);
@@ -36,6 +40,8 @@ export class Report {
     // autre) et quand, pour comparer deux rapports du même instrument.
     this.contexte = { lieu: 'banc', date: '', note: '' };
     this.rows = new Map(); // "midi|voiceId|sens[|case]" → ligne
+    this.hist = [];   // états précédents (annuler)
+    this.futur = [];  // états annulés (rétablir)
     this.load();
   }
 
@@ -196,75 +202,214 @@ export class Report {
     return `Table d'accordage : ${t ? t.nom : 'courbe personnelle'} · La4 = ${Number(cfg.a4).toFixed(1)} Hz · tempérament ${cfg.temperament} · battements en ${UNITES_BATT[unite(cfg)]}`;
   }
 
-  // Groupes du rapport : un par sens et par rangée (protocole), sinon un par sens.
-  groupes() {
-    const g = new Map();
-    for (const r of this.sorted()) {
-      const k = `${r.dir || 'T'}|${r.rang ?? 0}`;
-      if (!g.has(k)) g.set(k, { dir: r.dir || 'T', rang: r.rang ?? null, nomRang: r.nomRang ?? null, rows: [] });
-      g.get(k).rows.push(r);
-    }
-    return [...g.values()].sort((a, b) => (a.dir === b.dir ? 0 : a.dir === 'T' ? -1 : 1) || (a.rang ?? 0) - (b.rang ?? 0));
+  // ---- Édition en un clic (Ewen, 19/10/2026) ---------------------------------------
+  // Une « unité » = un bouton mesuré dans un sens : toutes les lignes (voix) qui
+  // partagent sa case (`cas`), ou à défaut la même note et le même sens.
+  // Chaque modification garde de quoi annuler / rétablir.
+  _snap() { return JSON.stringify([...this.rows.entries()]); }
+  _empiler() {
+    this.hist.push(this._snap());
+    if (this.hist.length > 60) this.hist.shift();
+    this.futur.length = 0;
+  }
+  get peutAnnuler() { return this.hist.length > 0; }
+  get peutRetablir() { return this.futur.length > 0; }
+  annuler() {
+    if (!this.hist.length) return false;
+    this.futur.push(this._snap());
+    this.rows = new Map(JSON.parse(this.hist.pop()));
+    this.save();
+    return true;
+  }
+  retablir() {
+    if (!this.futur.length) return false;
+    this.hist.push(this._snap());
+    this.rows = new Map(JSON.parse(this.futur.pop()));
+    this.save();
+    return true;
   }
 
-  // Une ligne de tableau (HTML) pour le rapport à l'écran ou imprimé.
-  _ligne(r, cfg, firstOfMidi, editable) {
+  // Applique `transforme(ligne)` aux lignes des unités données et remet les
+  // clés à jour. Refuse (rien ne change) si une ligne en écraserait une autre.
+  _deplacer(uids, transforme) {
+    const set = new Set(uids);
+    const gardees = [];
+    const deplacees = [];
+    for (const [k, r] of this.rows) (set.has(uidDe(r)) ? deplacees : gardees).push([k, r]);
+    if (!deplacees.length) return { ok: false, raison: 'rien à modifier', n: 0 };
+    const nouvelles = deplacees.map(([, r]) => transforme({ ...r }));
+    const cleDe = (r) => `${r.midi}|${r.voiceId}|${r.dir || 'T'}${r.cas ? `|${r.cas}` : ''}`;
+    const pris = new Set(gardees.map(([k]) => k));
+    const casPris = new Set(gardees.filter(([, r]) => r.cas).map(([, r]) => r.cas));
+    const vus = new Set();
+    for (const r of nouvelles) {
+      const k = cleDe(r);
+      if (pris.has(k) || vus.has(k) || (r.cas && casPris.has(r.cas))) return { ok: false, raison: 'une mesure existe déjà à cet endroit (refaites ou effacez-la d\'abord)', n: 0 };
+      vus.add(k);
+    }
+    this._empiler();
+    this.rows = new Map([...gardees, ...nouvelles.map((r) => [cleDe(r), r])]);
+    this.save();
+    return { ok: true, n: set.size };
+  }
+
+  // Bascule tiré <-> poussé (une mesure, une sélection, une rangée entière).
+  // `suite` (protocole) donne la case de l'autre sens pour le même bouton.
+  basculerSens(uids, suite = null) {
+    return this._deplacer(uids, (r) => {
+      const dir = (r.dir || 'T') === 'T' ? 'P' : 'T';
+      if (r.cas) {
+        const c = suite?.find((x) => x.rang === r.rang && x.bouton === r.bouton && x.sens === dir);
+        r.cas = c ? c.id : `${dir}-r${r.rang}-b${r.bouton}`;
+        if (c) r.nomRang = c.nomRang;
+      }
+      r.dir = dir;
+      return r;
+    });
+  }
+
+  // Réaffecte un bouton mesuré à une autre case de la suite (autre bouton, autre rangée).
+  reaffecter(uid, cas) {
+    return this._deplacer([uid], (r) => ({ ...r, cas: cas.id, rang: cas.rang, bouton: cas.bouton, nomRang: cas.nomRang, dir: cas.sens }));
+  }
+
+  // ---- La vue « à l'instrument » : une ligne par bouton ---------------------------------
+  // Sections (rangée × sens) de lignes par bouton. `suite` : la suite attendue du
+  // protocole, pour montrer aussi les boutons pas encore mesurés ; `courante` : la
+  // case à jouer. Rangées dans l'ordre où elles se jouent, tiré puis poussé.
+  sections(cfg, suite = null, courante = null) {
+    const u = unite(cfg);
+    const ordreRang = new Map();
+    for (const c of suite ?? []) if (!ordreRang.has(c.rang)) ordreRang.set(c.rang, ordreRang.size);
+    const rangOrd = (r) => (ordreRang.has(r) ? ordreRang.get(r) : (r ?? 0));
+    const secs = new Map();
+    const section = (rang, nomRang, dir) => {
+      const k = `${rang ?? 0}|${dir}`;
+      if (!secs.has(k)) secs.set(k, { cle: k, rang: rang ?? null, nomRang: nomRang ?? null, dir, boutons: new Map() });
+      return secs.get(k);
+    };
+    const bouton = (s, uid, base) => {
+      if (!s.boutons.has(uid)) s.boutons.set(uid, { uid, bouton: base.bouton ?? null, midi: base.midi, cas: base.cas ?? null, rows: [], mesure: false });
+      return s.boutons.get(uid);
+    };
+    for (const c of suite ?? []) {
+      const b = bouton(section(c.rang, c.nomRang, c.sens), c.id, { bouton: c.bouton, midi: c.midi - (cfg.transpose || 0), cas: c.id });
+      b.attendu = c;
+    }
+    for (const r of this.rows.values()) {
+      const dir = r.dir || 'T';
+      const b = bouton(section(r.rang, r.nomRang, dir), uidDe(r), r);
+      b.rows.push(r);
+      b.mesure = true;
+      b.midi = r.midi;
+      if (r.bouton != null) b.bouton = r.bouton;
+    }
+    const out = [];
+    for (const s of secs.values()) {
+      const boutons = [...s.boutons.values()].map((b) => {
+        const analyses = b.rows.slice().sort((x, y) => x.voiceMidi - y.voiceMidi).map((r) => ({ r, a: analyser(r, cfg) }));
+        const justes = analyses.filter((x) => !x.a.signe);
+        const battantes = analyses.filter((x) => x.a.signe).sort((x, y) => x.a.signe - y.a.signe);
+        const classes = [
+          ...justes.map((x) => centsClass(x.a.dTargetCents, cfg.tolCents ?? 1)),
+          ...battantes.map((x) => classeBatt(x.a.ecartBatt, x.a.battVoulu)),
+        ];
+        const etat = !b.mesure ? 'non' : classes.some((c) => c === 'warn' || c === 'bad') ? 'reprendre' : 'fait';
+        return { ...b, justes, battantes, etat, courant: !!courante && b.cas === courante.id, u };
+      }).sort((x, y) => (x.bouton ?? 0) - (y.bouton ?? 0) || x.midi - y.midi);
+      out.push({ ...s, boutons });
+    }
+    return out.sort((a, b) => rangOrd(a.rang) - rangOrd(b.rang) || (a.dir === b.dir ? 0 : a.dir === 'T' ? -1 : 1));
+  }
+
+  // HTML du rapport. Fonction pure (testée sans navigateur) : `opts.sel`
+  // { uid, midi, dir } met une ligne en surbrillance ; `opts.detail` ajoute les
+  // Hz, l'écart nominal et l'écrasement ; `opts.imprime` retire les commandes.
+  htmlRapport(cfg, opts = {}) {
     const u = unite(cfg);
     const d = decimalesUnite(u);
-    const a = analyser(r, cfg);
-    const fmt = (x, n = 2) => (x == null ? '—' : x.toFixed(n));
-    const lbl = noteLabel(r.midi + (cfg.transpose || 0));
-    const cls = (c) => centsClass(c, cfg.tolCents ?? 1);
-    const ecart = a.signe
-      ? `<td class="${classeBatt(a.ecartBatt, a.battVoulu)}">${a.ecartBatt == null ? '—' : `${signe(enUnite(a.ecartBatt, u), d)} ${UNITES_BATT[u]}`}</td>`
-      : `<td class="${cls(a.dTargetCents)}">${a.dTargetCents == null ? '—' : `${signe(a.dTargetCents, 1)} ¢`}</td>`;
-    const ovRaw = cfg.beatCurve?.overrides?.[r.midi];
-    const ovHz = Number.isFinite(Number(ovRaw)) && ovRaw !== '' && ovRaw != null ? Number(ovRaw) : null;
-    const ov = ovHz == null ? '' : +enUnite(ovHz, u).toFixed(d);
-    return `<tr>
-        <td>${firstOfMidi ? lbl.full : ''}</td>
-        ${r.bouton != null ? `<td>${r.bouton}</td>` : ''}
-        <td>${esc(r.label)}</td>
-        <td>${fmt(a.target, 3)}</td>
-        <td>${fmt(r.fMeas, 3)}</td>
-        <td class="${cls(a.dCents)}">${fmt(a.dCents, 1)}</td>
-        ${ecart}
-        <td>${a.signe ? formatBatt(a.battMes, u) : '—'}</td>
-        <td>${a.signe ? formatBatt(a.battVoulu, u) : '—'}</td>
-        ${editable ? `<td>${firstOfMidi && a.signe ? `<input type="number" step="${u === 'hz' ? 0.05 : 3}" data-midi="${r.midi}" value="${ov}" placeholder="auto">` : ''}</td>
-        <td>${r.cas ? `<button class="mini" data-refaire="${esc(r.cas)}" title="Refaire cette case">↻</button>` : ''}</td>` : ''}
-      </tr>`;
+    const sel = opts.sel ?? null;
+    const secs = this.sections(cfg, opts.suite ?? null, opts.courante ?? null);
+    const ETATS = { fait: 'fait', reprendre: 'à reprendre', non: 'pas encore mesuré' };
+    let html = `<p class="hint">${esc(this.enTete(cfg))}</p>`;
+    if (!secs.length) return `${html}<p class="hint">aucune mesure enregistrée.</p>`;
+    const edition = !opts.imprime;
+    for (const s of secs) {
+      const nb = s.boutons.filter((b) => b.mesure).length;
+      const ouvert = nb > 0 || s.boutons.some((b) => b.courant) || opts.imprime ? ' open' : '';
+      const uids = s.boutons.filter((b) => b.mesure).map((b) => b.uid);
+      const voixBat = [...new Set(s.boutons.flatMap((b) => b.battantes.map((x) => x.r.voiceId)))];
+      const etiqVoix = (id) => esc(s.boutons.flatMap((b) => b.battantes).find((x) => x.r.voiceId === id)?.r.label ?? id);
+      const titre = `${s.nomRang ? `${esc(s.nomRang)} — ` : ''}${s.dir === 'P' ? 'poussé' : 'tiré'}`;
+      html += `<details class="sec"${ouvert}><summary><b>${titre}</b> <span class="hint">${nb} / ${s.boutons.length} boutons</span>`
+        + (edition && nb ? ` <button class="mini" data-act="section-sens" data-uids="${esc(uids.join(','))}" title="Basculer toute cette rangée en ${s.dir === 'P' ? 'tiré' : 'poussé'}">⇄ rangée en ${s.dir === 'P' ? 'tiré' : 'poussé'}</button>` : '')
+        + `</summary><table class="par-bouton"><thead><tr>${edition ? '<th></th>' : ''}<th>Bouton</th><th>Note</th><th>Voix juste (¢)</th>`
+        + voixBat.map((id) => `<th>${etiqVoix(id)} (${UNITES_BATT[u]}) / cible</th>`).join('')
+        + `<th>État</th>${edition ? '<th></th>' : ''}</tr></thead><tbody>`;
+      for (const b of s.boutons) {
+        const lbl = noteLabel(b.midi + (cfg.transpose || 0)).full;
+        const estSel = sel && ((sel.uid && sel.uid === b.uid) || (!sel.uid && sel.midi === b.midi && sel.dir === s.dir));
+        const cls = `${b.etat}${b.courant ? ' courant' : ''}${estSel ? ' sel' : ''}`;
+        const juste = b.justes.length
+          ? b.justes.map((x) => `<span class="${centsClass(x.a.dTargetCents, cfg.tolCents ?? 1)}"><b>${signe(x.a.dTargetCents, 1)}</b>${b.justes.length > 1 ? ` <small>${esc(x.r.label)}</small>` : ''}</span>`).join(' ')
+          : '—';
+        const cases = voixBat.map((id) => {
+          const x = b.battantes.find((y) => y.r.voiceId === id);
+          if (!x) return '<td>—</td>';
+          return `<td class="${classeBatt(x.a.ecartBatt, x.a.battVoulu)} gros"><b>${formatBatt(x.a.battMes, u)}</b> <small>/ ${formatBatt(x.a.battVoulu, u)} · ${x.a.ecartBatt == null ? '—' : signe(enUnite(x.a.ecartBatt, u), d)}</small></td>`;
+        }).join('');
+        html += `<tr class="${cls}" data-uid="${esc(b.uid)}" data-midi="${b.midi}" data-dir="${s.dir}">`
+          + (edition ? `<td>${b.mesure ? `<input type="checkbox" data-sel="${esc(b.uid)}" title="Sélectionner">` : ''}</td>` : '')
+          + `<td>${b.bouton ?? ''}</td><td class="gros"><b>${lbl}</b></td><td class="gros">${juste}</td>${cases}`
+          + `<td class="etat-${b.etat}">${b.courant ? 'à jouer' : ETATS[b.etat]}</td>`
+          + (edition ? `<td>${b.mesure ? `<button class="mini" data-act="sens" data-uids="${esc(b.uid)}" title="Basculer en ${s.dir === 'P' ? 'tiré' : 'poussé'}">⇄</button>`
+            + (b.cas ? ` <button class="mini" data-refaire="${esc(b.cas)}" title="Refaire cette case">↻</button>` : '') : ''}</td>` : '')
+          + '</tr>';
+        if (opts.detail && b.mesure) {
+          const ligne = b.rows.map((r) => {
+            const a = analyser(r, cfg);
+            const ovRaw = cfg.beatCurve?.overrides?.[r.midi];
+            const ovHz = Number.isFinite(Number(ovRaw)) && ovRaw !== '' && ovRaw != null ? Number(ovRaw) : null;
+            const ov = ovHz == null ? '' : +enUnite(ovHz, u).toFixed(d);
+            return `${esc(r.label)} : cible ${a.target.toFixed(3)} Hz · mesuré ${r.fMeas == null ? '—' : r.fMeas.toFixed(3)} Hz · écart nominal ${a.dCents == null ? '—' : signe(a.dCents, 1)} ¢`
+              + (a.signe && edition ? ` · écrasement battement <input type="number" step="${u === 'hz' ? 0.05 : 3}" data-midi="${r.midi}" value="${ov}" placeholder="auto"> ${UNITES_BATT[u]}` : '');
+          }).join('<br>');
+          html += `<tr class="detail"><td colspan="${6 + voixBat.length}">${ligne}</td></tr>`;
+        }
+      }
+      html += '</tbody></table></details>';
+    }
+    return html;
   }
 
-  // Tableaux à l'écran : un par sens et par rangée. `opts.onRefaire(casId)`.
+  // Rapport à l'écran. `opts` : { suite, courante, sel, detail, onRefaire(cas), onSelect(sel),
+  // onAction(type, { uids }), onSelection(uids) }.
   renderTable(el, cfg, onOverride, opts = {}) {
     const u = unite(cfg);
-    const groupes = this.groupes();
-    let html = `<p class="hint">${esc(this.enTete(cfg))}</p>`;
-    for (const g of groupes) {
-      const avecBouton = g.rows.some((r) => r.bouton != null);
-      html += `<h3>${g.dir === 'P' ? 'Poussé' : 'Tiré'}${g.nomRang ? ` — ${esc(g.nomRang)}` : ''}</h3>
-        <table><thead><tr><th>Note</th>${avecBouton ? '<th>Bouton</th>' : ''}<th>Voix</th><th>Cible (Hz)</th><th>Mesuré (Hz)</th>
-        <th>Écart nom. (¢)</th><th>Écart à la cible</th><th>Batt. mes. (${UNITES_BATT[u]})</th><th>Batt. voulu (${UNITES_BATT[u]})</th>
-        <th>Écrasement batt. (${UNITES_BATT[u]})</th><th></th></tr></thead><tbody>`;
-      const seen = new Set();
-      for (const r of g.rows) {
-        const k = r.cas ? `${r.cas}` : `${r.midi}`;
-        html += this._ligne(r, cfg, !seen.has(k), true);
-        seen.add(k);
-      }
-      html += '</tbody></table>';
-    }
-    if (!groupes.length) html += '<p class="hint">aucune mesure enregistrée.</p>';
-    el.innerHTML = html;
+    el.innerHTML = this.htmlRapport(cfg, opts);
     el.querySelectorAll('input[data-midi]').forEach((inp) => {
       inp.addEventListener('change', () => {
-        const v = inp.value === '' ? '' : depuisUnite(Number(inp.value), u);
-        onOverride(Number(inp.dataset.midi), v);
+        onOverride(Number(inp.dataset.midi), inp.value === '' ? '' : depuisUnite(Number(inp.value), u));
       });
     });
     el.querySelectorAll('button[data-refaire]').forEach((b) => {
-      b.addEventListener('click', () => opts.onRefaire?.(b.dataset.refaire));
+      b.addEventListener('click', (e) => { e.stopPropagation(); opts.onRefaire?.(b.dataset.refaire); });
+    });
+    el.querySelectorAll('button[data-act]').forEach((b) => {
+      b.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        opts.onAction?.(b.dataset.act, { uids: b.dataset.uids.split(',').filter(Boolean) });
+      });
+    });
+    el.querySelectorAll('tr[data-uid]').forEach((tr) => {
+      tr.addEventListener('click', (e) => {
+        if (e.target.closest('button,input,a')) return;
+        opts.onSelect?.({ uid: tr.dataset.uid, midi: Number(tr.dataset.midi), dir: tr.dataset.dir });
+      });
+    });
+    el.querySelectorAll('input[data-sel]').forEach((c) => {
+      c.addEventListener('change', () => opts.onSelection?.([...el.querySelectorAll('input[data-sel]:checked')].map((x) => x.dataset.sel)));
     });
   }
 
@@ -350,25 +495,12 @@ export class Report {
 
   csvComparaison(cmp, cfg) { return csvComparaison(cmp.comp, cmp.nomA, cmp.nomB, cfg, unite(cfg)); }
 
-  printableHtml(cfg, cmp = null) {
+  printableHtml(cfg, cmp = null, opts = {}) {
     const u = unite(cfg);
     const date = new Date().toLocaleString('fr-FR');
     const lieu = LIEUX[this.contexte.lieu] ?? this.contexte.lieu;
     const graphs = graphiquesRapport(this.series(cfg), cfg, u).map((g) => g.svg).join('');
-    let tables = '';
-    for (const g of this.groupes()) {
-      const avecBouton = g.rows.some((r) => r.bouton != null);
-      tables += `<h3>${g.dir === 'P' ? 'Poussé' : 'Tiré'}${g.nomRang ? ` — ${esc(g.nomRang)}` : ''}</h3>
-<table><thead><tr><th>Note</th>${avecBouton ? '<th>Bouton</th>' : ''}<th>Voix</th><th>Cible (Hz)</th><th>Mesuré (Hz)</th>
-<th>Écart nominal (¢)</th><th>Écart à la cible</th><th>Batt. mesuré (${UNITES_BATT[u]})</th><th>Batt. voulu (${UNITES_BATT[u]})</th></tr></thead><tbody>`;
-      const seen = new Set();
-      for (const r of g.rows) {
-        const k = r.cas ?? r.midi;
-        tables += this._ligne(r, cfg, !seen.has(k), false);
-        seen.add(k);
-      }
-      tables += '</tbody></table>';
-    }
+    const tables = this.htmlRapport(cfg, { imprime: true, detail: true, suite: opts.suite ?? null });
     let comparaison = '';
     if (cmp) {
       comparaison = `<h2>Comparaison : ${esc(cmp.nomA)} et ${esc(cmp.nomB)}</h2>
@@ -384,7 +516,7 @@ export class Report {
  th,td{border:1px solid #999;padding:3px 8px;text-align:right}
  th:first-child,td:first-child{text-align:left}
  svg{max-width:100%;height:auto;margin:6px 0;display:block}
- td.warn{background:#fff2cc} td.bad{background:#f8d0d0}
+ td.warn{background:#fff2cc} td.bad{background:#f8d0d0} details.sec{margin:8px 0} summary{font-size:13px} td.gros{font-size:15px} tr.detail td{font-size:11px;color:#444;text-align:left} .etat-non{color:#888}
 </style></head><body>
 <h1>Rapport d'accordage</h1>
 <div class="meta">Instrument : <b>${esc(this.name) || '—'}</b> · ${esc(lieu)}${this.contexte.date ? ` ${esc(this.contexte.date)}` : ''} · ${date} ·

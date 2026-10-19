@@ -10,6 +10,7 @@ import { Report } from './report.js';
 import { TABLES_MUSETTE, tableMusette, beatCurveDe } from './tables-accordage.js';
 import { estimerLa, texteLa } from './accordage.js';
 import { graphiquesRapport } from './courbes.js';
+import { uidDe } from './report.js';
 import { dispositions, dispositionDe, Protocole, SENS, CHROMATIQUE_DEFAUT } from './protocole.js';
 import { ligneMicro, consignes, informations, plateforme, propositionMicro, blocMicro, classerMicro, mentionDouteuse, choisirMicro } from './prise-micro.js';
 import {
@@ -2101,20 +2102,101 @@ function stopTone() {
 function refreshReport() {
   const wrap = $('reportTable');
   if (!wrap) return;
+  const suite = protocoleActif() ? protocole.suite : null;
   report.renderTable(wrap, cfg, (midi, val) => {
     surchargeBattement(midi, val);
     pushConfig();
-  }, { onRefaire: refaireCase });
+  }, {
+    suite,
+    courante: protocoleActif() ? protocole.courante() : null,
+    sel: state.sel ?? null,
+    detail: !!cfg.rapportDetail,
+    onRefaire: refaireCase,
+    onSelect: (sel) => selectionner(sel, false),
+    onAction: (type, { uids }) => editerRapport(() => report.basculerSens(uids, suite)),
+    onSelection: (uids) => { state.selection = uids; majEdition(); },
+  });
+  // les cases cochées survivent à un nouveau dessin
+  for (const c of wrap.querySelectorAll('input[data-sel]')) c.checked = (state.selection || []).includes(c.dataset.sel);
   report.renderGrid($('tuneGrid'), cfg, cfg.bellows, state.tick?.playedMidi ?? null, (midi) => {
     cfg.lockNote = midi;
     updateLockButton();
     pushConfig(false);
+    const r = [...report.rows.values()].find((x) => x.midi === midi && (x.dir || 'T') === cfg.bellows);
+    selectionner({ uid: r ? uidDe(r) : null, midi, dir: cfg.bellows });
   });
   $('reportCount').textContent = `${report.rows.size} mesures enregistrées`;
   $('reportCourbes').innerHTML = graphiquesRapport(report.series(cfg), cfg, cfg.uniteBatt === 'hz' ? 'hz' : 'bpm').map((g) => g.svg).join('');
   majLa();
   majProtocoleAffichage();
+  majPlanClavier();
   majComparaison();
+  majEdition();
+  surbrillance();
+}
+
+// ---- Sélection d'une note : grille, plan du clavier, courbes et ligne du rapport ----
+// Un clic n'importe où surligne la même note partout ; `scroll` amène la ligne
+// du rapport à l'écran (dans sa rangée et son sens).
+function selectionner(sel, scroll = true) {
+  state.sel = sel;
+  refreshReport();
+  if (!scroll) return;
+  const tr = $('reportTable').querySelector('tr.sel');
+  if (tr) {
+    const sec = tr.closest('details');
+    if (sec && !sec.open) sec.open = true;
+    tr.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+}
+function surbrillance() {
+  const sel = state.sel;
+  if (!sel) return;
+  for (const td of $('tuneGrid').querySelectorAll('td[data-midi]')) td.classList.toggle('sel', Number(td.dataset.midi) === sel.midi && cfg.bellows === sel.dir);
+  for (const c of document.querySelectorAll('#reportCourbes svg circle[data-midi], #compareOut svg circle[data-midi]')) c.classList.toggle('sel', Number(c.dataset.midi) === sel.midi);
+  for (const b of $('planClavier').querySelectorAll('.plan-btn')) {
+    b.classList.toggle('sel', (sel.uid && b.dataset.uid === sel.uid) || (!sel.uid && Number(b.dataset.midi) === sel.midi && b.dataset.dir === sel.dir));
+  }
+}
+
+// Plan du clavier de la disposition choisie : un rond par bouton, dans le sens
+// de la case à jouer, coloré par son état ; un clic le sélectionne partout.
+function majPlanClavier() {
+  const el = $('planClavier');
+  if (!protocoleActif()) { el.innerHTML = ''; return; }
+  const courante = protocole.courante();
+  const dir = courante?.sens ?? state.sel?.dir ?? 'T';
+  const sections = report.sections(cfg, protocole.suite, courante).filter((s) => s.dir === dir);
+  el.innerHTML = `<p class="hint">Plan du clavier, ${SENS[dir]} (cliquez un bouton pour voir sa ligne)</p>`
+    + sections.map((s) => `<div class="plan-rang"><span class="hint">${(s.nomRang || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')}</span>`
+      + s.boutons.map((b) => `<button class="plan-btn ${b.etat}${b.courant ? ' courant' : ''}" data-uid="${b.uid}" data-midi="${b.midi}" data-dir="${dir}" title="bouton ${b.bouton}">`
+        + `<b>${b.bouton ?? ''}</b>${noteLabel(b.midi + (cfg.transpose || 0)).full}</button>`).join('') + '</div>').join('');
+  for (const b of el.querySelectorAll('.plan-btn')) {
+    b.onclick = () => selectionner({ uid: b.dataset.uid, midi: Number(b.dataset.midi), dir: b.dataset.dir });
+  }
+}
+
+// ---- Édition du rapport : bascule tiré / poussé, réaffectation, annuler / rétablir ----
+function editerRapport(action) {
+  const res = action();
+  if (res && res.ok === false) { if (res.raison) alert(res.raison); return; }
+  state.selection = [];
+  creerProtocole(); // le protocole relit les cases du rapport corrigé
+  state.protoCle = null;
+  report.recalculer(cfg);
+  refreshReport();
+}
+function majEdition() {
+  $('btnAnnuler').disabled = !report.peutAnnuler;
+  $('btnRetablir').disabled = !report.peutRetablir;
+  const sel = $('selReaffecter');
+  const dirSel = (state.selection || []).length === 1
+    ? (report.rows.get([...report.rows].find(([, r]) => uidDe(r) === state.selection[0])?.[0])?.dir ?? 'T') : null;
+  const cases = protocole && dirSel ? protocole.suite.filter((c) => c.sens === dirSel) : [];
+  sel.innerHTML = cases.length ? cases.map((c) => `<option value="${c.id}">${c.nomRang} · bouton ${c.bouton} · ${noteLabel(c.midi).full}</option>`).join('')
+    : '<option value="">(cochez un seul bouton, protocole actif)</option>';
+  $('btnReaffecter').disabled = !cases.length;
+  $('btnSelSens').disabled = !(state.selection || []).length;
 }
 
 function initProtocoleUi() {
@@ -2223,16 +2305,12 @@ let protocole = null;
 function creerProtocole() {
   const c = cfg.protocole;
   const d = dispositionDe(c.id, { premier: c.premier, boutons: c.boutons });
+  const alertes = protocole?.alertes ?? [];
   protocole = d ? new Protocole(d.plan, { inverser: !!c.inverser }) : null;
   if (!protocole) return;
+  protocole.alertes = alertes;
   // les cases déjà mesurées se lisent dans le rapport
-  let max = -1;
-  for (const r of report.rows.values()) {
-    if (!r.cas) continue;
-    const i = protocole.suite.findIndex((x) => x.id === r.cas);
-    if (i >= 0) { protocole.faits.set(r.cas, { ts: r.ts }); max = Math.max(max, i); }
-  }
-  protocole.index = max + 1;
+  protocole.restaurer([...report.rows.values()].filter((r) => r.cas).map((r) => r.cas));
 }
 const protocoleActif = () => cfg.protocole.on && protocole;
 function majProtocoleAffichage() {
@@ -2884,6 +2962,15 @@ function bindControls() {
     w.document.close();
   };
   $('btnCsv').onclick = () => download(`rapport-${report.name || 'accordeon'}.csv`, report.toCsv(cfg), 'text/csv');
+  $('rapportDetail').checked = !!cfg.rapportDetail;
+  $('rapportDetail').onchange = () => { cfg.rapportDetail = $('rapportDetail').checked; saveCfg(); refreshReport(); };
+  $('btnSelSens').onclick = () => editerRapport(() => report.basculerSens(state.selection || [], protocoleActif() ? protocole.suite : null));
+  $('btnReaffecter').onclick = () => {
+    const cas = protocole?.suite.find((c) => c.id === $('selReaffecter').value);
+    if (cas && (state.selection || []).length === 1) editerRapport(() => report.reaffecter(state.selection[0], cas));
+  };
+  $('btnAnnuler').onclick = () => editerRapport(() => ({ ok: report.annuler() }));
+  $('btnRetablir').onclick = () => editerRapport(() => ({ ok: report.retablir() }));
   $('btnCsvCourbes').onclick = () => download(`courbes-${report.name || 'accordeon'}.csv`, report.csvCourbes(cfg), 'text/csv');
   $('btnCompare').onclick = () => {
     const inp = document.createElement('input');
