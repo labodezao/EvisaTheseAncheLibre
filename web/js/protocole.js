@@ -147,6 +147,17 @@ export class Protocole {
     if (rangee.length) {
       return { type: 'deja', cas: rangee[0], alerte: this._alerte('deja', `${nom(rangee[0])} est déjà mesuré : cliquez sur la case pour la refaire`) };
     }
+    // Une case restée vide PLUS HAUT dans la suite (bouton passé sans être mesuré), même sens :
+    // on la remplit (rattrapage), sans changer l'étape en cours (Ewen, 19/10/2026 : Sol#5 de
+    // la rangée La refusé une fois l'étape passée à la rangée Ré).
+    const ap0 = pos(attendue);
+    const derriere = dansSuite.filter((c) => c.sens === attendue.sens && !this.faits.has(c.id) && pos(c) < ap0);
+    if (derriere.length) {
+      const cible = derriere[derriere.length - 1];
+      this.faits.set(cible.id, { ts: Date.now() });
+      return { type: 'rattrapage', cas: cible, suivante: this.courante(),
+        alerte: this._alerte('rattrapage', `case passée sans mesure, remplie maintenant : ${nom(cible)}`) };
+    }
     const ailleurs = dansSuite.filter((c) => c.sens === attendue.sens);
     if (ailleurs.length) {
       return { type: 'inattendue', alerte: this._alerte('inattendue', `note inattendue pour cette étape (MIDI ${midi}) : elle existe ailleurs (${nom(ailleurs[0])}) mais n'est pas rangée ; attendu : ${nom(attendue)}`) };
@@ -155,6 +166,16 @@ export class Protocole {
       return { type: 'sens', cas: dansSuite[0], alerte: this._alerte('sens', `sens inversé : cette note est dans la suite en ${SENS[dansSuite[0].sens]}, entendue en ${SENS[sens] ?? sens} (attendu : ${nom(attendue)})`) };
     }
     return { type: 'inattendue', alerte: this._alerte('inattendue', `note inattendue (MIDI ${midi}, ${SENS[sens] ?? sens}) ; attendu : ${nom(attendue)}`) };
+  }
+
+  // Un clic sur un bouton du plan en fait l'étape en cours ; une case déjà mesurée est à refaire
+  // (la prochaine mesure la remplace).
+  viser(id) {
+    const i = this.suite.findIndex((c) => c.id === id);
+    if (i < 0) return null;
+    this.faits.delete(id);
+    this.index = i;
+    return this.suite[i];
   }
 
   _remplir(cas, type) {
