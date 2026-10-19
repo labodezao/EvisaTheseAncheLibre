@@ -4465,7 +4465,7 @@ Ce que le réseau prédit, dans ses deux versions successives, c'est que les voi
 \begin_inset Formula $\Delta_{L}$
 \end_inset
 
- la plage de calage, la loi d'Adler pour deux oscillateurs couplés ; le réseau la reproduit sans qu'on la lui ait dite. C'est la physique derrière un geste de l'accordeur : deux voix accordées trop près se collent, et la musette meurt. L'accordeur de ce travail (web/) sépare les deux languettes d'une note en une demi-seconde et lit leur battement ; l'expérience E3 de l'audit accorde une languette avec l'autre bloquée, puis la libère, et regarde si le battement survit.
+ la plage de calage, la loi d'Adler pour deux oscillateurs couplés ; le réseau la reproduit sans qu'on la lui ait dite. C'est la physique derrière un geste de l'accordeur : deux voix accordées trop près se collent, et la musette meurt. L'accordeur de ce travail (web/) sépare les deux raies d'une note en une demi-seconde et lit leur battement, mais ne dit « sûr » qu'après au moins un battement entier (section suivante) ; l'expérience E3 de l'audit accorde une languette avec l'autre bloquée, puis la libère, et regarde si le battement survit.
 \end_layout
 
 \begin_layout Standard
@@ -4488,6 +4488,178 @@ L'association en série, une languette qui alimente une autre en air à travers 
 
 \shape italic
 À compléter (Ewen) : l'expérience E3 sur une note musette de ton instrument, avec l'accordeur : accorder une languette avec l'autre bloquée par une bande de papier, la libérer, lire le battement en battements par minute à 1, 2, 3 et 5 cents de désaccord. Le battement disparaît-il sous environ 2 cents, comme le dit le modèle ? Et le sandwich : ses dimensions, la note pincée de la lame, la note jouée dans chaque sens en fonction de la pression, avec le tube en U.
+\end_layout
+
+\begin_layout Section
+Lire des anches couplées : ce que l'accordeur a appris
+\end_layout
+
+\begin_layout Standard
+Entre le 11 et le 19 octobre 2026, l'accordeur de ce travail a été jugé six fois par des auditeurs qui n'avaient pas écrit son code, avec une règle d'Ewen : un réglage ne vaut que s'il tient sur des notes qu'il n'a jamais vues. Le prix a été de défaire plusieurs idées de ce chapitre. Ce qui reste, pour la physique de la paire de languettes, tient en cinq faits. Les chiffres viennent de prises du Zoom H6 sur un seul accordéon, un seul jour, et se lisent avec cette réserve (rapports d'audit des 15, 16, 17, 18 et 19 octobre ; docs/CERTIFICAT.md et docs/FREQUENCES-ANCHES.md du dépôt).
+\end_layout
+
+\begin_layout Standard
+Premier fait : le son de deux languettes est un peigne de raies, pas deux sinusoïdes. Le partiel 
+\begin_inset Formula $k$
+\end_inset
+ de la languette 
+\begin_inset Formula $r$
+\end_inset
+ s'écrit 
+\begin_inset Formula $\exp\left(i\,k\beta_{r}\sin(2\pi\Omega t+\theta_{r})\right)$
+\end_inset
+, où 
+\begin_inset Formula $\Omega=f_{2}-f_{1}$
+\end_inset
+ est le battement : la période de la languette est modulée au rythme du battement, tous ses partiels suivent, et l'indice est proportionnel au rang. Les raies latérales ont les amplitudes de Bessel 
+\begin_inset Formula $J_{n}(k\beta)$
+\end_inset
+. Sur le H6, 
+\begin_inset Formula $\beta$
+\end_inset
+ vaut 0,10 à 0,37 radian et reste constant de 
+\begin_inset Formula $k=1$
+\end_inset
+ à 
+\begin_inset Formula $k=4$
+\end_inset
+ à 0,05 près sur dix notes sur quatorze. Sur Si3 (
+\begin_inset Formula $\beta=0{,}18$
+\end_inset
+) la loi prédit une raie latérale à 
+\begin_inset Formula $-21$
+\end_inset
+ dB sous la porteuse au partiel 1, et l'on mesure 
+\begin_inset Formula $-21{,}2$
+\end_inset
+ et 
+\begin_inset Formula $-22{,}4$
+\end_inset
+ dB. C'est le comportement attendu de deux oscillateurs auto-entretenus faiblement couplés 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "adler1946,pikovsky2001"
+literal "true"
+
+\end_inset
+, déjà observé sur des tuyaux d'orgue 
+\begin_inset CommandInset citation
+LatexCommand cite
+after ""
+before ""
+key "abel2006"
+literal "true"
+
+\end_inset
+.
+\end_layout
+
+\begin_layout Standard
+Deuxième fait : les deux languettes se modulent en quadrature, par deux mécanismes à la fois. Sur neuf notes sur dix, la modulation de la languette faible est décalée de 
+\begin_inset Formula $-0{,}7$
+\end_inset
+ à 
+\begin_inset Formula $-1{,}3$
+\end_inset
+ radian sur celle de la forte, stable à 0,1 radian près dans une note : ni en phase, ni en opposition. Le tirage d'Adler est antisymétrique (la phase relative suit 
+\begin_inset Formula $\dot{\psi}=2\pi\Delta_{0}-K\sin\psi$
+\end_inset
+ et le battement observé vaut 
+\begin_inset Formula $\Omega=\sqrt{\Delta_{0}^{2}-\kappa^{2}}$
+\end_inset
+). La pression commune du trou de soupape est symétrique, parce que la chute de pression suit le débit total, dont le terme croisé bat à 
+\begin_inset Formula $\Omega$
+\end_inset
+. Des poids comparables donnent la phase intermédiaire. La modulation d'amplitude n'est pas un indice par languette : elle vaut environ 0,35 au partiel 1, 0,45 au partiel 2 et 0,1 aux partiels 3 à 5, c'est une modulation de timbre. Au-delà du rang 4 le modèle ne décrit plus rien (résidu relatif de 0,4 à 0,7, contre 0,05 à 0,26 aux rangs 1 à 4). Quatre notes aiguës (La5, Sol#5, Fa#5, Si5) ont un indice de 0,45 à 1,1 qui n'est pas proportionnel au rang, et que rien n'explique encore.
+\end_layout
+
+\begin_layout Standard
+Troisième fait : sans contrainte physique sur les amplitudes, le peigne est illisible. Un peigne dont toutes les amplitudes sont libres est invariant par la translation 
+\begin_inset Formula $f_{1}\to f_{1}+\Omega$
+\end_inset
+ (chaque coefficient glisse de 
+\begin_inset Formula $k$
+\end_inset
+ pas) : les deux solutions ont exactement le même résidu, même sans bruit, et aucun seuil ne les sépare. Imposer les amplitudes de Bessel lève la dégénérescence. Au partiel 
+\begin_inset Formula $k$
+\end_inset
+, la languette faible est à 
+\begin_inset Formula $+k\Omega$
+\end_inset
+ de la forte, et la raie miroir de la forte, à 
+\begin_inset Formula $-k\Omega$
+\end_inset
+, vaut 
+\begin_inset Formula $J_{k}(k\beta)$
+\end_inset
+. Pour une languette faible à 
+\begin_inset Formula $-17$
+\end_inset
+ dB et 
+\begin_inset Formula $\beta=0{,}2$
+\end_inset
+, les deux sont indiscernables au partiel 1 (3 dB), mais la languette faible l'emporte de 16 dB au partiel 2 et de 29 dB au partiel 3. L'étiquette, c'est-à-dire laquelle est laquelle, se lit alors dès un demi-battement tant que 
+\begin_inset Formula $\beta<0{,}4$
+\end_inset
+ ; à 
+\begin_inset Formula $\beta=1{,}2$
+\end_inset
+ et 
+\begin_inset Formula $\Omega=0{,}5$
+\end_inset
+ Hz elle est fausse six fois sur six. Les valeurs de 
+\begin_inset Formula $\beta$
+\end_inset
+ de 0,6 à 1,2 que l'on avait prises pour une physique extrême venaient d'une chaîne de mesure traitée par Windows (chapitre sur les moyens de mesure).
+\end_layout
+
+\begin_layout Standard
+Quatrième fait : la fréquence d'une languette, dans une paire couplée, n'existe qu'en moyenne sur un nombre entier de battements. Sur une période entière la modulation de phase s'annule. Sur une fenêtre de durée 
+\begin_inset Formula $T$
+\end_inset
+ plus courte, elle fait un biais d'environ 
+\begin_inset Formula $\beta/(\pi T)$
+\end_inset
+ hertz : 1,4 cent à 173 Hz pour 
+\begin_inset Formula $\beta=0{,}3$
+\end_inset
+ et 
+\begin_inset Formula $T=1$
+\end_inset
+ s, mesuré avec une incertitude statistique de 0,03 cent. C'est aussi ce que le facteur accorde. La fréquence de la languette seule n'est pas observable dans le son couplé : le tirage vaut environ 
+\begin_inset Formula $\beta^{2}\Omega$
+\end_inset
+, soit 0,03 Hz à 
+\begin_inset Formula $\beta=0{,}2$
+\end_inset
+, de l'ordre de 0,2 à 0,4 cent, et ne se mesure qu'en bouchant l'autre languette. Une fenêtre de lecture dure donc au moins un battement, et le temps de pose d'une note de musette vaut environ 
+\begin_inset Formula $2/\Omega$
+\end_inset
+ : c'est la physique qui le fixe, pas le bruit (chapitre sur les moyens de mesure).
+\end_layout
+
+\begin_layout Standard
+Cinquième fait, le plus incomplet : trois languettes. Le modèle à trois anches de l'accordeur prolonge celui de deux, chaque languette extérieure étant modulée à son battement avec la centrale. Il n'a jamais été confronté à une vraie note à trois anches, et la physique du trou invite à s'en méfier : la pression du trou est une seule variable, modulée à 
+\begin_inset Formula $\Delta_{-}$
+\end_inset
+, 
+\begin_inset Formula $\Delta_{+}$
+\end_inset
+ et 
+\begin_inset Formula $\Delta_{-}+\Delta_{+}$
+\end_inset
+, et le terme croisé négligé comme d'ordre 
+\begin_inset Formula $\beta^{2}$
+\end_inset
+ pourrait être du même ordre que les autres. Une musette parfaitement symétrique est indiscernable d'une languette seule modulée tant qu'un seul partiel est lisible.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+À compléter (Ewen) : sur une note de musette de ton instrument, trois prises de dix secondes au H6 : la note entière, puis une languette bouchée, puis l'autre. Le tirage est l'écart entre la languette seule et la même languette dans la paire ; à comparer au produit du carré de l'indice de phase par le battement. Puis douze notes à trois voix, pour lire les trois indices de phase de chaque languette et savoir si le terme croisé compte.
 \end_layout
 
 \begin_layout Section
@@ -4915,6 +5087,66 @@ Avec deux micros dans un tube, l'excitateur électromagnétique du banc comme so
 
 \shape italic
 À compléter (Ewen) : quel micro, quelle interface et quelle distance sont utilisés pour les enregistrements de référence de la thèse, et dans quelle pièce, pour que tous les enregistrements puissent être comparés.
+\end_layout
+
+\begin_layout Section
+Quelle confiance accorder à une lecture
+\end_layout
+
+\begin_layout Standard
+Un chiffre affiché par un accordeur ne vaut que ce que vaut la garantie qui l'accompagne. En octobre 2026 l'accordeur de ce travail a été jugé six fois par des auditeurs qui n'avaient pas écrit son code, avec une règle : un réglage ne compte que s'il tient sur des notes qu'il n'a jamais vues. Quatre résultats méritent d'être gardés. Les chiffres viennent du Zoom H6 sur un seul accordéon, un seul jour, et se lisent avec cette réserve (rapports d'audit des 15 au 19 octobre 2026 ; docs/CERTIFICAT.md et docs/FREQUENCES-ANCHES.md du dépôt).
+\end_layout
+
+\begin_layout Standard
+Premier résultat : le bruit n'est pas ce qui limite une lecture. Pour une raie pure la borne de Cramér-Rao vaut 
+\begin_inset Formula $\sigma_{f}^{2}=3/(2\pi^{2}\rho T^{3})$
+\end_inset
+, où 
+\begin_inset Formula $\rho$
+\end_inset
+ est le rapport signal sur bruit par hertz. Les partiels d'une languette sont orthogonaux sur la fenêtre : l'information sur sa fréquence est la somme sur les partiels, le partiel 
+\begin_inset Formula $k$
+\end_inset
+ comptant 
+\begin_inset Formula $k^{2}$
+\end_inset
+ fois. C'est pourquoi le même rapport entre deux languettes sur tous les partiels les sépare plus vite. Au rapport signal sur bruit mesuré sur le H6 (54 à 70 dB-Hz par partiel), le temps qu'il faut pour ramener les deux languettes d'une paire sous 0,1 cent est de 0,01 à 0,06 s avec huit partiels, et reste sous 0,75 s avec 50 dB de bruit en plus. Les temps de pose réels sont de 1,4 à 6 s, dix à cent fois plus. Ce qui limite la lecture, c'est la physique de la paire. Une fenêtre plus courte qu'un battement est faussée par la modulation de phase (section Lire des anches couplées). La languette faible a la hauteur d'une raie latérale de la forte, et le spectre ne dit pas laquelle est laquelle. Le soufflet déplace la note de 0,17 cent. L'attaque monte de 12 à 16 cents pendant une à deux secondes. L'incertitude statistique d'un ajustement (0,005 cent en médiane) n'a aucun rapport avec son erreur vraie (jusqu'à 0,4 cent) : le biais du modèle domine.
+\end_layout
+
+\begin_layout Standard
+Deuxième résultat : une lecture n'est pas prouvée juste parce qu'elle est précise. Elle l'est parce qu'elle est refusée quand elle pourrait être fausse, et la preuve est statistique. Une lecture est dite fausse quand elle s'écarte de plus de 0,5 cent d'une languette. Zéro lecture fausse sur 
+\begin_inset Formula $n$
+\end_inset
+ notes indépendantes borne le taux vrai sous 
+\begin_inset Formula $3/n$
+\end_inset
+ à 95 pour cent (la règle des trois) : environ 300 notes pour un pour cent, 551 pour 0,54 pour cent. L'accordeur ne dit donc « sûr » que si une seconde lecture indépendante, par un modèle de la paire à amplitudes de Bessel, confirme la première, et il refuse en donnant la raison dans le cas contraire. La confirmation se fait sur des graines aléatoires jamais utilisées pour le réglage : 3600 notes pour la version 69, aucune lecture fausse. Le prix est la couverture : 17 des 27 notes du H6 sont posées, après environ cinq secondes. Une dernière leçon touche la référence. La vérité à laquelle on juge une lecture doit être la grandeur que la lecture annonce, la moyenne sur la fenêtre qu'elle a utilisée. Jugée contre la moyenne des trois dernières secondes, une lecture prise après un saut de hauteur de 4 cents est déclarée fausse pendant trois secondes. Et une vraie lecture fausse (0,56 cent, une copie de la languette forte prise pour une raie étrangère) n'est apparue que lorsque la référence a été rendue la même partout.
+\end_layout
+
+\begin_layout Standard
+Troisième résultat : une chaîne de mesure peut fabriquer de la physique. Avec l'effet vocal de Windows sur un micro USB générique, cinq notes sur treize montraient le plancher entre les raies à 
+\begin_inset Formula $-3$
+\end_inset
+ à 
+\begin_inset Formula $-21$
+\end_inset
+ dB sous la porteuse (H6 : 
+\begin_inset Formula $-31$
+\end_inset
+ à 
+\begin_inset Formula $-51$
+\end_inset
+ dB), et l'indice de phase apparent passait de 0,17-0,2 à 1,0-1,5. Sur trois notes l'asymétrie de Bessel changeait de signe : toute méthode qui étiquette les languettes lisait la faible du mauvais côté. Pendant plusieurs jours ces valeurs ont été prises pour un couplage fort, et un banc d'essai a été construit dessus. La leçon du téléphone rééchantillonné, plus haut, vaut encore : quand les chiffres disent ce qu'aucun accordéon enregistré proprement ne dit, soupçonner la chaîne. Deux autres pièges venaient d'elle. Un enregistrement propre en 16 bits dans une pièce calme contient des plages de zéros exacts qui ressemblent à une porte de bruit. Et un enregistrement transposé de 5 cents n'en montre aucun signe, sauf par une référence extérieure : le ronflement du secteur, dont la fréquence tient à 0,1 pour cent, se déplace avec l'échelle de l'enregistrement. Sans ronflement rien ne le dit, et il faut un son de référence en tête de chaque séance.
+\end_layout
+
+\begin_layout Standard
+Quatrième résultat : un banc d'essai qui partage le modèle de l'estimateur ne prouve rien. Une synthèse réglée sur la physique mesurée sur un seul accordéon a fait paraître la version 67 meilleure (de 6 à 16 notes sur 27 au H6) sans la rendre générale. Sur les mêmes 160 notes, la synthèse à la physique de cet accordéon laisse poser 22 pour cent, une synthèse à profils de phase et de modulation d'amplitude larges 14 pour cent, et l'ancienne synthèse simple 26 pour cent. Les enregistrements réels valident ; ils ne calibrent jamais. Et là où les enregistrements manquent, la thèse le dit : aucune note sous 207 Hz, aucune vraie note à trois anches, un accordéon, un micro.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+À compléter (Ewen) : au H6, un la de référence en tête, une minute de silence et huit secondes par note : douze notes du 16 pieds de Do2 à Do4, douze notes à trois voix, et les mêmes douze notes avec un micro USB dont les effets sont coupés, enregistrées en même temps. Ce sont les enregistrements qui feraient passer les affirmations de cette section de simulées à mesurées.
 \end_layout
 
 \begin_layout Section
