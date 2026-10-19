@@ -104,6 +104,7 @@ function devStart() {
   dev = { gen: ++devGen, index: 0, start: engine.samplesTotal, n: 0, maxN: Math.round(devMaxS * sr),
     pcm: new Int16Array(MORCEAU_S * sr), fill: 0, csv: [], ticks: 0, ticksM: 0, full: false,
     debutMs: Date.now(), priseT0: controle ? controle.temps : 0 };
+  dspEchantillons = [];
 }
 
 // Rend le morceau en cours (son et lignes du CSV), s'il y a quelque chose.
@@ -115,7 +116,7 @@ function devFlush() {
     n: dev.n, ticks: dev.ticks, full: dev.full,
     // Le début réel de la session (et non l'arrivée du premier morceau, 10 s plus tard) ; le contrôle de la prise.
     debutMs: dev.debutMs,
-    prise: controle ? { episodes: controle.episodesSession(dev.priseT0), trous: controle.trousSession(dev.priseT0), resume: controle.resume() } : undefined,
+    prise: controle ? { episodes: controle.episodesSession(dev.priseT0), trous: controle.trousSession(dev.priseT0), resume: controle.resume(), calcul: calculStats() } : undefined,
   }, [pcm.buffer]);
   dev.index++;
   dev.pcm = new Int16Array(MORCEAU_S * engine.sr);
@@ -149,6 +150,15 @@ function devStatus() {
   return dev ? { seconds: dev.n / engine.sr, ticks: dev.ticks, full: dev.full, maxS: devMaxS, morceaux: dev.index } : null;
 }
 
+// v69 (I5) : la vitesse de calcul de CETTE machine, pour la mesurer avant de régler MS_LENT (le facteur 4 d'un téléphone est une hypothèse) : durée moyenne d'un ajustement
+// à froid (`msFroid`), mode léger (`lente`), temps de calcul par image de 85 ms (médiane et p99 des dernières images de la session).
+const DSP_GARDE = 8000;
+let dspEchantillons = [];
+function calculStats() {
+  const v = dspEchantillons.slice().sort((a, b) => a - b), q = (p) => (v.length ? Math.round(v[Math.min(v.length - 1, Math.floor(p * v.length))] * 100) / 100 : null);
+  return { msFroid: engine?.msFroid != null ? Math.round(engine.msFroid) : null, lente: !!engine?.lente, dspMs: { n: v.length, p50: q(0.5), p99: q(0.99) } };
+}
+
 function onChunk(chunk) {
   if (!engine) return;
   devAppend(chunk);
@@ -165,6 +175,9 @@ function onChunk(chunk) {
     // Charge DSP : temps de calcul rapporté à la période d'analyse.
     result.dspMs = performance.now() - t0;
     adapterBudget(result.dspMs);
+    dspEchantillons.push(result.dspMs);
+    if (dspEchantillons.length > DSP_GARDE) dspEchantillons.shift();
+    result.calcul = { msFroid: engine.msFroid != null ? Math.round(engine.msFroid) : null, lente: !!engine.lente };
     const prise = priseEtat();
     if (prise) {
       // Le contrôle a vu un ronflement : l'annuleur se règle (fréquence réelle du secteur, harmoniques présentes).

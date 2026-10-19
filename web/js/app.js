@@ -11,7 +11,7 @@ import { ligneMicro, consignes, informations, plateforme, propositionMicro, bloc
 import {
   Enregistreur, choisirStockage, listerSessions, recupererSession, exporterSession,
 } from './session-stockage.js';
-import { lireEnteteWav, dureeSession, DUREES_SESSION_MIN, MORCEAU_S } from './session-format.js';
+import { lireEnteteWav, dureeSession, DUREES_SESSION_MIN, MORCEAU_S, blocCalcul } from './session-format.js';
 import { CHORD_TYPES, parseDegrees, degreesText, degreeLabel, chordName } from './dsp/chord.js';
 import { initBench } from './bench.js';
 import { afficherVerrou } from './ui/verrou-affichage.js';
@@ -24,7 +24,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '68';
+const APP_VERSION = '69';
 // Le pied de page lit la version ici : jamais de numéro écrit en dur dans index.html.
 { const pied = document.getElementById('appVersion'); if (pied) pied.textContent = `version ${APP_VERSION}`; }
 function versionMismatch(what, got) {
@@ -2320,6 +2320,7 @@ function devMeta(man, inv) {
     horloge: 't_s du CSV = fin de la fenêtre d\'analyse, même horloge que le WAV (échantillon t_s × fs)',
     // v61 : le micro (nom, empreinte de l\'identifiant, getSettings complet) et ce que le contrôle de la prise a vu.
     micro_detail: c.micro && typeof c.micro === 'object' ? c.micro : null,
+    calcul: blocCalcul(man.prise),      // v69 (I5) : msFroid, lente, dspMs {n, p50, p99} de la session
     prise: man.prise ? { saine: !(man.prise.episodes ?? []).length, episodes: man.prise.episodes ?? [], trous: man.prise.trous ?? [],
       resume: man.prise.resume ?? null, canaux_flux: c.capture?.canaux ?? null } : null,
   };

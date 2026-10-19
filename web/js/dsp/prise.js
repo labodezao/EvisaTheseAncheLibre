@@ -38,6 +38,7 @@ export const SEUILS = Object.freeze({
   gateFenetre_s: 30,
   gateEvents: 5,            // 5 plages en 30 s
   gateZeroPart: 0.6,        // ... dans un bloc de 100 ms dont les zéros ne font pas plus de 60 % (sinon : plancher sous la quantification, pas une porte)
+  gateVoisinDb: -60,        // v69 (I4a) : ... et dont le bloc, le précédent ou le suivant dépasse ce niveau (dBFS, 100 ms) : une porte ferme sur un son ; un convertisseur de 16 bits dans une pièce calme (bruit sous 1 LSB) fait des plages de zéros partout (prise H6 en 16 bits : 65 s douteuses sur 211 avant, CERTIFICAT.md § 0C)
   // gate : plancher coupé net
   palierHaut: -80,          // dBFS : le niveau d'avant (une pause, entre -80 ...
   palierPause: -58,         // ... et -58 dBFS, depuis 3 blocs) ...
@@ -67,6 +68,12 @@ export const SEUILS = Object.freeze({
   secteurFenetres: 10,      // 10 fenêtres de 2 s gardées
   secteurMin: 6,
   secteurPart: 0.7,
+  // échelle (v69, I4b) : la raie du secteur (50 ou 60 Hz, ±0,1 % en régime normal, médiane de ses fenêtres de 2 s sur 60 s) est une référence de fréquence EXTERNE à l'instrument.
+  // Une prise rééchantillonnée ou transposée par un traitement audio (prise PC du 14/10 : +5 ¢) la déplace de la même échelle.
+  echelleFenetre_s: 90,     // médiane des fréquences affinées du secteur sur les 90 dernières secondes ...
+  echelleMin: 25,           // ... au moins 25 fenêtres de 2 s où la raie est présente (50 s de ronflement) : sinon rien n'est dit
+  echelleAlerte: 0.002,     // |f / f_nominale − 1| > 2 ‰ (3,5 ¢) : alerte `echelle`, prise douteuse
+  echelleAvert: 0.001,      // entre 1 et 2 ‰ : avertissement sans refus
   // lent
   srLent: 16000,
   // durée de maintien d'une alerte après la dernière preuve
@@ -75,7 +82,7 @@ export const SEUILS = Object.freeze({
 
 // Les alertes qui rendent une mesure douteuse (toutes ; le ronflement seulement
 // quand il est détecté, c'est-à-dire fort : ratio et niveau ci-dessus).
-export const CODES = Object.freeze(['gate', 'pompage', 'trous', 'ecretage', 'secteur', 'lent', 'bluetooth']);
+export const CODES = Object.freeze(['gate', 'pompage', 'trous', 'ecretage', 'secteur', 'echelle', 'lent', 'bluetooth']);
 
 const BLOC_S = 0.1;   // niveau par blocs de 100 ms
 
@@ -90,6 +97,8 @@ export class ControlePrise {
     this.evGate = [];           // temps (s) des plages de zéros
     this.zerosVus = 0;          // pour le rapport : toutes les plages
     this.pend = [];             // plages de zéros finies dans le bloc de 100 ms en cours
+    this.attente = [];          // v69 : plages du bloc précédent, jugées quand on connaît le niveau du bloc suivant (gateVoisinDb)
+    this.lvAvant = -200; this.lvPrec = -200;
     this.bz = 0;                // zéros dans ce bloc
     this.zeroMax = 0;           // la plus longue vue (s)
     // niveau par blocs
@@ -118,6 +127,7 @@ export class ControlePrise {
     this.remplisN = 0;
     this.fenetresN = [];
     this.secteurF0 = null; this.secteurH = 0; this.secteurNouveau = false;
+    this.evHz = [];             // v69 : [temps, f affinée / f nominale] de chaque fenêtre de ronflement (échelle de la prise)
     this.infos = [];
     this.externes = new Map();  // défauts connus de la page, pas du signal : un micro Bluetooth (prise-micro.js)
     this.dernierEtat = null;
@@ -133,7 +143,7 @@ export class ControlePrise {
   // voulus) : rien n'est jugé, les suites de zéros et de niveaux repartent.
   suspendre(oui) {
     this.muet = !!oui;
-    this.zeros = 0; this.suiteCrete = 0; this.niv.length = 0; this.pend.length = 0; this.bz = 0;
+    this.zeros = 0; this.suiteCrete = 0; this.niv.length = 0; this.pend.length = 0; this.attente.length = 0; this.lvAvant = this.lvPrec = -200; this.bz = 0;
     this.bn = 0; this.bsom = 0;
     this.remplis = 0;
     this.ts0 = null; this.candidat = null;   // la date du flux repart : la coupure n est pas un trou
@@ -164,17 +174,20 @@ export class ControlePrise {
       // niveau par blocs
       this.bsom += v * v;
       if (++this.bn === B) {
-        this.niveau(10 * Math.log10(this.bsom / B + 1e-20));
-        // Les plages de zéros de ce bloc comptent si les zéros n'en sont pas la
-        // plus grande partie : sinon le plancher est sous la quantification
-        // (un micro très calme sur 16 bits), pas une porte.
-        if (this.pend.length && this.bz / B < s.gateZeroPart) {
-          for (let k = 0; k < this.pend.length; k += 2) {
-            this.evGate.push(this.pend[k]);
+        const lvl = 10 * Math.log10(this.bsom / B + 1e-20);
+        this.niveau(lvl);
+        // Les plages de zéros d'un bloc comptent si les zéros n'en sont pas la plus grande partie (sinon le plancher est sous la quantification,
+        // pas une porte) ET si un son l'entoure (le bloc d'avant, le sien ou le suivant dépasse gateVoisinDb : v69, I4a).
+        if (this.attente.length && Math.max(this.lvAvant, this.lvPrec, lvl) > s.gateVoisinDb) {
+          for (let k = 0; k < this.attente.length; k += 2) {
+            this.evGate.push(this.attente[k]);
             this.zerosVus++;
-            if (this.pend[k + 1] > this.zeroMax) this.zeroMax = this.pend[k + 1];
+            if (this.attente[k + 1] > this.zeroMax) this.zeroMax = this.attente[k + 1];
           }
         }
+        this.attente.length = 0;
+        if (this.pend.length && this.bz / B < s.gateZeroPart) for (const v of this.pend) this.attente.push(v);
+        this.lvAvant = this.lvPrec; this.lvPrec = lvl;
         this.pend.length = 0; this.bz = 0;
         this.bn = 0; this.bsom = 0;
       }
@@ -318,6 +331,13 @@ export class ControlePrise {
     if (brut) this.dernierSecteur = meilleur;
     liste.push(meilleur);
     if (liste.length > s.secteurFenetres) liste.shift();
+    if (brut && meilleur.hit) {
+      // v69 (I4b) : la fréquence réelle du secteur, fenêtre par fenêtre, sert aussi de référence d'échelle (alerte `echelle`), que le ronflement soit retiré ou non
+      const fa = affinerSecteur(x, sr, meilleur.base);
+      this.baseSecteur = meilleur.base;
+      this.evHz.push(this.temps, fa / meilleur.base);
+      while (this.evHz.length && this.evHz[0] < this.temps - s.echelleFenetre_s) this.evHz.splice(0, 2);
+    }
     if (brut && meilleur.hit && this.retireSecteur) {
       // Fréquence réelle du secteur (à 0,01 Hz) et harmoniques qui dépassent leurs voisines de 8 dB : celles-là sont retirées.
       const f0 = affinerSecteur(x, sr, meilleur.base);
@@ -378,9 +398,22 @@ export class ControlePrise {
         }
       }
     }
+    // v69 (I4b) : l'échelle de la prise, d'après la fréquence moyenne du secteur
+    this.echelle = null;
+    {
+      const n = this.evHz.length / 2;
+      if (n >= s.echelleMin) {
+        const v = []; for (let i = 1; i < this.evHz.length; i += 2) v.push(this.evHz[i]);
+        v.sort((p, q) => p - q);
+        const e = v[v.length >> 1], ecart = e - 1, cents = 1200 * Math.log2(e);      // la médiane : une fenêtre où une note accroche la recherche (49,80 Hz au lieu de 50,15) ne compte pas
+        this.echelle = { e, cents, n };
+        if (Math.abs(ecart) > s.echelleAlerte) out.echelle = { premiere: this.evHz[0], derniere: this.evHz[this.evHz.length - 2], n, detail: { cents: Math.round(cents * 10) / 10, hz: Math.round(e * (this.baseSecteur ?? 50) * 100) / 100, ecart_pour_mille: Math.round(ecart * 10000) / 10 } };
+      }
+    }
     for (const [code, detail] of this.externes) out[code] = { premiere: 0, derniere: t, n: 1, detail };
     // Ronflement retiré : ce n'est plus une alerte mais une information, tant que ce qui reste est faible.
     this.infos = [];
+    if (this.echelle && !out.echelle && Math.abs(this.echelle.e - 1) > s.echelleAvert) this.infos.push({ code: 'echelleAvert', detail: { cents: Math.round(this.echelle.cents * 10) / 10 } });
     if (out.secteur && this.secteurOn) {
       const nets = this.fenetresN.filter((f) => f.t > this.tActif + 8);
       const dernier = this.fenetresN[this.fenetresN.length - 1];
