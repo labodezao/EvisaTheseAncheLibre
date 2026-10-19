@@ -121,11 +121,22 @@ export class Protocole {
       return this._remplir(attendue, 'ok');
     }
     const pos = (c) => this.suite.indexOf(c);
-    const memes = this.suite.filter((c) => c.midi === midi && c.sens === sens);
-    const libres = memes.filter((c) => !this.faits.has(c.id));
+    const dansSuite = this.suite.filter((c) => c.midi === midi);
+    // Le sens détecté ne change jamais l'étape : s'il diffère du sens attendu, on
+    // alerte « sens inversé » et rien n'est rangé (sauf si Ewen avance l'étape).
+    if (sens && sens !== attendue.sens) {
+      if (!dansSuite.length) return { type: 'inattendue', alerte: this._alerte('inattendue', `note inattendue (MIDI ${midi}, ${SENS[sens] ?? sens}) ; attendu : ${nom(attendue)}`) };
+      return { type: 'sens', cas: dansSuite.find((c) => c.sens === attendue.sens && !this.faits.has(c.id)) ?? dansSuite[0],
+        alerte: this._alerte('sens', `sens inversé : entendue en ${SENS[sens]}, attendu en ${SENS[attendue.sens]} (${nom(attendue)})`) };
+    }
+    // La case est cherchée dans la rangée et le sens de l'étape en cours, jamais ailleurs.
+    const rangee = this.suite.filter((c) => c.rang === attendue.rang && c.sens === attendue.sens && c.midi === midi);
+    const libres = rangee.filter((c) => !this.faits.has(c.id));
     if (libres.length) {
-      const cible = libres.find((c) => pos(c) >= this.index) ?? libres[0];
-      const sautees = this.suite.slice(Math.min(this.index, pos(cible)), pos(cible)).filter((c) => !this.faits.has(c.id));
+      const ap = pos(attendue);
+      const dist = (c) => { const d = pos(c) - ap; return d < 0 ? 1e6 - d : d; };
+      const cible = libres.slice().sort((x, y) => dist(x) - dist(y))[0];
+      const sautees = this.suite.slice(Math.min(ap, pos(cible)), pos(cible)).filter((c) => !this.faits.has(c.id));
       const r = this._remplir(cible, 'saut');
       r.sautees = sautees;
       r.alerte = this._alerte('saut', sautees.length
@@ -133,12 +144,15 @@ export class Protocole {
         : `mesure rangée à ${nom(cible)} (hors de l'ordre attendu)`);
       return r;
     }
-    if (memes.length) {
-      return { type: 'deja', cas: memes[0], alerte: this._alerte('deja', `${nom(memes[0])} est déjà mesuré : cliquez sur la case pour la refaire`) };
+    if (rangee.length) {
+      return { type: 'deja', cas: rangee[0], alerte: this._alerte('deja', `${nom(rangee[0])} est déjà mesuré : cliquez sur la case pour la refaire`) };
     }
-    const autreSens = this.suite.filter((c) => c.midi === midi && c.sens !== sens && !this.faits.has(c.id));
-    if (autreSens.length) {
-      return { type: 'sens', cas: autreSens[0], alerte: this._alerte('sens', `sens inversé : cette note est dans la suite en ${SENS[autreSens[0].sens]}, entendue en ${SENS[sens]} (attendu : ${nom(attendue)})`) };
+    const ailleurs = dansSuite.filter((c) => c.sens === attendue.sens);
+    if (ailleurs.length) {
+      return { type: 'inattendue', alerte: this._alerte('inattendue', `note inattendue pour cette étape (MIDI ${midi}) : elle existe ailleurs (${nom(ailleurs[0])}) mais n'est pas rangée ; attendu : ${nom(attendue)}`) };
+    }
+    if (dansSuite.length) {
+      return { type: 'sens', cas: dansSuite[0], alerte: this._alerte('sens', `sens inversé : cette note est dans la suite en ${SENS[dansSuite[0].sens]}, entendue en ${SENS[sens] ?? sens} (attendu : ${nom(attendue)})`) };
     }
     return { type: 'inattendue', alerte: this._alerte('inattendue', `note inattendue (MIDI ${midi}, ${SENS[sens] ?? sens}) ; attendu : ${nom(attendue)}`) };
   }

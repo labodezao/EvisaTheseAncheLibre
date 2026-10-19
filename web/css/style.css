@@ -555,3 +555,19 @@ button.note-chip { cursor: pointer; }
 .beat-now { font: 600 13px var(--mono); color: var(--text); padding: 2px 8px; border-radius: 10px; background: var(--panel2); border: 1px solid var(--line); }
 .beat-now.unsure { color: var(--dim); }
 .q-a4 input { width: 7ch; }
+
+/* glisser-déposer des mesures (souris, doigt) */
+#reportTable .poignee { cursor: grab; touch-action: none; user-select: none; padding: 4px 6px; font-size: 1.1em; }
+#planClavier .plan-btn.fait, #planClavier .plan-btn.reprendre { touch-action: none; cursor: grab; }
+.glisse { opacity: 0.45; }
+.drop-cible { outline: 3px dashed var(--accent); outline-offset: -2px; background: var(--panel2); }
+.glisse-fantome { position: fixed; z-index: 9999; pointer-events: none; padding: 4px 10px; border-radius: 14px; background: var(--accent); color: #000; font-weight: bold; box-shadow: 0 2px 8px #0006; }
+
+/* courbe unique et liste « à reprendre » (la liste passe avant la courbe sur téléphone) */
+#courbeUnique .cu-corps { display: flex; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+#courbeUnique #cuListe { flex: 0 1 300px; min-width: 220px; }
+#courbeUnique #cuListe ol { margin: 0; padding-left: 20px; }
+#courbeUnique #cuListe li { cursor: pointer; margin-bottom: 4px; }
+#courbeUnique #cuGraph { flex: 1 1 420px; min-width: 0; overflow-x: auto; }
+#courbeUnique #cuGraph svg { max-width: 100%; height: auto; }
+@media (max-width: 700px) { #courbeUnique .cu-corps { flex-direction: column; } #courbeUnique #cuListe { order: -1; flex-basis: auto; width: 100%; } }

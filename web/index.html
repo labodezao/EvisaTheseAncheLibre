@@ -443,7 +443,13 @@
         <ul id="protoAlertes" class="hint"></ul>
       </details>
       <div id="planClavier"></div>
-      <div id="reportCourbes"></div>
+      <div id="courbeUnique">
+        <div id="cuChoix" class="row gap"></div>
+        <div class="cu-corps"><div id="cuListe"></div><div id="cuGraph"></div></div>
+      </div>
+      <details id="courbesDetail"><summary>Toutes les courbes (détail : battement, écart, justesse, par rangée et par sens)</summary>
+        <div id="reportCourbes"></div>
+      </details>
       <div class="row gap" id="editBar">
         <label class="inline"><input type="checkbox" id="rapportDetail"> afficher le détail (Hz, écart nominal, écrasement)</label>
         <button id="btnSelSens" title="Coche des lignes, puis bascule tiré / poussé">⇄ Basculer la sélection tiré / poussé</button>

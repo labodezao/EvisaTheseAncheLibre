@@ -17,6 +17,7 @@ import { TABLES_MUSETTE, tableMusette, battementTable, beatCurveDe, hzEnBatMin, 
 import { estimerLa, texteLa, recalculerLignes, analyser, formatBatt, enUnite, signeVoix } from '../web/js/accordage.js';
 import { midiToFreq } from '../web/js/music.js';
 import { Report } from '../web/js/report.js';
+import { choixDe, selectionActive, courbeUnique, aReprendre } from '../web/js/courbe-unique.js';
 import { seriesDe, comparer, graphiquesRapport, graphiquesComparaison, csvCourbes, texteResume } from '../web/js/courbes.js';
 import { suiteAttendue, Protocole, dispositionDe, dispositions, planChromatique } from '../web/js/protocole.js';
 
@@ -211,6 +212,44 @@ console.log('A 5 : protocole guidé');
   let ok = 0;
   for (const c of q.suite) if (q.entrer({ midi: c.midi, sens: c.sens }).cas) ok++;
   assert(q.termine && q.nbFaits === q.suite.length && ok === q.suite.length, `suite complète La/Ré : ${q.nbFaits} cases`);
+  // notes répétées sur les deux rangées et entre tiré et poussé : la case suit l'étape, pas la note
+  for (const id of ['GC21', 'AD21', 'SolDo_Darwin']) {
+    const plan = dispositionDe(id).plan;
+    const pr = new Protocole(plan);
+    let faux = 0, repetees = 0;
+    for (const c of pr.suite) {
+      // la même note existe ailleurs (autre rangée ou autre sens) : cas visé par le bug
+      if (pr.suite.some((d) => d.id !== c.id && d.midi === c.midi && (d.rang !== c.rang || d.sens !== c.sens))) repetees++;
+      const r = pr.entrer({ midi: c.midi, sens: c.sens });
+      if (!r.cas || r.cas.id !== c.id || r.cas.rang !== c.rang || r.cas.sens !== c.sens || r.type !== 'ok') faux++;
+    }
+    assert(faux === 0 && pr.termine, `${id} : ${repetees} cases à note répétée, suite complète (R1 tiré, R2 tiré, R1 poussé, R2 poussé) sans aucune case décalée`);
+    // blocs : toutes les mesures de la rangée 1 tiré restent en rangée 1 tiré pendant ce bloc
+    const pb = new Protocole(plan);
+    const bloc1 = pb.suite.filter((c) => c.sens === 'T' && c.rang === 1);
+    const rangees = bloc1.map((c) => pb.entrer({ midi: c.midi, sens: 'T' }).cas);
+    assert(rangees.every((c) => c.rang === 1 && c.sens === 'T') && pb.nbFaits === bloc1.length, `${id} : bloc rangée 1 tiré entièrement rangé en rangée 1 tiré`);
+    // une note de la rangée 2 (absente de la rangée 1 tiré) jouée à l'étape suivante n'est pas rangée de la rangée 1
+    const att = pb.courante();
+    const etrangere = pb.suite.find((c) => c.sens === 'T' && c.rang === 2 && c.id !== att.id && c.midi !== att.midi);
+    const avant = pb.nbFaits;
+    const rr = pb.entrer({ midi: etrangere.midi, sens: 'T' });
+    assert(rr.type === 'saut' || rr.type === 'ok' ? rr.cas.rang === att.rang : pb.nbFaits === avant, `${id} : une note d'une autre rangée ne se range jamais sur l'étape en cours`);
+  }
+  {
+    // le sens détecté ne fait jamais changer d'étape : note attendue entendue « poussé » = alerte, rien rangé
+    const pr = new Protocole(dispositionDe('GC21').plan);
+    const att = pr.courante();
+    const r = pr.entrer({ midi: att.midi, sens: 'P' });
+    assert(r.type === 'sens' && pr.nbFaits === 0 && pr.courante().id === att.id, 'sens détecté inversé sur la note attendue : alerte, aucune case rangée, même étape');
+    // une note qui n'existe qu'en rangée 2 tiré pendant la rangée 1 tiré : inattendue, pas rangée
+    const seule = pr.suite.find((c) => c.sens === 'T' && c.rang === 2 && !pr.suite.some((d) => d.rang === 1 && d.sens === 'T' && d.midi === c.midi));
+    const r2 = pr.entrer({ midi: seule.midi, sens: 'T' });
+    assert(r2.type === 'inattendue' && pr.nbFaits === 0, 'note de la rangée 2 pendant la rangée 1 : signalée inattendue, non rangée');
+    // bouton voisin sauté (même rangée, même sens) : rangé là, boutons sautés signalés
+    const r3 = pr.entrer({ midi: pr.suite[2].midi, sens: 'T' });
+    assert((r3.type === 'saut' || r3.type === 'ok') && r3.cas.rang === 1 && r3.cas.sens === 'T', 'bouton sauté de la même rangée et du même sens : rangé dans cette rangée');
+  }
   // le rapport range chaque mesure à sa case (rangée, bouton, sens)
   const cfg = cfgDe();
   const rp = new Report();
@@ -365,4 +404,78 @@ console.log('A 7 : rapport par rangée, une ligne par bouton, édition en un cli
 }
 
 if (failures) { console.error(`\n${failures} échec(s)`); process.exit(1); }
+// ---- A 7b ------------------------------------------------------------------------------
+console.log('A 7b : glisser-déposer d une mesure sur une autre case');
+{
+  const cfg = cfgDe();
+  const suite = suiteAttendue(dispositionDe('GC21').plan);
+  const r = new Report();
+  const ajoute = (c) => { for (const l of lignes(cfg, [c.midi], { dir: c.sens, cas: () => c })) r.rows.set(`${l.midi}|${l.voiceId}|${l.dir}|${l.cas}`, l); };
+  const src = suite.find((c) => c.sens === 'P' && c.rang === 2 && c.bouton === 2);
+  const dst = suite.find((c) => c.sens === 'T' && c.rang === 1 && c.bouton === 4);
+  ajoute(src);
+  r.recalculer(cfg);
+  const avant = r.toCsv(cfg);
+  let res = r.deplacerMesure(src.id, dst);
+  assert(res.ok && r.sections(cfg, suite).find((x) => x.dir === 'T' && x.rang === 1).boutons.find((b) => b.bouton === 4).mesure, 'rangée 2 poussé -> rangée 1 tiré : la ligne change de section');
+  r.recalculer(cfg);
+  const csv = r.toCsv(cfg).split('\n').slice(1);
+  assert(csv.length === 2 && csv.every((l) => l.includes(';tirer;') && l.split(';')[7] === dst.nomRang && l.split(';')[8] === '4'), 'export suit : rangée 1, bouton 4, tiré');
+  assert(r.series(cfg).every((x) => x.dir === 'T'), 'les courbes suivent (plus rien en poussé)');
+  assert(r.annuler() && r.toCsv(cfg) === avant, 'annuler : retour exact');
+  assert(r.retablir() && r.rows.size === 2, 'rétablir');
+  r.annuler();
+  // case cible remplie : refus, échange, remplacement
+  ajoute(dst);
+  res = r.deplacerMesure(src.id, dst);
+  assert(res.ok === false && res.occupee, 'case cible remplie : rien ne change sans choix');
+  res = r.deplacerMesure(src.id, dst, 'echanger');
+  const casDe = (c) => [...r.rows.values()].filter((l) => l.cas === c.id).length;
+  assert(res.ok && casDe(src) === 2 && casDe(dst) === 2 && r.rows.size === 4, 'échange : les deux cases restent remplies');
+  const lSrc = [...r.rows.values()].find((l) => l.cas === src.id);
+  assert(lSrc.midi === dst.midi, 'la mesure de la case cible est passée à la case de depart');
+  assert(r.annuler() && casDe(dst) === 2 && [...r.rows.values()].find((l) => l.cas === src.id).midi === src.midi, 'annuler echange en un pas');
+  res = r.deplacerMesure(src.id, dst, 'remplacer');
+  assert(res.ok && r.rows.size === 2 && casDe(dst) === 2 && casDe(src) === 0, 'remplacer : la mesure de la case cible est effacée');
+  assert(r.annuler() && r.rows.size === 4, 'annuler le remplacement');
+}
+
+// ---- A 7c ------------------------------------------------------------------------------
+console.log('A 7c : courbe unique, cases à cocher, liste à reprendre');
+{
+  const cfg = cfgDe();
+  const suite = suiteAttendue(dispositionDe('GC21').plan);
+  const r = new Report();
+  const faux = suite.filter((c) => c.sens === 'T' && c.rang === 1)[3];
+  for (const c of suite.filter((x) => x.sens === 'T' && x.rang <= 2 || (x.sens === 'P' && x.rang === 1)).slice(0, 40)) {
+    for (const l of lignes(cfg, [c.midi], { dir: c.sens, cas: () => c, bruit: () => (c.id === faux.id ? 12 : 0) })) r.rows.set(`${l.midi}|${l.voiceId}|${l.dir}|${l.cas}`, l);
+  }
+  r.recalculer(cfg);
+  const series = r.series(cfg);
+  const choix = choixDe(null);
+  assert(choix.auto && choix.g.ecart && !choix.g.mesure && !choix.g.justesse, 'défaut : écart au battement cible, étape en cours');
+  const sel = selectionActive(choix, { courante: { rang: 1, sens: 'T' }, bellows: 'P', rangsDispo: [1, 2] });
+  assert(sel.rangs.join() === '1' && sel.sens.join() === 'T', 'sélection automatique = rangée et sens de l\'étape en cours');
+  const u = courbeUnique([{ nom: 'rapport', series }], cfg, 'bpm', choix, sel);
+  assert(!u.refus && (u.svg.match(/<svg/g) || []).length === 1, 'un seul graphique');
+  const nbSeries = (u.svg.match(/<polyline/g) || []).length;
+  assert(nbSeries >= 1 && nbSeries <= 2, `rangée 1 tiré seulement : ${nbSeries} courbe(s) (une par voix musette)`);
+  const sel2 = { rangs: [1, 2], sens: ['T', 'P'] };
+  assert((courbeUnique([{ nom: 'rapport', series }], cfg, 'bpm', choix, sel2).svg.match(/<polyline/g) || []).length > nbSeries, 'cocher d\'autres rangées et sens superpose leurs courbes');
+  const mixte = courbeUnique([{ nom: 'rapport', series }], cfg, 'bpm', { ...choix, g: { ...choix.g, justesse: true } }, sel);
+  assert(mixte.refus && !mixte.svg, 'écart et cents ensemble : refusé proprement, avec la raison');
+  const jus = courbeUnique([{ nom: 'rapport', series }], cfg, 'bpm', { ...choix, g: { ecart: false, mesure: false, cible: false, justesse: true } }, sel);
+  assert(!jus.refus && /Justesse/.test(jus.svg), 'justesse seule : courbe en cents');
+  const abs = courbeUnique([{ nom: 'rapport', series }], cfg, 'bpm', { ...choix, g: { ecart: false, mesure: true, cible: true, justesse: false } }, sel);
+  assert(!abs.refus && /mesuré/.test(abs.svg) && /cible/.test(abs.svg), 'battement mesuré et cible superposés');
+  const deux = courbeUnique([{ nom: 'banc', series }, { nom: 'caisse', series }], cfg, 'bpm', choix, sel);
+  assert(/\(banc\)/.test(deux.svg) && /\(caisse\)/.test(deux.svg), 'deux rapports : superposés sur la même courbe');
+  const rep = aReprendre(series, cfg, 'bpm', sel);
+  assert(rep.length >= 1 && rep.every((x) => x.rang === 1 && x.dir === 'T') && rep[0].midi === faux.midi, 'liste à reprendre : la note fausse, de la sélection, en tête');
+  assert(rep.every((x, i) => i === 0 || rep[i - 1].abs >= x.abs) && /ouvrir|fermer|monter|baisser/.test(rep[0].geste), 'triée par écart, avec le geste');
+  assert(aReprendre(series, cfg, 'bpm', { rangs: [2], sens: ['P'] }).length === 0, 'rien à reprendre ailleurs');
+  assert(r.printableHtml(cfg).includes('Battement des voix musette'), 'le rapport imprimable garde toutes ses courbes');
+}
+
 console.log('\nTous les tests passent.');
+if (failures) { console.error(failures + " échec(s)"); process.exit(1); }
