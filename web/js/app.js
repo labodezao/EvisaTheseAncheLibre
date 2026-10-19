@@ -2192,7 +2192,10 @@ function majPlanClavier() {
       + s.boutons.map((b) => `<button class="plan-btn ${b.etat}${b.courant ? ' courant' : ''}" data-uid="${b.uid}" data-midi="${b.midi}" data-dir="${dir}" title="bouton ${b.bouton}">`
         + `<b>${b.bouton ?? ''}</b>${noteLabel(b.midi + (cfg.transpose || 0)).full}</button>`).join('') + '</div>').join('');
   for (const b of el.querySelectorAll('.plan-btn')) {
-    b.onclick = () => selectionner({ uid: b.dataset.uid, midi: Number(b.dataset.midi), dir: b.dataset.dir });
+    b.onclick = () => {
+      selectionner({ uid: b.dataset.uid, midi: Number(b.dataset.midi), dir: b.dataset.dir });
+      if (protocoleActif() && protocole.viser(b.dataset.uid)) { majProtocoleAffichage(); majPlanClavier(); }   // le bouton cliqué devient l'étape en cours
+    };
   }
   // glisser un bouton mesuré sur une autre case (plan du clavier ou ligne du rapport)
   activerGlisser(el, { source: '.plan-btn.fait, .plan-btn.reprendre', cible: '.plan-btn, #reportTable tr[data-uid]',
@@ -2396,7 +2399,7 @@ function enregistrerMesure(t, auto) {
   state.protoCle = cle;
   const r = protocole.entrer({ midi: t.playedMidi + (cfg.transpose || 0), sens: dir });
   let n = 0;
-  if (r.cas && (r.type === 'ok' || r.type === 'saut')) {
+  if (r.cas && (r.type === 'ok' || r.type === 'saut' || r.type === 'rattrapage')) {
     n = report.record(t, cfg, r.cas.sens, r.cas); // le sens de l'étape fixe la case, jamais le moteur
     if (r.suivante && r.suivante.sens !== cfg.bellows) setBellows(r.suivante.sens);
   } else {
