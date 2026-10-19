@@ -43,6 +43,7 @@ DOE/ANOVA ↔ laisser la mesure contredire l'hypothèse.
   (7 parties), encarts « ⟢ ton expérience » à laisser vides (à Ewen).
 - `research/docs/design_theory.lyx` / `design_practical.lyx` — manuscrits LyX
   (gabarit *Legrand Orange Book*) ; à faire évoluer dans cette vision.
+- Trouvailles de l'accordeur (19/10/2026, six audits du 15 au 19/10) : `design_theory.lyx` et `design_theory_fr.lyx`, section « Reading coupled reeds » du chapitre Reed coupling (physique de la paire : peigne de Bessel, quadrature, moyenne sur des battements entiers, trois anches) et section « How sure is a reading » de « Ways and measuring protocols » (Cramér-Rao, règle des trois, chaîne de mesure qui fabrique de la physique, banc circulaire) ; miroir dans `these_parties_2_a_5_fr.md`. Détail et notes de savoir : coffre, Projets actifs/Accordeur d'accordéon/Savoir/.
 - `design_practical.lyx` (anglais) et `design_practical_fr.lyx` sont GÉNÉRÉS : ne pas les
   éditer à la main. Sources : `research/docs/design_practical/NN_piece_{en,fr}.md` (une pièce
   de l'accordéon par partie : théorie, analyse, outils, réparation), puis

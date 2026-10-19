@@ -547,8 +547,9 @@ lames mais √(Δ² − Δ_L²), où Δ est le désaccord et Δ_L la plage de ve
 la loi d'Adler pour deux oscillateurs couplés ; le réseau la reproduit sans qu'on
 la lui ait dite. C'est la physique derrière un geste de l'accordeur : deux voix
 accordées assez près se collent, et la musette meurt. L'accordeur de ce travail
-(`web/`) sépare les deux languettes d'une note en une demi-seconde et lit leur
-battement ; l'expérience E3 de l'audit accorde une languette l'autre bloquée,
+(`web/`) sépare les deux raies d'une note en une demi-seconde et lit leur
+battement, mais ne dit « sûr » qu'après au moins un battement entier (section
+suivante) ; l'expérience E3 de l'audit accorde une languette l'autre bloquée,
 puis la libère, et lit si le battement survit.
 
 Deux autres prédictions, toutes deux conditionnées à des dimensions devinées :
@@ -576,6 +577,86 @@ papier, la libérer, lire le battement en battements par minute à 1, 2, 3 et
 5 cents de désaccord. Le battement disparaît-il sous environ 2 cents, comme le
 dit le modèle ? Et le sandwich : ses cotes, la note pincée de la lame, la note
 jouée dans chaque sens en fonction de la pression au tube en U.*
+
+### Lire des anches couplées : ce que l'accordeur a appris [Reading coupled reeds: what the tuner taught]
+
+Entre le 11 et le 19 octobre 2026, l'accordeur de ce travail a été jugé six fois
+par des auditeurs qui n'avaient pas écrit son code, avec une règle d'Ewen : un
+réglage ne vaut que s'il tient sur des notes qu'il n'a jamais vues. Le prix a
+été de défaire plusieurs idées de ce chapitre. Ce qui reste, pour la physique de
+la paire de languettes, tient en cinq faits. Les chiffres viennent de prises du
+Zoom H6 sur un seul accordéon, un seul jour, et se lisent avec cette réserve
+(rapports d'audit des 15, 16, 17, 18 et 19 octobre ; docs/CERTIFICAT.md et
+docs/FREQUENCES-ANCHES.md du dépôt).
+
+Premier fait : le son de deux languettes est un peigne de raies, pas deux
+sinusoïdes. Le partiel k de la languette r s'écrit exp(i k β_r sin(2πΩt + θ_r)), où
+Ω = f_2 − f_1 est le battement : la période de la languette est modulée au rythme du
+battement, tous ses partiels suivent, et l'indice est proportionnel au rang. Les
+raies latérales ont les amplitudes de Bessel J_n(kβ). Sur le H6, β vaut 0,10 à
+0,37 radian et reste constant de k=1 à k=4 à 0,05 près sur dix notes sur
+quatorze. Sur Si3 (β=0,18) la loi prédit une raie latérale à -21 dB sous la
+porteuse au partiel 1, et l'on mesure -21,2 et -22,4 dB. C'est le comportement
+attendu de deux oscillateurs auto-entretenus faiblement couplés (Adler 1946 ;
+Pikovsky, Rosenblum, Kurths 2001), déjà observé sur des tuyaux d'orgue (Abel,
+Bergweiler, Gerhard-Multhaupt 2006).
+
+Deuxième fait : les deux languettes se modulent en quadrature, par deux
+mécanismes à la fois. Sur neuf notes sur dix, la modulation de la languette
+faible est décalée de -0,7 à -1,3 radian sur celle de la forte, stable à 0,1
+radian près dans une note : ni en phase, ni en opposition. Le tirage d'Adler est
+antisymétrique (la phase relative suit ψ̇ = 2πΔ_0 − K sin ψ et le battement observé
+vaut Ω = √(Δ_0² − κ²)). La pression commune du trou de soupape est symétrique,
+parce que la chute de pression suit le débit total, dont le terme croisé bat à
+Ω. Des poids comparables donnent la phase intermédiaire. La modulation
+d'amplitude n'est pas un indice par languette : elle vaut environ 0,35 au
+partiel 1, 0,45 au partiel 2 et 0,1 aux partiels 3 à 5, c'est une modulation de
+timbre. Au-delà du rang 4 le modèle ne décrit plus rien (résidu relatif de 0,4 à
+0,7, contre 0,05 à 0,26 aux rangs 1 à 4). Quatre notes aiguës (La5, Sol#5, Fa#5,
+Si5) ont un indice de 0,45 à 1,1 qui n'est pas proportionnel au rang, et que
+rien n'explique encore.
+
+Troisième fait : sans contrainte physique sur les amplitudes, le peigne est
+illisible. Un peigne dont toutes les amplitudes sont libres est invariant par la
+translation f_1 → f_1 + Ω (chaque coefficient glisse de k pas) : les deux solutions
+ont exactement le même résidu, même sans bruit, et aucun seuil ne les sépare.
+Imposer les amplitudes de Bessel lève la dégénérescence. Au partiel k, la
+languette faible est à +kΩ de la forte, et la raie miroir de la forte, à -kΩ,
+vaut J_k(kβ). Pour une languette faible à -17 dB et β=0,2, les deux sont
+indiscernables au partiel 1 (3 dB), mais la languette faible l'emporte de 16 dB
+au partiel 2 et de 29 dB au partiel 3. L'étiquette, c'est-à-dire laquelle est
+laquelle, se lit alors dès un demi-battement tant que β<0,4 ; à β=1,2 et Ω=0,5
+Hz elle est fausse six fois sur six. Les valeurs de β de 0,6 à 1,2 que l'on
+avait prises pour une physique extrême venaient d'une chaîne de mesure traitée
+par Windows (chapitre sur les moyens de mesure).
+
+Quatrième fait : la fréquence d'une languette, dans une paire couplée, n'existe
+qu'en moyenne sur un nombre entier de battements. Sur une période entière la
+modulation de phase s'annule. Sur une fenêtre de durée T plus courte, elle fait
+un biais d'environ β/(πT) hertz : 1,4 cent à 173 Hz pour β=0,3 et T=1 s, mesuré
+avec une incertitude statistique de 0,03 cent. C'est aussi ce que le facteur
+accorde. La fréquence de la languette seule n'est pas observable dans le son
+couplé : le tirage vaut environ β²Ω, soit 0,03 Hz à β=0,2, de l'ordre de 0,2 à
+0,4 cent, et ne se mesure qu'en bouchant l'autre languette. Une fenêtre de
+lecture dure donc au moins un battement, et le temps de pose d'une note de
+musette vaut environ 2/Ω : c'est la physique qui le fixe, pas le bruit (chapitre
+sur les moyens de mesure).
+
+Cinquième fait, le plus incomplet : trois languettes. Le modèle à trois anches
+de l'accordeur prolonge celui de deux, chaque languette extérieure étant modulée
+à son battement avec la centrale. Il n'a jamais été confronté à une vraie note à
+trois anches, et la physique du trou invite à s'en méfier : la pression du trou
+est une seule variable, modulée à Δ_-, Δ_+ et Δ_- + Δ_+, et le terme croisé
+négligé comme d'ordre β² pourrait être du même ordre que les autres. Une musette
+parfaitement symétrique est indiscernable d'une languette seule modulée tant
+qu'un seul partiel est lisible.
+
+*À compléter (Ewen) : sur une note de musette de ton instrument, trois prises de
+dix secondes au H6 : la note entière, puis une languette bouchée, puis l'autre.
+Le tirage est l'écart entre la languette seule et la même languette dans la
+paire ; à comparer au produit du carré de l'indice de phase par le battement.
+Puis douze notes à trois voix, pour lire les trois indices de phase de chaque
+languette et savoir si le terme croisé compte.*
 
 ### La dissipation dans les cavités [Dissipation in cavities]
 
