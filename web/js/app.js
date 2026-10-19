@@ -2185,7 +2185,8 @@ function majPlanClavier() {
   const el = $('planClavier');
   if (!protocoleActif()) { el.innerHTML = ''; return; }
   const courante = protocole.courante();
-  const dir = courante?.sens ?? state.sel?.dir ?? 'T';
+  const vue = cfg.courbe && !cfg.courbe.auto && cfg.courbe.sens?.length === 1 ? cfg.courbe.sens[0] : null;   // le bouton tiré | poussé choisi
+  const dir = vue ?? courante?.sens ?? state.sel?.dir ?? 'T';
   const sections = report.sections(cfg, protocole.suite, courante).filter((s) => s.dir === dir);
   el.innerHTML = `<p class="hint">Plan du clavier, ${SENS[dir]} (cliquez un bouton pour voir sa ligne)</p>`
     + sections.map((s) => `<div class="plan-rang"><span class="hint">${(s.nomRang || '').replace(/&/g, '&amp;').replace(/</g, '&lt;')}</span>`
@@ -2424,9 +2425,21 @@ function majCourbeUnique() {
   const caseA = (id, texte, coche, desactive = false) => `<label class="inline"><input type="checkbox" data-cu="${id}"${coche ? ' checked' : ''}${desactive ? ' disabled' : ''}> ${texte}</label>`;
   $('cuChoix').innerHTML = caseA('auto', "suivre l'étape en cours", choix.auto)
     + (rangsDispo.length ? '<span class="hint">rangées</span>' + rangsDispo.map((r) => caseA(`rang:${r}`, `R${r}`, act.rangs.includes(r))).join('') : '')
-    + '<span class="hint">sens</span>' + caseA('sens:T', 'tiré', act.sens.includes('T')) + caseA('sens:P', 'poussé', act.sens.includes('P'))
+    // Le sens : un bouton à bascule tiré | poussé (Ewen, 19/10/2026 : pas de cases à cocher), qui fait aussi tourner le plan du clavier
+    + '<span class="hint">sens</span><span class="bascule-sens">' + ['T', 'P'].map((d) => `<button type="button" data-sens="${d}" class="${act.sens.length === 1 && act.sens[0] === d ? 'actif' : ''}">${d === 'P' ? 'poussé' : 'tiré'}</button>`).join('') + '</span>'
     + '<span class="hint">courbe</span>' + GRANDEURS.map((g) => caseA(`g:${g.id}`, g.nom, choix.g[g.id])).join('')
     + (state.cmp ? '<span class="hint">rapports</span>' + sources.map((x) => caseA(`src:${x.nom}`, esc(x.nom), !choix.sources.includes(x.nom))).join('') : '');
+  for (const bt of $('cuChoix').querySelectorAll('button[data-sens]')) {
+    bt.onclick = () => {
+      choix.auto = false;
+      if (!choix.rangs.length) choix.rangs = [...rangsDispo];
+      choix.sens = [bt.dataset.sens];
+      saveCfg();
+      majCourbeUnique();
+      majPlanClavier();
+      surbrillance();
+    };
+  }
   for (const c of $('cuChoix').querySelectorAll('input[data-cu]')) {
     c.onchange = () => {
       const [k, v] = c.dataset.cu.split(':');

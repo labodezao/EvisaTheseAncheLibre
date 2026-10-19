@@ -575,3 +575,8 @@ button.note-chip { cursor: pointer; }
 #reharmoTexte p { margin: 6px 0 2px; }
 #reharmoTexte ol { margin: 0 0 6px; padding-left: 22px; }
 #reharmoTexte li { cursor: pointer; }
+
+/* bouton à bascule tiré | poussé de la courbe et du plan du clavier */
+.bascule-sens { display: inline-flex; border: 1px solid var(--border, #9aa); border-radius: 6px; overflow: hidden; margin: 0 .4em; }
+.bascule-sens button { border: 0; border-radius: 0; padding: .35em .9em; font-size: 1em; background: transparent; cursor: pointer; }
+.bascule-sens button.actif { background: var(--accent, #1f6f8b); color: #fff; font-weight: 600; }
