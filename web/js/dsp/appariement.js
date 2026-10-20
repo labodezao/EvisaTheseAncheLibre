@@ -241,6 +241,57 @@ function rainesConnues(groups, g) {
 }
 
 export const TIE_CIBLE = 0.05;
+export const ETIQUETTE_S = 1.0;
+// D2 cas 3 : anche dont la fréquence quitte la prédiction (dérive des 2 dernières s) de plus de DISCONT_C ¢ pendant DISCONT_N images (0,25 s) : discontinuité signalée DISCONT_S s.
+export const DISCONT_C = 3, DISCONT_N = 3, DISCONT_S = 4, DISCONT_GAP_S = 1, DERIVE_MAX_CS = 2;
+
+// D2 (audit « échelons de justesse », 19/10/2026) : continuité d'abord. Le rang (assignOrdered) fait l'étiquette 8' / 8'+ : une raie de plus ou de moins
+// (musette à trois raies, raie latérale du soufflet) décale les deux voix d'un pas, et le chiffre saute de 2 à 4,5 ¢ sans que rien n'ait bougé. Ici, une
+// voix qui a une mémoire (la raie qu'elle portait à l'image d'avant, prevF) garde la raie la plus proche de cette mémoire tant qu'il en existe une à moins
+// de son rayon (la moitié de l'écart à la mémoire la plus proche, au plus CONT_CENTS ¢) ; le rang ne tranche qu'entre les raies et les voix neuves.
+// Rend { out, rompu } : `out` comme assignOrdered ; `rompu` : une voix avec mémoire n'a plus sa raie.
+export const CONT_CENTS = 12;
+export function assignContinuite(voices, comps, tolHz, opts = {}) {
+  const nV = voices.length;
+  const out = new Array(nV).fill(null);
+  const memo = voices.map((v) => (v.mem ? v.mt : null));
+  const rayon = voices.map((v, i) => {
+    if (memo[i] == null) return 0;
+    let voisin = Infinity;
+    for (let j = 0; j < nV; j++) if (j !== i && memo[j] != null) voisin = Math.min(voisin, Math.abs(memo[j] - memo[i]));
+    const cap = memo[i] * (Math.pow(2, CONT_CENTS / 1200) - 1);
+    return Math.max(0.1, Math.min(voisin / 2, cap));
+  });
+  const paires = [];
+  for (let i = 0; i < nV; i++) {
+    if (memo[i] == null) continue;
+    for (let j = 0; j < comps.length; j++) {
+      const d = Math.abs(comps[j].freq - memo[i]);
+      if (d < rayon[i] && !comps[j].claimed) paires.push({ i, j, d });
+    }
+  }
+  paires.sort((a, b) => a.d - b.d);
+  const prisC = new Set();
+  for (const p of paires) {
+    if (out[p.i] || prisC.has(p.j)) continue;
+    out[p.i] = comps[p.j]; prisC.add(p.j);
+  }
+  // le reste : voix sans mémoire (ou qui a perdu sa raie) et raies libres, au rang
+  const vL = [], iL = [];
+  for (let i = 0; i < nV; i++) if (!out[i]) { vL.push(voices[i]); iL.push(i); }
+  const cL = comps.filter((_, j) => !prisC.has(j));
+  let rompu = false;
+  if (vL.length && cL.length) {
+    const sub = assignOrdered(vL, cL, tolHz, opts);
+    for (let q = 0; q < vL.length; q++) out[iL[q]] = sub[q];
+  }
+  // rompu : une voix qui avait une raie n'en a plus à moins de CONT_CENTS ¢ de sa mémoire (le rang peut la remettre sur une raie voisine sans que rien ne soit perdu)
+  for (let i = 0; i < nV; i++) if (memo[i] != null && !(out[i] && Math.abs(1200 * Math.log2(out[i].freq / memo[i])) <= CONT_CENTS)) rompu = true;
+  // L'ordre des voix est physique (la 8'+ est au-dessus de la 8', plan.js beatCurve) : si la continuité l'inverse, le rang reprend la main (le certificat étiquette dans cet ordre).
+  const ordre = out.filter((c) => c);
+  if (ordre.some((c, k) => k > 0 && c.freq <= ordre[k - 1].freq)) return { out: null, rompu: true };
+  return { out, rompu };
+}
 export function assignOrdered(voices, comps, tolHz, { tie = false } = {}) {
   const nV = voices.length;
   const nC = comps.length;
@@ -289,6 +340,52 @@ export function assignOrdered(voices, comps, tolHz, { tie = false } = {}) {
 
 // Méthodes d'Engine (cf. engine.js, Object.assign).
 export const methodesAppariement = {
+  // D2, cas 3 (audit « échelons », 19/10/2026) : la fréquence d'une anche ne saute pas ; la continuité est un a priori (valeur sûre + dérive des 2 dernières s, bornée à
+  // ±DERIVE_MAX_CS ¢/s), jamais une mesure. Les données gagnent toujours (la voix porte la raie mesurée telle quelle). Quand la raie s'écarte de la prédiction de plus de
+  // DISCONT_C ¢ pendant DISCONT_N images d'affilée et que les autres voix du groupe n'ont pas bougé du même nombre de cents (sinon c'est la prise de son, cas 2),
+  // l'anche porte `anche: 'discontinuite'` : le luthier est averti, la valeur n'est ni lissée ni cachée.
+  surveillerDiscontinuite(group, expected, chosen, tNow) {
+    const M = (this.contAnche ??= new Map());
+    const dep = [];
+    for (let i = 0; i < expected.length; i++) {
+      const v = expected[i], c = chosen[i];
+      const cle = group.key + ':' + v.def.id;
+      let e = M.get(cle);
+      if (e && tNow - e.t > DISCONT_GAP_S) e = null;
+      if (!c) { if (e) M.set(cle, { ...e, t: e.t }); dep.push(null); continue; }
+      const cents = 1200 * Math.log2(c.freq);
+      if (!e) { M.set(cle, { t: tNow, hist: [{ t: tNow, c: cents }], hors: 0, jusqua: -1, ref: cents }); dep.push(null); continue; }
+      // prédiction : dernière valeur sûre + pente des 2 dernières secondes
+      const h = e.hist.filter((q) => q.t >= tNow - 2);
+      let pente = 0;
+      if (h.length >= 4) { const q0 = h[0], q1 = h[h.length - 1]; pente = Math.max(-DERIVE_MAX_CS, Math.min(DERIVE_MAX_CS, (q1.c - q0.c) / Math.max(0.3, q1.t - q0.t))); }
+      const pred = e.ref + pente * (tNow - e.t);
+      dep.push({ i, e, cle, cents, ecart: cents - pred, pred });
+    }
+    const vus = dep.filter(Boolean);
+    for (const d of vus) {
+      const horsMarge = Math.abs(d.ecart) > DISCONT_C;
+      // saut commun à toutes les voix suivies : la prise de son, pas l'anche (cas 2)
+      const commun = vus.length >= 2 && vus.every((o) => Math.abs(o.ecart) > DISCONT_C && Math.abs(o.ecart - d.ecart) <= 1);
+      d.e.hors = horsMarge && !commun ? d.e.hors + 1 : 0;
+      if (d.e.hors >= DISCONT_N) d.e.jusqua = tNow + DISCONT_S;
+      const persiste = d.e.hors >= DISCONT_N || d.e.jusqua > tNow;
+      if (persiste) expected[d.i].anche = 'discontinuite';
+      // les données gagnent : la référence suit la raie mesurée dès que l'écart persiste (ou s'il est dans la marge)
+      d.e.t = tNow;
+      d.e.hist.push({ t: tNow, c: d.cents });
+      while (d.e.hist.length && d.e.hist[0].t < tNow - 2) d.e.hist.shift();
+      d.e.ref = (horsMarge && !commun && d.e.hors < DISCONT_N) ? d.e.ref : d.cents;
+      if (d.e.hors >= DISCONT_N) d.e.hors = DISCONT_N;
+    }
+  },
+
+  // OCTAVE_RESOLUE, en notes choisies : la voix d'une note qui tombe sur les partiels d'une autre (octave, douzième)
+  // garde sa fréquence au lieu d'être remplacée par la raie commune.
+  octaveResolue(group) {
+    return !!this.cfg.OCTAVE_RESOLUE && this.cfg.mode === 'manual' && !group.isHarmonic && !group.isSub;
+  },
+
   // Associe les composantes mesurées aux voix attendues du groupe.
   // `claimed` : fréquences absolues (Hz) déjà expliquées comme harmoniques
   // de voix plus graves — elles ne sont utilisées qu'en dernier recours.
@@ -316,7 +413,7 @@ export const methodesAppariement = {
       const tolMem = Math.max(2.5, group.center * 0.05);
       for (const v of expected) {
         const p = this.prevF.get(`${group.key}:${v.def.id}`);
-        if (p != null && Math.abs(p - v.target) < tolMem) v.mt = p;
+        if (p != null && Math.abs(p - v.target) < tolMem) { v.mt = p; v.mem = true; }
       }
     }
     if (useAnchor) {
@@ -437,8 +534,33 @@ export const methodesAppariement = {
 
     // Registre seulement : en Auto-anches, les cibles sont des cases (rankReeds
     // range les anches) ; essayé, la 8' de P02 y perdait 0,14 ¢ (médiane).
-    const chosen = assignOrdered(expected, comps, tolHz, { tie: this.cfg.mode === 'register' });
+    let chosen = assignOrdered(expected, comps, tolHz, { tie: this.cfg.mode === 'register' });
     const tNow = this.samplesTotal / this.sr;
+    // D2 : continuité d'abord (drapeau CONTINUITE) ; quand le rang et la continuité ne s'accordent pas, ou qu'une voix a perdu sa raie, l'étiquette est
+    // dite incertaine pendant ETIQUETTE_S (l'écran : pointillé et mention).
+    if (this.cfg.CONTINUITE && this.cfg.mode === 'register' && !group.isHarmonic && !group.isSub && expected.length >= 2) {
+      const rang = chosen;
+      const r = assignContinuite(expected, comps, tolHz, { tie: true });
+      chosen = r.out ?? rang;
+      const autre = chosen.some((c, i) => c !== rang[i]);
+      // Une raie franche (à moins de 12 dB de la plus forte) de plus ou de moins dans la bande de l'unisson, vue deux images de suite : le rang des voix peut avoir changé même si la continuité a tenu.
+      const mMaxC = comps.reduce((m, c) => Math.max(m, c.mag), 0);
+      const nb = comps.filter((c) => c.mag >= mMaxC * 0.1).length;
+      const e = (this.nbRaies ??= new Map()).get(group.key) ?? { stable: nb, vu: nb, n: 0 };
+      this.nbRaies.set(group.key, e);
+      let change = false;
+      if (nb === e.stable) { e.vu = nb; e.n = 0; } else if (nb === e.vu) { if (++e.n >= 1) { change = true; e.stable = nb; e.n = 0; } } else { e.vu = nb; e.n = 0; }
+      // Attribution réellement changée : une voix qui avait une raie en a maintenant une à plus de 4 ¢ de sa mémoire (ou plus du tout).
+      // (une voix qui n'a pas de raie depuis plusieurs images n'a pas d'attribution à changer : seule la perte, l'instant où elle a lieu, compte)
+      const avaitRaie = (this.avaitRaie ??= new Map());
+      const saut = expected.some((v, i) => {
+        const cle = group.key + ':' + v.def.id, avait = avaitRaie.get(cle) === true;
+        avaitRaie.set(cle, !!chosen[i]);
+        return v.mem && ((!chosen[i] && avait) || (chosen[i] && Math.abs(1200 * Math.log2(chosen[i].freq / v.mt)) > 2));
+      });
+      if (saut || change) (this.etiquetteJusqua ??= new Map()).set(group.key, tNow + ETIQUETTE_S);
+      this.surveillerDiscontinuite(group, expected, chosen, tNow);
+    }
     // Anche à l'octave juste d'une autre (registre 16'+8') : sa raie EST le
     // partiel pair de l'anche grave. Le coût de la raie « revendiquée » la
     // réservait aux anches à moins de ~9 ¢ de leur cible ; plus loin, la voix
@@ -480,7 +602,11 @@ export const methodesAppariement = {
       expected[i].regressionPhase = diagPhase(chosen[i], az);
       // Battement de l'enveloppe de son amas (clusterRefine) : deux anches proches ?
       expected[i].modulation = chosen[i]?.modulation ?? null;
-      expected[i].merged = !!chosen[i]?.claimed;
+      // Notes choisies à la main (OCTAVE_RESOLUE) : la note est déclarée par l'utilisateur, sa raie est lue
+      // telle qu'elle est (l'amas s'arrête à mi-chemin des raies des autres notes, cf. clusterRefine). Elle
+      // n'est pas « confondue » parce qu'elle tombe sur le partiel d'une autre : avant, sa voix était remplacée
+      // par le partiel de l'autre note et le désaccord réel de l'octave (jusqu'à 3,3 ¢) disparaissait.
+      expected[i].merged = !!chosen[i]?.claimed && !this.octaveResolue(group);
       if (!group.isHarmonic && this.prevF) {
         const key = `${group.key}:${expected[i].def.id}`;
         if (chosen[i]?.cluster) this.prevF.set(key, expected[i].fMeas);
@@ -488,6 +614,9 @@ export const methodesAppariement = {
       }
     }
 
+    if (this.cfg.CONTINUITE && !group.isHarmonic && !group.isSub && (this.etiquetteJusqua?.get(group.key) ?? -1) > tNow) {
+      for (const v of expected) v.etiquette = 'incertaine';
+    }
     // Battements mesurés par rapport à la voix de référence du groupe.
     const base = expected.find((v) => v.def.beatSign === 0) ?? expected[0];
     for (const v of expected) {
@@ -531,6 +660,7 @@ export const methodesAppariement = {
       if (!g.octaveClash || g.isHarmonic || g.isSub || g.voices.length !== 1) continue;
       const v = g.voices[0];
       if (!v.tracked) continue;
+      if (this.octaveResolue(g)) { v.merged = false; continue; }   // notes choisies : la raie de la note est sa mesure
       // Accord (plan.js, cfg.chordVoices) : l'anche du dessus d'une note, et sa
       // voisine du dessous (le 16' de la même note).
       const sous = chordDessous(groups, g);

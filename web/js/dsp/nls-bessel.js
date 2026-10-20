@@ -998,3 +998,212 @@ export function planchersDb(d, res, o, amp) {
   const A = Math.max(Math.hypot(amp[0], amp[1]), Math.hypot(amp[2], amp[3]));
   return 20 * Math.log10(med / (0.5 * n * Math.max(A, 1e-300)) + 1e-300);
 }
+
+// ---- UNE anche (v71, lot C2 : drapeau CERT_SEULE, audit « superposition » du 19/10/2026) --------------------------------------------------
+// Une paire dont une voix est absente (le luthier bloque une anche au doigt pour lire l'autre) n'avait jamais de chiffre certifié : le modèle à deux anches
+// prend la seconde pour une raie latérale (refus `niveau`). Ici le modèle d'UNE anche : les partiels k f (k = 1..K) d'une seule fréquence, un warp commun
+// τ(t) (la pression du soufflet déplace tous les partiels du même écart relatif) et un niveau commun g(t), amplitudes complexes libres par partiel (variable
+// projection). Même convention que Modele (f = fréquence moyenne de la fenêtre, warp à moyenne nulle).
+// Ce qu'une anche seule ne fait PAS : battre. Une seconde raie cachée (l'unisson qui n'est pas absent, une anche mal suivie) donne aux partiels k une modulation
+// de phase et d'amplitude à k·Ω qui n'est PAS celle, commune, du warp : elle reste dans le résidu (r) et le critère (certificat.js, jugerSeule) la refuse.
+export class ModeleSeul {
+  // nE : nombre de désaccords de partiels (e_k, Hz) du vecteur p ; seuls les Q premiers servent. ekC : écart type a priori du désaccord d'un partiel (¢ de SA fréquence) : une anche réelle
+  // n'est pas exactement harmonique (BASS-A0R : -0,03 à +0,03 Hz sur les rangs 2-3, ±0,5 ¢) ; sans cela l'écart de phase croît avec le rang et loin du centre de la fenêtre et le résidu
+  // (r) ne dit plus rien d'une seconde raie. L'a priori laisse f être la moyenne pesée des partiels (le désaccord moyen n'est pas identifiable).
+  constructor(ds, J, { derive = false, nE = 0, ekC = 0.7 } = {}) {
+    this.ds = ds; this.Q = ds.length; this.n = ds[0].n; this.t = ds[0].t; this.J = J; this.derive = derive;
+    this.ts = Float64Array.from(this.t, (v) => 2 * (v - this.t[0]) / ((this.t[this.n - 1] - this.t[0]) || 1) - 1);       // temps réduit [-1, 1]
+    this.nE = nE; this.iE = 1 + 2 * J; this.ekC = ekC;
+    this.npar = 1 + 2 * J + nE; this.NP = this.npar; this.warpFin = 0;      // pas de jacobienne analytique (différences finies)
+    this.freqIdx = [0, ...Array.from({ length: nE }, (_, i) => this.iE + i)]; this.fixes = []; this.coutRel = 0.5;
+    const n = this.n;
+    this.Ndata = 2 * n * this.Q; this.N = this.Ndata + 2 * J + nE;
+    let e = 0; for (const d of ds) for (let q = 0; q < d.n; q++) e += d.re[q] ** 2 + d.im[q] ** 2;
+    this.energie = e;
+    const nu = 1e-4 * e / this.Ndata;
+    this.wd = Math.sqrt(nu) / 3e-4; this.wg = Math.sqrt(nu) / 0.2;
+    this.we = Float64Array.from({ length: nE }, (_, i) => (i < ds.length ? Math.sqrt(nu) / Math.max(1e-6, ds[i].k * (ds[i].mu / ds[i].k) * ekC / C_CENTS) : 0));      // mu/k : la fréquence de départ
+    // poids d'information de chaque partiel (son énergie) : f est la moyenne pesée des partiels, les désaccords e_k lui sont orthogonaux (Σ E_k k e_k = 0) ; ε_0 = 0 lève la dernière indétermination
+    this.Ew = ds.map((d) => { let v = 0; for (let q = 0; q < d.n; q++) v += d.re[q] ** 2 + d.im[q] ** 2; return v; });
+    this.e = new Float64Array(ds.length);
+    this.tau = new Float64Array(n); this.dq = new Float64Array(n); this.gq = new Float64Array(n);
+    this.sr_ = new Float64Array(n); this.si_ = new Float64Array(n);
+    this.amp = Array.from({ length: this.Q }, () => new Float64Array(4));
+    this.iw = new Int32Array(n); this.uw = new Float64Array(n);
+    const t0 = this.t[0], span = this.t[n - 1] - t0 || 1;
+    for (let q = 0; q < n; q++) {
+      const s = ((this.t[q] - t0) / span) * (J - 1);
+      const j = Math.min(J - 2, Math.max(0, Math.floor(s)));
+      this.iw[q] = J > 1 ? j : 0; this.uw[q] = J > 1 ? s - j : 0;
+    }
+    this.LB = [-Infinity]; this.UB = [Infinity];
+    for (let j = 0; j < J; j++) { this.LB.push(-2e-2); this.UB.push(2e-2); }
+    for (let j = 0; j < J; j++) { this.LB.push(-0.6); this.UB.push(0.6); }
+    for (let i = 0; i < nE; i++) { this.LB.push(-5); this.UB.push(5); }
+  }
+  desaccords(p) {
+    const { ds, e } = this;
+    let num = 0, den = 0;
+    for (let qi = 0; qi < ds.length; qi++) { const k = ds[qi].k, eps = qi > 0 ? p[this.iE + qi] : 0; num += this.Ew[qi] * k * eps; den += this.Ew[qi] * k * k; }
+    const m = den > 0 ? num / den : 0;
+    for (let qi = 0; qi < ds.length; qi++) e[qi] = (qi > 0 ? p[this.iE + qi] : 0) - ds[qi].k * m;
+  }
+  calculerTau(p) {
+    const { n, t, tau, dq, gq, iw, uw, J } = this;
+    let moy = 0, mg = 0;
+    for (let q = 0; q < n; q++) {
+      const j1 = Math.min(J - 1, iw[q] + 1);
+      const a = p[1 + iw[q]], b = p[1 + j1];
+      dq[q] = a + (b - a) * uw[q]; moy += dq[q];
+      const ga = p[1 + J + iw[q]], gb = p[1 + J + j1];
+      gq[q] = ga + (gb - ga) * uw[q]; mg += gq[q];
+    }
+    moy /= n; mg /= n;
+    for (let q = 0; q < n; q++) gq[q] = 1 + gq[q] - mg;
+    let acc = 0;
+    tau[0] = t[0];
+    for (let q = 1; q < n; q++) { acc += 0.5 * ((dq[q] - moy) + (dq[q - 1] - moy)) * (t[q] - t[q - 1]); tau[q] = t[q] + acc; }
+  }
+  residu(p, res) {
+    const { ds, Q, n, tau, gq, t, J, sr_, si_ } = this;
+    this.calculerTau(p);
+    const f = p[0];
+    let ssr = 0, o = 0, prior = 0;
+    for (let j = 0; j < J; j++) { const a = this.wd * p[1 + j], b = this.wg * p[1 + J + j]; prior += a * a + b * b; }
+    if (this.nE) { this.desaccords(p); for (let i = 0; i < Q; i++) { const a = this.we[i] * this.e[i]; prior += a * a; } }
+    for (let qi = 0; qi < Q; qi++) {
+      const d = ds[qi], del = d.k * f + (this.nE ? this.e[qi] : 0) - d.mu, yr = d.re, yi = d.im;
+      let G = 0, br = 0, bi = 0;
+      for (let q = 0; q < n; q++) {
+        const ph = TWO_PI * (del * tau[q] + d.mu * (tau[q] - t[q])), g = gq[q];
+        const c = g * Math.cos(ph), s = g * Math.sin(ph);
+        sr_[q] = c; si_[q] = s;
+        G += c * c + s * s; br += c * yr[q] + s * yi[q]; bi += c * yi[q] - s * yr[q];
+      }
+      let xr = G > 0 ? br / G : 0, xi = G > 0 ? bi / G : 0, cp = 0;
+      if (this.derive) {
+        // dérive lente de l'amplitude de CE partiel (réelle, linéaire en t : le timbre d'une anche réelle change avec la pression, pas pareil à chaque rang). Deux passes alternées
+        // (un pas de Gauss-Newton sur c réel, puis l'amplitude complexe) : une modulation au rythme d'un battement ne s'y absorbe pas.
+        const ts = this.ts;
+        for (let passe = 0; passe < 2; passe++) {
+          let g1 = 0, h1 = 0;
+          for (let q = 0; q < n; q++) {
+            const u = 1 + cp * ts[q], mr = xr * sr_[q] - xi * si_[q], mi = xr * si_[q] + xi * sr_[q];
+            const jr = mr * ts[q], ji = mi * ts[q];
+            g1 += (yr[q] - mr * u) * jr + (yi[q] - mi * u) * ji; h1 += jr * jr + ji * ji;
+          }
+          if (h1 > 0) cp = Math.max(-0.8, Math.min(0.8, cp + g1 / (h1 + 1e-12)));
+          G = 0; br = 0; bi = 0;
+          for (let q = 0; q < n; q++) {
+            const u = 1 + cp * ts[q], c = sr_[q] * u, s = si_[q] * u;
+            G += c * c + s * s; br += c * yr[q] + s * yi[q]; bi += c * yi[q] - s * yr[q];
+          }
+          xr = G > 0 ? br / G : 0; xi = G > 0 ? bi / G : 0;
+        }
+      }
+      const A = this.amp[qi]; A[0] = xr; A[1] = xi; A[2] = cp; A[3] = 0;
+      for (let q = 0; q < n; q++) {
+        const u = this.derive ? 1 + cp * this.ts[q] : 1, mr = (xr * sr_[q] - xi * si_[q]) * u, mi = (xr * si_[q] + xi * sr_[q]) * u;
+        const er = yr[q] - mr, ei = yi[q] - mi;
+        ssr += er * er + ei * ei;
+        if (res) { res[o++] = er; res[o++] = ei; }
+      }
+    }
+    this.ssrData = ssr;
+    if (res) { for (let j = 0; j < J; j++) { res[o++] = this.wd * p[1 + j]; res[o++] = this.wg * p[1 + J + j]; } for (let i = 0; i < this.nE; i++) res[o++] = i < Q ? this.we[i] * this.e[i] : 0; }
+    return ssr + prior;
+  }
+}
+
+export function lireSeule(x, i0, i1, sr, fc, opts = {}) {
+  const g = lireSeuleGen(x, i0, i1, sr, fc, opts);
+  let r;
+  while (!(r = g.next()).done);
+  return r.value;
+}
+// x, [i0, i1), sr, fc : comme lireBesselGen. options : prior [f] (la lecture du moteur ou du certificat en cours : le premier départ), chaud (un seul départ), Kmax, kMin, iter, nDeparts,
+// noeudsS, rkMax, plageBasC / plageHautC. Rend { ok, seule: true, f: [f], sigmaC: [σ], r, Ku, K, snr, plancherDb, derive, agit, warpC, niveauWarpDb, T, J, sol, ms } ou { ok: false, raison }.
+export function* lireSeuleGen(x, i0, i1, sr, fc, opts = {}) {
+  const t0 = typeof performance !== 'undefined' ? performance.now() : 0;
+  const { plageBasC = 50, plageHautC = 110, prior = null, chaud = false, Kmax = 6, iter = 15, iterEtape = 5, tol = 1e-4, nDeparts = 2, noeudsS = 0.5, rkMax = 0.6, kMin = 1, bande = 60, derive = true, ekC = 0.7, desaccord = true } = opts;
+  const T = (i1 - i0) / sr;
+  if (!(T > 0.3)) return { ok: false, raison: 'court' };
+  const fLo = fc * 2 ** (-plageBasC / 1200), fHi = fc * 2 ** (plageHautC / 1200);
+  const K = Math.max(1, Math.min(Kmax, Math.floor(0.42 * sr / fHi)));
+  const kMinE = Math.max(1, Math.min(kMin, K - 1)), Kn = K - kMinE + 1;
+  const ks = Array.from({ length: Kn }, (_, i) => kMinE + i);
+  const J = Math.max(2, Math.min(9, Math.ceil(T / noeudsS) + 1));
+  // départs : la lecture connue, puis les pics du spectre « somme harmonique » (la raie la plus forte d'abord)
+  const departs = [];
+  if (prior && Number.isFinite(prior[0])) departs.push(prior[0]);
+  if (!(chaud && departs.length)) {
+    const fm = (fLo + fHi) / 2, D1 = Math.min(sr / 2, Math.max(60, 1.2 * K * (fHi - fLo)));
+    const ds1 = ks.map((k) => demodPartiel(x, i0, i1, k, k * fm, sr, D1));
+    if (ds1[0].n < 12) return { ok: false, raison: 'court' };
+    const pk = pics(spectreHarmonique(ds1, fLo, fHi), 4, 'G');
+    for (const q of pk) if (departs.every((d) => Math.abs(d - q.f) > 0.5 / (K * T))) departs.push(q.f);
+    yield;
+  }
+  if (!departs.length) return { ok: false, raison: 'sans pic' };
+  const steps = [1e-3 / T];
+  for (let j = 0; j < J; j++) steps.push(2e-5);
+  for (let j = 0; j < J; j++) steps.push(2e-3);
+  const nE = desaccord ? Kn : 0;
+  for (let i = 0; i < nE; i++) steps.push(1e-3 / T);
+  const libres = (mod) => Array.from({ length: mod.npar }, (_, i) => (i < mod.iE || (i - mod.iE >= 1 && i - mod.iE < mod.Q) ? i : -1)).filter((i) => i >= 0);
+  const sols = [];
+  for (const fd of departs.slice(0, chaud ? 1 : nDeparts)) {
+    const ds = ks.map((k) => demodPartiel(x, i0, i1, k, k * fd, sr, bande));
+    yield;
+    let p = new Float64Array(1 + 2 * J + nE); p[0] = fd;
+    let ku = Kn;
+    // continuation sur les partiels (le warp se cale sur les bas partiels) ; K_utile : le partiel qui n'est pas décrit arrête la liste
+    const etapes = [1, 2, 3, 4, 6].filter((q) => q < Kn).concat([Kn]);
+    for (const q of etapes) {
+      const m = new ModeleSeul(ds.slice(0, q), J, { derive, nE, ekC }), pPrec = p;
+      p = (yield* ajusterLMg(m, p, libres(m), steps, { iter: q === Kn ? iter : iterEtape, tol })).p;
+      if (q >= 3) {
+        const res = new Float64Array(m.N); m.residu(p, res);
+        const dq = m.ds[q - 1], o = (q - 1) * 2 * dq.n;
+        let er = 0, ey = 0; for (let i = 0; i < dq.n; i++) { er += res[o + 2 * i] ** 2 + res[o + 2 * i + 1] ** 2; ey += dq.re[i] ** 2 + dq.im[i] ** 2; }
+        if (er > rkMax * ey) { ku = q - 1; p = pPrec; break; }
+      }
+    }
+    const mod = new ModeleSeul(ds.slice(0, ku), J, { derive, nE, ekC });
+    const ssr = mod.residu(p);
+    sols.push({ p, mod, ssr, ssrData: mod.ssrData, ku });
+  }
+  sols.sort((u, v) => u.ssrData / Math.max(u.mod.energie, 1e-300) - v.ssrData / Math.max(v.mod.energie, 1e-300));
+  const best = sols[0], pb = best.p, mod = best.mod;
+  const dof = Math.max(1, mod.Ndata - mod.npar - 4 * mod.Q), s2 = best.ssrData / dof;
+  const sig = covariance(mod, pb, steps, s2);
+  const f1 = pb[0];
+  const res = new Float64Array(mod.N);
+  mod.residu(pb, res);
+  let energie = 0, o = 0;
+  const snr = [], plancher = [], rel = [];
+  for (let qi = 0; qi < mod.Q; qi++) {
+    const d = mod.ds[qi];
+    let ey = 0, er = 0;
+    for (let q = 0; q < d.n; q++) { ey += d.re[q] ** 2 + d.im[q] ** 2; er += res[o + 2 * q] ** 2 + res[o + 2 * q + 1] ** 2; }
+    energie += ey;
+    snr.push(10 * Math.log10(Math.max(1e-30, ey - er) / Math.max(1e-30, er)));
+    rel.push(er / Math.max(ey, 1e-300));
+    plancher.push(planchersDb(d, res, o, mod.amp[qi]));
+    o += 2 * d.n;
+  }
+  const Ku = snr.filter((v) => v >= 20).length;
+  const J_ = J;
+  const dw = Array.from({ length: J_ }, (_, j) => pb[1 + j]);
+  const moy = dw.reduce((a, b) => a + b, 0) / J_, tj = dw.map((_, j) => (j / (J_ - 1) - 0.5) * T);
+  const sxx = tj.reduce((a, b) => a + b * b, 0), pente = tj.reduce((a, b, j) => a + b * (dw[j] - moy), 0) / sxx;
+  const agit = Math.sqrt(dw.reduce((a, v, j) => a + (v - moy - pente * tj[j]) ** 2, 0) / J_) * C_CENTS;
+  return {
+    // sigmaC : l'écart type statistique ET la borne du biais d'une seconde raie qui resterait cachée (la phase d'une raie à −x dB oscille de ρ = √r rad : la moyenne de la fréquence sur T
+    // en est écartée de ρ/(π T) Hz au plus) ; sigmaStat : le seul écart type statistique
+    ok: true, seule: true, f: [f1], sigmaC: [Math.hypot(sig[0] * C_CENTS / f1, C_CENTS * Math.sqrt(Math.max(0, best.ssrData / Math.max(1e-300, energie))) / (Math.PI * T * f1))], sigmaStat: sig[0] * C_CENTS / f1, Om: null, b: [0], m: 0, modele: 'seule', derive: pente * C_CENTS, agit,
+    warpC: dw.map((v) => (v - moy) * C_CENTS), niveauWarpDb: Array.from({ length: J_ }, (_, j) => pb[1 + J_ + j]),
+    r: best.ssrData / Math.max(1e-300, energie), rel, ssr: best.ssrData, dof, s2, K: mod.Q, Ku, T, J: J_, snr, plancherDb: plancher,
+    sol: Float64Array.from([f1]), pfull: pb, mod, ms: typeof performance !== 'undefined' ? performance.now() - t0 : 0,
+  };
+}

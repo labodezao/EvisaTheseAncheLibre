@@ -19,9 +19,11 @@ import { ligneMicro, consignes, informations, plateforme, propositionMicro, bloc
 import {
   Enregistreur, choisirStockage, listerSessions, recupererSession, exporterSession,
 } from './session-stockage.js';
-import { lireEnteteWav, dureeSession, DUREES_SESSION_MIN, MORCEAU_S, blocCalcul } from './session-format.js';
+import { lireEnteteWav, dureeSession, DUREES_SESSION_MIN, MORCEAU_S, blocCalcul, journalDuJson } from './session-format.js';
 import { CHORD_TYPES, parseDegrees, degreesText, degreeLabel, chordName } from './dsp/chord.js';
 import { initBench } from './bench.js';
+import { LECTURE_DECOUPLEE } from './dsp/lecture.js';
+import { brancherMicro } from './lecture-micro.js';
 import { afficherVerrou } from './ui/verrou-affichage.js';
 
 const $ = (id) => document.getElementById(id);
@@ -32,7 +34,7 @@ const $ = (id) => document.getElementById(id);
 // s'ils diffèrent, le navigateur a mélangé des fichiers de deux versions
 // (cache HTTP de GitHub Pages après une mise à jour) — on le dit clairement
 // au lieu d'échouer en silence (strobe vide, boutons sans effet).
-const APP_VERSION = '70';
+const APP_VERSION = '71';
 // Le pied de page lit la version ici : jamais de numéro écrit en dur dans index.html.
 { const pied = document.getElementById('appVersion'); if (pied) pied.textContent = `version ${APP_VERSION}`; }
 // À côté : la révision de l'interface (celle du cache du service worker, « r4 »), pour voir
@@ -247,6 +249,7 @@ const priseMasquee = new Set();
 
 let audioCtx = null;
 let worker = null;
+let lecteurMicro = null;   // Worker léger de lecture du micro (lot F2, drapeau LECTURE_DECOUPLEE)
 let mediaStream = null;
 let toneNodes = [];
 const report = new Report();
@@ -346,8 +349,7 @@ async function startAudio() {
       // à-coups (±6 ¢ toutes les ~2 s, mesuré) — cf. worker.js, readStream.
       const track = mediaStream.getAudioTracks()[0];
       if (typeof MediaStreamTrackProcessor !== 'undefined' && !cfg.forceWebAudio) {
-        const proc = new MediaStreamTrackProcessor({ track, maxBufferSize: 256 });   // ~2,5 s de trames : un calcul lent du Worker ne fait plus jeter de son (trous « retard », session du 19/10)
-        worker.postMessage({ type: 'stream', readable: proc.readable }, [proc.readable]);
+        lecteurMicro = brancherMicro(track, worker, cfg.lectureDecouplee ?? LECTURE_DECOUPLEE).lecteur;
         state.capture = { direct: true };
       } else {
         audioCtx.createMediaStreamSource(mediaStream).connect(node);
@@ -404,12 +406,14 @@ function stopAudio() {
   // session reste exportable une fois le micro coupé (elle est stockée).
   if (worker && cfg.devMode) {
     const w = worker;
-    devDemander(w, 'devFin').then(() => { w.terminate(); showDevStatus(null); });
+    const l = lecteurMicro;
+    devDemander(w, 'devFin').then(() => { w.terminate(); l?.terminate(); showDevStatus(null); });
   } else {
     worker?.terminate();
+    lecteurMicro?.terminate();
   }
   audioCtx?.close();
-  audioCtx = null; worker = null; mediaStream = null; microInfo = null; priseEtat = null;
+  audioCtx = null; worker = null; lecteurMicro = null; mediaStream = null; microInfo = null; priseEtat = null;
   majMicroBarre(); majPrise();
   state.running = false;
   state.tick = null;
@@ -2741,6 +2745,7 @@ function devMeta(man, inv) {
     debut: man.debut ?? null, fin: man.fin ?? null,
     user_agent: c.userAgent ?? '', micro: c.micro && typeof c.micro === 'object' ? c.micro.label : (c.micro ?? ''), source: c.source ?? '', echantillonnage_hz: man.sr,
     capture: c.capture?.direct ? 'micro lu directement (MediaStreamTrackProcessor)' : 'Web Audio (rééchantillonné par le navigateur)',
+    capture_mode: c.capture?.direct ? 'direct' : (c.capture ? 'webaudio' : null), capture_hz: c.capture?.sampleRate ?? man.sr ?? null,   // lot G1 (D4)
     duree_s: inv.echantillons / man.sr, mesures: man.mesures ?? 0, tronque: !!man.plein,
     duree_max_s: man.maxS ?? null, morceaux: inv.morceaux, morceau_s: MORCEAU_S, interrompue: !!man.interrompue,
     stockage: man.stockage ?? null, reglages_interface: c.reglages ?? null, reglages_moteur: man.cfg ?? null,
@@ -2750,6 +2755,7 @@ function devMeta(man, inv) {
     calcul: blocCalcul(man.prise),      // v69 (I5) : msFroid, lente, dspMs {n, p50, p99} de la session
     prise: man.prise ? { saine: !(man.prise.episodes ?? []).length, episodes: man.prise.episodes ?? [], trous: man.prise.trous ?? [],
       resume: man.prise.resume ?? null, canaux_flux: c.capture?.canaux ?? null } : null,
+    journal: journalDuJson(man.journal),   // lots F2 et G1
   };
 }
 

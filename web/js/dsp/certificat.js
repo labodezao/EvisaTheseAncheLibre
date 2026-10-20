@@ -24,7 +24,7 @@
 // fenêtres courtes, n'est plus le goulot du temps de pose.
 //
 // Le calcul est fait par un Worker dédié (v66, cert-calcul.js / cert-worker.js) ; sans lui, il est réparti sur les images du moteur (générateur : `CERT.PAS_PAR_IMAGE` itérations par image de 85 ms).
-import { lireBesselGen, NLS_LLR_SUR } from './nls-bessel.js';
+import { lireBesselGen, lireSeuleGen, NLS_LLR_SUR, C_CENTS } from './nls-bessel.js';
 import { lireTrioGen } from './nls-trio.js';
 import { centsBetween } from '../music.js';
 
@@ -118,6 +118,8 @@ export const CERT = {
   ETIQ_COH_C: 3,             // v68 (mécanisme trouvé par les passes finales, CERTIFICAT.md § 0B) : une lecture n'est certifiable que si aucun ajustement plausible de la note (r <= 0,05, LLR >= 25) des ETIQ_COH_S dernières secondes ne s'en écarte de plus de ce nombre de ¢ (0 : éteint). Une note dont la fenêtre donne tantôt la bonne étiquette (erreur 0), tantôt l'anche faible lue une bande latérale plus bas (-21,5 ¢, hypercube4 plan 91 graine 32) est ambiguë : refus `etiquette`
   ETIQ_COH_S: 4,
   RIVAL_MOITIE: true,        // v68 (H9) : un battement ajusté dont la moitié est sous OMEGA_MIN est confronté à son rival Ω/2 (même modèle) ; pas pire de LLR_MIN σ² : refusé `accordees` (Δ = 0,3 Hz lu à 0,6 Hz sur Linux / Node 22, test F10)
+  BATTEMENT_PRINCIPAL: false, // v71 (lot C3) : le battement est la grandeur principale d'une musette : accord obligatoire avec l'enveloppe sûre, écart brut affiché seulement quand il est lu et corroboré (battement.js, BP_*), ajustements de moins d'un battement écartés (BP_NB_FIT) ; éteint : la v70 à l'identique
+  BP_NB_FIT: 1,              // v71 (lot C3), avec BATTEMENT_PRINCIPAL : un ajustement n'entre dans le battement affiché que si sa fenêtre contient au moins ce nombre de battements (T · Ω̂) : en dessous deux raies ne se séparent pas et Ω̂ est celui d'un rival (mesuré sur le H6 : points de 0,8 s à 54 et 58 bat/min pour 72 et 33)
   ENV_ACCORD: 0.25,          // v68 (H9) : un Ω d'ajustement n'entre dans le battement affiché que s'il est d'accord à cette part près avec le battement de l'enveloppe, quand celle-ci en a un (c'est la définition du luthier)
   PRESENT: false,            // v68 (H2d) : la fréquence promue est ramenée de la fin de la fenêtre lue (le milieu + T/2) quand la dérive est significative (|t| >= PRESSION_T_MIN) et <= DERIVE_MAX ; éteint : la vérité des bancs est la moyenne de la fenêtre (voir CERTIFICAT.md § 0B)
   NB_MIN_POST: 1,            // v68 (H1) : APRÈS l'ajustement, la fenêtre contient au moins ce nombre de battements MESURÉS (T · Ω̂) ; la fenêtre est planifiée sur l'Ω du traqueur, qui peut le surestimer (B plan 33 : 0,7 battement mesuré, posé faux de 0,6 ¢). 0 : éteint
@@ -130,6 +132,20 @@ export const CERT = {
   KU_SUR_MIN_GRAVE: 3,       // v68 (H3, RETENU) : sous F0_GRAVE_HZ, une lecture sûre exige au moins ce nombre de partiels décrits par le modèle (lent100 plan 82 : raie étrangère non résolue à 103 Hz avec 2 partiels, faux de 0,53 ¢). Plan 2^3 (CERTIFICAT.md § 0B) : H6 réel 16/27 inchangé, lent100 14 -> 11 posées et 1 -> 0 faux ; GLOBAL (tous les registres), 3 coûte 38 notes sur 364 (plan 2^(5-2) de l'audit n° 4)
   F0_GRAVE_HZ: 120,          // v69 (I1) : 120 au lieu de 150 (plan 2^2 x 4 graines neuves, CERTIFICAT.md § 0C) : graves posées 12 -> 29 sur 832, 0 faux, lent100 plan 82 jamais sûr
   KU_LIBRE_GRAVE: 0,         // v68 (H3, variante ciblée, mesurée équivalente et non retenue) : sous F0_GRAVE_HZ, une raie étrangère adoptée par le modèle exige au moins ce nombre de partiels décrits (H6 réel 16/27, lent100 14 -> 11 posées et 1 -> 0 faux, comme KU_SUR_MIN_GRAVE)
+  // v71 (lot C2, audit « superposition » du 19/10/2026) : l'anche SEULE. Une paire dont une voix est absente depuis SEULE_ABSENTE_S se certifie comme UNE anche (nls-bessel.js, lireSeuleGen) :
+  // le luthier qui bloque une anche au doigt pour lire l'autre avait un chiffre jamais certifié (refus `niveau`, 0 image « sûr » sur 10 passes seules, même 10 s).
+  CERT_SEULE: true,          // allumé (lot C2, v71) : critère tenu (anche seule certifiée en 4 s au plus sur A4R, MGH-AR, BASS-A0R ; 0 « sûr » faux ; tableau de bord de CERTIFICAT.md inchangé sur lhs20 x 2 graines)
+  SEULE_ABSENTE_S: 2,        // une voix absente (non suivie) depuis ce temps : la paire est une anche seule
+  SEULE_PRE_S: 0.8,          // dès ce temps d'absence la lecture à une anche est calculée d'avance (affichée à SEULE_ABSENTE_S)
+  SEULE_PRESENTE_S: 0.5,     // une voix est présente si elle est suivie sans interruption depuis ce temps
+  SEULE_FEN_F0_S: 200,       // la fenêtre dure au moins SEULE_FEN_F0_S / f (s) : une anche seule n'a pas à séparer deux raies, seulement à lire sa hauteur (FEN_F0_S : 350 pour une paire)
+  SEULE_FEN_MAX_S: 1.5,
+  SEULE_KMAX: 6,             // partiels lus (une seule anche : pas d'étiquette à départager, plus de partiels pour une lecture plus juste)
+  SEULE_EK_C: 0.7,           // écart type a priori du désaccord d'un partiel (¢ de sa fréquence) : une anche réelle n'est pas exactement harmonique
+  SEULE_R_MAX: 0.005,        // résidu relatif d'UNE anche : une seconde raie cachée (unisson décalé 1,2 Hz) laisse 2e-2 à -20 dB, 5e-2 à -12 dB, 0,2 à -6 dB, 0,3 à 0 dB ; les échantillons réels A4R, MGH-AR, BASS-A0R : 4e-4 à 4e-3
+  SEULE_BORNE_C: 0.3,        // borne du biais d'une seconde raie cachée : 1731 · √r / (π T f) ¢ (la phase d'une raie à −x dB oscille de ρ = √r rad : la moyenne de la fréquence sur T en est écartée de ρ/(π T) Hz au plus)
+  SEULE_KU_MIN: 2,           // partiels décrits (S/B >= 20 dB) au moins ; sous F0_GRAVE_HZ : KU_SUR_MIN_GRAVE
+  SEULE_MOITIE_S: 0.6,       // C9 par moitiés : durée minimale de chaque moitié
   OMEGA_MAX: 60,             // Hz : au-delà, hors domaine (anches « presque deux notes » ; 25 en v63 ; 50 ¢ à A6 font 51 Hz)
 };
 
@@ -145,6 +161,7 @@ export function juger(nls, moteur, { calib = 1, zeros = false, opts = CERT, deri
   const detail = {};
   if (zeros) raisons.push('trous');
   if (!nls || !nls.ok) { raisons.push('domaine'); return { ok: false, raisons, detail }; }
+  if (nls.seule) return jugerSeule(nls, moteur, { calib, zeros, opts, derive, sauterStabilite });
   const trio = Array.isArray(nls.Om);
   const f = nls.f.map((v) => v * calib);
   const cents = (a, b) => 1200 * Math.log2(a / b);
@@ -210,15 +227,37 @@ export function juger(nls, moteur, { calib = 1, zeros = false, opts = CERT, deri
   return { ok: raisons.length === 0, raisons, detail };
 }
 
+// Jugement d'une lecture à UNE anche (v71, CERT_SEULE). Mêmes critères que juger quand ils ont un sens sans battement : prise saine (C1), peigne sain (C2 : le résidu du modèle à une
+// anche ne montre aucune seconde raie : c'est ce qui sépare l'anche seule de l'unisson mal suivi), partiels décrits (C3), stabilité (C6). Pas d'étiquette (C4), pas de battement.
+// La borne du biais d'une seconde raie qui resterait cachée (detail.borne, ¢) s'ajoute à l'écart type annoncé (detail.sigma).
+export function jugerSeule(nls, moteur, { calib = 1, zeros = false, opts = CERT, derive = null, sauterStabilite = false } = {}) {
+  const raisons = [];
+  const detail = {};
+  if (zeros) raisons.push('trous');
+  const f = nls.f[0] * calib;
+  detail.accord = Math.abs(1200 * Math.log2(moteur.f[0] / f));
+  detail.kot = nls.Ku; detail.beta = 0; detail.m = 0;
+  detail.plancher = Math.max(...nls.plancherDb.slice(0, 2).map((v) => (v == null || Number.isNaN(v) ? 999 : v)));
+  detail.borne = C_CENTS * Math.sqrt(Math.max(0, nls.r)) / (Math.PI * nls.T * f);
+  detail.sigma = Number.isFinite(nls.sigmaC?.[0]) ? nls.sigmaC[0] : 99;       // statistique et borne d'une seconde raie cachée (nls-bessel.js)
+  if (!(nls.r <= opts.SEULE_R_MAX) || !(detail.borne <= opts.SEULE_BORNE_C) || !(detail.plancher <= opts.PLANCHER_MAX_DB)) { raisons.push('peigne'); detail.causePeigne = 'etrangere'; }
+  if (!(nls.Ku >= opts.SEULE_KU_MIN) || (opts.KU_SUR_MIN_GRAVE > 0 && f < opts.F0_GRAVE_HZ && nls.Ku < opts.KU_SUR_MIN_GRAVE)) raisons.push('resolution');
+  const dBrute = derive ?? nls.derive;
+  const dFit = Math.abs(nls.derive ?? 0);
+  const d = derive != null && (opts.DERIVE_FIT_SEUIL > 0 && dFit > opts.DERIVE_FIT_SEUIL) ? Math.max(Math.abs(derive), dFit) : dBrute;
+  if (!sauterStabilite && (!(Math.abs(d) <= opts.DERIVE_MAX || Math.abs(d) * nls.T <= (opts.EXC_MAX ?? 0)) || !(nls.agit <= opts.AGIT_MAX))) raisons.push('stabilite');
+  return { ok: raisons.length === 0, raisons, detail };
+}
+
 // Ajustement d'une fenêtre : l'ajustement entier ; s'il passe C1 à C8 et que les moitiés se résolvent, les deux moitiés (point de départ chaud : la lecture
 // entière) pour C9 par moitiés. Générateur : un `yield` par pas, comme lireBesselGen. n : 2 ou 3 anches.
 export function* ajusterFenetre(n, x, sr, fc, optsFit, opts, calib, moteur) {
-  const lire = n === 3 ? lireTrioGen : lireBesselGen;
+  const lire = n === 3 ? lireTrioGen : n === 1 ? lireSeuleGen : lireBesselGen;
   const main = yield* lire(x, 0, x.length, sr, fc, optsFit);
   if (main.ok && opts.CONFIRME_MODE >= 1) {
     const v = juger(main, moteur, { calib, zeros: false, opts, sauterStabilite: true });
-    const omMin = n === 3 ? Math.min(...main.Om) : main.Om;
-    if (v.ok && main.K * omMin * main.T / 2 >= opts.KOT_MOITIE) {
+    const omMin = n === 3 ? Math.min(...main.Om) : n === 1 ? 0 : main.Om;
+    if (v.ok && (n === 1 ? main.T / 2 >= opts.SEULE_MOITIE_S : main.K * omMin * main.T / 2 >= opts.KOT_MOITIE)) {
       const mid = x.length >> 1, h = [];
       for (const [a, b] of [[0, mid], [mid, x.length]]) {
         const r = yield* lire(x, a, b, sr, fc, { ...optsFit, prior: main.f, priorFirst: true, nDeparts: 1, chaud: true, pInit: main.sol, dt: ((a + b) / 2 - x.length / 2) / sr, libreInit: main.libre ? main.sol[n === 3 ? 13 : 8] : null });
@@ -232,7 +271,7 @@ export function* ajusterFenetre(n, x, sr, fc, optsFit, opts, calib, moteur) {
 
 // Un travail complet (v66, F4) : une description sans fonctions, exécutable dans le Worker du certificat ou en ligne. Rend le résultat SANS le modèle (`mod`, lourd, non transférable).
 export function* executerTravail(spec) {
-  const lire = spec.n === 3 ? lireTrioGen : lireBesselGen;
+  const lire = spec.n === 3 ? lireTrioGen : spec.n === 1 ? lireSeuleGen : lireBesselGen;
   const nls = spec.sentinelle ? yield* lire(spec.x, 0, spec.x.length, spec.sr, spec.fc, spec.optsFit) : yield* ajusterFenetre(spec.n, spec.x, spec.sr, spec.fc, spec.optsFit, spec.opts, spec.calib, spec.moteur);
   if (nls && nls.ok) { const { mod, debug, ...reste } = nls; void mod; void debug; return reste; }
   return nls;
@@ -330,11 +369,50 @@ export const methodesCertificat = {
     this.certifierGroupe(g, tNow ?? this.samplesTotal / this.sr, 3, null);
   },
 
+  // v71 (CERT_SEULE) : la paire dont toutes les voix sauf une sont absentes depuis SEULE_ABSENTE_S est UNE anche. Une voix « présente » est suivie sans interruption depuis SEULE_PRESENTE_S
+  // (une anche bloquée au doigt est parfois prise un instant pour un partiel : 1 à 3 images sur 100, BASS-A0R seule). Rend { v, t0, confirmee } ou null : `confirmee` à partir de SEULE_ABSENTE_S ;
+  // à partir de SEULE_PRE_S (avant) la lecture à une anche est déjà calculée (`attente`) mais pas affichée, pour qu'elle existe dès la confirmation (un échantillon de 2,9 s ne tient pas plus).
+  voixSeule(g, tNow, opts) {
+    const ok = (v) => v?.tracked && !v.held && !v.coarse && !v.merged && Number.isFinite(v.fMeas);
+    this.seuleEtat ??= new Map();
+    const cle = `${g.key}:${g.center}`;
+    let se = this.seuleEtat.get(cle);
+    if (!se || tNow - se.vu > 1.0) { se = { vu: tNow, t0: tNow, abs: new Map(), run: new Map() }; this.seuleEtat.set(cle, se); }
+    se.vu = tNow;
+    const vs = g.voices;
+    const presente = (i) => se.run.has(i) && tNow - se.run.get(i) >= opts.SEULE_PRESENTE_S;
+    vs.forEach((v, i) => {
+      if (ok(v)) { if (!se.run.has(i)) se.run.set(i, tNow); } else se.run.delete(i);
+      if (presente(i)) se.abs.delete(i); else if (!se.abs.has(i)) se.abs.set(i, tNow);
+    });
+    const j = vs.findIndex((v, i) => ok(v) && vs.every((w, k) => k === i || (se.abs.has(k) && tNow - se.abs.get(k) >= opts.SEULE_PRE_S)));
+    if (j < 0) return null;
+    const absence = Math.min(...vs.map((w, k) => (k === j ? Infinity : tNow - se.abs.get(k))));
+    return { v: vs[j], t0: se.t0, confirmee: absence >= opts.SEULE_ABSENTE_S };
+  },
+
   // Pose `refus` / `cert` sur les voix et, si la lecture n'est pas certifiée, ramène `etatAnche` à « en cours » avec une marge. v64 (`PROMOTION`) :
   // une seconde lecture certifiée devient la valeur affichée et le « sûr » (le traqueur peut être encore « en cours » ou « au centre »).
   certifierGroupe(g, tNow, n, t0Note, envHz = null) {
     const opts = { ...CERT, ...(this.cfg.certificat ?? {}) };
     if (this.cfg.certificat?.actif === false) return;
+    const se = n === 2 && opts.CERT_SEULE ? this.voixSeule(g, tNow, opts) : null;
+    if (!se) return this.certifierCorps(g, tNow, n, t0Note, envHz);
+    // v71 (CERT_SEULE) : une voix est absente. La paire garde sa chance (une anche faible que le traqueur perd peut être lue par le modèle à deux anches) ; ce n'est que si elle ne
+    // certifie rien que la lecture à UNE anche prend le relais. Avant la confirmation (SEULE_ABSENTE_S) elle est seulement calculée d'avance (`attente`), pas affichée.
+    const gs = { key: `${g.key}:seule`, center: g.center, voices: [se.v] };
+    if (!se.confirmee) this.certifierCorps(gs, tNow, 1, t0Note ?? se.t0, null, true);
+    this.certifierCorps(g, tNow, 2, t0Note, envHz);
+    const posee = (v) => v.source === 'certificat' && v.etatAnche === 'sur' && v.margeAnche === 0;
+    if (se.confirmee && !posee(se.v)) {
+      const v = se.v, sauve = { etat: v.etatAnche, marge: v.margeAnche, refus: v.refus, cause: v.refusCause, tBesoin: v.tBesoin, cert: v.cert };
+      this.certifierCorps(gs, tNow, 1, t0Note ?? se.t0, null);
+      if (posee(v)) { for (const w of g.voices) if (w !== v) { w.refus = null; w.refusCause = null; w.cert = null; } }      // la voix absente ne sonne pas : rien à certifier ni à refuser
+      else { v.etatAnche = sauve.etat; v.margeAnche = sauve.marge; v.refus = sauve.refus; v.refusCause = sauve.cause; v.tBesoin = sauve.tBesoin; v.cert = sauve.cert; }      // la lecture à une anche ne certifie pas non plus : le refus de la paire reste le message
+    }
+  },
+  certifierCorps(g, tNow, n, t0Note, envHz = null, attente = false) {
+    const opts = { ...CERT, ...(this.cfg.certificat ?? {}) };
     const cle = `${g.key}:${g.center}`;
     const vs = [...g.voices].sort((a, b) => a.target - b.target);
     const ok = (v) => v?.tracked && !v.held && !v.coarse && !v.merged && Number.isFinite(v.fMeas);
@@ -406,15 +484,15 @@ export const methodesCertificat = {
       // (FEN_F0_S / f : en ¢, l'erreur d'une fréquence est en 1/f) ; elle vise FEN_MAX_S mais jamais moins que ce besoin, jamais plus que FEN_ABS_MAX_S
       const fm = fMoteur();
       const ecarts = fm.slice(1).map((f, j) => Math.abs(f - fm[j]));
-      const om = st.omega ?? Math.min(...ecarts);
+      const om = n === 1 ? 0 : st.omega ?? Math.min(...ecarts);
       const K = Math.max(1, Math.min(opts.KMAX, Math.floor(0.42 * this.sr / (fm[n - 1] * 1.04))));
-      const omOk = om >= opts.OMEGA_MIN && om <= opts.OMEGA_MAX;
+      const omOk = n !== 1 && om >= opts.OMEGA_MIN && om <= opts.OMEGA_MAX;
       // v67 (G2) : battement lent : la fenêtre est un nombre ENTIER de battements (au moins ENTIER_NB)
       const entier = n === 2 && opts.ENTIER_NB > 0 && omOk && om < opts.OMEGA_SUR_MIN;
-      let besoin = omOk ? Math.max(opts.FEN_MIN_S, (opts.NB_MIN ?? 0) / om, (opts.FEN_F0_S ?? 0) / fm[n >> 1], 1.1 * opts.KOT_MIN / (K * om)) : opts.FEN_MIN_S;
+      let besoin = n === 1 ? Math.max(opts.FEN_MIN_S, opts.SEULE_FEN_F0_S / fm[0]) : omOk ? Math.max(opts.FEN_MIN_S, (opts.NB_MIN ?? 0) / om, (opts.FEN_F0_S ?? 0) / fm[n >> 1], 1.1 * opts.KOT_MIN / (K * om)) : opts.FEN_MIN_S;
       if (entier) besoin = Math.max(besoin, opts.ENTIER_NB / om);
       const plafond = Math.min(entier ? opts.FEN_ENTIER_MAX_S : opts.FEN_ABS_MAX_S, this.anneau.length / this.sr - 0.1);
-      let fen0 = Math.min(Math.min(plafond, Math.max(opts.FEN_MAX_S, besoin)), age - opts.DEBUT_S);
+      let fen0 = Math.min(Math.min(plafond, Math.max(n === 1 ? opts.SEULE_FEN_MAX_S : opts.FEN_MAX_S, besoin)), age - opts.DEBUT_S);
       if (entier) fen0 = Math.floor(fen0 * om + 1e-6) / om;
       if (fen0 >= besoin - 1e-6) {
         let x = this.extraireAnneau(iFin - Math.round(fen0 * this.sr), iFin);
@@ -432,7 +510,7 @@ export const methodesCertificat = {
             // à chaud seulement si la fenêtre n'a pas trop bougé depuis l'ajustement d'où l'on part (au-delà, les paramètres faibles — indices de modulation, phases — ne sont plus un bon départ)
             if (chaud && Math.abs((tNow - fen / 2) - chaud.tMilieu) > opts.CHAUD_DT_MAX_S) chaud = null;
             const prior = chaud ? chaud.f.map((f) => f / calib) : fMoteur().map((f) => f / calib);
-            this.lancerTravail(st, cle, tNow, { n, x, sr: this.sr, fc: g.center, optsFit: { prior, priorFirst: !!chaud || (opts.PRIOR_FIRST && n === 2 && vs.every(ok)), chaud: !!chaud, pInit: chaud?.sol ?? null, dt: chaud ? (tNow - fen / 2) - chaud.tMilieu : 0, libreInit: chaud?.sol && chaud.libre ? chaud.sol[n === 3 ? 13 : 8] : null, Kmax: opts.KMAX, iter: lente ? opts.LENT_ITER : opts.ITER, nLibre: opts.NLIBRE, nDeparts: chaud ? 1 : (lente ? opts.LENT_NDEPARTS : opts.NDEPARTS), modele: opts.MODELE, rkMax: opts.RK_MAX_AM, kcMax: !!opts.KC_MAX, kcPropre: !!opts.KC_PROPRE, libreDoublon: !!opts.LIBRE_DOUBLON, doublonDist: opts.DOUBLON_DIST, doublonDb: opts.DOUBLON_DB, omegaMin: opts.RIVAL_MOITIE && n === 2 ? opts.OMEGA_MIN : 0 }, opts, calib, moteur: { f: fMoteur(), sur: moteurSur } },
+            this.lancerTravail(st, cle, tNow, { n, x, sr: this.sr, fc: g.center, optsFit: { prior, priorFirst: !!chaud || (opts.PRIOR_FIRST && n === 2 && vs.every(ok)), chaud: !!chaud, pInit: chaud?.sol ?? null, dt: chaud ? (tNow - fen / 2) - chaud.tMilieu : 0, libreInit: chaud?.sol && chaud.libre ? chaud.sol[n === 3 ? 13 : 8] : null, Kmax: opts.KMAX, iter: lente ? opts.LENT_ITER : opts.ITER, nLibre: opts.NLIBRE, nDeparts: chaud ? 1 : (lente ? opts.LENT_NDEPARTS : opts.NDEPARTS), modele: opts.MODELE, rkMax: opts.RK_MAX_AM, kcMax: !!opts.KC_MAX, kcPropre: !!opts.KC_PROPRE, libreDoublon: !!opts.LIBRE_DOUBLON, doublonDist: opts.DOUBLON_DIST, doublonDb: opts.DOUBLON_DB, omegaMin: opts.RIVAL_MOITIE && n === 2 ? opts.OMEGA_MIN : 0, ...(n === 1 ? { Kmax: opts.SEULE_KMAX, ekC: opts.SEULE_EK_C } : {}) }, opts, calib, moteur: { f: fMoteur(), sur: moteurSur } },
               { fMoteur: fMoteur(), moteurSur, tMilieu: tNow - fen / 2, tFin: tNow, T: fen, zeros, froid: !chaud });
           } else if (zeros) { st.derniere = { ok: false, raisons: ['trous'], t: tNow }; st.cands = []; }
         }
@@ -440,7 +518,7 @@ export const methodesCertificat = {
     }
 
     // 2 bis. sentinelle (F1)
-    if (opts.SENTINELLE && certTient && !st.jobs.some((j) => j.sentinelle) && tNow - (st.tSent ?? -1e9) >= opts.SENT_PERIODE_S && st.cert.sol) {
+    if (opts.SENTINELLE && n !== 1 && certTient && !st.jobs.some((j) => j.sentinelle) && tNow - (st.tSent ?? -1e9) >= opts.SENT_PERIODE_S && st.cert.sol) {
       const omS = st.cert?.nls?.Om;
       const fenBat = opts.SENT_FEN_BAT > 0 && Number.isFinite(omS) && omS > 0 ? Math.min(opts.SENT_FEN_BAT_MAX, opts.SENT_FEN_BAT / omS) : 0;      // v68 : battement lent, la sentinelle voit au moins SENT_FEN_BAT battement(s)
       const fenS = Math.min(Math.max(opts.SENT_FEN_S, fenBat), age - opts.DEBUT_S);
@@ -454,6 +532,8 @@ export const methodesCertificat = {
         }
       }
     }
+
+    if (attente) return;       // v71 : lecture à une anche calculée d'avance (voixSeule), pas encore affichée
 
     // 3. verdict affiché
     const certOk = st.cert?.ok && this.certAccord(st.cert, vs, tNow, opts);
@@ -525,7 +605,7 @@ export const methodesCertificat = {
     const v = juger(nls, { f: job.fMoteur, sur: job.moteurSur }, { calib, zeros: false, opts, derive: deriveM });
     const f = nls.ok ? nls.f.map((x) => x * calib) : null;
     // battement de la note : les ajustements dont seule la confirmation ou l'accord manque donnent un Ω aussi bon que les autres
-    if (n === 2 && nls.ok && v.raisons.every((q) => ['verification', 'accord', 'stabilite', 'lent'].includes(q)) && nls.r <= opts.R_MAX && (st.envHz == null || Math.abs(nls.Om * calib - st.envHz) <= opts.ENV_ACCORD * st.envHz)) { (st.omegas ??= []).push({ t: job.tMilieu, T: job.T, om: nls.Om * calib }); if (st.omegas.length > 150) st.omegas.shift(); }
+    if (n === 2 && nls.ok && v.raisons.every((q) => ['verification', 'accord', 'stabilite', 'lent'].includes(q)) && nls.r <= opts.R_MAX && (st.envHz == null || Math.abs(nls.Om * calib - st.envHz) <= opts.ENV_ACCORD * st.envHz) && (!opts.BATTEMENT_PRINCIPAL || job.T * nls.Om * calib >= opts.BP_NB_FIT)) { (st.omegas ??= []).push({ t: job.tMilieu, T: job.T, om: nls.Om * calib }); if (st.omegas.length > 150) st.omegas.shift(); }
     st.essais++;
     st.tDernierFit = tNow;
     const refusModele = (r) => !r.ok && r.raisons?.some((q) => opts.REFUS_RAISONS.includes(q));
@@ -598,6 +678,7 @@ export const methodesCertificat = {
       v.confondu = false; v.fEstimee = null; v.margeCents = null; v.proches = null; v.seule = false;
       v.etatAnche = 'sur'; v.margeAnche = 0; v.refus = null; v.tBesoin = null; v.source = 'certificat';
       v.sigmaCert = cert.nls?.sigmaC?.[j] ?? null;
+      v.modeleCert = cert.nls?.seule ? 'seule' : vs.length === 3 ? 'trio' : 'paire';       // v71 : le modèle qui a produit le chiffre (une anche, deux anches, trois anches)
       v.pression = cert.nls?.pression ? { c: cert.nls.pression.sigmaC, db: cert.nls.pression.etenduDb, propre: cert.nls.pression.propre } : null;       // v67 (G5)
       v.corrCert = corrC;
     }
@@ -653,5 +734,5 @@ function tDerive(r) {
 
 function resumeNls(r) {
   if (!r?.ok) return { ok: false, raison: r?.raison ?? null };
-  return { pression: incertitudePression(r), deriveT: tDerive(r), f: r.f, Om: r.Om, b: r.b, m: r.m, modele: r.modele, llr: r.llr, r: r.r, K: r.K, T: r.T, Ku: r.Ku, derive: r.derive, agit: r.agit, warpC: r.warpC, libre: r.libre ? { dB: r.libre.dB } : null, plancherDb: r.plancherDb, niveauxDb: r.niveauxDb ?? null, sigmaC: r.sigmaC, ms: r.ms };
+  return { seule: !!r.seule, pression: incertitudePression(r), deriveT: tDerive(r), f: r.f, Om: r.Om, b: r.b, m: r.m, modele: r.modele, llr: r.llr, r: r.r, K: r.K, T: r.T, Ku: r.Ku, derive: r.derive, agit: r.agit, warpC: r.warpC, libre: r.libre ? { dB: r.libre.dB } : null, plancherDb: r.plancherDb, niveauxDb: r.niveauxDb ?? null, sigmaC: r.sigmaC, ms: r.ms };
 }

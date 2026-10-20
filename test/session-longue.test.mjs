@@ -6,6 +6,7 @@
 // (imitation de l'API en mémoire).
 // Exécution : node --expose-gc test/session-longue.test.mjs
 
+import { JournalSession } from '../web/js/dsp/journal-session.js';
 import { Engine } from '../web/js/dsp/engine.js';
 import {
   versInt16, enteteWav, lireEnteteWav, echantillonsWav, rangeesTick, lignesCsv, enteteCsv, COLONNES_SESSION,
@@ -122,8 +123,14 @@ let zipPrise = null;
   let o = 0;
   for (const m of morceaux) { pcm.set(m.pcm, o); o += m.pcm.length; }
   assert(pcm.every((s, i) => s === ref[i]), 'morceaux bout à bout = le son en Int16');
-  const csvRef = images(sig.subarray(0, n)).map((t) => lignesCsv({ t: t.time, midi: t.playedMidi, level: t.level, quiet: t.quiet ? 1 : 0, rows: rangeesTick(t),
-    sens: t.sens ?? null, sensSource: t.soufflet?.source ?? null, inversions: t.soufflet?.inversions ?? null })).join('');
+  const ims = images(sig.subarray(0, n));
+  // v71 : le CSV porte aussi le registre, les trames perdues, « lent », le La, le chiffre affiché (journal-session.js), le saut d'horloge, le trou
+  const imagesW = w.messages.filter((m) => m.type === 'tick');
+  const jr = new JournalSession();
+  const csvRef = ims.map((t, i) => lignesCsv({ t: t.time, midi: t.playedMidi, level: t.level, quiet: t.quiet ? 1 : 0, rows: rangeesTick(t),
+    sens: t.sens ?? null, sensSource: t.soufflet?.source ?? null, inversions: t.soufflet?.inversions ?? null,
+    registre: cfg.mode === 'register' ? cfg.register : cfg.mode, perdues: 0, calcul: imagesW[i]?.calcul?.lente ? 'lent' : '',
+    a4: cfg.a4 ?? 440, aff: jr.affiches(imagesW[i] ?? t), saut: imagesW[i]?.prise?.sautHorloge?.actif ? imagesW[i].prise.sautHorloge.deltaCents : null, verrou: 0, trou: imagesW[i]?.prise?.trou ?? '', prise: imagesW[i]?.prise?.codes?.join('+') ?? '' })).join('');
   assert(morceaux.map((m) => m.csv).join('') === csvRef, 'CSV par morceaux = CSV du moteur');
   const st = stockageMemoire();
   const e = await brancher(w.messages, st);

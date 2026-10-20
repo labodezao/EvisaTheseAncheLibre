@@ -128,6 +128,16 @@ export const COLONNES_SESSION = Object.freeze([
   't_s', 'note', 'midi', 'niveau_db', 'silence', 'groupe', 'anche', 'label', 'harmonique',
   'k_suivi', 'cible_hz', 'f_hz', 'ecart_cents', 'amp_db', 'confondue_octave', 'estimation_rapide',
   'maintenue', 'fenetre_s', 'remplissage',
+  // Lot F2 (19/10/2026), placées avant les partiels pour que « prise » reste la dernière colonne : ce que l'écran disait et ce qui sonnait. etat = sur | en cours | refus (+ motif, cause : les clés
+  // de dsp/certificat.js) ; registre_regle = le registre réglé À CET INSTANT (il peut changer en route : le JSON garde la liste
+  // des changements) ; registre_sonne = les voix réellement mesurées ; trames_perdues = total depuis le début de la
+  // session ; calcul = « lent » quand le moteur est passé en mode léger (rien n'est affiché à l'écran).
+  'etat', 'motif', 'registre_regle', 'registre_sonne', 'trames_perdues', 'calcul',
+  // Lot G1 (D4 de l'audit « échelons », 19/10/2026) : de quoi relire, sur le CSV seul, ce que l'écran disait et pourquoi. a4_hz = le La du moment (il change en route : le 19/10, 442 puis 440 Hz) ;
+  // source = d'où vient la valeur de l'anche (traqueur, amas, peigne, certificat) ; chiffre_affiche = le chiffre que l'écran montre (ui/mesure.js, afficheDe), regime = instantane | provisoire |
+  // certifie | gele (saut d'horloge) ; etiquette = « incertaine » quand l'attribution 8'/8'+ vient de changer (dsp/appariement.js, lot D2) ; discontinuite = 1 quand l'anche a fait un saut propre
+  // qui reste (cas 3, lot D2) ; saut_horloge = Δ en cents du saut d'horloge de la prise en cours (dsp/saut-horloge.js, lot D3), vide sinon ; verrou = 1 quand la case « Verrou de phase » est cochée.
+  'a4_hz', 'source', 'chiffre_affiche', 'regime', 'etiquette', 'discontinuite', 'saut_horloge', 'verrou',
   ...Array.from({ length: PARTIELS_CSV }, (_, i) => `p${i + 1}_hz`),
   // Anche confondue avec l'octave (v41) : estimation, marge, méthode, signe connu.
   'estimee_hz', 'estimee_cents', 'marge_cents', 'methode', 'signe_connu',
@@ -144,7 +154,29 @@ export const COLONNES_SESSION = Object.freeze([
   // Contrôle de la prise de son (v61, dsp/prise.js) : vide si la prise est saine, sinon les défauts en cours
   // (gate, pompage, trous, ecretage, secteur, lent) séparés par « + » : la mesure est alors douteuse.
   'prise',
+  // Trou de prise (v71, F1, dsp/prise.js, TROUS_COURTS) : vide, 'court' (trou de 0,4 s au plus dans la fenêtre de lecture : l'image n'a pas de verdict, rien à l'écran) ou 'long' (repère discret à l'écran).
+  // Ce n'est pas une prise douteuse : la colonne `prise` reste vide.
+  'trou',
 ]);
+
+// Le bloc `journal` du JSON : lot F2 (registre, calcul, trames) et lot G1 (D4) : reglages (le La, le registre, l'instrument, le verrou : état de départ puis chaque changement, daté),
+// sauts_horloge (instant, Δ en cents ; dsp/saut-horloge.js), verrou (les lectures du verrou de phase : deux fréquences ou la raison du refus).
+export function journalDuJson(j) {
+  if (!j) return null;
+  return { registre: j.registre ?? [], calcul: j.calcul ?? [], trames: j.trames ?? null,
+    reglages: j.reglages ?? [], sauts_horloge: j.sauts_horloge ?? [], verrou: j.verrou ?? [] };
+}
+
+// État d'une anche pour le CSV : sur | en cours | refus ; vide si l'anche n'est pas mesurée. Pur.
+export function etatAnche(v) {
+  if (!v?.tracked) return '';
+  if (v.refus != null) return 'refus';
+  return v.etatAnche === 'sur' ? 'sur' : 'en cours';
+}
+export function motifAnche(v) {
+  if (!v?.tracked || v.refus == null) return '';
+  return v.refusCause ? `${v.refus}:${v.refusCause}` : String(v.refus);
+}
 
 // Début du CSV : marque UTF-8 (le tableur lit les accents) et colonnes.
 export const enteteCsv = () => `\ufeff${COLONNES_SESSION.join(';')}\n`;
@@ -175,6 +207,10 @@ export function rangeesTick(r) {
         batBrut: v.tracked && !g.isHarmonic ? v.beatBrut ?? null : null,
         batSource: v.tracked && !g.isHarmonic ? v.beatSource ?? '' : '',
         repar: v.tracked && !g.isHarmonic && v.pairRepaired ? 1 : 0,
+        // Lot F2 : l'état de l'anche (sur, en cours, refus) et le motif du refus.
+        etat: g.isHarmonic ? '' : etatAnche(v), motif: g.isHarmonic ? '' : motifAnche(v),
+        // Lot G1 (D4) : d'où vient la valeur, l'étiquette 8'/8'+ (vide ou « incertaine »), la discontinuité propre de l'anche (lot D2).
+        source: v.tracked && !g.isHarmonic ? v.source ?? '' : '', etiquette: v.tracked && !g.isHarmonic ? v.etiquette ?? '' : '', disc: v.tracked && !g.isHarmonic && v.anche === 'discontinuite' ? 1 : 0,
       });
     }
   }
@@ -189,15 +225,20 @@ export function lignesCsv(tk, transpose = 0) {
   const note = tk.midi != null ? noteLabel(tk.midi + transpose).full : '';
   const db = num(20 * Math.log10((tk.level ?? 0) + 1e-9), 1);
   let s = '';
+  // Les voix réellement mesurées (le registre qui sonne) : 8', 8'+, etc.
+  const sonne = (tk.rows ?? []).filter((x) => !x.harm && x.f != null).map((x) => String(x.label || x.id).replace(/[;\n]/g, ' ')).join('+');
   for (const r of tk.rows ?? []) {
     const l = [num(tk.t, 4), note, tk.midi ?? '', db, tk.quiet, r.g, r.id,
       String(r.label ?? '').replace(/[;\n]/g, ' '), r.harm, r.k, num(r.target, 5), num(r.f, 5), num(r.c, 4),
       num(20 * Math.log10((r.amp ?? 0) + 1e-9), 1), r.merged, r.coarse, r.held,
-      num(r.srd ? r.W / r.srd : null, 3), num(r.fill, 3)];
+      num(r.srd ? r.W / r.srd : null, 3), num(r.fill, 3),
+      r.etat ?? '', String(r.motif ?? '').replace(/[;\n]/g, ' '), tk.registre ?? '', sonne, tk.perdues ?? '', tk.calcul ?? ''];
+    const aff = r.harm ? null : tk.aff?.get(`${r.g}:${r.id}`);
+    l.push(num(tk.a4, 3), r.source ?? '', num(aff?.c, 1), aff?.regime ?? '', r.etiquette ?? '', r.disc ? 1 : '', tk.saut != null ? num(tk.saut, 1) : '', tk.verrou ?? '');
     for (let k = 1; k <= PARTIELS_CSV; k++) l.push(num(r.p?.[k], 5));
     l.push(num(r.conf?.f, 5), num(r.conf?.c, 4), num(r.conf?.m, 4), r.conf?.methode ?? '', r.conf ? r.conf.signe : '');
     l.push(tk.sens ?? '', tk.sensSource ?? '', tk.inversions ?? '');
-    l.push(num(r.bat, 4), num(r.batBrut, 4), r.batSource ?? '', r.repar ? 1 : 0, tk.prise ?? '');
+    l.push(num(r.bat, 4), num(r.batBrut, 4), r.batSource ?? '', r.repar ? 1 : 0, tk.prise ?? '', tk.trou ?? '');
     s += `${l.join(';')}\n`;
   }
   return s;

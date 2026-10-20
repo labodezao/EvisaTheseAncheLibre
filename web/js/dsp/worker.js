@@ -16,6 +16,9 @@ import { ExecutantWorker } from './cert-calcul.js';
 import { LecteurNote } from './lecteur-note.js';
 import { ControlePrise } from './prise.js';
 import { RetireSecteur } from './secteur.js';
+import { CompteurTrames, copierPlan, Retard } from './lecture.js';
+import { SuiviRegistre } from './registre-reel.js';
+import { JournalSession } from './journal-session.js';
 import {
   MORCEAU_S, versInt16, rangeesTick, lignesCsv, lireEnteteWav, echantillonsWav,
 } from '../session-format.js';
@@ -46,11 +49,15 @@ function adapterBudget(dspMs) {
 // Chaque image du moteur porte `prise` ({ douteuse, codes }) ; la page reçoit un message `prise` quand les défauts
 // changent (le texte, le geste à faire : prise-micro.js).
 let controle = null, priseCle = '';
+// Trames perdues du flux (lecture.js, lot F2) : compteur de la session, dans le CSV et le JSON.
+let trames = null;
 // Retrait du ronflement du secteur (secteur.js, v62) : ce que le moteur et le verrou reçoivent est le signal sans ronflement ;
 // l'enregistrement de la session garde le signal BRUT (la preuve). Allumé par défaut dès que le contrôle détecte le ronflement.
 let retire = null, retireVoulu = true;
-function nouveauControle(sr) {
-  controle = new ControlePrise(sr);
+function nouveauControle(sr, cfg = null) {
+  controle = new ControlePrise(sr, cfg?.trousCourts != null ? { trousCourts: !!cfg.trousCourts } : {});
+  trames = new CompteurTrames(sr);
+  suiviRegistre = new SuiviRegistre();
   controle.retireSecteur = retireVoulu;
   retire = new RetireSecteur(sr);
   priseCle = '';
@@ -82,6 +89,7 @@ function verrouLire(note) {
   verrouOccupe = true;
   verrouWorker.onmessage = (e) => {
     verrouOccupe = false;
+    jEcran.lectureVerrou(e.data, tSession(), note.midi);
     self.postMessage({ type: 'verrou', lecture: e.data });
     if (verrouFile) { const n = verrouFile; verrouFile = null; verrouLire(n); }
   };
@@ -90,6 +98,7 @@ function verrouLire(note) {
   self.postMessage({ type: 'verrou', lecture: { calcul: true, midi: note.midi, t: note.t } });
 }
 function verrouRegler(on) {
+  if (dev && engine && !!on !== verrouOn) jEcran.caseVerrou(on, tSession());
   verrouOn = !!on;
   if (!verrouOn) { lecteur = null; verrouFile = null; }
 }
@@ -99,12 +108,38 @@ let devMaxS = 3600;                 // durée maximale (s), réglée par la page
 let devGen = 0;                     // numéro de la session (une nouvelle à chaque début)
 let dev = null;                     // { gen, index, start, n, maxN, pcm, fill, csv, ticks, ticksM, full }
 
+// Journal de la session (lot F2) : ce qui change en route et que le CSV seul ne dit pas. Registre réglé (mode, registre,
+// accord) à chaque changement, mode léger du calcul (« calcul lent ») à chaque passage ; datés en secondes de la session.
+// Rien de tout cela n'est affiché : il est écrit dans le CSV (colonnes) et le JSON.
+let journal = { registre: [], calcul: [] }, journalRegistreCle = null, journalLente = null;
+let suiviRegistre = null;
+const jEcran = new JournalSession();   // lot G1 (D4) : La et réglages datés, chiffre affiché, sauts d'horloge, lectures du verrou (journal-session.js)
+const tSession = () => (dev && engine ? Math.round((engine.samplesTotal - dev.start) / engine.sr * 1000) / 1000 : 0);
+function journalRegistre() {
+  if (!dev || !engine) return;
+  const c = engine.cfg;
+  const cle = `${c.mode}|${c.register}|${c.chordType}|${(c.chordDegrees ?? []).join(',')}`;
+  if (cle === journalRegistreCle) return;
+  journalRegistreCle = cle;
+  journal.registre.push({ t_s: tSession(), mode: c.mode, registre: c.mode === 'register' ? c.register : null, accord: c.mode === 'chord' ? c.chordType ?? null : null });
+}
+function journalCalcul() {
+  if (!dev || !engine) return;
+  const lente = !!engine.lente;
+  if (lente === journalLente) return;
+  journalLente = lente;
+  journal.calcul.push({ t_s: tSession(), lente, ms_froid: engine.msFroid != null ? Math.round(engine.msFroid) : null });
+}
+
 function devStart() {
   const sr = engine.sr;
+  journal = { registre: [], calcul: [] }; journalRegistreCle = null; journalLente = null;
   dev = { gen: ++devGen, index: 0, start: engine.samplesTotal, n: 0, maxN: Math.round(devMaxS * sr),
     pcm: new Int16Array(MORCEAU_S * sr), fill: 0, csv: [], ticks: 0, ticksM: 0, full: false,
     debutMs: Date.now(), priseT0: controle ? controle.temps : 0 };
   dspEchantillons = [];
+  journalRegistre(); journalCalcul();
+  jEcran.demarrer(engine.cfg, verrouOn);
 }
 
 // Rend le morceau en cours (son et lignes du CSV), s'il y a quelque chose.
@@ -116,7 +151,9 @@ function devFlush() {
     n: dev.n, ticks: dev.ticks, full: dev.full,
     // Le début réel de la session (et non l'arrivée du premier morceau, 10 s plus tard) ; le contrôle de la prise.
     debutMs: dev.debutMs,
-    prise: controle ? { episodes: controle.episodesSession(dev.priseT0), trous: controle.trousSession(dev.priseT0), resume: controle.resume(), calcul: calculStats() } : undefined,
+    prise: controle ? { episodes: controle.episodesSession(dev.priseT0), trous: controle.trousSession(dev.priseT0), resume: { ...controle.resume(), ...(trames?.resume() ?? {}), ...jEcran.compteur(engine.detHorloge) }, calcul: calculStats() } : undefined,
+    // Lot F2 : registres réglés et passages du calcul en mode léger, trames perdues datées (le dernier morceau a tout).
+    journal: { ...jEcran.json(engine.detHorloge, dev.start / engine.sr), registre: journal.registre, calcul: journal.calcul, trames: trames ? { ...trames.resume(), evenements: trames.evenements.slice(-200).map((e) => ({ ...e, t_s: Math.round((e.t_s - (dev.priseT0 ?? 0)) * 1000) / 1000 })) } : null },
   }, [pcm.buffer]);
   dev.index++;
   dev.pcm = new Int16Array(MORCEAU_S * engine.sr);
@@ -139,9 +176,13 @@ function devAppend(chunk) {
 function devTick(r) {
   if (!dev || dev.full) return;
   const t = r.time - dev.start / engine.sr;
+  jEcran.image(r);
   dev.csv.push(lignesCsv({ t, midi: r.playedMidi, level: r.level, quiet: r.quiet ? 1 : 0, rows: rangeesTick(r),
     sens: r.sens ?? null, sensSource: r.soufflet?.source ?? null, inversions: r.soufflet?.inversions ?? null,
-    prise: r.prise?.codes?.join('+') ?? '' },
+    prise: r.prise?.codes?.join('+') ?? '', trou: r.prise?.trou ?? '',
+    registre: engine.cfg.mode === 'register' ? engine.cfg.register : engine.cfg.mode,
+    perdues: trames?.perdues ?? 0, calcul: engine.lente ? 'lent' : '',
+    a4: engine.cfg?.a4 ?? null, aff: jEcran.affiches(r), saut: r.prise?.sautHorloge?.actif ? r.prise.sautHorloge.deltaCents : null, verrou: verrouOn ? 1 : 0 },
     engine.cfg?.transpose || 0));
   dev.ticks++; dev.ticksM++;
 }
@@ -178,12 +219,15 @@ function onChunk(chunk) {
     dspEchantillons.push(result.dspMs);
     if (dspEchantillons.length > DSP_GARDE) dspEchantillons.shift();
     result.calcul = { msFroid: engine.msFroid != null ? Math.round(engine.msFroid) : null, lente: !!engine.lente };
+    journalCalcul();
+    result.registreEcart = suiviRegistre?.maj(result, engine.cfg) ?? null;
     const prise = priseEtat();
     if (prise) {
       // Le contrôle a vu un ronflement : l'annuleur se règle (fréquence réelle du secteur, harmoniques présentes).
       const dem = controle.demandeSecteur();
       if (dem) { retire.regler(dem.f0, dem.harmoniques); controle.secteurActif(true); }
-      result.prise = { douteuse: prise.douteuse, codes: prise.codes, secteurHz: retire.actif ? retire.frequences() : null };
+      result.prise = { ...result.prise, douteuse: prise.douteuse, codes: prise.codes, secteurHz: retire.actif ? retire.frequences() : null };
+      if (prise.trou !== undefined) { result.prise.ecartee = prise.ecartee; result.prise.repere = prise.repere; result.prise.trou = prise.trou; }   // v71 (F1)
     }
     devTick(result);
     if (dev) result.dev = devStatus();
@@ -205,43 +249,52 @@ function onChunk(chunk) {
 // jamais — sautait de ±6 ¢ toutes les ~2 s, même dans les silences. C'était
 // les « signaux carrés » de la courbe : l'anche, elle, ne sautait pas.
 // Ici, chaque bloc arrive tel que le micro l'a échantillonné.
+// Un bloc du micro (date en µs, fréquence, premier canal en Float32) : le moteur est créé à la fréquence réelle au premier
+// bloc ; les blocs de 512 échantillons partent au moteur. Commun à la lecture dans ce Worker (readStream) et à la lecture
+// par le Worker léger (lecture-worker.js, drapeau LECTURE_DECOUPLEE).
+let blocTampon = new Float32Array(0), blocRempli = 0;
+let charge = 0, debutIt = 0;   // durée de traitement d'un bloc, la plus forte des dernières (retard du Worker : prise.js, bloc)
+function entrerBloc(ts, sr, plan, format, canaux) {
+  const HOPS = 512;
+  try {
+    if (!engine || engine.sr !== sr) {
+      const cfg = engine ? engine.cfg : pendingCfg;
+      finirMoteur(); engine = nouveauMoteur(sr, cfg);
+      nouveauControle(sr, cfg);
+      if (dev || pendingDev) devStart();
+      self.postMessage({ type: 'capture', direct: true, sampleRate: sr, format, canaux });
+      priseEtat(true);
+    }
+    const n = plan.length;
+    controle?.bloc(ts, n, charge);
+    trames?.bloc(ts, n);
+    debutIt = performance.now();
+    if (blocTampon.length < blocRempli + n) { const b = new Float32Array(2 * (blocRempli + n)); b.set(blocTampon.subarray(0, blocRempli)); blocTampon = b; }
+    blocTampon.set(plan, blocRempli);
+    blocRempli += n;
+    let o = 0;
+    for (; o + HOPS <= blocRempli; o += HOPS) onChunk(blocTampon.slice(o, o + HOPS));
+    blocTampon.copyWithin(0, o, blocRempli); blocRempli -= o;
+  } finally {
+    charge = Math.max(performance.now() - debutIt, charge * 0.98);
+  }
+}
+function reprendreFlux() {
+  finirMoteur();
+  engine = null;
+  blocTampon = new Float32Array(0); blocRempli = 0; charge = 0;
+}
+
 async function readStream(readable) {
   const reader = readable.getReader();
-  let buf = new Float32Array(0), fill = 0;
-  const HOPS = 512;
-  let charge = 0, debutIt = 0;   // durée de traitement d'un bloc, la plus forte des dernières (retard du Worker : prise.js, bloc)
   for (;;) {
     const { value: ad, done } = await reader.read();
     if (done) break;
     try {
-      if (!engine || engine.sr !== ad.sampleRate) {
-        const cfg = engine ? engine.cfg : pendingCfg;
-        finirMoteur(); engine = nouveauMoteur(ad.sampleRate, cfg);
-        nouveauControle(ad.sampleRate);
-        if (dev || pendingDev) devStart();
-        self.postMessage({ type: 'capture', direct: true, sampleRate: ad.sampleRate, format: ad.format, canaux: ad.numberOfChannels });
-        priseEtat(true);
-      }
-      const n = ad.numberOfFrames;
-      controle?.bloc(ad.timestamp, n, charge);
-      debutIt = performance.now();
-      if (buf.length < fill + n) { const b = new Float32Array(2 * (fill + n)); b.set(buf.subarray(0, fill)); buf = b; }
-      const plane = buf.subarray(fill, fill + n);
-      if (/^f32/.test(ad.format)) {
-        ad.copyTo(plane, { planeIndex: 0, format: 'f32-planar' });
-      } else {
-        const tmp = new Int16Array(n * (ad.format.endsWith('planar') ? 1 : ad.numberOfChannels));
-        ad.copyTo(tmp, { planeIndex: 0 });
-        const step = ad.format.endsWith('planar') ? 1 : ad.numberOfChannels;
-        for (let i = 0; i < n; i++) plane[i] = tmp[i * step] / 32768;
-      }
-      fill += n;
-      let o = 0;
-      for (; o + HOPS <= fill; o += HOPS) onChunk(buf.slice(o, o + HOPS));
-      buf.copyWithin(0, o, fill); fill -= o;
+      const plan = copierPlan(ad, new Float32Array(ad.numberOfFrames));
+      entrerBloc(ad.timestamp, ad.sampleRate, plan, ad.format, ad.numberOfChannels);
     } finally {
       ad.close();
-      charge = Math.max(performance.now() - debutIt, charge * 0.98);
     }
   }
 }
@@ -257,7 +310,7 @@ async function lireFichier(blob, vitesse = 1) {
   const info = lireEnteteWav(tete, blob.size);
   if (!info) throw new Error('WAV illisible'); // interne
   finirMoteur(); engine = nouveauMoteur(info.sr, pendingCfg);
-  nouveauControle(info.sr);
+  nouveauControle(info.sr, pendingCfg);
   if (dev || pendingDev) devStart();
   self.postMessage({ type: 'capture', direct: false, sampleRate: info.sr, fichier: true, duree: info.n / info.sr });
   priseEtat(true);
@@ -305,7 +358,7 @@ self.onmessage = (e) => {
   const d = e.data;
   if (d.type === 'init') {
     finirMoteur(); engine = nouveauMoteur(d.sampleRate, d.cfg);
-    nouveauControle(d.sampleRate);
+    nouveauControle(d.sampleRate, d.cfg);
     pendingCfg = d.cfg || {}; pendingDev = !!d.dev;
     verrouRegler(d.verrou);
     if (d.devMaxS > 0) devMaxS = d.devMaxS;
@@ -313,9 +366,18 @@ self.onmessage = (e) => {
     if (d.port) d.port.onmessage = (ev) => onChunk(ev.data);
   } else if (d.type === 'stream') {
     // Le moteur est recréé à la fréquence réelle du micro au premier bloc.
-    finirMoteur();
-    engine = null;
+    reprendreFlux();
     readStream(d.readable).catch((err) => self.postMessage({ type: 'capture', error: String(err) }));
+  } else if (d.type === 'lecture') {
+    // Lecture découplée (lecture-worker.js) : les blocs arrivent par le port, déjà copiés en Float32.
+    reprendreFlux();
+    const retard = new Retard();
+    d.port.onmessage = (ev) => {
+      const m = ev.data;
+      // Le bloc a attendu (m.t : l'heure où le lecteur l'a posté) ; trop de retard : écarté (lecture.js, Retard).
+      if (m.pcm) { if (retard.garder(Date.now() - m.t)) entrerBloc(m.ts, m.sr, m.pcm, m.format, m.canaux); }
+      else if (m.erreur) self.postMessage({ type: 'capture', error: m.erreur });
+    };
   } else if (d.type === 'fichier') {
     lireFichier(d.blob, d.vitesse).catch((err) => self.postMessage({ type: 'capture', error: String(err?.message ?? err) }));
   } else if (d.type === 'verrou') {
@@ -333,7 +395,10 @@ self.onmessage = (e) => {
     for (const code of ['bluetooth']) { if (d.codes?.includes(code)) controle?.declarer(code, d.detail ?? {}); else controle?.retirer(code); }
   } else if (d.type === 'config') {
     pendingCfg = { ...(pendingCfg || {}), ...d.cfg };
+    if (dev && engine) jEcran.config(d.cfg, engine.cfg, tSession());   // D4 : le La, le registre, l'instrument changent en route : datés
     engine?.configure(d.cfg);
+    journalRegistre();
+    if (controle && d.cfg?.trousCourts != null) controle.s.trousCourts = !!d.cfg.trousCourts;
   } else if (d.type === 'dev') {
     // { on, maxS } : marche ou arrêt, durée maximale (réduite si le disque
     // ne suffit pas). Arrêt : le morceau en cours part avant (devFin).
