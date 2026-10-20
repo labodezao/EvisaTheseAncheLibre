@@ -2484,9 +2484,8 @@ function majReharmonisation(ajust, unite, esc) {
   const d = unite === 'hz' ? 2 : 1;
   el.innerHTML = ajust.fits.map((f) => `<p><b>${esc(titreFit(f))}</b><br>${esc(texteFit(f, unite))}</p>`
     + (f.retoucher.length
-      ? '<ol class="reharmo-notes">' + f.retoucher.slice(0, 6).map((x) => `<li data-midi="${x.midi}" data-dir="${f.dir}"><b>${esc(x.note)}</b>${x.rang ? ` R${x.rang}` : ''}${x.bouton ? ` b${x.bouton}` : ''} : ${f.type === 'battement'
+      ? '<ol class="reharmo-notes">' + f.retoucher.map((x) => `<li data-midi="${x.midi}" data-dir="${f.dir}"><b>${esc(x.note)}</b>${x.rang ? ` R${x.rang}` : ''}${x.bouton ? ` b${x.bouton}` : ''} : ${f.type === 'battement'
         ? `${x.ecart >= 0 ? '+' : ''}${(unite === 'hz' ? x.ecart : x.ecart * 60).toFixed(d)} ${unite === 'hz' ? 'Hz' : 'bat/min'} par rapport à la courbe` : `${x.ecart >= 0 ? '+' : ''}${x.ecart.toFixed(1)} ¢ par rapport à la courbe`}, ${esc(x.geste)}</li>`).join('') + '</ol>'
-        + (f.retoucher.length > 6 ? `<p class="hint">… et ${f.retoucher.length - 6} autres (rapport imprimable)</p>` : '')
       : '<p class="hint">Aucune note à retoucher.</p>')).join('');
   for (const li of el.querySelectorAll('li[data-midi]')) li.onclick = () => selectionner({ uid: null, midi: Number(li.dataset.midi), dir: li.dataset.dir });
 }

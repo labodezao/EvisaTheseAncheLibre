@@ -42,7 +42,7 @@ console.log('R 1 : un instrument qui suit la table musette, 5 notes déréglées
   assert(Math.max(...ecartsTable) < 0.06, `l'ajustement retrouve la table (écart maximal ${(100 * Math.max(...ecartsTable)).toFixed(1)} %), les 5 notes déréglées ne le tirent pas`);
   const liste = f.retoucher.map((x) => x.midi).sort((a, b) => a - b);
   assert(liste.join() === Object.keys(mal).map(Number).join(), `la liste des notes à retoucher est exactement les 5 notes : ${liste.join(', ')}`);
-  assert(f.retoucher.every((x, i, a) => i === 0 || a[i - 1].abs >= x.abs), 'triée par écart');
+  assert(f.retoucher.every((x, i, a) => i === 0 || (a[i - 1].rang ?? 1e9) < (x.rang ?? 1e9) || ((a[i - 1].rang ?? 1e9) === (x.rang ?? 1e9) && ((a[i - 1].bouton ?? 1e9) < (x.bouton ?? 1e9) || ((a[i - 1].bouton ?? 1e9) === (x.bouton ?? 1e9) && a[i - 1].midi <= x.midi)))), "triée dans l'ordre du clavier (rangée, bouton, note)");
   const g52 = f.retoucher.find((x) => x.midi === 52);
   const g58 = f.retoucher.find((x) => x.midi === 58);
   assert(/fermer/.test(g52.geste) && /ouvrir/.test(g58.geste), 'le geste : trop rapide = fermer, trop lent = ouvrir (avec monter / baisser l\'anche)');

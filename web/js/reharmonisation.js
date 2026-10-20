@@ -202,7 +202,9 @@ function decrire(f, id, pts, cfg, tol) {
       if (Math.abs(ecart) > tol) sortie.retoucher.push({ midi: p.midi, note: nom(p.midi), rang: p.rang, bouton: p.bouton, mesure: p.y, ajuste: f.pred(p.midi), ecart, geste: `${ecart < 0 ? 'monter' : 'baisser'} l'anche`, abs: Math.abs(ecart) / tol });
     });
   }
-  sortie.retoucher.sort((x, y) => y.abs - x.abs);
+  // Dans l'ordre du clavier (rangée, puis bouton, puis note), pas par taille d'écart : Ewen, 20/10/2026, « sinon on ne se repère pas »
+  const rangOu = (x) => (x.rang ?? 1e9), boutonOu = (x) => (x.bouton ?? 1e9);
+  sortie.retoucher.sort((x, y) => rangOu(x) - rangOu(y) || boutonOu(x) - boutonOu(y) || x.midi - y.midi);
   return sortie;
 }
 
