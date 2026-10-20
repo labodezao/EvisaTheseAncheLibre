@@ -7,6 +7,8 @@
 import { centsBetween } from '../music.js';
 import { MP_MAX_CENTS } from './anches-mp.js';
 import { CONF_PRECISION } from './confondu.js';
+const ETIQUETTE_S = 1.0;   // D2 : durée pendant laquelle une étiquette 8'/8'+ changée reste dite incertaine (appariement.js)
+import { chordFromPeaks } from './chord.js';
 
 // Une raie à plus de UNISSON_DB sous la plus forte de son unisson n'est pas
 // une anche de la note : bandes latérales du soufflet (−29 à −36 dB sur la
@@ -23,7 +25,92 @@ export const UNISSON_DB = 20;
 // 0,5 Hz à côté de la 8'−) : 3 cases. Sur la fondamentale, k fois moins.
 export const PROCHES_CASES = 3;
 
+// v71 (C6, cfg.deuxAnches ; audit « superposition » du 19/10/2026, § 3.4 et 6) : une anche attendue (Automatique, ou registre M) devant
+// DEUX anches qui battent. La fréquence que le traqueur lit n'est plus celle d'une anche : c'est celle de leur somme (posée entre les deux,
+// +2,3 à +4,1 ¢, 1,5 à 4,2 ¢ d'écart type, sauts de 1 à 5 ¢). Le moteur n'a pas à la lisser (ce qui est réel ne se lisse pas) : il dit
+// qu'il y a deux anches, avec leur battement, et ne montre plus la valeur comme celle d'une anche (voix `confondue`, marge).
+// Preuve d'un battement : l'enveloppe du partiel de mesure (battement.js, measureBeat : au moins deux partiels qui s'accordent sur
+// des anches, confiance >= DEUX_CONF_MIN) ou l'unisson vu par Matrix Pencil (t.unison). Un battement tenu DEUX_TENUE_S après sa
+// dernière preuve : l'enveloppe manque quelques images quand le volume du mélange se stabilise.
+export const DEUX_CONF_MIN = 0.4;
+export const DEUX_TENUE_S = 1.5;
+export const DEUX_PERSISTE = 5;      // images consécutives d'un autre rythme avant de changer de référence
+export const DEUX_MED = 5;           // valeurs acceptées dont on prend la médiane
+export const DEUX_HZ_MAX = 14;       // le battement de l'enveloppe est cherché jusqu'à 15 Hz sur le partiel (zoom.js, beatFromEnvelope)
+
 export const methodesProches = {
+  // Vrai si le spectre large bande montre DEUX notes à un demi-ton de niveaux voisins (chordFromPeaks avec les degrés [0, 1], les mêmes
+  // règles que chordAuto : deux vraies raies, pas des harmoniques d'une autre, niveaux à 7 dB près) et que la fondamentale `f0` n'est
+  // ni l'une ni l'autre : c'est une tierce note, qu'aucune anche ne joue. Rend false sans paire.
+  tierceNote(f0, coarse) {
+    if (!coarse?.peaks?.length) return false;
+    const ch = chordFromPeaks(coarse.peaks, [0, 1], { a4: this.cfg.a4 });
+    if (!ch || ch.harm || ch.notes.length !== 2) return false;
+    const amps = ch.notes.map((n) => n.amp * n.amp);
+    if (Math.min(...amps) < 0.2 * Math.max(...amps)) return false;
+    const m = Math.round(69 + 12 * Math.log2(f0 / this.cfg.a4));
+    return !ch.notes.some((n) => n.midi === m);
+  },
+
+  // Rend { hz, bpm, source, cents? } si deux anches battent devant la voix unique du groupe de base, et marque cette voix confondue :
+  // son chiffre est la fréquence mesurée (ou le milieu des deux anches quand le Matrix Pencil les donne), avec une marge. Marge Ω/2
+  // quand le chiffre est le milieu des deux raies (Matrix Pencil) ; Ω sinon (la raie lue est l'une des deux, l'autre est à Ω).
+  marquerDeuxAnches(groups, beat, unison, quiet) {
+    const c = this.cfg;
+    const now = this.samplesTotal / this.sr;
+    if (quiet) { this.deuxVu = null; this.deuxEnv = null; return null; }
+    if (!(c.mode === 'auto' || (c.mode === 'register' && c.register === 'M'))) return null;
+    const g = groups.find((gr) => !gr.isHarmonic && !gr.isSub);
+    if (!g || g.voices.length !== 1) return null;
+    const v = g.voices[0];
+    let vu = null;
+    // 1) l'unisson posé (Automatique : Matrix Pencil, ou deux raies franches du traqueur) : le battement vient de l'écart des deux raies
+    if (unison && Number.isFinite(unison.cents)) {
+      const hzU = Number.isFinite(unison.beatHz) && unison.beatHz > 0 ? unison.beatHz : Math.abs(v.nominal * (2 ** (unison.cents / 1200) - 1));
+      if (hzU > 0) vu = { hz: hzU, source: 'unison', reeds: unison.reeds ?? null };
+    }
+    // 2) l'enveloppe : des partiels dont les rythmes divisés par leur rang s'accordent. Sa période est la première crête de l'autocorrélation ;
+    // sur une note qui s'éteint (échantillon de 2 à 3 s) elle prend parfois la 2e ou la 3e (÷2, ÷3 : 36 et 24 bat/min pour 72) : on ne suit
+    // que les valeurs qui s'accordent à la référence (à 8 %), on ignore ses sous-multiples, et on ne change de référence qu'après
+    // DEUX_PERSISTE images d'un autre rythme. Le rythme est un fait de l'enveloppe, pas une hauteur : la médiane des DEUX_MED dernières
+    // valeurs acceptées ne lisse aucune courbe de justesse.
+    if (beat && beat.kind === 'anches' && beat.sure && beat.conf >= DEUX_CONF_MIN && beat.hz > 0 && beat.hz <= DEUX_HZ_MAX) {
+      const e = this.deuxEnv ??= { ref: vu ? vu.hz : null, hist: vu ? [vu.hz] : [], cand: null, n: 0 };
+      const h = beat.hz, proche = (x, y) => Math.abs(x / y - 1) <= 0.08;
+      if (e.ref == null) { e.ref = h; e.hist = [h]; }
+      else if (proche(h, e.ref)) {
+        e.hist.push(h); if (e.hist.length > DEUX_MED) e.hist.shift();
+        e.ref = [...e.hist].sort((x, y) => x - y)[e.hist.length >> 1];
+        e.cand = null; e.n = 0;
+      } else if ([2, 3, 4].some((m) => proche(h * m, e.ref))) { /* sous-multiple : la 2e ou la 3e crête de l'autocorrélation */ }
+      else if (e.cand != null && proche(h, e.cand)) { if (++e.n >= DEUX_PERSISTE) { e.ref = h; e.hist = [h]; e.cand = null; e.n = 0; } }
+      else { e.cand = h; e.n = 1; }
+      vu = vu ? { ...vu, hz: e.ref } : { hz: e.ref, source: 'enveloppe' };     // l'enveloppe filtrée passe devant le Matrix Pencil, plus bruité sur une note courte
+    }
+    if (vu) this.deuxVu = { ...vu, t: now };
+    else if (this.deuxVu && now - this.deuxVu.t > DEUX_TENUE_S) { this.deuxVu = null; this.deuxEnv = null; }
+    const d = this.deuxVu;
+    if (!d) return null;
+    if (!v.tracked || !Number.isFinite(v.fMeas)) return { hz: d.hz, bpm: 60 * d.hz, source: d.source };
+    // Le milieu des deux raies, quand le Matrix Pencil donne les deux anches (cents à la nominale) ; sinon la raie lue.
+    let centre = v.fMeas, margeHz = d.hz;
+    if (Array.isArray(d.reeds) && d.reeds.length === 2 && Number.isFinite(v.nominal)) {
+      centre = v.nominal * 2 ** (((d.reeds[0] + d.reeds[1]) / 2) / 1200);
+      margeHz = d.hz / 2;
+    }
+    const k = g.kTrack || 1;
+    v.confondu = true;
+    v.fEstimee = centre;
+    v.centsEstimes = centsBetween(centre, v.nominal);
+    v.centsEstimesCible = centsBetween(centre, v.target);
+    v.margeCents = Math.hypot(centsBetween(centre + margeHz, centre), CONF_PRECISION);
+    v.methode = 'proches';
+    v.signeConnu = false;
+    v.dureeLue = null;
+    v.proches = { avec: [], resHz: d.hz, margeHz, justesse: false, cases: PROCHES_CASES, fenetreS: g.W > 0 && g.srd > 0 ? g.W / g.srd : null, k, deuxAnches: true };
+    return { hz: d.hz, bpm: 60 * d.hz, source: d.source };
+  },
+
   // Avant la stabilisation : retire les restes trop faibles, et donne l'anche
   // seule à la voix visée.
   //
@@ -49,18 +136,24 @@ export const methodesProches = {
       const on = g.voices.filter((v) => v.tracked);
       const id = this.cfg.voix;
       const visee = id != null ? g.voices.find((v) => v.def.id === id) : null;
-      if (on.length !== 1) continue;
+      if (on.length !== 1) { this.seuleDe?.delete(g.key); continue; }
       const s = on[0];
       if (Math.abs(centsBetween(s.fMeas, g.center)) > MP_MAX_CENTS) continue;
       // Une seule raie dans la note : une anche seule (margesProches n'y
       // met pas de marge), donnée à la voix visée s'il y en a une.
       s.seule = true;
+      // D2 : qui porte la raie unique ? Un changement de porteur (ou son retour après deux raies) change l'étiquette ; une raie qui reste au même porteur ne la change pas.
+      const change = this.cfg.CONTINUITE && (this.seuleDe ??= new Map()).get(g.key) !== s.def.id;
+      if (this.cfg.CONTINUITE) this.seuleDe.set(g.key, s.def.id);
       // Les autres voix ne sonnent pas : rien à tenir (stabilize tenait 1 s la
       // valeur d'une anche partie, à côté de celle qui reste : deux lectures
       // d'une seule anche, session d'Ewen à 48,9 s).
       for (const v of g.voices) if (v !== s && v !== visee) v.absent = true;
       if (!visee || s === visee) continue;
       visee.seule = true;
+      // D2 : la raie d'une autre voix est donnée à la voix visée : l'étiquette n'est plus sûre pendant ETIQUETTE_S.
+      if (change) (this.etiquetteJusqua ??= new Map()).set(g.key, this.samplesTotal / this.sr + ETIQUETTE_S);
+      if (this.cfg.CONTINUITE && (this.etiquetteJusqua?.get(g.key) ?? -1) > this.samplesTotal / this.sr) for (const v of g.voices) v.etiquette = 'incertaine';
       visee.fMeas = s.fMeas;
       visee.amp = s.amp;
       visee.tracked = true;
@@ -100,6 +193,7 @@ export const methodesProches = {
     if (this.cfg.mode !== 'register') return;
     for (const g of groups) {
       if (g.isHarmonic || g.isSub || g.voices.length < 2 || !(g.W > 0)) continue;
+      if (g.voices.some((v) => v.source === 'modele2')) continue;   // v71 (K_MESURE) : séparées par le modèle à deux raies (entiere.js), pas un lobe
       const k = g.kTrack || 1;
       const resHz = PROCHES_CASES * g.srd / (g.W * k);
       const ord = [...g.voices].sort((a, b) => a.target - b.target);

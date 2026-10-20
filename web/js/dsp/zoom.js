@@ -128,13 +128,13 @@ export class ZoomTracker {
   // partiel k, l'enveloppe bat k fois plus vite : on divise par k.
   // Fenêtre : les `maxS` dernières secondes depuis le dernier redémarrage
   // (au moins 2,5 s, et deux périodes). Retourne { hz, conf } ou null.
-  beatFromEnvelope(k = 1, maxS = 8) {
+  beatFromEnvelope(k = 1, maxS = 8, minS = 2.5) {
     // Toute la mémoire de la bande depuis le changement de note (les
     // redémarrages de la fenêtre de mesure n'y changent rien : le son est
     // continu). 8 s : un battement lent (0,5 Hz, 30/min) y fait 4 périodes.
     const avail = Math.min(this.count, RING);
     const N = Math.min(avail, Math.round(maxS * this.srd));
-    if (N < 2.5 * this.srd) return null;
+    if (N < minS * this.srd) return null;
     let M = 1;
     while (M < 2 * N) M <<= 1;
     const fft = FFT.get(M);

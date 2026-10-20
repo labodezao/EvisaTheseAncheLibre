@@ -15,6 +15,7 @@
 
 import { COH_TOL, COH_ABS_HZ, fenetreEntiere } from './battement.js';
 import { centsBetween } from '../music.js';
+import { NLS_BETA_MAX } from './nls-bessel.js';
 
 export const PEIGNE_R_MAX = 0.05;        // résidu relatif au-delà duquel le peigne n'explique pas le son (−13 dB)
 export const PEIGNE_LATERALES_DB = -12;  // raies latérales externes sous cette valeur : amas net, le moteur d'avant lit aussi bien
@@ -299,6 +300,24 @@ export function etiqueter(res, k, lect = null) {
   return { s, amb, laterales: car > 0 ? ext / car : 1, a0: amp(s), a1: amp(s + k) };
 }
 
+// Marge (¢) de la paire lue par le modèle à deux raies (entiere.js) : de quoi ne pas annoncer une précision que le modèle n'a pas.
+//  - fenêtre qui n'est PAS un nombre entier de battements (début de note, ou ajustement à froid) : l'écart des deux anches en entier (le couplage déplace la moyenne d'une
+//    fenêtre fractionnaire d'une part de Δ qu'on ne connaît pas encore : mesuré sur synthèse couplée (lent100, D3 : 202 lectures), jusqu'à 0,88 Δ, 99 % sous 0,70 Δ) ;
+//  - sinon (fenêtre entière) :
+//  - 3 σ de Cramér-Rao (le bruit), au moins 0,1 ¢ ;
+//  - le tirage mutuel module la phase de chaque anche au rythme du battement (indice jusqu'à NLS_BETA_MAX) : la fréquence moyenne lue sur une fenêtre T est décalée de
+//    β Δ |sinc(T Δ)| au plus (la moyenne d'un sinus sur T), nulle sur un nombre entier de battements ;
+//  - ce que le modèle ne loge pas (résidu relatif r : raies latérales d'ordre 2, AM) : une raie d'amplitude √r à moins de Δ tire la raie lue de √r Δ au plus ; trois fois
+//    cela (mesuré sur la même synthèse couplée, 140 lectures sur fenêtre entière : erreur / (√r Δ) au plus 2,75, 99 % sous 2,3).
+const MARGE_RESIDU = 3;
+export function margeModele2(sigmaCents, m, f) {
+  const dC = (1731.2 * (m.delta ?? 0)) / f;
+  if (!m.entiere) return Math.max(0.1, dC);
+  const x = (m.fenetreS ?? 0) * (m.delta ?? 0);
+  const sinc = x > 1e-6 ? Math.abs(Math.sin(Math.PI * x) / (Math.PI * x)) : 1;
+  return Math.max(0.1, 3 * (sigmaCents ?? 0), NLS_BETA_MAX * dC * sinc, MARGE_RESIDU * Math.sqrt(m.r ?? 0) * dC);
+}
+
 export const methodesPeigne = {
   // Rend { f0, f1, delta, sigmaCents, r, laterales (rapport d'énergie), k, N, T } pour les deux anches v0 < v1 d'un unisson, ou null.
   // `D0` : Δ attendu (enveloppe, dernier peigne, ou écart brut) ; `env` : { hz, sure } ou null pour la vérification de Δ.
@@ -361,6 +380,14 @@ export const methodesPeigne = {
     const sets = (champs) => { for (const v of [v0, v1]) if (v.tracked) Object.assign(v, champs); };
     const efface = () => { for (const v of g.voices) { v.etatAnche = null; v.margeAnche = 0; v.tBesoin = null; v.ageNote = null; } };
     if (!c || !v0?.tracked || !v1?.tracked || v0.coarse || v1.coarse) return efface();
+    // v71 (K_MESURE) : la paire lue par le modèle à deux raies sur des battements entiers (entiere.js) n'est jamais dite « sûre » ici (c'est le certificat qui
+    // le dit) ; sa marge est son incertitude de Cramér-Rao, pas la moitié du battement (état « centre »).
+    if (v0.source === 'modele2' && v1.source === 'modele2') {
+      const m = v0.modele2 ?? {};
+      const D = m.delta ?? 1;
+      c.moy = null;
+      return sets({ tBesoin: D < 0.8 ? Math.max(1, 2 / D) : Math.max(1, 1.2 / D), ageNote: tNow - c.t0, etatAnche: 'en cours', margeAnche: margeModele2(v0.sigmaCents, m, (v0.fMeas + v1.fMeas) / 2) });
+    }
     const pg = c.pgActif && c.pg && tNow - c.pg.t <= 3 ? c.pg : null;
     // Le battement connu : le peigne (deux partiels d'accord), l'enveloppe sûre, sinon l'écart des deux lectures de la dernière
     // demi-seconde, à condition qu'il tienne (sinon deux raies que la fenêtre ne sépare pas encore : l'écart lu n'est pas Δ).

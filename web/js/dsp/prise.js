@@ -29,6 +29,7 @@
 // Module pur, sans DOM : tourne dans le Worker (worker.js) et sous Node.
 
 import { affinerSecteur } from './secteur.js';
+import { HorlogeFlux } from './horloge-flux.js';
 
 export const SEUILS = Object.freeze({
   chauffe_s: 1.0,           // rien n'est jugé pendant la première seconde (démarrage du flux)
@@ -56,6 +57,13 @@ export const SEUILS = Object.freeze({
   trouChauffe_s: 5,         // les 5 premières secondes : un saut de date est le démarrage du périphérique (v62, Ewen : 870 ms au lancement), pas une perte ; le compteur repart de la nouvelle date
   trouTenue_s: 15,
   trouAlerteMs: 400,        // Ewen, 19/10/2026 : un trou de moins de 0,4 s est seulement journalisé (CSV, JSON), sans alerte ni verdict bloqué ; seule la fenêtre qui le contient est écartée
+  // v71 (F1, drapeau TROUS_COURTS, `cfg.trousCourts`) : un trou de quelques ms à 0,4 s ne fausse pas la mesure (session du 19/10 : erreur médiane 0,06 ¢ pour les images dont la
+  // fenêtre contient un trou, 0,18 ¢ pour les autres). Il n'y a alors plus d'alerte « trous » ni de « prise douteuse » : seule l'IMAGE dont la fenêtre contient le trou n'a pas de verdict
+  // (`ecartee`, pendant `trouGel_s`), sans rien afficher. Jusqu'à `trouCourt_ms` le trou est seulement journalisé (CSV, JSON) ; au-delà, un repère discret (`repere`, `trouRepere_s`).
+  trousCourts: true,
+  trouCourt_ms: 400,        // un trou de cette durée au plus est « court » : journalisé, rien à l'écran
+  trouGel_s: 7,             // durée pendant laquelle la fenêtre de lecture contient le trou : la plus longue fenêtre du certificat (FEN_ENTIER_MAX_S 6,5 s) + 0,5 s. Plan d'expériences (3 plans, docs/PRISE-DE-SON.md) : après un trou, le moteur ne rend le même « sûr » que sans trou qu'au bout de 5,5 à 6,5 s ; 4,5 s laissait 15 à 27 images de « sûr » perdues sans raison visible
+  trouRepere_s: 10,         // le repère discret d'un trou long reste affiché ce temps
   // écrêtage
   ecreteNiveau: 0.985,
   ecreteSuite: 3,           // 3 échantillons d'affilée au maximum
@@ -109,8 +117,9 @@ export class ControlePrise {
     // écrêtage
     this.suiteCrete = 0; this.enCrete = false; this.evEcrete = [];
     // trous
-    this.ts0 = null; this.cum = 0; this.rRef = 0; this.candidat = null; this.demarrageMs = null; this.trous = []; this.dernierTrou = -1e9;
+    this.ts0 = null; this.cum = 0; this.rRef = 0; this.candidat = null; this.demarrageMs = null; this.trous = []; this.dernierTrou = -1e9; this.dernierTrouLong = -1e9; this.ecarteJusqua = -1e9;
     this.tsDernier = null; this.cumDernier = 0;
+    this.horloge = new HorlogeFlux(sr);   // lot F2 (c) : dérive de l'horloge du micro, hors trous
     // secteur
     this.tamponS = new Float32Array(Math.round(sr * this.s.secteurFenetre_s));
     this.remplis = 0;
@@ -148,6 +157,7 @@ export class ControlePrise {
     this.bn = 0; this.bsom = 0;
     this.remplis = 0;
     this.ts0 = null; this.candidat = null;   // la date du flux repart : la coupure n est pas un trou
+    this.horloge.coupure();
   }
 
   // Un bloc d'échantillons (la suite exacte du flux, sans trou).
@@ -229,6 +239,7 @@ export class ControlePrise {
   // saut, c'est le calcul qui n'a pas suivi, pas le micro : cause « retard »).
   bloc(ts, n, retardMs = 0) {
     if (this.muet || !Number.isFinite(ts)) return;
+    this.horloge.bloc(ts, this.ts0 === null ? 0 : this.cum, n);
     if (this.ts0 === null) {
       this.ts0 = ts; this.cum = 0; this.rRef = 0; this.tsDernier = ts; this.cumDernier = 0;
     } else {
@@ -239,7 +250,13 @@ export class ControlePrise {
       // capture) ne dépasse le seuil que sur un bloc. Le trou n'est donc retenu qu'au bloc suivant.
       const c = this.candidat;
       if (c && Math.abs(ms) > 0.6 * this.s.trouMs && Math.sign(ms) === Math.sign(c.ms)) {
-        this.trous.push({ t_s: c.t, ms: Math.round(c.ms * 10) / 10, cause: Math.abs(c.ms) <= 1.5 * (c.retard || 0) + 20 ? 'retard' : 'flux' });
+        const trou = { t_s: c.t, ms: Math.round(c.ms * 10) / 10, cause: Math.abs(c.ms) <= 1.5 * (c.retard || 0) + 20 ? 'retard' : 'flux' };
+        if (this.s.trousCourts) {
+          trou.court = Math.abs(c.ms) <= this.s.trouCourt_ms;      // v71 (F1) : journalisé dans tous les cas, affiché seulement au-delà de trouCourt_ms
+          if (!trou.court) this.dernierTrouLong = this.temps;
+          this.ecarteJusqua = Math.max(this.ecarteJusqua, this.temps + this.s.trouGel_s);
+        }
+        this.trous.push(trou);
         if (this.trous.length > 500) this.trous.shift();
         if (Math.abs(c.ms) > this.s.trouAlerteMs) this.dernierTrou = this.temps;   // l'alerte (prise douteuse) : seulement au-delà de trouAlerteMs
         this.rRef = r;
@@ -260,10 +277,7 @@ export class ControlePrise {
 
   // Dérive de l'horloge du micro face à celle du navigateur (ppm), sur toute la prise.
   deriveHorloge() {
-    if (this.ts0 === null || this.cumDernier < this.sr * 10) return null;
-    const reel = (this.tsDernier - this.ts0) / 1e6;
-    const attendu = this.cumDernier / this.sr;
-    return Math.round((reel / attendu - 1) * 1e6 * 10) / 10;
+    return this.horloge.lire().ppm;
   }
 
   // Le signal APRÈS le retrait du ronflement : sert à dire si le ronflement est parti.
@@ -369,7 +383,7 @@ export class ControlePrise {
       out.gate = { premiere: ev[0], derniere: ev[ev.length - 1], n: gate.length + palier.length,
         detail: { zeros: gate.length, coupures: palier.length, plusLongue_ms: Math.round(this.zeroMax * 10000) / 10 } };
     }
-    if (this.trous.length && this.dernierTrou > -1e8 && t - this.dernierTrou <= s.trouTenue_s) {
+    if (!s.trousCourts && this.trous.length && t - this.dernierTrou <= s.trouTenue_s) {
       out.trous = { premiere: this.dernierTrou, derniere: this.dernierTrou, n: this.trous.length,
         detail: { dernier_ms: this.trous[this.trous.length - 1].ms, dernier_t_s: Math.round(this.trous[this.trous.length - 1].t_s * 10) / 10,
           cause: this.trous[this.trous.length - 1].cause, total: this.trous.length } };
@@ -456,7 +470,14 @@ export class ControlePrise {
       if (a && ep.fin_s === null) { ep.n = a.n; ep.detail = a.detail; }
     }
     const alertes = [...this.actifs].map(([code, a]) => ({ code, depuis_s: a.depuis, n: a.n, detail: a.detail }));
-    return { douteuse: alertes.length > 0, codes: alertes.map((a) => a.code), alertes, infos: this.infos, t };
+    const out = { douteuse: alertes.length > 0, codes: alertes.map((a) => a.code), alertes, infos: this.infos, t };
+    if (s.trousCourts) {
+      // v71 (F1) : l'image dont la fenêtre contient un trou n'a pas de verdict (sans « prise douteuse ») ; un trou long laisse un repère discret ; `trou` : la colonne du CSV.
+      out.ecartee = t <= this.ecarteJusqua;
+      out.repere = t - this.dernierTrouLong <= s.trouRepere_s;
+      out.trou = out.repere ? 'long' : out.ecartee ? 'court' : '';
+    }
+    return out;
   }
 
   // Les épisodes pour le JSON de la session. `t0` : l'instant de la session dans
@@ -471,7 +492,7 @@ export class ControlePrise {
 
   // Les trous datés, pour le JSON.
   trousSession(t0 = 0) {
-    return this.trous.map((x) => ({ t_s: Math.round((x.t_s - t0) * 1000) / 1000, ms: x.ms }));
+    return this.trous.map((x) => ({ t_s: Math.round((x.t_s - t0) * 1000) / 1000, ms: x.ms, ...(x.court !== undefined ? { court: x.court } : {}) }));
   }
 
   // Résumé chiffré de la prise (JSON de la session, tests).
@@ -480,7 +501,7 @@ export class ControlePrise {
       duree_s: Math.round(this.temps * 10) / 10,
       plages_de_zeros: this.zerosVus, plus_longue_plage_ms: Math.round(this.zeroMax * 10000) / 10,
       coupures_de_plancher: this.evPalier.length,
-      derive_horloge_ppm: this.deriveHorloge(), saut_au_demarrage_ms: this.demarrageMs ?? null,
+      derive_horloge_ppm: this.deriveHorloge(), derive_horloge_brute_ppm: this.horloge.lire().brut, saut_au_demarrage_ms: this.demarrageMs ?? null,
     };
   }
 }

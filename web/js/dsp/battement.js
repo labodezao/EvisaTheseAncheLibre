@@ -1,4 +1,8 @@
 import { INTERVALLES, battementIntervalle, centsBetween } from '../music.js';
+import { CERT } from './certificat.js';
+
+// v71 (C6) : fenêtre minimale (s) de l'enveloppe quand une seule anche est attendue et que cfg.deuxAnches est allumé (partout ailleurs : 2,5 s).
+export const DEUX_ENV_MIN_S = 1.5;
 
 // Battement et forme de la sortie du moteur : battement du trémolo
 // (measureBeat), mesures par partiel pour le stroboscope (withPartials),
@@ -94,6 +98,19 @@ export const FUS_DESACCORD = 0.4;    // écart relatif écart mesuré / envelopp
 export const FUS_HOLD_S = 1.0;       // l'enveloppe disparue est tenue ce temps
 export const FUS_OUT_S = 0.7;        // dernier filtre médian
 
+// Battement principal (lot C3 de la v71, drapeau CERT.BATTEMENT_PRINCIPAL). En musette le battement est la grandeur qui compte : il ne s'affiche que lu
+// sur un nombre de périodes suffisant, et jamais en désaccord avec l'enveloppe quand celle-ci est sûre. Mesuré sur les 19 notes du H6 à vérité : avant la
+// pose, l'écart brut des deux hauteurs (« ecart ») donne 20 à 57 bat/min d'erreur sur une note jeune (la fenêtre du traqueur ne sépare pas deux raies à moins de
+// 1/T d'écart : sa fréquence est celle de la somme), et le rival 2Ω gagne tant que l'enveloppe n'est pas sûre (Ré5 : 1,07 Hz pour 0,55). Trois règles :
+//   - l'enveloppe sûre fait foi : un battement certifié qui s'en écarte de plus de ENV_ACCORD n'est pas affiché ;
+//   - l'écart brut n'est affiché qu'après BP_PERIODES périodes de battement de note (le temps de voir le battement) ET si ses dernières valeurs s'accordent
+//     (dispersion robuste sous max(BP_DISP_HZ, BP_DISP_PART x valeur)) ;
+//   - sinon le dernier chiffre qui remplissait ces conditions est tenu FUS_HOLD_S, puis rien : `beatMeas` null, « — » à l'écran (aucune valeur inventée).
+export const BP_PERIODES = 4;        // périodes de battement de note avant l'écart brut
+export const BP_PERIODES_ENV = 3;    // périodes de battement de note avant l'enveloppe (son autocorrélation prend sinon un multiple de la période : La3 0,35 Hz lu pour 0,58 ; à deux périodes elle porte encore 3 bat/min de biais sur Mi♭4)
+export const BP_DISP_HZ = 0.04;      // dispersion robuste maximale de l'écart brut (Hz) ...
+export const BP_DISP_PART = 0.1;     // ... ou cette part de sa valeur
+
 // Cohérence des hauteurs avec le battement (v57 ; « il faut vérifier qu'on a bien une mesure précise des fréquences des
 // 2 anches et que ça colle »). f(8'+) − f(8') DOIT valoir le battement de l'enveloppe (celui qu'on entend). Quand deux
 // anches se tirent, leur spectre est un peigne de raies à ±Δ, ±2Δ : le moteur prend parfois la raie de rang n±1 pour
@@ -124,6 +141,25 @@ export function fenetreEntiere(delta) {
   return Math.min(FEN_MAX_S, Math.max(1, Math.round(d)) / d);
 }
 
+// Amplitude crête (¢) de la sinusoïde à Ω (Hz) ajustée aux points [{ t, c }] avec une moyenne et une pente (moindres carrés, 4 inconnues).
+function ajusterSinus(pts, om) {
+  const n = 4, M = Array.from({ length: n }, () => new Float64Array(n + 1)), t0 = pts[0].t;
+  for (const { t, c } of pts) {
+    const u = t - t0, w = 2 * Math.PI * om * t, f = [1, u, Math.cos(w), Math.sin(w)];
+    for (let p = 0; p < n; p++) { for (let q = 0; q < n; q++) M[p][q] += f[p] * f[q]; M[p][n] += f[p] * c; }
+  }
+  for (let p = 0; p < n; p++) {
+    let m = p;
+    for (let q = p + 1; q < n; q++) if (Math.abs(M[q][p]) > Math.abs(M[m][p])) m = q;
+    [M[p], M[m]] = [M[m], M[p]];
+    if (Math.abs(M[p][p]) < 1e-12) return null;
+    for (let q = p + 1; q < n; q++) { const r = M[q][p] / M[p][p]; for (let s = p; s <= n; s++) M[q][s] -= r * M[p][s]; }
+  }
+  const x = new Float64Array(n);
+  for (let p = n - 1; p >= 0; p--) { let v = M[p][n]; for (let q = p + 1; q < n; q++) v -= M[p][q] * x[q]; x[p] = v / M[p][p]; }
+  return Math.hypot(x[2], x[3]);
+}
+
 const mediane = (a) => { const s = [...a].sort((x, y) => x - y); return s[s.length >> 1]; };
 
 // Méthodes d'Engine (cf. engine.js, Object.assign).
@@ -134,10 +170,11 @@ export const methodesBattement = {
     const tNow = this.samplesTotal / this.sr;
     const etats = this.beatFus ?? (this.beatFus = new Map());
     const premier = groups.find((g) => !g.isHarmonic && !g.isSub);
+    const bp = (this.cfg?.certificat?.BATTEMENT_PRINCIPAL ?? CERT.BATTEMENT_PRINCIPAL) === true;
     for (const g of groups) {
       if (g.isHarmonic || g.isSub || g.voices.length < 2) continue;
       let st = etats.get(g.key);
-      if (!st || tNow - st.vu > 0.6) { st = { vu: tNow, brut: new Map(), sortie: new Map(), env: [], envT: -1e9 }; etats.set(g.key, st); }
+      if (!st || tNow - st.vu > 0.6) { st = { vu: tNow, t0: tNow, brut: new Map(), sortie: new Map(), env: [], envT: -1e9, bp: new Map() }; etats.set(g.key, st); }
       st.vu = tNow;
       const base = g.voices.find((v) => v.def.beatSign === 0) ?? g.voices[0];
       const autres = g.voices.filter((v) => v !== base);
@@ -168,6 +205,7 @@ export const methodesBattement = {
           st.brut.set(v.def.id, hist.filter((h) => tNow - h.t <= FUS_PAIR_S));
           // une image où le traqueur perd une anche : la valeur certifiée (mémoire de 1,5 s) reste affichée, le chiffre ne saute pas à la valeur brute
           if (v.beatCert?.hz != null && brut != null) { v.beatBrutMediane = brut; v.beatMeas = (v.def.beatSign ? Math.sign(v.def.beatSign) : Math.sign(brut) || 1) * v.beatCert.hz; v.beatSource = 'certificat'; }
+          if (bp) this.battementPrincipal(st, v, 1, tNow, [], envHz, envSure);
           continue;
         }
         hist.push({ t: tNow, v: brut });
@@ -186,8 +224,63 @@ export const methodesBattement = {
         v.beatSource = src;
         // v64 : le battement de toute la plage tenue (certificat.js, estimerBattement), valeur unique avec son incertitude, remplace la médiane glissante
         if (v.beatCert?.hz != null) { v.beatBrutMediane = v.beatMeas; v.beatMeas = signe * v.beatCert.hz; v.beatSource = 'certificat'; }
+        if (bp) this.battementPrincipal(st, v, signe, tNow, recent.map((h) => h.v), envHz, envSure);
       }
+      // v71 (K_MESURE) : un battement certifié ou lu dans l'enveloppe sûre sert à choisir le partiel de mesure de la prochaine fois (plan.js, unisonHarmonic).
+      if (this.cfg?.K_MESURE && g === premier && g.voices.length === 2 && autres[0] && (autres[0].beatSource === 'certificat' || (autres[0].beatSource === 'enveloppe' && envSure))) this.retenirOmega?.(Math.abs(autres[0].beatMeas));
+      // v71 (PROV_ENTIER) : le battement Ω̂ de la paire est connu : la composante de chaque voix à Ω̂ sur la dernière période.
+      if (this.cfg?.PROV_ENTIER && g === premier && g.voices.length === 2) this.composanteOmega(g, tNow, autres[0]?.beatMeas);
     }
+  },
+
+  // v71 (PROV_ENTIER, lot C2, RAPPORT-SUPERPOSITION.md § 6.3) : ce que la courbe montre en bande autour de la valeur d'une anche. Une anche d'un unisson
+  // dont les deux hauteurs se tirent a une VRAIE modulation à la fréquence du battement (tirage mutuel, AM : 0,05 à 1,5 ¢ sur le H6) : elle ne se lisse
+  // pas, elle se montre. `compOmega` (¢) : amplitude de la sinusoïde à Ω̂ ajustée (avec une moyenne et une pente) à l'écart de la voix à sa cible sur la
+  // dernière période de battement ; `omegaChapeau` (Hz) : le battement. Posés sur les voix, lus par mesure.js (fenêtre de la médiane du chiffre
+  // provisoire : un nombre entier de battements) et courbe.js (la bande). Rien tant qu'une période entière n'est pas vue.
+  composanteOmega(g, tNow, beatMeas) {
+    const om = Math.abs(beatMeas);
+    const H = this.compHist ?? (this.compHist = new Map());
+    for (const v of g.voices) {
+      const cle = `${g.key}:${v.def.id}`;
+      let h = H.get(cle) ?? [];
+      if (v.tracked && !v.held && Number.isFinite(v.dTargetCents)) {
+        if (h.length && tNow - h[h.length - 1].t > 0.6) h = [];
+        h.push({ t: tNow, c: v.dTargetCents });
+      }
+      const T = om >= 0.1 && om <= 10 ? 1 / om : null;
+      while (h.length && h[0].t < tNow - (T ?? 1) - 1e-6) h.shift();
+      H.set(cle, h);
+      if (T == null) continue;
+      v.omegaChapeau = om;
+      if (h.length < 6 || h[h.length - 1].t - h[0].t < 0.9 * T) continue;
+      const a = ajusterSinus(h, om);
+      if (a != null) v.compOmega = Math.round(a * 1000) / 1000;
+    }
+  },
+
+  // Voir BP_* ci-dessus (drapeau CERT.BATTEMENT_PRINCIPAL). Corrige `beatMeas` de la voix `v` après la fusion ordinaire.
+  battementPrincipal(st, v, signe, tNow, brutes, envHz, envSure) {
+    const opts = { ...CERT, ...(this.cfg.certificat ?? {}) };
+    // 1. l'enveloppe sûre fait foi sur un battement certifié qui s'en écarte (le rival 2Ω ou Ω/2 gagne un ajustement), tant qu'il n'est pas POSÉ (trois ajustements, 2 s, ±0,5 bat/min) :
+    //    posé, c'est l'enveloppe qui se trompe (fin de note : 36 et 24 bat/min lus pour 72 dans les dernières 0,5 s d'un échantillon)
+    if (v.beatSource === 'certificat' && !v.beatCert.posee && envHz != null && envSure && Math.abs(v.beatCert.hz - envHz) > opts.ENV_ACCORD * envHz) {
+      v.beatMeas = signe * envHz; v.beatSource = 'enveloppe';
+    }
+    // 2. l'écart brut : lu sur assez de périodes et d'accord avec lui-même, sinon tenu un instant puis absent
+    const age = tNow - st.t0, src = v.beatSource;
+    let ok;
+    if (src === 'certificat') ok = true;
+    else if (src === 'enveloppe') ok = Math.abs(v.beatMeas) > 0 && age >= BP_PERIODES_ENV / Math.abs(v.beatMeas);
+    else if (src === 'ecart') {
+      const med = mediane(brutes), a = Math.abs(med);
+      const mad = mediane(brutes.map((x) => Math.abs(x - med))) * 1.4826;
+      ok = brutes.length >= 6 && a > 0 && age >= BP_PERIODES / a && mad <= Math.max(BP_DISP_HZ, BP_DISP_PART * a);
+    } else ok = false;       // aucune fusion (une anche non suivie) : la valeur d'avant n'est celle de personne
+    if (ok) { st.bp.set(v.def.id, { t: tNow, v: v.beatMeas }); return; }
+    const dernier = st.bp.get(v.def.id);
+    if (dernier && tNow - dernier.t <= FUS_HOLD_S) { v.beatMeas = dernier.v; v.beatSource = 'tenue'; }
+    else { v.beatMeas = null; v.beatSource = 'attente'; }
   },
 
   // Voir COH_* ci-dessus. Hauteurs des deux anches d'un unisson ramenées à l'écart de l'enveloppe quand le moteur a pris
@@ -213,6 +306,8 @@ export const methodesBattement = {
     const hz = c.hz != null && tNow - c.hzT <= COH_REF_S ? c.hz : null;
     // Le peigne rigide (peigne.js) lit les deux anches d'un coup quand elles se tirent ; sinon la lecture d'avant, corrigée ci-dessous.
     if (this.appliquerPeigne?.(g, v0, v1, tNow, envHz, envSure, c, ok)) return;
+    // v71 (K_MESURE) : une paire lue par le modèle à deux raies sur des battements entiers (entiere.js) est déjà séparée : rien à réparer.
+    if (v0.source === 'modele2' && v1.source === 'modele2') { if (ok(v0) && ok(v1)) c.ref = { t: tNow, f0: v0.fMeas, f1: v1.fMeas }; return; }
     for (const v of [v0, v1]) if (v.tracked) { v.source = 'amas'; v.sigmaCents = null; v.peigne = null; }
     if (hz == null) return;
     if (!c.ref || tNow - c.ref.t > COH_REF_S) {
@@ -328,12 +423,15 @@ export const methodesBattement = {
     const base = groups.find((g) => !g.isHarmonic && !g.isSub);
     if (!base) return null;
     const raws = [];
+    // v71 (C6, cfg.deuxAnches) : une anche attendue (auto, registre M) devant deux qui battent -> l'enveloppe se lit dès DEUX_ENV_MIN_S (au lieu de 2,5 s) :
+    // une note de 2 à 3 s (A4R 2,87 s) devrait déjà le dire. Deux périodes entières restent exigées (beatFromEnvelope).
+    const minS = this.cfg.deuxAnches && base.voices.length === 1 && (this.cfg.mode === 'auto' || (this.cfg.mode === 'register' && this.cfg.register === 'M')) ? DEUX_ENV_MIN_S : undefined;
     for (const g of groups) {
       if (g.isSub || g.center !== base.center) continue;
       const t = this.trackers.get(g.key);
       const k = g.kTrack || 1;
       if (!t || raws.some((r) => r.k === k)) continue;
-      const b = t.beatFromEnvelope(1);
+      const b = t.beatFromEnvelope(1, undefined, minS);
       if (b && b.conf >= 0.4) raws.push({ k, hz: b.hz, conf: b.conf, depth: b.depth });
     }
     let out = null;

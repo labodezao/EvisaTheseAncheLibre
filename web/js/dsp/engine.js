@@ -20,13 +20,15 @@ import { partialPresent, targetSpacing, methodesPlan } from './plan.js';
 import { methodesConfondu } from './confondu.js';
 import { methodesProches } from './proches.js';
 import { methodesPeigne } from './peigne.js';
+import { methodesEntiere } from './entiere.js';
 import { methodesCertificat } from './certificat.js';
+import { DetecteurHorloge } from './saut-horloge.js';
 // Exportées par engine.js depuis la v28 (API gelée), rangées dans plan.js.
 export { strobePartials, unisonHarmonic } from './plan.js';
 
 // Version du moteur : doit être celle de la page et de app.js (cf. le
 // contrôle de cohérence dans app.js et le test dans dsp.test.mjs).
-export const ENGINE_VERSION = '70';
+export const ENGINE_VERSION = '71';
 
 const HOP = 4096;             // période d'analyse (~85 ms à 48 kHz)
 const MAXWIN = { fast: 128, normal: 256, precise: 512 };
@@ -35,7 +37,8 @@ const MAXWIN = { fast: 128, normal: 256, precise: 512 };
 // l'interface fait avancer pour le reposer) non plus : il ne change pas l'anche mesurée.
 // La voix visée (`voix`, la case de la séquence) non plus : elle ne sert qu'à
 // nommer l'anche seule d'un unisson (proches.js, uniteUnisson).
-const NO_RETUNE = new Set(['horlogeIncertPpm', 'gateDb', 'tolCents', 'autoFreeze', 'readout', 'devMode', 'bellows', '_v', 'sens', 'sensN', 'voix']);
+const NO_RETUNE = new Set(['horlogeIncertPpm', 'gateDb', 'tolCents', 'autoFreeze', 'readout', 'devMode', 'bellows', '_v', 'sens', 'sensN', 'voix', 'CHIFFRE_CONTINU', 'CONTINUITE']);
+NO_RETUNE.add('SAUT_HORLOGE');   // lot G1 (D3) : le drapeau ne change pas l'anche mesurée
 // Reprise après un silence (inversion du soufflet) : on ne garde que ce qui
 // suit la reprise (8 échantillons décimés ≈ une image).
 const RESUME_KEEP = 8;
@@ -61,6 +64,10 @@ export class Engine {
       fuseHarmonics: true,     // fusion multi-harmonique cohérente (mode auto)
       trackSub: false,         // bandes f/2 et 3f/2 (détection de bifurcation)
       subspace: false,         // analyse paramétrique Matrix Pencil (voix de base)
+      SAUT_HORLOGE: true,      // lot G1 (D3, audit échelons) : détecteur de saut d'horloge de la prise (saut-horloge.js), chiffre tenu et message ; éteint = rien ne change
+      deuxAnches: true,        // v71 (C6, DEUX_ANCHES) : une anche attendue (auto, registre M) devant deux qui battent -> voix confondue + message (proches.js)
+      PROV_ENTIER: true,       // v71 (lot C2) : Ω̂ du battement et composante de chaque voix à Ω̂ posés sur les voix (battement.js, composanteOmega) : le chiffre provisoire se médiane sur des battements entiers (mesure.js), la courbe montre la composante en bande (courbe.js)
+      K_MESURE: true,          // v71 (lot C1, RAPPORT-SUPERPOSITION.md § 7) : deux anches que la FFT ne sépare pas (k·Ω < 1,4 Hz) lues par un modèle à deux raies sur des battements entiers (dsp/entiere.js), au lieu de la fréquence de leur somme
       polyHarmonic: null,      // harmonique de mesure des anches à l'unisson
                                // (null = choisi pour les séparer vite, cf. unisonHarmonic)
       reedOctaves: [0],        // octaves scrutés en auto-anches (0 = octave jouée ;
@@ -69,6 +76,9 @@ export class Engine {
       lockNote: null,          // note MIDI imposée (désactive la détection)
       gateDb: -70,             // seuil de silence : gèle traqueurs et horloge
       response: 'normal',      // 'fast' | 'normal' | 'precise'
+      CHIFFRE_CONTINU: true,   // lot D1 (audit échelons) : un seul chiffre continu (ui/mesure.js afficheContinu)
+      CONTINUITE: false,       // lot D2 : étiquette 8'/8'+ par continuité, 'incertaine' quand l'attribution change (appariement.js)
+      OCTAVE_RESOLUE: true,    // lot C5 : l'octave en notes choisies et en accord garde sa fréquence (appariement.js, chord.js)
       beatCurve: { midiLow: 48, bLow: 0.8, midiHigh: 96, bHigh: 3.0, overrides: {} },
       ...cfg,
     };
@@ -96,6 +106,8 @@ export class Engine {
     this.stab = new Map();      // sortie stabilisée par anche (cf. stabilize)
     this.beatFus = new Map();   // battement affiché par unisson (battement.js, fuserBattement)
     this.cohEtat = new Map();   // dernière paire cohérente par unisson, par note (battement.js, cohererPaire) : ne repart pas de zéro à retune()
+    this.entState = new Map();  // lecture à deux raies sur battements entiers, par unisson (entiere.js)
+    this.omegaMesure = new Map();   // v71 (K_MESURE) : dernier battement mesuré par note jouée { hz, t } (omegaMesureDe, plan.js) : le partiel de mesure de la prochaine fois
     this.reedSeen = new Map();  // auto-anches : persistance des anches d'unisson
     this.lastFine = null;       // dernière mesure fine de la voix de base (maintien en creux de battement)
     if (this.cfg.certificat?.actif !== false) this.initAnneau();   // son brut des 8 dernières secondes : le certificat des lectures « sûres » (certificat.js)
@@ -111,7 +123,7 @@ export class Engine {
     // sur le vumètre effaçait la mesure à chaque mouvement.
     const changed = Object.keys(patch).filter((k) => JSON.stringify(patch[k]) !== JSON.stringify(this.cfg[k]));
     Object.assign(this.cfg, patch);
-    if (JSON.stringify([this.cfg.mode, this.cfg.register, this.cfg.chordDegrees, this.cfg.chordType]) !== before) this.chord = null;
+    if (JSON.stringify([this.cfg.mode, this.cfg.register, this.cfg.chordDegrees, this.cfg.chordType]) !== before) { this.chord = null; this.omegaMesure?.clear(); }
     if (patch.beatCurve) this.cfg.beatCurve = { ...patch.beatCurve };
     // La grille dit un sens (stabilite.js) : « non » à « poussé ? » (sensN) le
     // pose tout de suite ; un pas d'un autre sens, à la prochaine inversion.
@@ -128,17 +140,23 @@ export class Engine {
     // Nouvelle note (ou nouveaux réglages) : la continuité par anche repart
     // de zéro — les cibles reprennent la main pour l'appariement.
     this.prevF = new Map();
+    this.nbRaies = null;
+    this.seuleDe = null; this.avaitRaie = null; this.etiquetteJusqua = null; // D2 : étiquettes 8'/8'+ incertaines (appariement.js)
     this.steps = new Map();      // détection de saut par groupe (cf. detectStep)
     this.stab = new Map();       // sortie stabilisée par anche (cf. stabilize)
     this.beatFus = new Map();    // battement affiché par unisson (battement.js, fuserBattement)
     this.reedSeen = new Map();   // auto-anches : persistance des anches d'unisson
     this.ownT = new Map();       // dernière mesure « à soi » (non confondue) par anche
+    this.entState = new Map();   // lecture à deux raies sur battements entiers, par unisson (entiere.js)
+    this.compHist = new Map();   // écart des voix d'un unisson à leur cible sur la dernière période de battement (battement.js, composanteOmega)
     this.confT = new Map();      // dernière image « confondue avec l'octave » par anche (confondu.js)
     // La dernière mesure fine de l'ancienne note ne doit pas être « tenue »
     // sur la nouvelle (mesuré : Do3 → Do4, une image à −1201 ¢).
     this.lastFine = null;
     this.disagreeSince = null;
     this.unisonSince = null;
+    this.deuxEnv = null;
+    this.deuxVu = null;          // v71 (C6) : dernier « deux anches qui battent » vu (proches.js, marquerDeuxAnches)
     this.mpHist = [];
     this.lockMiss = new Map();   // note imposée qui ne sonne pas (silentLock) : on recompte
     this.retuneT = this.samplesTotal / this.sr;
@@ -172,6 +190,11 @@ export class Engine {
     }
     if (pk > this.peakAcc) this.peakAcc = pk;       // crête sur la période d'analyse (saturation)
     const rms = Math.sqrt(sum / chunk.length);
+    // D3 (saut-horloge.js) : une TFD de 1024 points complexes par pas de 512 échantillons (~0,15 ms) ; coupé en mode léger du calcul (machine lente : le diagnostic cède la place à la mesure)
+    if (this.cfg.SAUT_HORLOGE) {
+      const dh = this.detHorloge ??= new DetecteurHorloge(this.sr, this.cfg.sautHorlogeParam);
+      if (this.lente) dh.silence(); else dh.ecrire(chunk, rms >= gate);
+    }
     this.rmsAcc += sum;
     this.rmsN += chunk.length;
 
@@ -235,6 +258,9 @@ export class Engine {
     // Spectre de CETTE image (null en silence) : les raies repliées par la
     // décimation se reconnaissent à ses pics (zoom.js, repli ; matchVoices).
     this.coarseImage = coarse;
+    // D3 (cfg.SAUT_HORLOGE) : le saut d'horloge de la prise se voit sur TOUTES les raies (fréquence instantanée de chacune, saut-horloge.js) en quelques dizaines de ms, avant que le
+    // traqueur (fenêtre de 0,3 à 5,5 s) ne le suive. Le moteur ne s'en sert pas pour mesurer : il le dit (tick.prise.sautHorloge), l'interface tient son chiffre et ne certifie pas.
+    this.sautHorloge = c.SAUT_HORLOGE && this.detHorloge ? this.detHorloge.observer(this.samplesTotal / this.sr, quiet) : null;
     // Pics des dernières images (PICS_IMAGES, ~1,4 s) : une source de repli
     // qui bat (deux anches proches) peut être dans un creux sur les 0,34 s de
     // l'analyse grossière, pas sur la fenêtre du traqueur.
@@ -280,6 +306,9 @@ export class Engine {
     if (f0 && nf0 && clarity >= (poly ? 0.95 : 0.85) && Math.abs(centsBetween(f0, nf0)) > 40) {
       f0 = nf0;
     }
+    // v71 (C6, cfg.deuxAnches) : deux notes à un demi-ton de niveaux voisins (La4 + La♯4, 5 dB d'écart sur les échantillons Gaillard) font
+    // trouver au spectre une fondamentale qui n'est ni l'une ni l'autre (La3 pendant 1,8 s) : sans note plutôt qu'une tierce note (proches.js).
+    if (c.deuxAnches && c.mode === 'auto' && f0 && !quiet && this.tierceNote(f0, coarse)) f0 = null;
 
     // Note verrouillée par l'utilisateur : la détection est court-circuitée.
     if (c.lockNote != null && c.mode !== 'manual' && !this.chordDegrees()) {
@@ -479,6 +508,7 @@ export class Engine {
       // deux anches les plus fortes prenaient toutes les places et la
       // troisième n'avait plus de raie (MMM, soufflet ±1 ¢ : 8'+ lu à −5,7 ¢).
       const az = t.analyze(maxWin, 3 * g.voices.length + 3);
+      if (c.K_MESURE && !g.isHarmonic && !g.isSub) (this.azImage ?? (this.azImage = new Map())).set(g.key, az);   // les raies de la FFT de cette image (entiere.js : le modèle doit les expliquer)
       let anchor = null;
       if (g.isPartial) {
         // Une ancre PAR anche : son partiel k est cherché autour de k fois sa
@@ -806,6 +836,8 @@ export class Engine {
     // Le 8' d'un 16'+8' : lu sur ceux de ses partiels où sa raie est séparée
     // de celle du 16' (après le plancher : un partiel noyé n'y entre pas).
     this.octaveFuse(groups, claimed, claimedBy);
+    // v71 (K_MESURE) : deux anches d'un unisson que la FFT ne sépare pas, lues par un modèle à deux raies sur des battements entiers.
+    if (c.K_MESURE && c.mode === 'register' && !quiet && played != null) this.lireUnissonMesure(groups, calib, this.samplesTotal / this.sr);
     // Unisson d'un registre : restes trop faibles retirés, anche seule donnée
     // à la voix visée (proches.js).
     this.uniteUnisson(groups);
@@ -1006,10 +1038,18 @@ export class Engine {
     }
     const beat = quiet ? null : this.measureBeat(groups);
     const intervalles = quiet ? null : this.measureIntervals(groups);
+    const unisonT = c.mode === 'auto' && !quiet
+      ? (this.mp && this.samplesTotal / this.sr - this.mpSince >= MP_ALERT_S ? this.mpUnison(groups)
+        : this.unisonSince != null && this.samplesTotal / this.sr - this.unisonSince >= DISAGREE_HOLD_S
+          ? this.unison : null)
+      : null;
+    // Une anche attendue (auto, registre M) devant deux anches qui battent : la fréquence lue est celle de leur somme (proches.js)
+    const deux = c.deuxAnches ? this.marquerDeuxAnches(groups, beat, unisonT, quiet) : null;
 
     return {
       type: 'tick',
       version: ENGINE_VERSION,
+      chiffreContinu: !!c.CHIFFRE_CONTINU,   // D1 : l'affichage (ui/mesure.js) suit le drapeau du moteur
       time: this.samplesTotal / this.sr,
       level,
       peak,         // crête du signal (1 = pleine échelle) : saturation du micro si ≥ 0,98
@@ -1037,11 +1077,11 @@ export class Engine {
       // 1,5 s → { cents : écart entre elles } ou null.
       // Avec Matrix Pencil (cf. mpReeds), tout de suite et avec la hauteur
       // de chaque anche : { cents, reeds: [¢…], beatHz }.
-      unison: c.mode === 'auto' && !quiet
-        ? (this.mp && this.samplesTotal / this.sr - this.mpSince >= MP_ALERT_S ? this.mpUnison(groups)
-          : this.unisonSince != null && this.samplesTotal / this.sr - this.unisonSince >= DISAGREE_HOLD_S
-            ? this.unison : null)
-        : null,
+      unison: unisonT,
+      // v71 (C6, cfg.deuxAnches) : une anche attendue, deux qui battent -> { hz, bpm, source } ou null (la voix est marquée confondue)
+      deuxAnches: deux,
+      // D3 : { actif, t, tSaut, deltaCents, lignes, jusqua } ; absent quand cfg.SAUT_HORLOGE est éteint (le worker y ajoute le reste de `prise`).
+      ...(this.sautHorloge ? { prise: { sautHorloge: this.sautHorloge } } : {}),
       partialsDisagree: c.mode === 'auto' && !quiet && this.disagreeSince != null
         && this.samplesTotal / this.sr - this.disagreeSince >= DISAGREE_HOLD_S ? this.disagree : null,
       clarity,
@@ -1072,4 +1112,4 @@ export class Engine {
 }
 
 // Méthodes rangées dans les modules voisins, corps inchangés : `this` reste le moteur.
-Object.assign(Engine.prototype, methodesBattement, methodesAppariement, methodesAnchesMp, methodesStabilite, methodesPlan, methodesConfondu, methodesProches, methodesPeigne, methodesCertificat);
+Object.assign(Engine.prototype, methodesBattement, methodesAppariement, methodesAnchesMp, methodesStabilite, methodesPlan, methodesConfondu, methodesProches, methodesPeigne, methodesEntiere, methodesCertificat);

@@ -36,6 +36,12 @@ const BAND_HZ = 30;        // demi-bande utile du zoom (±0,45·srd ≈ ±42 Hz,
 const OUT_OF_TUNE_HZ = 1.5; // marge pour une anche encore loin de sa cible
 const K_FREQ_MAX = 4000;
 const K_MAX = 8;
+// v71 (K_MESURE, lot C1 de l'audit « superposition » du 19/10/2026) : le partiel de mesure est choisi aussi d'après le battement MESURÉ (Ω̂), pas seulement
+// l'écart voulu par la table. Une anche qu'on ramène vers l'unisson, ou une table à 3-8 Hz sur une note aiguë, donne un Ω réel bien plus petit que celui du
+// plan : k·Ω < 1,4 Hz (deux cases de la FFT de 1,37 s) et la fréquence lue est celle de la somme. On exige k·Ω̂ >= SEP_MESURE_HZ (deux cases) quand la bande, la
+// fréquence (K_FREQ_MAX) et le partiel présent (avoidEven) le permettent. Ω̂ vient de la dernière fois que cette note a battu (engine.js, omegaMesure).
+export const SEP_MESURE_HZ = 1.5;
+export const OMEGA_MESURE_MIN = 0.1;   // Hz : en dessous, pas de battement à séparer
 
 // Garde-fou : on ne mesure sur le partiel k que s'il est RÉELLEMENT présent
 // dans le spectre large bande de la note (à moins de 30 dB du plus fort de
@@ -136,7 +142,7 @@ export function partielPourRaiesVues(g, k, coarse) {
   return Math.max(1, Math.min(k, Math.floor(BAND_HZ / (ecart + OUT_OF_TUNE_HZ))));
 }
 
-export function unisonHarmonic(g, cfg, coarse = null) {
+export function unisonHarmonic(g, cfg, coarse = null, omega = null) {
   const kBase = g.kTrack;
   if (cfg.polyHarmonic) return Math.max(1, cfg.polyHarmonic | 0);
   const targets = g.voices.map((v) => v.target).sort((a, b) => a - b);
@@ -159,7 +165,10 @@ export function unisonHarmonic(g, cfg, coarse = null) {
   const kSep = Math.ceil(SEP_HZ / spacing);
   const kBand = Math.floor(BAND_HZ / (spread + OUT_OF_TUNE_HZ));
   const kFreq = Math.floor(K_FREQ_MAX / g.center);
-  let k = Math.max(kBase, Math.min(kSep, kBand, kFreq, K_MAX));
+  let kPlan = Math.min(kSep, kBand, kFreq, K_MAX);
+  // v71 (K_MESURE) : le battement mesuré demande au moins ceil(SEP_MESURE_HZ / Ω̂), dans les mêmes bornes (bande, fréquence, K_MAX).
+  if (cfg.K_MESURE && omega >= OMEGA_MESURE_MIN) kPlan = Math.max(kPlan, Math.min(Math.ceil(SEP_MESURE_HZ / omega), kBand, kFreq, K_MAX));
+  let k = Math.max(kBase, kPlan);
   k = Math.max(kBase, partielPourRaiesVues(g, k, coarse));
   // Partiel pair interdit quand une anche sonne à l'octave au-dessus (cf.
   // groupVoices) : kBase est alors impair, la boucle s'y arrête au pire.
@@ -581,7 +590,8 @@ export const methodesPlan = {
           if (c.mode !== 'manual') this.plan.partials.set(g.key, strobePartials(g, this.lastCoarse));
           continue;
         }
-        const k = unisonHarmonic(g, c, this.lastCoarse);
+        const om = c.K_MESURE ? this.omegaMesureDe(playedMidi) : null;
+        const k = unisonHarmonic(g, c, this.lastCoarse, om);
         this.plan.k.set(g.key, k);
         this.plan.partials.set(g.key, strobePartials({ ...g, kTrack: k }, this.lastCoarse));
       }

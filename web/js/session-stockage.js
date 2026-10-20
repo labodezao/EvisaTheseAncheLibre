@@ -339,6 +339,8 @@ export class Enregistreur {
       if (m.cfg) man.cfg = m.cfg;
       // Contrôle de la prise de son (dsp/prise.js) : épisodes, trous, résumé ; le dernier morceau a tout.
       if (m.prise) man.prise = m.prise;
+      // Lot F2 : registres réglés, mode léger du calcul, trames perdues datées (le dernier morceau a tout).
+      if (m.journal) man.journal = m.journal;
       man.maj = new Date().toISOString();
       await this.stockage.ecrire(this.id, MANIFESTE, JSON.stringify(man));
       // Espace libre relu toutes les minutes (6 morceaux).

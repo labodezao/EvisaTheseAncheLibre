@@ -110,11 +110,14 @@ console.log('Écrêtage');
   assert(passer(fort, SR).e.codes.includes('ecretage'), 'signal poussé à fond : « ecretage »');
 }
 
-console.log('Blocs perdus (dates du flux)');
+// v71 (F1) : le comportement d'AVANT (drapeau TROUS_COURTS éteint : tout trou met « prise douteuse » 15 s) reste testé ici ; le comportement par défaut, trous courts compris,
+// l'est dans test/trous-courts.test.mjs.
+console.log('Blocs perdus (dates du flux), drapeau TROUS_COURTS éteint');
+const ANCIEN = { trousCourts: false };
 {
   const sr = 48000, n = 480;
   const flux = (trouMs = 0, dérive = 125e-6, gigue = 0.0003, secondes = 24) => {
-    const c = new ControlePrise(sr);
+    const c = new ControlePrise(sr, ANCIEN);
     let cum = 0, t0 = 1e6, saut = 0;
     const blocs = Math.floor(secondes * sr / n);
     for (let b = 0; b < blocs; b++) {
@@ -149,7 +152,7 @@ console.log('Blocs perdus (dates du flux)');
   assert(demarrage.resume().saut_au_demarrage_ms === 870, 'le saut est gardé dans le résumé, pas dans les alertes');
   { let cum = 0, saut = 870000; const c = demarrage; c.alimenter(new Float32Array(0)); void cum; void saut; }
   // la vraie détection reste : même saut après le démarrage, avec son instant et sa cause
-  const apres = new ControlePrise(sr);
+  const apres = new ControlePrise(sr, ANCIEN);
   { let cum = 0, saut = 0; for (let b = 0; b < 1300; b++) { if (b === 1000) saut = 870000; apres.bloc(1e6 + cum / sr * 1e6 + saut, n, 3); apres.alimenter(new Float32Array(n).map(() => lin(-70) * gauss())); cum += n; if (b % 20 === 0) apres.etat(); } }
   const tr = apres.etat().alertes.find((x) => x.code === 'trous');
   assert(tr && Math.abs(tr.detail.dernier_t_s - 10) < 0.2 && tr.detail.cause === 'flux', `saut de 870 ms à 10 s : alerte avec l'instant (${tr?.detail.dernier_t_s} s) et la cause « flux »`);
