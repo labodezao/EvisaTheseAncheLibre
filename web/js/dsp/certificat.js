@@ -24,7 +24,7 @@
 // fenêtres courtes, n'est plus le goulot du temps de pose.
 //
 // Le calcul est fait par un Worker dédié (v66, cert-calcul.js / cert-worker.js) ; sans lui, il est réparti sur les images du moteur (générateur : `CERT.PAS_PAR_IMAGE` itérations par image de 85 ms).
-import { lireBesselGen, lireSeuleGen, NLS_LLR_SUR, C_CENTS } from './nls-bessel.js';
+import { lireBesselGen, lireSeuleGen, NLS_LLR_SUR, C_CENTS, NP0 } from './nls-bessel.js';
 import { lireTrioGen } from './nls-trio.js';
 import { centsBetween } from '../music.js';
 
@@ -146,10 +146,24 @@ export const CERT = {
   SEULE_BORNE_C: 0.3,        // borne du biais d'une seconde raie cachée : 1731 · √r / (π T f) ¢ (la phase d'une raie à −x dB oscille de ρ = √r rad : la moyenne de la fréquence sur T en est écartée de ρ/(π T) Hz au plus)
   SEULE_KU_MIN: 2,           // partiels décrits (S/B >= 20 dB) au moins ; sous F0_GRAVE_HZ : KU_SUR_MIN_GRAVE
   SEULE_MOITIE_S: 0.6,       // C9 par moitiés : durée minimale de chaque moitié
+  AM_RHO_K: 0,               // v72 (J1) REFUSÉE PAR PLAN, éteinte : K 2 et 4 ne mordent jamais ; K 1,5 ferme le faux mais coûte 4,1 % de posées (h6 -4,5, LARGE -4,5, gen160 -2,4), K 1 coûte 12 % ; le rapport m_1/ρ des lectures justes (1,5 à 2,5) recouvre celui du faux (1,77) en synthèse. Audit n° 7 : « sûr » faux de 27,7 ¢, lhs64_valid LARGE plan 2 graine 71, CERTIFICAT.md § 0G), garde physique `ETIQ_AM` : dans une paire de rapport d'amplitude ρ (faible / forte, de l'hypothèse), l'enveloppe de la forte n'est modulée par le battement qu'à l'indice m ≈ ρ ; une hypothèse (modèle 'struct') dont l'indice d'AM au rang 1 dépasse AM_RHO_K × ρ fabrique de l'énergie (une anche et sa bande latérale prises pour deux anches) : refus `etiquette`. 0 : éteint
+  AM_RHO_PORTEE: 1,          // v72 (J1), avec AM_RHO_K : 1 = la garde refuse l'étiquette seulement ; 2 = en plus, l'ajustement inadmissible n'est adopté nulle part (ni témoin de cohérence d'étiquette, ni candidat, ni Ω promu)
   OMEGA_MAX: 60,             // Hz : au-delà, hors domaine (anches « presque deux notes » ; 25 en v63 ; 50 ¢ à A6 font 51 Hz)
 };
 
 // Raisons de refus : clés de langue (ui/langues) et ordre de gravité (la plus parlante d'abord).
+// v72 (J1) : l'hypothèse d'étiquette d'un ajustement de paire (modèle 'struct') est-elle inadmissible ? Indice d'AM au rang 1 (m_1, premier paramètre d'AM de la solution) contre
+// AM_RHO_K × ρ, ρ = rapport d'amplitude faible / forte de l'hypothèse (niveauDb). Rend le couple { m1, rho } pour le diagnostic.
+export function amHypothese(nls) {
+  if (!nls?.ok || nls.modele !== 'struct' || !nls.sol || nls.niveauDb == null || nls.sol.length <= NP0) return null;
+  return { m1: nls.sol[NP0], rho: 10 ** (nls.niveauDb / 20) };
+}
+export function amInadmissible(nls, opts) {
+  if (!(opts.AM_RHO_K > 0)) return false;
+  const h = amHypothese(nls);
+  return !!h && h.m1 > opts.AM_RHO_K * h.rho;
+}
+
 export const RAISONS = ['trois', 'ident3', 'absente', 'horloge', 'trous', 'niveau', 'ecartees', 'accordees', 'lent', 'peigne', 'resolution', 'etiquette', 'stabilite', 'accord', 'verification', 'domaine'];
 
 // Jugement d'une seconde lecture. nls : sortie de lireBessel (deux anches) ou lireTrio (trois) ; moteur : { f: [...] } (Hz, calibrés) ; calib : facteur d'horloge.
@@ -212,6 +226,7 @@ export function juger(nls, moteur, { calib = 1, zeros = false, opts = CERT, deri
   const couplage = Math.max(0, ...(am ? [].concat(nls.b) : [].concat(nls.b, nls.m, nls.m2 ?? [])).filter((v) => Number.isFinite(v)).map(Math.abs));
   // La raie étrangère ne compte que si elle est du même ordre que l'anche la plus faible (LIBRE_VS_FAIBLE_DB) ; sinon les deux anches sont les deux raies les plus fortes, sans équivoque.
   const affect = nls.libre && faible != null && nls.libre.dB > faible - opts.LIBRE_VS_FAIBLE_DB && (!(nls.llrAffectation >= opts.LLR_AFFECT_MIN) || couplage < opts.COUPLAGE_MIN);
+  if (!trio && amInadmissible(nls, opts)) raisons.push('etiquette');
   if (!(nls.llr >= opts.LLR_MIN) || affect || !(trio || nls.modele === 'libre' || (nls.margeEtiquette ?? 0) >= -(nls.modele === 'struct' ? opts.MARGE_ETIQ_ST_DB : opts.MARGE_ETIQ_DB))) raisons.push('etiquette');      // am : les bandes latérales sont libres, la « marge » contre la raie latérale n'a plus de sens ; restent le LLR des deux étiquettes et l'échange de rôle
   // v68 (H1) : après l'ajustement, la fenêtre doit contenir NB_MIN_POST battements mesurés (la fenêtre est planifiée sur l'Ω du traqueur) ; une garde à coût nul (plan 2^(5-2) de l'audit n° 4)
   if (!trio && (opts.NB_MIN_POST ?? 0) > 0 && nls.T * omMin < opts.NB_MIN_POST && !raisons.includes('lent') && !raisons.includes('accordees') && !raisons.includes('ecartees')) raisons.push('lent');
@@ -612,7 +627,8 @@ export const methodesCertificat = {
     const recents = (st.recents ??= []);
     const nRefusRecents = recents.filter(Boolean).length;
     recents.push(refusModele(v)); if (recents.length > 4) recents.shift();
-    if (nls.ok) st.omega = n === 3 ? Math.min(...nls.Om) : nls.Om;
+    const amAdopte = !(n === 2 && opts.AM_RHO_PORTEE >= 2 && amInadmissible(nls, opts));      // v72 (J1), portée 2 : un ajustement dont l'AM est inadmissible n'est adopté nulle part
+    if (nls.ok && amAdopte) st.omega = n === 3 ? Math.min(...nls.Om) : nls.Om;
     const ecart = (a, b) => Math.max(...a.map((x, j) => Math.abs(1200 * Math.log2(x / b[j]))));
     // les candidats (C1 à C8 passés) des 5 dernières secondes ; un échec net (autre que l'accord avec le traqueur, qui n'engage que lui) les efface
     st.cands = st.cands.filter((q) => tNow - q.t <= 5);
@@ -633,7 +649,7 @@ export const methodesCertificat = {
       const vus = (st.vus ??= []);
       while (vus.length && tNow - vus[0].t > opts.ETIQ_COH_S) vus.shift();
       if (v.ok && vus.some((q) => ecart(f, q.f) > opts.ETIQ_COH_C)) { v.ok = false; v.raisons = ['etiquette']; st.cands = []; }
-      if (nls.r <= 0.05 && nls.llr >= NLS_LLR_SUR) vus.push({ t: tNow, f });
+      if (amAdopte && nls.r <= 0.05 && nls.llr >= NLS_LLR_SUR) vus.push({ t: tNow, f });
     }
     if (v.ok && opts.REFUS_RECENTS > 0 && nRefusRecents >= opts.REFUS_RECENTS) { v.ok = false; v.raisons = ['niveau']; st.cands = []; }
     if (v.ok) {
