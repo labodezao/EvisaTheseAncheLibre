@@ -112,3 +112,13 @@ comme hypothèses à confirmer par Ewen : `d1` et `D#0` ressemblent à des notes
 dossiers sur le Drive, ou comparer les paramètres `Measure_params` des HDF5 de `data`,
 `data_d1_L` et `data_D#0_1_L_2v` (s'ils diffèrent, la différence dit peut-être ce que « L »
 change).
+
+## Registre des apports
+
+Le registre `apports_these.md` (dans ce dossier) dit, résultat par résultat, ce qui entre dans la thèse, d'où cela vient et avec quel statut. Les données qui l'appuient sont versées dans `research/data/` : `mesures_2023/` (banc 2023) et `librt_leviers_20261026/` (chaîne de leviers du LibRT).
+
+Reste hors dépôt :
+
+- les prises H6 de l'accordeur ;
+- les xlsx des essais de soupapes de 2020 (coffre ; chemin dans `apports_these.md`, section E) ;
+- l'export CAO du LibRT.

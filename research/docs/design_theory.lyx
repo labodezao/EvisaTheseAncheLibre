@@ -4207,6 +4207,47 @@ La valeur de
 \end_layout
 
 \begin_layout Standard
+
+\shape italic
+What the 2023 bench says about it (analysis of 01/10/2026, to be confirmed: the Pa unit of the sensor has not been checked with a U-tube).
+\shape default
+ At a fixed fan setting, the pressure of the bench falls as the flow rises, almost in a straight line (
+\begin_inset Formula $r=-0.86$
+\end_inset
+ to 
+\begin_inset Formula $-0.98$
+\end_inset
+). The slope is 9 to 24 Pa per l/min, i.e. 0.5 to 
+\begin_inset Formula $1.4\times10^{6}$
+\end_inset
+ Pa s m
+\begin_inset Formula $^{-3}$
+\end_inset
+. It measures the internal resistance of the bench source. It cannot be compared with the 
+\begin_inset Formula $5\times10^{6}$
+\end_inset
+ of the model without care: the latter also stands for the supply restriction, the channel of the soundboard, and the bench does not yet tell them apart. But the gap is there, and the model no longer starts at 
+\begin_inset Formula $2\times10^{6}$
+\end_inset
+: the point remains to be settled. The same data give a slope of 
+\begin_inset Formula $f_{0}$
+\end_inset
+ of 
+\begin_inset Formula $-0.9$
+\end_inset
+ to 
+\begin_inset Formula $-1.9$
+\end_inset
+ cent/100 Pa depending on the reed (
+\begin_inset Formula $R^{2}\approx0.3$
+\end_inset
+), and a repeatability of 
+\begin_inset Formula $-0.9\pm0.4$
+\end_inset
+ cent between two passes. Register: apports_these.md, section C; data: research/data/mesures_2023/.
+\end_layout
+
+\begin_layout Standard
 Il y a une seconde ouverture, le trou de la table d'harmonie. Le plan d'expériences numérique sur les chambres (research/fem/sommier/seuils_cavite.py) balaie sa section de 25 à 400 mm
 \begin_inset Formula $^{2}$
 \end_inset
@@ -4940,6 +4981,75 @@ Cinquième fait, le plus incomplet : trois languettes. Le modèle à trois anche
 
 \shape italic
 À compléter (Ewen) : sur une note de musette de ton instrument, trois prises de dix secondes au H6 : la note entière, puis une languette bouchée, puis l'autre. Le tirage est l'écart entre la languette seule et la même languette dans la paire ; à comparer au produit du carré de l'indice de phase par le battement. Puis douze notes à trois voix, pour lire les trois indices de phase de chaque languette et savoir si le terme croisé compte.
+\end_layout
+
+\begin_layout Standard
+Sixth fact, drawn from a simple test: the sound of reed A alone, the sound of reed B alone, then the plain sum A + B. With no coupling by construction, the frequency curves of the mix must remain those of the notes alone. On 54 pairs of tempered intervals (octave, fifth, thirds, seconds), taken from a bank of sounds and not from reeds in a bellows, the difference is 0.001 to 0.05 cent, with no component at 
+\begin_inset Formula $\Omega$
+\end_inset
+. The calculation defect nonetheless exists at unison, in a precise regime: when the measurement partial 
+\begin_inset Formula $k$
+\end_inset
+ does not separate the two lines (
+\begin_inset Formula $k\,\Omega<1.4$
+\end_inset
+ Hz). The reason is one line of physics. For a sum of two close sinusoids of ratio 
+\begin_inset Formula $r$
+\end_inset
+,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $f_{i}=f_{A}+\Omega\,\frac{r\left(r+\cos2\pi\Omega t\right)}{1+r^{2}+2r\cos2\pi\Omega t}$
+\end_inset
+\end_layout
+
+\begin_layout Standard
+The mean over a whole beat is 
+\begin_inset Formula $f_{A}$
+\end_inset
+ (
+\begin_inset Formula $r<1$
+\end_inset
+), the excursion at the trough is 
+\begin_inset Formula $-\Omega\,r/(1-r)$
+\end_inset
+, infinite at equal levels, and any window of non-integer duration 
+\begin_inset Formula $T$
+\end_inset
+ keeps a component at 
+\begin_inset Formula $\Omega$
+\end_inset
+ of about the excursion times 
+\begin_inset Formula $\left|\mathrm{sinc}(\Omega T)\right|$
+\end_inset
+. The instantaneous frequency of a sum lives in the phase, not in the envelope: no amplitude preprocessing can change that. On the real instrument (H6 recordings, one instrument), the calculation accounts for only 10 % (A4, A5) to 50 % (A3 at 0.59 Hz) of the fluctuation read; the rest is the phase modulation of the pulling, the real AM and the bellows.
+\end_layout
+
+\begin_layout Standard
+Seventh fact: the beat is a steadier quantity than cents. It is a difference, and the common pressure of the bellows (0.3 cent/s on the H6) cancels in it: 0.05 beat/min against 0.1 to 0.3 cent on each reed. At A4 442 Hz, 1 beat/min = 0.017 Hz = 0.065 cent.
+\end_layout
+
+\begin_layout Standard
+Eighth fact, still open: the residual of partial 2 on the H6 is 16 times too large (4.8 % against 0.3 %, 17 notes, one instrument), on all lines, carrier included, while partial 1 is perfect. The comb model does not explain it. Leaving a constant offset of each partial free gains almost nothing (5.02 % 
+\begin_inset Formula $\rightarrow$
+\end_inset
+ 4.83 %, median offset 0.025 Hz): it is not constant inharmonicity. What remains is a slow modulation of timbre or pitch, outside the comb. One constraint helps sort the hypotheses: two reeds of ratio 
+\begin_inset Formula $\rho$
+\end_inset
+ can only modulate the envelope at index 
+\begin_inset Formula $\rho$
+\end_inset
+.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+To be completed (Ewen): the same note on the H6, 8' alone, 8'+ alone, 8'+8', same pressure; no real reed alone has yet been recorded. Then a take at 
+\begin_inset Formula $\Omega T\geq4$
+\end_inset
+ s, or at a reed ratio of 6 to 12 dB, for the surplus of partial 2.
 \end_layout
 
 \begin_layout Section

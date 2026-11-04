@@ -3927,6 +3927,47 @@ La valeur de
 \end_layout
 
 \begin_layout Standard
+
+\shape italic
+Ce que le banc de 2023 en dit (analyse du 01/10/2026, à confirmer : l'unité Pa du capteur n'a pas été vérifiée au tube en U).
+\shape default
+ À commande de ventilateur fixe, la pression du banc baisse quand le débit monte, presque en ligne droite (
+\begin_inset Formula $r=-0{,}86$
+\end_inset
+ à 
+\begin_inset Formula $-0{,}98$
+\end_inset
+). La pente vaut 9 à 24 Pa par l/min, soit 0,5 à 
+\begin_inset Formula $1{,}4\times10^{6}$
+\end_inset
+ Pa s m
+\begin_inset Formula $^{-3}$
+\end_inset
+. Elle mesure la résistance interne de la source du banc. Elle ne se compare pas sans précaution au 
+\begin_inset Formula $5\times10^{6}$
+\end_inset
+ du modèle : ce dernier représente aussi la restriction d'alimentation, le canal du sommier, et le banc ne les distingue pas encore. Mais l'écart est là, et le modèle ne démarre plus à 
+\begin_inset Formula $2\times10^{6}$
+\end_inset
+ : le point reste à trancher. Ces mêmes données donnent une pente de 
+\begin_inset Formula $f_{0}$
+\end_inset
+ de 
+\begin_inset Formula $-0{,}9$
+\end_inset
+ à 
+\begin_inset Formula $-1{,}9$
+\end_inset
+ cent/100 Pa selon l'anche (
+\begin_inset Formula $R^{2}\approx0{,}3$
+\end_inset
+), et une répétabilité de 
+\begin_inset Formula $-0{,}9\pm0{,}4$
+\end_inset
+ cent entre deux passages. Registre : apports_these.md, section C ; données : research/data/mesures_2023/.
+\end_layout
+
+\begin_layout Standard
 Il y a une seconde ouverture, le trou de la table d'harmonie. Le plan d'expériences numérique sur les chambres (research/fem/sommier/seuils_cavite.py) balaie son aire de 25 à 400 mm
 \begin_inset Formula $^{2}$
 \end_inset
@@ -4660,6 +4701,75 @@ Cinquième fait, le plus incomplet : trois languettes. Le modèle à trois anche
 
 \shape italic
 À compléter (Ewen) : sur une note de musette de ton instrument, trois prises de dix secondes au H6 : la note entière, puis une languette bouchée, puis l'autre. Le tirage est l'écart entre la languette seule et la même languette dans la paire ; à comparer au produit du carré de l'indice de phase par le battement. Puis douze notes à trois voix, pour lire les trois indices de phase de chaque languette et savoir si le terme croisé compte.
+\end_layout
+
+\begin_layout Standard
+Sixième fait, tiré d'un test simple : un son d'anche A seul, un son B seul, puis la simple somme A + B. Sans couplage par construction, les courbes de fréquence du mélange doivent rester celles des notes seules. Sur 54 paires d'intervalles tempérés (octave, quinte, tierces, secondes), échantillons d'une banque de sons et non anches au soufflet, l'écart est de 0,001 à 0,05 cent, sans composante à 
+\begin_inset Formula $\Omega$
+\end_inset
+. Le défaut de calcul existe pourtant à l'unisson, dans un régime précis : quand le partiel de mesure 
+\begin_inset Formula $k$
+\end_inset
+ ne sépare pas les deux raies (
+\begin_inset Formula $k\,\Omega<1{,}4$
+\end_inset
+ Hz). La raison est une ligne de physique. Pour une somme de deux sinus proches, de rapport 
+\begin_inset Formula $r$
+\end_inset
+,
+\end_layout
+
+\begin_layout Standard
+\begin_inset Formula $f_{i}=f_{A}+\Omega\,\frac{r\left(r+\cos2\pi\Omega t\right)}{1+r^{2}+2r\cos2\pi\Omega t}$
+\end_inset
+\end_layout
+
+\begin_layout Standard
+La moyenne sur un battement entier vaut 
+\begin_inset Formula $f_{A}$
+\end_inset
+ (
+\begin_inset Formula $r<1$
+\end_inset
+), l'excursion au creux vaut 
+\begin_inset Formula $-\Omega\,r/(1-r)$
+\end_inset
+, infinie à niveaux égaux, et toute fenêtre de durée 
+\begin_inset Formula $T$
+\end_inset
+ non entière garde une composante à 
+\begin_inset Formula $\Omega$
+\end_inset
+ d'environ l'excursion multipliée par 
+\begin_inset Formula $\left|\mathrm{sinc}(\Omega T)\right|$
+\end_inset
+. La fréquence instantanée d'une somme est dans la phase, pas dans l'enveloppe : aucun prétraitement d'amplitude n'y peut rien. Sur le vrai instrument (prises H6, un instrument), le calcul ne pèse que 10 % (La4, La5) à 50 % (La3 à 0,59 Hz) de la fluctuation lue ; le reste est la modulation de phase du tirage, l'AM réelle et le soufflet.
+\end_layout
+
+\begin_layout Standard
+Septième fait : le battement est une grandeur plus stable que les cents. C'est une différence, et la pression commune du soufflet (0,3 cent/s sur le H6) s'y annule : 0,05 bat/min contre 0,1 à 0,3 cent sur chaque anche. À La4 442 Hz, 1 bat/min = 0,017 Hz = 0,065 cent.
+\end_layout
+
+\begin_layout Standard
+Huitième fait, ouvert : le résidu du partiel 2 sur le H6 est 16 fois trop grand (4,8 % contre 0,3 %, 17 notes, un instrument), sur toutes les raies, porteuse comprise, alors que le partiel 1 est parfait. Le modèle de peigne ne l'explique pas. Laisser libre un décalage constant de chaque partiel ne gagne presque rien (5,02 % 
+\begin_inset Formula $\rightarrow$
+\end_inset
+ 4,83 %, décalage médian 0,025 Hz) : ce n'est pas de l'inharmonicité constante. Il reste une modulation lente de timbre ou de hauteur, hors peigne. Une contrainte aide à trier les hypothèses : deux anches de rapport 
+\begin_inset Formula $\rho$
+\end_inset
+ ne peuvent moduler l'enveloppe qu'à l'indice 
+\begin_inset Formula $\rho$
+\end_inset
+.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+À compléter (Ewen) : la même note au H6, 8' seul, 8'+ seul, 8'+8', même pression ; aucune anche seule réelle n'a encore été enregistrée. Puis une prise à 
+\begin_inset Formula $\Omega T\geq4$
+\end_inset
+ s, ou à un rapport d'anches de 6 à 12 dB, pour le surplus du partiel 2.
 \end_layout
 
 \begin_layout Section

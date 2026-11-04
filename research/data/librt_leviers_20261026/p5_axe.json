@@ -1,0 +1,134 @@
+[
+ {
+  "chaine": "A1",
+  "trou": "T",
+  "largeur_bande": 7.28,
+  "decal_lateral_origine": 0.06,
+  "rapport_avant": 0.629,
+  "t": 1.45,
+  "rapport": 0.649,
+  "levee": 3.24,
+  "ligament": 0.05
+ },
+ {
+  "chaine": "A1",
+  "trou": "H",
+  "largeur_bande": 8.12,
+  "decal_lateral_origine": 0.53,
+  "rapport_avant": 0.629,
+  "t": 10.7,
+  "rapport": 1.051,
+  "levee": 5.26,
+  "ligament": 1.02
+ },
+ {
+  "chaine": "A2",
+  "trou": "T",
+  "largeur_bande": 7.29,
+  "decal_lateral_origine": 0.06,
+  "rapport_avant": 1.022,
+  "t": 1.2,
+  "rapport": 1.049,
+  "levee": 5.25,
+  "ligament": 0.3
+ },
+ {
+  "chaine": "A2",
+  "trou": "H",
+  "largeur_bande": 10.73,
+  "decal_lateral_origine": -1.11,
+  "rapport_avant": 1.022,
+  "t": 0.55,
+  "rapport": 1.044,
+  "levee": 5.22,
+  "ligament": 0.01
+ },
+ {
+  "chaine": "A3",
+  "trou": "T",
+  "largeur_bande": 7.29,
+  "decal_lateral_origine": 0.06,
+  "rapport_avant": 1.104,
+  "t": -2.1,
+  "rapport": 1.051,
+  "levee": 5.25,
+  "ligament": 1.94
+ },
+ {
+  "chaine": "A3",
+  "trou": "H",
+  "largeur_bande": 9.32,
+  "decal_lateral_origine": -0.77,
+  "rapport_avant": 1.104,
+  "t": -1.55,
+  "rapport": 1.05,
+  "levee": 5.25,
+  "ligament": 0.25
+ },
+ {
+  "chaine": "B1",
+  "trou": "T",
+  "largeur_bande": 7.8,
+  "decal_lateral_origine": -0.16,
+  "rapport_avant": 0.745,
+  "t": 1.5,
+  "rapport": 0.803,
+  "levee": 4.01,
+  "ligament": 0.01
+ },
+ {
+  "chaine": "B1",
+  "trou": "H",
+  "largeur_bande": 8.38,
+  "decal_lateral_origine": -1.81,
+  "rapport_avant": 0.745,
+  "t": 1.4,
+  "rapport": 0.751,
+  "levee": 3.76,
+  "ligament": 0.01
+ },
+ {
+  "chaine": "B2",
+  "trou": "T",
+  "largeur_bande": 7.8,
+  "decal_lateral_origine": -0.16,
+  "rapport_avant": 1.14,
+  "t": -1.35,
+  "rapport": 1.05,
+  "levee": 5.25,
+  "ligament": 1.89
+ },
+ {
+  "chaine": "B2",
+  "trou": "H",
+  "largeur_bande": 7.41,
+  "decal_lateral_origine": 0.12,
+  "rapport_avant": 1.14,
+  "t": -10.1,
+  "rapport": 1.05,
+  "levee": 5.25,
+  "ligament": 0.14
+ },
+ {
+  "chaine": "B3",
+  "trou": "T",
+  "largeur_bande": 7.8,
+  "decal_lateral_origine": -0.16,
+  "rapport_avant": 1.289,
+  "t": -3.7,
+  "rapport": 1.049,
+  "levee": 5.24,
+  "ligament": 1.7
+ },
+ {
+  "chaine": "B3",
+  "trou": "H",
+  "largeur_bande": 8.63,
+  "decal_lateral_origine": 0.27,
+  "rapport_avant": 1.289,
+  "t": -6.5,
+  "rapport": 1.229,
+  "levee": 6.14,
+  "ligament": 0.02
+ }
+]

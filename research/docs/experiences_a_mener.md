@@ -24,6 +24,7 @@ capteur de pression.
 C'est le paramètre `Source.impedance_pa_s_m3`, qui **borne l'amplitude** du
 cycle limite. Valeur provisoire dans le modèle : 2·10⁸ Pa·s/m³.
 **Débloque** : l'amplitude prédite, donc toute comparaison de niveau sonore.
+Déjà fait sans le savoir sur le banc 2023 : 9 à 24 Pa par l/min, soit 0,5 à 1,4 × 10⁶ Pa·s/m³ ; unité Pa à confirmer. Voir apports_these.md, section C.
 
 ### ☐ E2. Volume acoustique effectif, par le décalage de fréquence
 **Mesure** : fréquence propre de la languette **libre** (pincée, hors

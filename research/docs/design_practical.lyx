@@ -3844,6 +3844,278 @@ Decision rule: if two criteria or more remain out after the repair (most likely 
 To be completed (Ewen): the results of tests 1, 2, 4 and 5 on the v5 and on the Maugein, in the decision table, and the choice that follows.
 \end_layout
 
+\begin_layout Section
+What the real Lib RT linkage changed (October and November 2026)
+\end_layout
+
+\begin_layout Standard
+The opening chapter reasons on a simple rocker lever and concludes "
+\begin_inset Formula $r$
+\end_inset
+ at most 1". The mechanism as drawn has two stages: the button pushes a rod, the rod pulls a link, the link turns the lever 
+\begin_inset Formula $r$
+\end_inset
+ that lifts the pallet. Each stage has its own arms, and the six chains (A1 to A3, B1 to B3) do not have the same ones. The lift-to-travel ratio is therefore not one choice: it is computed chain by chain. Everything here comes from CAD dimensions and a calculation. Nothing has yet been measured on a part.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+The model.
+\series default
+ XY plane, rigid parts, rotations about Z axes. The piston rises by the travel 
+\begin_inset Formula $d$
+\end_inset
+ = 5 mm; the rod turns until its contact point has risen by 
+\begin_inset Formula $d$
+\end_inset
+; the link keeps its length; from that the angle of the lever 
+\begin_inset Formula $r$
+\end_inset
+ follows, and the lift at the centre of the pallet. The exact ratio is 
+\begin_inset Formula $r$
+\end_inset
+ = lift / 
+\begin_inset Formula $d$
+\end_inset
+. The force at the finger is taken as 177 g × 
+\begin_inset Formula $r$
+\end_inset
+, the 177 g coming from the opening calculation (300 mm² hole, 3 kPa peak, 
+\begin_inset Formula $r$
+\end_inset
+ = 1, mid-stroke). The model ignores clearances, bending, friction, sliding at the contact and offsets along Z. The link between A and the second hole of 
+\begin_inset Formula $r$
+\end_inset
+ is an assumption. The travel is not dimensioned in the CAD.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:chaines-librt"
+
+\end_inset
+
+Exact lift-to-travel ratio on the six chains, before correction and for each proposal (computed from the CAD survey, travel 5 mm except P2 and P3)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.284
+\backslash
+linewidth}p{0.158
+\backslash
+linewidth}p{0.185
+\backslash
+linewidth}p{0.185
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright Case & 
+\backslash
+raggedright Ratio min / median / max & 
+\backslash
+raggedright Lift min / median / max (mm) & 
+\backslash
+raggedright Force min / median / max (g) 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright Before & 
+\backslash
+raggedright 0.629 / 1.063 / 1.289 & 
+\backslash
+raggedright 3.15 / 5.31 / 6.44 & 
+\backslash
+raggedright 111 / 188 / 228 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright P1: holes of 
+\backslash
+$r
+\backslash
+$ or attachments moved & 
+\backslash
+raggedright 1.050 everywhere & 
+\backslash
+raggedright 5.25 & 
+\backslash
+raggedright 186 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright P2: travel stop per row & 
+\backslash
+raggedright 0.635 / 1.062 / 1.297 & 
+\backslash
+raggedright 5.06 / 5.07 / 5.12 & 
+\backslash
+raggedright 112 / 188 / 230 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright P3: travel 6.5 on A1 and B1, rods moved & 
+\backslash
+raggedright 0.632 / 1.036 / 1.140 & 
+\backslash
+raggedright 4.11 / 5.18 / 5.70 & 
+\backslash
+raggedright 112 / 183 / 202 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright P4: rods only, ligament at least 3 mm & 
+\backslash
+raggedright 0.629 / 1.050 / 1.050 & 
+\backslash
+raggedright 3.15 / 5.25 / 5.25 & 
+\backslash
+raggedright 111 / 186 / 186 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright P5: rods or levers, ligament at least 3 mm & 
+\backslash
+raggedright 1.050 everywhere & 
+\backslash
+raggedright 5.25 & 
+\backslash
+raggedright 186 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright P5 retained: hole on the axis, A1 undecided & 
+\backslash
+raggedright 0.629 / 1.050 / 1.051 & 
+\backslash
+raggedright 3.15 / 5.25 / 5.25 & 
+\backslash
+raggedright 111 / 186 / 186 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+What the calculation teaches.
+\series default
+ Before correction, the ratio runs from 0.63 to 1.29: twice as much from one chain to another, hence twice the force under the finger for the same gesture. Equalising the lift with a stop (P2) settles nothing: the lift becomes equal, the force stays between 112 and 230 g, because it is the ratio that sets the force. The small-angle formula departs from the exact calculation by 6 % on B2 (1.213 against 1.140): the exact ratio is the one to quote.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Why 1.05.
+\series default
+ The range 1 to 1.1 comes from the opening calculation (travel 5 mm, lift 5 to 5.5 mm). The audit of 26/10/2026 proposes to equalise within that range; 1.05 is its middle, 5.25 mm of lift. The decision of 26/10: P5 validated, hole kept on the axis of the mechanism, the whole rod may be shifted. This 1.05 replaces the "
+\begin_inset Formula $r$
+\end_inset
+ at most 1" of the opening chapter for the Lib RT, and costs 186 g instead of 177 g.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+To be confirmed. A1 stays at 0.629, undecided. The 177 g base assumes a 300 mm² hole; the audit of 26/10 also reasons on the 15 × 25 mm hole of table 017: the force has to be redone with the hole of each chain. Lift and force are to be measured with a dial gauge and a spring scale on the first part. Data and calculations: `research/data/librt_leviers_20261026/`.
+\end_layout
+
 \begin_layout Part
 Valves and leaks
 \end_layout
