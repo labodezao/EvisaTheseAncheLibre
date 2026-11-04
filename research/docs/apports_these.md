@@ -59,6 +59,7 @@ Données : `research/data/mesures_2023/`. Pression en Pa : plausible, unité à 
 | Résultat | Valeur | Statut |
 |---|---|---|
 | Sons exploitables | 2 162 (1 024 + 395 + 743), dont 1 388 avec pneumatique lisible | mesuré |
+| f0 médiane par campagne | 73,37 Hz (13/04), 77,75 Hz (16/04), 61,66 Hz (11/09) | calculé sur `mesures_2023.csv`, 04/11/2026 |
 | Pente de f0 | −1,7 ¢/100 Pa (d1_L), −0,9 (D#0), −1,9 (septembre) ; R² ≈ 0,3 ; jusqu'à −2,5 à 150 mm², environ −1 à 75 mm² | mesuré ; unité à confirmer |
 | Répétabilité, deux passages | −0,9 ¢ ± 0,4 (381 paires) ; −0,8 ¢ ± 0,9 (260 paires) | mesuré |
 | Dérive thermique | 17,5 → 21,7 °C et 30,3 → 33,0 °C ; environ −0,2 ¢/°C | température mesurée ; pente à confirmer (point témoin manquant) |
