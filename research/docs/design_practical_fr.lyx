@@ -3844,6 +3844,278 @@ Règle de décision : si deux critères ou plus restent hors seuil après la ré
 À compléter (Ewen) : les résultats des essais 1, 2, 4 et 5 sur la v5 et sur la Maugein, dans le tableau de décision, et le choix qui en découle.
 \end_layout
 
+\begin_layout Section
+Ce que la chaîne réelle du Lib RT a changé (octobre et novembre 2026)
+\end_layout
+
+\begin_layout Standard
+Le chapitre de départ raisonne sur un levier bascule simple et conclut « 
+\begin_inset Formula $r$
+\end_inset
+ au plus 1 ». La mécanique dessinée a deux étages : le bouton pousse une tige, la tige tire une biellette, la biellette tourne le levier 
+\begin_inset Formula $r$
+\end_inset
+ qui lève la soupape. Chaque étage a ses bras, et six chaînes (A1 à A3, B1 à B3) n'ont pas les mêmes. Le rapport levée/course n'est donc pas un choix unique : il se calcule chaîne par chaîne. Tout ici vient de cotes CAO et d'un calcul. Rien n'a encore été mesuré sur une pièce.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Le modèle.
+\series default
+ Plan XY, pièces rigides, rotations autour d'axes Z. Le piston monte de la course 
+\begin_inset Formula $d$
+\end_inset
+ = 5 mm ; la tige tourne jusqu'à ce que son point de contact ait monté de 
+\begin_inset Formula $d$
+\end_inset
+ ; la biellette garde sa longueur ; on en déduit l'angle du levier 
+\begin_inset Formula $r$
+\end_inset
+, et la levée au centre de palette. Le rapport exact est 
+\begin_inset Formula $r$
+\end_inset
+ = levée / 
+\begin_inset Formula $d$
+\end_inset
+. L'effort au doigt est pris à 177 g × 
+\begin_inset Formula $r$
+\end_inset
+, 177 g venant du calcul de départ (trou de 300 mm², pointe de 3 kPa, 
+\begin_inset Formula $r$
+\end_inset
+ = 1, mi-course). Le modèle ignore les jeux, la flexion, le frottement, le glissement au contact et les décalages en Z. Le lien entre A et le second trou de 
+\begin_inset Formula $r$
+\end_inset
+ est une hypothèse. La course n'est pas cotée dans la CAO.
+\end_layout
+
+\begin_layout Standard
+\begin_inset Float table
+wide false
+sideways false
+status open
+
+\begin_layout Plain Layout
+\begin_inset Caption Standard
+
+\begin_layout Plain Layout
+\begin_inset CommandInset label
+LatexCommand label
+name "tab:chaines-librt"
+
+\end_inset
+
+Rapport levée/course exact sur les six chaînes, avant correction et selon la proposition (calculé sur relevé CAO, course 5 mm sauf P2 et P3)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Plain Layout
+\align center
+\size footnotesize
+\begin_inset ERT
+status open
+
+\begin_layout Plain Layout
+
+\backslash
+begin{tabular}{p{0.277
+\backslash
+linewidth}p{0.166
+\backslash
+linewidth}p{0.185
+\backslash
+linewidth}p{0.185
+\backslash
+linewidth}}
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright Cas & 
+\backslash
+raggedright Rapport min / médiane / max & 
+\backslash
+raggedright Levée min / médiane / max (mm) & 
+\backslash
+raggedright Effort min / médiane / max (g) 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright Avant & 
+\backslash
+raggedright 0,629 / 1,063 / 1,289 & 
+\backslash
+raggedright 3,15 / 5,31 / 6,44 & 
+\backslash
+raggedright 111 / 188 / 228 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright P1 : trous de 
+\backslash
+$r
+\backslash
+$ ou attaches déplacés & 
+\backslash
+raggedright 1,050 partout & 
+\backslash
+raggedright 5,25 & 
+\backslash
+raggedright 186 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright P2 : butée de course par rang & 
+\backslash
+raggedright 0,635 / 1,062 / 1,297 & 
+\backslash
+raggedright 5,06 / 5,07 / 5,12 & 
+\backslash
+raggedright 112 / 188 / 230 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright P3 : course 6,5 sur A1 et B1, tiges déplacées & 
+\backslash
+raggedright 0,632 / 1,036 / 1,140 & 
+\backslash
+raggedright 4,11 / 5,18 / 5,70 & 
+\backslash
+raggedright 112 / 183 / 202 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright P4 : tiges seules, ligament au moins 3 mm & 
+\backslash
+raggedright 0,629 / 1,050 / 1,050 & 
+\backslash
+raggedright 3,15 / 5,25 / 5,25 & 
+\backslash
+raggedright 111 / 186 / 186 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright P5 : tiges ou leviers, ligament au moins 3 mm & 
+\backslash
+raggedright 1,050 partout & 
+\backslash
+raggedright 5,25 & 
+\backslash
+raggedright 186 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+
+\backslash
+raggedright P5 retenue : trou sur l'axe, A1 non tranché & 
+\backslash
+raggedright 0,629 / 1,050 / 1,051 & 
+\backslash
+raggedright 3,15 / 5,25 / 5,25 & 
+\backslash
+raggedright 111 / 186 / 186 
+\backslash
+tabularnewline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+hline
+\end_layout
+
+\begin_layout Plain Layout
+
+\backslash
+end{tabular}
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Ce que le calcul apprend.
+\series default
+ Avant correction, le rapport va de 0,63 à 1,29 : deux fois plus d'une chaîne à l'autre, donc deux fois plus d'effort sous le doigt pour le même geste. Égaliser la levée par une butée (P2) ne règle rien : la levée devient égale, l'effort reste de 112 à 230 g, parce que c'est le rapport qui fixe l'effort. La formule aux petits angles s'écarte du calcul exact de 6 % sur B2 (1,213 contre 1,140) : c'est le rapport exact qu'il faut citer.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+Pourquoi 1,05.
+\series default
+ La fourchette 1 à 1,1 vient du calcul de départ (course 5 mm, levée 5 à 5,5 mm). L'audit du 26/10/2026 propose d'égaliser dans cette fourchette ; 1,05 en est le milieu, 5,25 mm de levée. La décision du 26/10 : P5 validée, trou gardé sur l'axe de la mécanique, toute la tige décalable. Ce 1,05 remplace le « 
+\begin_inset Formula $r$
+\end_inset
+ au plus 1 » du chapitre de départ pour le Lib RT, et coûte 186 g au lieu de 177 g.
+\end_layout
+
+\begin_layout Standard
+\shape italic
+À confirmer. A1 reste à 0,629, non tranché. La base de 177 g suppose un trou de 300 mm² ; l'audit du 26/10 raisonne aussi sur le trou de 15 × 25 mm de la table 017 : l'effort est à refaire avec le trou de chaque chaîne. Levée et effort se mesurent au comparateur et au peson sur la première pièce. Données et calculs : `research/data/librt_leviers_20261026/`.
+\end_layout
+
 \begin_layout Part
 Soupapes et fuites
 \end_layout

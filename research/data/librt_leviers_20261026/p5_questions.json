@@ -1,0 +1,241 @@
+{
+ "controle_p5_axe": "p5_axe.json retrouve a l'identique",
+ "A2": {
+  "chaine": "A2",
+  "axe_u": [
+   0.0289,
+   0.9996
+  ],
+  "T": [
+   123.24,
+   56.69
+  ],
+  "H": [
+   164.22,
+   44.9
+  ],
+  "solutions": [
+   {
+    "solution": "a",
+    "description": "ne rien changer",
+    "t": 0.0,
+    "course": 5.0,
+    "rapport": 1.022,
+    "levee": 5.11,
+    "ligament_mini": 1.5,
+    "ce_qui_bouge": []
+   },
+   {
+    "solution": "b",
+    "description": "trou T sur l'axe au plus loin, ligament >= 1 mm",
+    "t": 0.49,
+    "course": 5.0,
+    "rapport": 1.033,
+    "levee": 5.17,
+    "ligament_mini": 1.01,
+    "ce_qui_bouge": [
+     "trou T de la tige (le long de l'axe)"
+    ],
+    "biellette_sur_L0": 1.003,
+    "collision_trou_modele": false
+   },
+   {
+    "solution": "c",
+    "description": "toute la tige (contour + trou T) decalee le long de son axe, palier de pivot fixe",
+    "s": 1.22,
+    "course": 5.0,
+    "rapport": 1.05,
+    "levee": 5.25,
+    "ligament_mini": 1.5,
+    "ligament_trou_T": 1.5,
+    "ce_qui_bouge": [
+     "contour de la tige",
+     "trou T",
+     "pied sous le bouton : monte de 1.22 mm",
+     "ligament du trou de pivot (palier fixe)"
+    ],
+    "effets": {
+     "pied_decale": [
+      0.04,
+      1.22
+     ],
+     "pivot_ligament_avant": [
+      2.99,
+      18.84
+     ],
+     "pivot_ligament_apres": [
+      1.77,
+      19.19
+     ],
+     "pivot_trou_rayon": 3.0,
+     "voisins": {
+      "A1": {
+       "dZ": 5.0,
+       "dans_modele": false,
+       "dist_avant": 0.0,
+       "dist_apres": 0.0,
+       "recouvre_apres": true
+      },
+      "A3": {
+       "dZ": -5.0,
+       "dans_modele": false,
+       "dist_avant": 0.0,
+       "dist_apres": 0.0,
+       "recouvre_apres": true
+      },
+      "B1": {
+       "dZ": 5.0,
+       "dans_modele": false,
+       "dist_avant": 2.0,
+       "dist_apres": 1.97,
+       "recouvre_apres": false
+      },
+      "B2": {
+       "dZ": 0.0,
+       "dans_modele": true,
+       "dist_avant": 2.0,
+       "dist_apres": 1.97,
+       "recouvre_apres": false
+      },
+      "B3": {
+       "dZ": -5.0,
+       "dans_modele": false,
+       "dist_avant": 2.0,
+       "dist_apres": 1.97,
+       "recouvre_apres": false
+      }
+     },
+     "collision_modele_1mm_avant": false,
+     "collision_modele_1mm_apres": false,
+     "biellette_sur_L0": 1.008
+    }
+   }
+  ]
+ },
+ "B1": {
+  "chaine": "B1",
+  "axe_u": [
+   -0.0821,
+   0.9966
+  ],
+  "T": [
+   139.74,
+   34.29
+  ],
+  "H": [
+   164.22,
+   33.9
+  ],
+  "solutions": [
+   {
+    "solution": "a",
+    "description": "meilleur trou T sur l'axe, ligament >= 1 mm",
+    "t": 0.5,
+    "course": 5.0,
+    "rapport": 0.764,
+    "levee": 3.82,
+    "ligament_mini": 1.0,
+    "ce_qui_bouge": [
+     "trou T de la tige (le long de l'axe)"
+    ],
+    "biellette_sur_L0": 1.002
+   },
+   {
+    "solution": "b",
+    "description": "trou T comme (a) + course du bouton du rang 1 portee a la valeur qui donne levee 5,25",
+    "t": 0.5,
+    "course": 7.0,
+    "rapport": 0.751,
+    "levee": 5.25,
+    "ligament_mini": 1.0,
+    "ce_qui_bouge": [
+     "trou T de la tige",
+     "course du bouton rang 1 : 7.00 mm au lieu de 5"
+    ],
+    "effet_A1_geometrie_actuelle": {
+     "course": 7.0,
+     "rapport": 0.633,
+     "levee": 4.43
+    }
+   },
+   {
+    "solution": "c",
+    "description": "toute la tige (contour + trou T) decalee le long de son axe, palier de pivot fixe",
+    "s": 1.1,
+    "course": 5.0,
+    "rapport": 0.787,
+    "levee": 3.94,
+    "ligament_mini": 1.5,
+    "ligament_trou_T": 1.5,
+    "ce_qui_bouge": [
+     "contour de la tige",
+     "trou T",
+     "pied sous le bouton : monte de 1.10 mm",
+     "ligament du trou de pivot (palier fixe)"
+    ],
+    "effets": {
+     "pied_decale": [
+      -0.09,
+      1.1
+     ],
+     "pivot_ligament_avant": [
+      2.99,
+      25.9
+     ],
+     "pivot_ligament_apres": [
+      1.89,
+      26.32
+     ],
+     "pivot_trou_rayon": 3.0,
+     "voisins": {
+      "A1": {
+       "dZ": 0.0,
+       "dans_modele": true,
+       "dist_avant": 2.0,
+       "dist_apres": 1.04,
+       "recouvre_apres": false
+      },
+      "A2": {
+       "dZ": -5.0,
+       "dans_modele": false,
+       "dist_avant": 2.0,
+       "dist_apres": 1.03,
+       "recouvre_apres": false
+      },
+      "A3": {
+       "dZ": -10.0,
+       "dans_modele": false,
+       "dist_avant": 2.0,
+       "dist_apres": 1.04,
+       "recouvre_apres": false
+      },
+      "B2": {
+       "dZ": -5.0,
+       "dans_modele": false,
+       "dist_avant": 0.0,
+       "dist_apres": 0.0,
+       "recouvre_apres": true
+      },
+      "B3": {
+       "dZ": -10.0,
+       "dans_modele": false,
+       "dist_avant": 0.0,
+       "dist_apres": 0.0,
+       "recouvre_apres": true
+      }
+     },
+     "collision_modele_1mm_avant": false,
+     "collision_modele_1mm_apres": false,
+     "biellette_sur_L0": 1.005
+    },
+    "s_pour_1_05": {
+     "s": 8.01,
+     "ligament_pivot": -5.02,
+     "distance_voisine_modele": 0.0,
+     "admissible": false
+    },
+    "atteint_1_05": false
+   }
+  ]
+ }
+}

@@ -4,7 +4,7 @@
     python research/scripts/design_practical_lyx.py
 
 Sources (seules à modifier) : research/docs/design_practical/NN_piece_{en,fr}.md, dans l'ordre
-des numéros (00 introduction, 01 clavier main droite, 02a/02b main gauche, 03 soupapes et fuites,
+des numéros (00 introduction, 01 clavier main droite, 02a/02b/02c main gauche, 03 soupapes et fuites,
 04 soufflet, 05 sommiers, 06 anches, 07 registres, 08 caisse, 09 diagnostic). Chaque pièce :
 théorie, analyse, outils de conception, réparation (partage voulu par Ewen le 05/10/2026 :
 design_theory = l'acoustique, design_practical = la fabrication et la réparation).
@@ -219,7 +219,7 @@ def convertir(md):
 # ------------------------------------------------------- documents ---
 
 def sources(langue):
-    """Les sources d'une langue, dans l'ordre des pièces (00_, 01_, 02a_, 02b_ ...)."""
+    """Les sources d'une langue, dans l'ordre des pièces (00_, 01_, 02a_, 02b_, 02c_ ...)."""
     noms = sorted(n for n in os.listdir(SRC) if re.match(rf"^\d\d[a-z]?_.+_{langue}\.md$", n))
     textes = []
     for n in noms:

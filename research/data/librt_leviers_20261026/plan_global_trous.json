@@ -1,0 +1,502 @@
+{
+ "chaines": {
+  "A1": {
+   "r": "r1",
+   "T0": [
+    123.24,
+    56.69
+   ],
+   "T1": [
+    123.24,
+    56.69
+   ],
+   "H": [
+    162.46,
+    45.22
+   ],
+   "t": null,
+   "u": [
+    0.02824678286989782,
+    0.9996009800202783
+   ],
+   "rapport0": 0.629,
+   "rapport1": 0.629,
+   "levee1": 3.15,
+   "biellette0": 40.86,
+   "biellette1": 40.86,
+   "bras_tige1": 36.69,
+   "bras_r1": 28.73,
+   "theta_tige": -3.4101358777870945,
+   "theta_r": 4.4305039829729225,
+   "pivot_tige": [
+    128.24,
+    17.0
+   ],
+   "pivot_r": [
+    166.75,
+    73.9
+   ],
+   "enf_T": [
+    125.6097323051066,
+    56.91713656881215
+   ],
+   "enf_H": [
+    164.6883450225836,
+    44.97430072143295
+   ]
+  },
+  "A2": {
+   "r": "r2",
+   "T0": [
+    123.24,
+    56.69
+   ],
+   "T1": [
+    123.27608642159122,
+    57.939478999494085
+   ],
+   "H": [
+    164.22,
+    44.9
+   ],
+   "t": 1.25,
+   "u": [
+    0.0288691372729812,
+    0.9995831995952682
+   ],
+   "rapport0": 1.022,
+   "rapport1": 1.051,
+   "levee1": 5.25,
+   "biellette0": 42.64,
+   "biellette1": 42.97,
+   "bras_tige1": 37.5,
+   "bras_r1": 28.4,
+   "theta_tige": -2.9544598396403954,
+   "theta_r": 3.9774435473044836,
+   "pivot_tige": [
+    128.24,
+    17.0
+   ],
+   "pivot_r": [
+    166.75,
+    73.9
+   ],
+   "enf_T": [
+    125.39279532082699,
+    58.14091399420805
+   ],
+   "enf_H": [
+    166.2376422158093,
+    44.79435811563367
+   ]
+  },
+  "A3": {
+   "r": "r3",
+   "T0": [
+    123.24,
+    56.69
+   ],
+   "T1": [
+    123.17968092094308,
+    54.59086646239413
+   ],
+   "H": [
+    164.22,
+    39.9
+   ],
+   "t": -2.1,
+   "u": [
+    0.028723370979479752,
+    0.9995873988599372
+   ],
+   "rapport0": 1.104,
+   "rapport1": 1.051,
+   "levee1": 5.25,
+   "biellette0": 44.29,
+   "biellette1": 43.59,
+   "bras_tige1": 33.69,
+   "bras_r1": 32.86,
+   "theta_tige": -2.6060227626291224,
+   "theta_r": 2.718923935531465,
+   "pivot_tige": [
+    128.24,
+    17.0
+   ],
+   "pivot_r": [
+    166.75,
+    73.9
+   ],
+   "enf_T": [
+    124.89409571641933,
+    54.782072403463154
+   ],
+   "enf_H": [
+    165.8356845769378,
+    39.8182610873924
+   ]
+  },
+  "B1": {
+   "r": "r1",
+   "T0": [
+    139.74,
+    34.29
+   ],
+   "T1": [
+    139.08353254205252,
+    42.26302016030663
+   ],
+   "H": [
+    164.22,
+    33.9
+   ],
+   "t": 8.0,
+   "u": [
+    -0.08205843224343443,
+    0.9966275200383289
+   ],
+   "rapport0": 0.745,
+   "rapport1": 1.05,
+   "levee1": 5.25,
+   "biellette0": 24.48,
+   "biellette1": 26.49,
+   "bras_tige1": 42.26,
+   "bras_r1": 38.75,
+   "theta_tige": -6.757154236372782,
+   "theta_r": 7.405363853880588,
+   "pivot_tige": [
+    126.24,
+    2.0
+   ],
+   "pivot_r": [
+    166.75,
+    73.9
+   ],
+   "enf_T": [
+    143.73172160817774,
+    40.472156110231566
+   ],
+   "enf_H": [
+    169.3966398036551,
+    33.90754824032779
+   ]
+  },
+  "B2": {
+   "r": "r2",
+   "T0": [
+    139.74,
+    34.29
+   ],
+   "T1": [
+    139.85077888352865,
+    32.94455284794825
+   ],
+   "H": [
+    162.46,
+    40.9
+   ],
+   "t": -1.35,
+   "u": [
+    -0.08205843224343443,
+    0.9966275200383289
+   ],
+   "rapport0": 1.14,
+   "rapport1": 1.05,
+   "levee1": 5.25,
+   "biellette0": 23.66,
+   "biellette1": 23.97,
+   "bras_tige1": 24.67,
+   "bras_r1": 29.71,
+   "theta_tige": -5.163701891107651,
+   "theta_r": 3.9766129983011385,
+   "pivot_tige": [
+    126.24,
+    2.0
+   ],
+   "pivot_r": [
+    166.75,
+    73.9
+   ],
+   "enf_T": [
+    142.58060187110513,
+    31.59397545558567
+   ],
+   "enf_H": [
+    164.758854739102,
+    40.681941047827564
+   ]
+  },
+  "B3": {
+   "r": "r3",
+   "T0": [
+    139.74,
+    34.29
+   ],
+   "T1": [
+    140.0436157412709,
+    30.60247813814582
+   ],
+   "H": [
+    162.46,
+    34.9
+   ],
+   "t": -3.7,
+   "u": [
+    -0.08205830845159573,
+    0.9966275302308594
+   ],
+   "rapport0": 1.289,
+   "rapport1": 1.049,
+   "levee1": 5.24,
+   "biellette0": 22.73,
+   "biellette1": 22.82,
+   "bras_tige1": 25.49,
+   "bras_r1": 37.49,
+   "theta_tige": -4.180546208127629,
+   "theta_r": 2.714122600266536,
+   "pivot_tige": [
+    126.24,
+    2.0
+   ],
+   "pivot_r": [
+    166.75,
+    73.9
+   ],
+   "enf_T": [
+    142.09199668939186,
+    29.520097458680645
+   ],
+   "enf_H": [
+    164.31156617736355,
+    34.74060597388384
+   ]
+  }
+ },
+ "piste_A1_H": [
+  162.96664670762235,
+  55.90799836796654
+ ],
+ "piste_A1_T": [
+  123.28095783516135,
+  58.139421421029404
+ ],
+ "jeux_relache": [
+  {
+   "rang": 1,
+   "paire": "tige A1 / levier r1",
+   "jeu_xy": 9.7,
+   "jeu_z": 0.08
+  },
+  {
+   "rang": 1,
+   "paire": "tige B1 / levier r1",
+   "jeu_xy": 15.76,
+   "jeu_z": 0.08
+  },
+  {
+   "rang": 1,
+   "paire": "tige A1 / tige B1",
+   "jeu_xy": 2.0,
+   "jeu_z": -2.0
+  },
+  {
+   "rang": 1,
+   "paire": "biellette A1 / tige B1",
+   "jeu_xy": 13.0,
+   "jeu_z": null
+  },
+  {
+   "rang": 1,
+   "paire": "biellette B1 / tige A1",
+   "jeu_xy": 12.34,
+   "jeu_z": null
+  },
+  {
+   "rang": 1,
+   "paire": "biellette A1 / biellette B1",
+   "jeu_xy": 9.4,
+   "jeu_z": null
+  },
+  {
+   "rang": 2,
+   "paire": "tige A2 / levier r2",
+   "jeu_xy": 0.0,
+   "jeu_z": -0.76
+  },
+  {
+   "rang": 2,
+   "paire": "tige B2 / levier r2",
+   "jeu_xy": 15.76,
+   "jeu_z": -0.76
+  },
+  {
+   "rang": 2,
+   "paire": "tige A2 / tige B2",
+   "jeu_xy": 2.0,
+   "jeu_z": -2.0
+  },
+  {
+   "rang": 2,
+   "paire": "biellette A2 / tige B2",
+   "jeu_xy": 13.62,
+   "jeu_z": null
+  },
+  {
+   "rang": 2,
+   "paire": "biellette B2 / tige A2",
+   "jeu_xy": 13.11,
+   "jeu_z": null
+  },
+  {
+   "rang": 2,
+   "paire": "biellette A2 / biellette B2",
+   "jeu_xy": 4.35,
+   "jeu_z": null
+  },
+  {
+   "rang": 3,
+   "paire": "tige A3 / levier r3",
+   "jeu_xy": 0.0,
+   "jeu_z": -1.59
+  },
+  {
+   "rang": 3,
+   "paire": "tige B3 / levier r3",
+   "jeu_xy": 15.76,
+   "jeu_z": -1.59
+  },
+  {
+   "rang": 3,
+   "paire": "tige A3 / tige B3",
+   "jeu_xy": 2.0,
+   "jeu_z": -2.0
+  },
+  {
+   "rang": 3,
+   "paire": "biellette A3 / tige B3",
+   "jeu_xy": 9.53,
+   "jeu_z": null
+  },
+  {
+   "rang": 3,
+   "paire": "biellette B3 / tige A3",
+   "jeu_xy": 12.01,
+   "jeu_z": null
+  },
+  {
+   "rang": 3,
+   "paire": "biellette A3 / biellette B3",
+   "jeu_xy": 5.3,
+   "jeu_z": null
+  }
+ ],
+ "jeux_enfonce": [
+  {
+   "rang": 1,
+   "paire": "tige A1 / levier r1",
+   "jeu_xy": 6.52,
+   "jeu_z": 0.08
+  },
+  {
+   "rang": 1,
+   "paire": "tige B1 / levier r1",
+   "jeu_xy": 16.57,
+   "jeu_z": 0.08
+  },
+  {
+   "rang": 1,
+   "paire": "tige A1 / tige B1",
+   "jeu_xy": 3.08,
+   "jeu_z": -2.0
+  },
+  {
+   "rang": 1,
+   "paire": "biellette A1 / tige B1",
+   "jeu_xy": 14.58,
+   "jeu_z": null
+  },
+  {
+   "rang": 1,
+   "paire": "biellette B1 / tige A1",
+   "jeu_xy": 15.57,
+   "jeu_z": null
+  },
+  {
+   "rang": 1,
+   "paire": "biellette A1 / biellette B1",
+   "jeu_xy": 9.55,
+   "jeu_z": null
+  },
+  {
+   "rang": 2,
+   "paire": "tige A2 / levier r2",
+   "jeu_xy": 0.0,
+   "jeu_z": -0.76
+  },
+  {
+   "rang": 2,
+   "paire": "tige B2 / levier r2",
+   "jeu_xy": 15.26,
+   "jeu_z": -0.76
+  },
+  {
+   "rang": 2,
+   "paire": "tige A2 / tige B2",
+   "jeu_xy": 2.84,
+   "jeu_z": -2.0
+  },
+  {
+   "rang": 2,
+   "paire": "biellette A2 / tige B2",
+   "jeu_xy": 14.9,
+   "jeu_z": null
+  },
+  {
+   "rang": 2,
+   "paire": "biellette B2 / tige A2",
+   "jeu_xy": 14.46,
+   "jeu_z": null
+  },
+  {
+   "rang": 2,
+   "paire": "biellette A2 / biellette B2",
+   "jeu_xy": 4.37,
+   "jeu_z": null
+  },
+  {
+   "rang": 3,
+   "paire": "tige A3 / levier r3",
+   "jeu_xy": 0.0,
+   "jeu_z": -1.59
+  },
+  {
+   "rang": 3,
+   "paire": "tige B3 / levier r3",
+   "jeu_xy": 15.01,
+   "jeu_z": -1.59
+  },
+  {
+   "rang": 3,
+   "paire": "tige A3 / tige B3",
+   "jeu_xy": 2.69,
+   "jeu_z": -2.0
+  },
+  {
+   "rang": 3,
+   "paire": "biellette A3 / tige B3",
+   "jeu_xy": 10.51,
+   "jeu_z": null
+  },
+  {
+   "rang": 3,
+   "paire": "biellette B3 / tige A3",
+   "jeu_xy": 12.67,
+   "jeu_z": null
+  },
+  {
+   "rang": 3,
+   "paire": "biellette A3 / biellette B3",
+   "jeu_xy": 5.3,
+   "jeu_z": null
+  }
+ ]
+}

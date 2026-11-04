@@ -1,0 +1,535 @@
+{
+ "repere": "conteneur LibRT, mm ; axes des paliers (tiges et r1-r3) le long de Z ; plaque des boutons en Y 0..4, la mecanique est a Y croissant (soupapes vers Y 76)",
+ "pivots": {
+  "tige_A": {
+   "xy": [
+    128.24,
+    17.0
+   ],
+   "sources": [
+    "ir_20261019/018_meca...ir.json Esquisse194 (plan des tiges A et B, X = -x du croquis) arc c=(128.24;17)",
+    "comparaison_tiges_20261026.md palier A (128,24;17)"
+   ]
+  },
+  "tige_B": {
+   "xy": [
+    126.24,
+    2.0
+   ],
+   "sources": [
+    "tiges_liaison.json",
+    "ir_20261019/018_meca...ir.json Esquisse194 (plan des tiges A et B, X = -x du croquis)"
+   ]
+  },
+  "r1_r2_r3": {
+   "xy": [
+    166.75,
+    73.9
+   ],
+   "D": 5.99,
+   "sources": [
+    "tiges_liaison.json trous_haut (D5,99)",
+    "leviers_035/contours.json (repere local, Yconteneur = 84,9 - Ylocal, X identique) (166,75;11)->Y 73,9"
+   ]
+  }
+ },
+ "chaines": {
+  "A1": {
+   "tige": "A1",
+   "pivot_xy": [
+    128.24,
+    17.0
+   ],
+   "z_plat_centre": -53.5,
+   "bouton": {
+    "x": 44.48,
+    "z_pied": -61.0,
+    "y_face_contact": 7.0,
+    "y_pied_tige": [
+     7.0,
+     14.0
+    ],
+    "y_bout_piston": 16.0,
+    "bras_horizontal": 83.76,
+    "rayon_depuis_pivot": 84.01,
+    "source": "ir_20261019/018...ir.json Esquisse66 (colonnes boutons) ; pied: comparaison_tiges/releve_stl.json (boites STL conteneur) (pied Y 7..14, Z centre de la tole de 2) ; piston bout Y 16 : comparaison_tiges/releve_stl.json (boites STL conteneur)"
+   },
+   "goupille_D2_2": {
+    "xy": [
+     106.24,
+     23.5
+    ],
+    "bras_rayon": 22.94,
+    "source": "ir_20261019/018_meca...ir.json Esquisse194 (plan des tiges A et B, X = -x du croquis)"
+   },
+   "attache_D3": {
+    "xy": [
+     123.24,
+     56.69
+    ],
+    "bras_rayon": 40.0,
+    "source": "ir_20261019/018_meca...ir.json Esquisse194 (plan des tiges A et B, X = -x du croquis) (arc r1,5 en (123,24;56,69)) : role non documente"
+   },
+   "levier_r_hypothese": "r1"
+  },
+  "A2": {
+   "tige": "A2",
+   "pivot_xy": [
+    128.24,
+    17.0
+   ],
+   "z_plat_centre": -58.5,
+   "bouton": {
+    "x": 31.49,
+    "z_pied": -68.5,
+    "y_face_contact": 7.0,
+    "y_pied_tige": [
+     7.0,
+     14.0
+    ],
+    "y_bout_piston": 16.0,
+    "bras_horizontal": 96.75,
+    "rayon_depuis_pivot": 96.97,
+    "source": "ir_20261019/018...ir.json Esquisse66 (colonnes boutons) ; pied: comparaison_tiges/releve_stl.json (boites STL conteneur) (pied Y 7..14, Z centre de la tole de 2) ; piston bout Y 16 : comparaison_tiges/releve_stl.json (boites STL conteneur)"
+   },
+   "goupille_D2_2": {
+    "xy": [
+     106.24,
+     23.5
+    ],
+    "bras_rayon": 22.94,
+    "source": "ir_20261019/018_meca...ir.json Esquisse194 (plan des tiges A et B, X = -x du croquis)"
+   },
+   "attache_D3": {
+    "xy": [
+     123.24,
+     56.69
+    ],
+    "bras_rayon": 40.0,
+    "source": "ir_20261019/018_meca...ir.json Esquisse194 (plan des tiges A et B, X = -x du croquis) (arc r1,5 en (123,24;56,69)) : role non documente"
+   },
+   "levier_r_hypothese": "r2"
+  },
+  "A3": {
+   "tige": "A3",
+   "pivot_xy": [
+    128.24,
+    17.0
+   ],
+   "z_plat_centre": -63.5,
+   "bouton": {
+    "x": 18.5,
+    "z_pied": -76.0,
+    "y_face_contact": 7.0,
+    "y_pied_tige": [
+     7.0,
+     14.0
+    ],
+    "y_bout_piston": 16.0,
+    "bras_horizontal": 109.74,
+    "rayon_depuis_pivot": 109.93,
+    "source": "ir_20261019/018...ir.json Esquisse66 (colonnes boutons) ; pied: comparaison_tiges/releve_stl.json (boites STL conteneur) (pied Y 7..14, Z centre de la tole de 2) ; piston bout Y 16 : comparaison_tiges/releve_stl.json (boites STL conteneur)"
+   },
+   "goupille_D2_2": {
+    "xy": [
+     106.24,
+     23.5
+    ],
+    "bras_rayon": 22.94,
+    "source": "ir_20261019/018_meca...ir.json Esquisse194 (plan des tiges A et B, X = -x du croquis)"
+   },
+   "attache_D3": {
+    "xy": [
+     123.24,
+     56.69
+    ],
+    "bras_rayon": 40.0,
+    "source": "ir_20261019/018_meca...ir.json Esquisse194 (plan des tiges A et B, X = -x du croquis) (arc r1,5 en (123,24;56,69)) : role non documente"
+   },
+   "levier_r_hypothese": "r3"
+  },
+  "B1": {
+   "tige": "B1",
+   "pivot_xy": [
+    126.24,
+    2.0
+   ],
+   "z_plat_centre": -53.5,
+   "bouton": {
+    "x": 83.45,
+    "z_pied": -53.5,
+    "y_face_contact": 7.0,
+    "y_pied_tige": [
+     7.0,
+     14.0
+    ],
+    "y_bout_piston": 16.0,
+    "bras_horizontal": 42.79,
+    "rayon_depuis_pivot": 43.63,
+    "source": "ir_20261019/018...ir.json Esquisse66 (colonnes boutons) ; pied: comparaison_tiges/releve_stl.json (boites STL conteneur) (pied Y 7..14, Z centre de la tole de 2) ; piston bout Y 16 : comparaison_tiges/releve_stl.json (boites STL conteneur)"
+   },
+   "goupille_D2_2": {
+    "xy": [
+     97.47,
+     10.5
+    ],
+    "bras_rayon": 30.0,
+    "source": "ir_20261019/018_meca...ir.json Esquisse194 (plan des tiges A et B, X = -x du croquis)"
+   },
+   "attache_D3": {
+    "xy": [
+     139.74,
+     34.29
+    ],
+    "bras_rayon": 35.0,
+    "source": "ir_20261019/018_meca...ir.json Esquisse194 (plan des tiges A et B, X = -x du croquis); tiges_liaison.json"
+   },
+   "levier_r": "r1"
+  },
+  "B2": {
+   "tige": "B2",
+   "pivot_xy": [
+    126.24,
+    2.0
+   ],
+   "z_plat_centre": -58.5,
+   "bouton": {
+    "x": 70.46,
+    "z_pied": -61.0,
+    "y_face_contact": 7.0,
+    "y_pied_tige": [
+     7.0,
+     14.0
+    ],
+    "y_bout_piston": 16.0,
+    "bras_horizontal": 55.78,
+    "rayon_depuis_pivot": 56.42,
+    "source": "ir_20261019/018...ir.json Esquisse66 (colonnes boutons) ; pied: comparaison_tiges/releve_stl.json (boites STL conteneur) (pied Y 7..14, Z centre de la tole de 2) ; piston bout Y 16 : comparaison_tiges/releve_stl.json (boites STL conteneur)"
+   },
+   "goupille_D2_2": {
+    "xy": [
+     97.47,
+     10.5
+    ],
+    "bras_rayon": 30.0,
+    "source": "ir_20261019/018_meca...ir.json Esquisse194 (plan des tiges A et B, X = -x du croquis)"
+   },
+   "attache_D3": {
+    "xy": [
+     139.74,
+     34.29
+    ],
+    "bras_rayon": 35.0,
+    "source": "ir_20261019/018_meca...ir.json Esquisse194 (plan des tiges A et B, X = -x du croquis); tiges_liaison.json"
+   },
+   "levier_r": "r2"
+  },
+  "B3": {
+   "tige": "B3",
+   "pivot_xy": [
+    126.24,
+    2.0
+   ],
+   "z_plat_centre": -63.5,
+   "bouton": {
+    "x": 57.47,
+    "z_pied": -68.5,
+    "y_face_contact": 7.0,
+    "y_pied_tige": [
+     7.0,
+     14.0
+    ],
+    "y_bout_piston": 16.0,
+    "bras_horizontal": 68.77,
+    "rayon_depuis_pivot": 69.29,
+    "source": "ir_20261019/018...ir.json Esquisse66 (colonnes boutons) ; pied: comparaison_tiges/releve_stl.json (boites STL conteneur) (pied Y 7..14, Z centre de la tole de 2) ; piston bout Y 16 : comparaison_tiges/releve_stl.json (boites STL conteneur)"
+   },
+   "goupille_D2_2": {
+    "xy": [
+     97.47,
+     10.5
+    ],
+    "bras_rayon": 30.0,
+    "source": "ir_20261019/018_meca...ir.json Esquisse194 (plan des tiges A et B, X = -x du croquis)"
+   },
+   "attache_D3": {
+    "xy": [
+     139.74,
+     34.29
+    ],
+    "bras_rayon": 35.0,
+    "source": "ir_20261019/018_meca...ir.json Esquisse194 (plan des tiges A et B, X = -x du croquis); tiges_liaison.json"
+   },
+   "levier_r": "r3"
+  }
+ },
+ "leviers_r": {
+  "r1": {
+   "z": -51.42,
+   "pivot": [
+    166.75,
+    73.9
+   ],
+   "trou_attache_B": {
+    "xy": [
+     164.22,
+     33.9
+    ],
+    "D": 3.09,
+    "bras_rayon": 40.08,
+    "source": "tiges_liaison.json"
+   },
+   "trou_autre": {
+    "xy": [
+     162.46,
+     45.22
+    ],
+    "D": 3.04,
+    "bras_rayon": 29.0,
+    "source": "tiges_liaison.json trous_haut"
+   },
+   "ressort_D2": {
+    "xy": [
+     193.0,
+     71.9
+    ],
+    "bras_rayon": 26.33,
+    "bras_horizontal": 26.25,
+    "source": "tiges_liaison.json"
+   },
+   "queue_pointe_x": 119.0,
+   "queue_y_haut": 73.4,
+   "queue_y_bas": 67.4,
+   "bras_pointe_queue": 47.75,
+   "bloc_soupape_x": [
+    109.5,
+    142.5
+   ],
+   "bloc_soupape_y": [
+    75.9,
+    81.9
+   ],
+   "bloc_centre_x": 126.0,
+   "bras_centre_bloc": 40.75,
+   "jeu_queue_bloc": 2.5,
+   "sources_queue": "leviers_035/contours.json (repere local, Yconteneur = 84,9 - Ylocal, X identique) (boucle 0, sommet x min) ; blocs : comparaison_tiges/releve_stl.json (boites STL conteneur) (8412978 r1, 8412884 r2, 8412931 r3, boites X 109,5/74,5/39,5, Y 75,9-81,9, Z centres -50,92/-57,26/-63,09)",
+   "biellette_B": {
+    "tige": "B1",
+    "de": [
+     139.74,
+     34.29
+    ],
+    "vers": [
+     164.22,
+     33.9
+    ],
+    "longueur": 24.48,
+    "bras_attache_tige_perp": 32.5,
+    "bras_attache_r_perp": 40.04,
+    "angle_deg": -0.91
+   },
+   "biellette_A_hypothese": {
+    "tige": "A1",
+    "de": [
+     123.24,
+     56.69
+    ],
+    "vers": [
+     162.46,
+     45.22
+    ],
+    "longueur": 40.86,
+    "hypothese": "non documentee : le 2e trou de r (autre que celui des B) serait pour A ; a confirmer",
+    "bras_attache_tige_perp": 36.69,
+    "bras_attache_r_perp": 28.73
+   }
+  },
+  "r2": {
+   "z": -57.26,
+   "pivot": [
+    166.75,
+    73.9
+   ],
+   "trou_attache_B": {
+    "xy": [
+     162.46,
+     40.9
+    ],
+    "D": 3.04,
+    "bras_rayon": 33.28,
+    "source": "tiges_liaison.json"
+   },
+   "trou_autre": {
+    "xy": [
+     164.22,
+     44.9
+    ],
+    "D": 3.09,
+    "bras_rayon": 29.11,
+    "source": "tiges_liaison.json trous_haut"
+   },
+   "ressort_D2": {
+    "xy": [
+     193.0,
+     71.9
+    ],
+    "bras_rayon": 26.33,
+    "bras_horizontal": 26.25,
+    "source": "tiges_liaison.json"
+   },
+   "queue_pointe_x": 83.0,
+   "queue_y_haut": 73.4,
+   "queue_y_bas": 65.4,
+   "bras_pointe_queue": 83.75,
+   "bloc_soupape_x": [
+    74.5,
+    107.5
+   ],
+   "bloc_soupape_y": [
+    75.9,
+    81.9
+   ],
+   "bloc_centre_x": 91.0,
+   "bras_centre_bloc": 75.75,
+   "jeu_queue_bloc": 2.5,
+   "sources_queue": "leviers_035/contours.json (repere local, Yconteneur = 84,9 - Ylocal, X identique) (boucle 0, sommet x min) ; blocs : comparaison_tiges/releve_stl.json (boites STL conteneur) (8412978 r1, 8412884 r2, 8412931 r3, boites X 109,5/74,5/39,5, Y 75,9-81,9, Z centres -50,92/-57,26/-63,09)",
+   "biellette_B": {
+    "tige": "B2",
+    "de": [
+     139.74,
+     34.29
+    ],
+    "vers": [
+     162.46,
+     40.9
+    ],
+    "longueur": 23.66,
+    "bras_attache_tige_perp": 27.23,
+    "bras_attache_r_perp": 30.49,
+    "angle_deg": 16.22
+   },
+   "biellette_A_hypothese": {
+    "tige": "A2",
+    "de": [
+     123.24,
+     56.69
+    ],
+    "vers": [
+     164.22,
+     44.9
+    ],
+    "longueur": 42.64,
+    "hypothese": "non documentee : le 2e trou de r (autre que celui des B) serait pour A ; a confirmer",
+    "bras_attache_tige_perp": 36.76,
+    "bras_attache_r_perp": 28.57
+   }
+  },
+  "r3": {
+   "z": -63.09,
+   "pivot": [
+    166.75,
+    73.9
+   ],
+   "trou_attache_B": {
+    "xy": [
+     162.46,
+     34.9
+    ],
+    "D": 3.04,
+    "bras_rayon": 39.24,
+    "source": "tiges_liaison.json"
+   },
+   "trou_autre": {
+    "xy": [
+     164.22,
+     39.9
+    ],
+    "D": 3.09,
+    "bras_rayon": 34.09,
+    "source": "tiges_liaison.json trous_haut"
+   },
+   "ressort_D2": {
+    "xy": [
+     193.0,
+     71.9
+    ],
+    "bras_rayon": 26.33,
+    "bras_horizontal": 26.25,
+    "source": "tiges_liaison.json"
+   },
+   "queue_pointe_x": 48.0,
+   "queue_y_haut": 73.4,
+   "queue_y_bas": 65.4,
+   "bras_pointe_queue": 118.75,
+   "bloc_soupape_x": [
+    39.5,
+    72.5
+   ],
+   "bloc_soupape_y": [
+    75.9,
+    81.9
+   ],
+   "bloc_centre_x": 56.0,
+   "bras_centre_bloc": 110.75,
+   "jeu_queue_bloc": 2.5,
+   "sources_queue": "leviers_035/contours.json (repere local, Yconteneur = 84,9 - Ylocal, X identique) (boucle 0, sommet x min) ; blocs : comparaison_tiges/releve_stl.json (boites STL conteneur) (8412978 r1, 8412884 r2, 8412931 r3, boites X 109,5/74,5/39,5, Y 75,9-81,9, Z centres -50,92/-57,26/-63,09)",
+   "biellette_B": {
+    "tige": "B3",
+    "de": [
+     139.74,
+     34.29
+    ],
+    "vers": [
+     162.46,
+     34.9
+    ],
+    "longueur": 22.73,
+    "bras_attache_tige_perp": 31.92,
+    "bras_attache_r_perp": 38.87,
+    "angle_deg": 1.54
+   },
+   "biellette_A_hypothese": {
+    "tige": "A3",
+    "de": [
+     123.24,
+     56.69
+    ],
+    "vers": [
+     164.22,
+     39.9
+    ],
+    "longueur": 44.29,
+    "hypothese": "non documentee : le 2e trou de r (autre que celui des B) serait pour A ; a confirmer",
+    "bras_attache_tige_perp": 34.83,
+    "bras_attache_r_perp": 32.42
+   }
+  }
+ },
+ "rapports_petits_angles": {
+  "B1->r1": {
+   "rapport_pointe_queue": 0.906,
+   "rapport_centre_bloc": 0.773,
+   "formule": "(perp tige/bras bouton) x (1/perp r) x bras de contact ; petits angles, biellette rigide, bouton vertical",
+   "statut": "indicatif : le point de contact de la soupape n est pas confirme"
+  },
+  "B2->r2": {
+   "rapport_pointe_queue": 1.341,
+   "rapport_centre_bloc": 1.213,
+   "formule": "(perp tige/bras bouton) x (1/perp r) x bras de contact ; petits angles, biellette rigide, bouton vertical",
+   "statut": "indicatif : le point de contact de la soupape n est pas confirme"
+  },
+  "B3->r3": {
+   "rapport_pointe_queue": 1.418,
+   "rapport_centre_bloc": 1.322,
+   "formule": "(perp tige/bras bouton) x (1/perp r) x bras de contact ; petits angles, biellette rigide, bouton vertical",
+   "statut": "indicatif : le point de contact de la soupape n est pas confirme"
+  }
+ },
+ "non_trouve": [
+  "course du bouton / butee (aucune cote dans les IR 018 ; Pas 15 et \"course 5\" du dessin Idee 1 seulement)",
+  "role de la tige A (attache D3 en (123,24;56,69)) et de son levier : aucune liaison A->r dans tiges_liaison.json",
+  "dimensions soupapes de la table 017 liees a r1-r3 (trous 15x25 Esquisse16, 21x31 Esquisse284 non rattaches a un rang)",
+  "point de contact exact soupape/queue",
+  "Z des trous du levier B vs A non verifies dans le .Z3 (STL et IR seulement)"
+ ]
+}

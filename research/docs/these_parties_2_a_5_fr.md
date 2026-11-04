@@ -165,6 +165,19 @@ sa fente et s'arrête, ne dépend pas du tout de R dans le modèle à une anche
 (379,8 Pa pour la languette de référence, quelle que soit la source) : elle est
 fixée par la géométrie de la fente, pas par l'alimentation.
 
+*Ce que le banc de 2023 en dit (analyse du 01/10/2026, à confirmer : l'unité Pa
+du capteur n'a pas été vérifiée au tube en U).* À commande de ventilateur fixe,
+la pression du banc baisse quand le débit monte, presque en ligne droite (r =
+−0,86 à −0,98). La pente vaut 9 à 24 Pa par l/min, soit 0,5 à 1,4 × 10⁶ Pa·s/m³.
+Elle mesure la résistance interne de la source du banc. Elle ne se compare pas
+sans précaution au 5·10⁶ du modèle : ce dernier représente aussi la restriction
+d'alimentation, le canal du sommier, et le banc ne les distingue pas encore.
+Mais l'écart est là, et le modèle ne démarre plus à 2·10⁶ : le point reste à
+trancher. Ces mêmes données donnent une pente de f0 de −0,9 à −1,9 ¢/100 Pa
+selon l'anche (R² ≈ 0,3), et une répétabilité de −0,9 ¢ ± 0,4 entre deux
+passages. Registre : `apports_these.md`, section C ; données :
+`research/data/mesures_2023/`.
+
 Il y a une seconde ouverture, le trou de la table d'harmonie. Le plan
 d'expériences numérique sur les chambres (`research/fem/sommier/seuils_cavite.py`)
 balaie sa section de 25 à 400 mm², et un plancher de 100 mm² est gardé dans la
@@ -657,6 +670,45 @@ Le tirage est l'écart entre la languette seule et la même languette dans la
 paire ; à comparer au produit du carré de l'indice de phase par le battement.
 Puis douze notes à trois voix, pour lire les trois indices de phase de chaque
 languette et savoir si le terme croisé compte.*
+
+Sixième fait, tiré d'un test simple : un son d'anche A seul, un son B seul, puis
+la simple somme A + B. Sans couplage par construction, les courbes de fréquence
+du mélange doivent rester celles des notes seules. Sur 54 paires d'intervalles
+tempérés (octave, quinte, tierces, secondes), échantillons d'une banque de sons
+et non anches au soufflet, l'écart est de 0,001 à 0,05 ¢, sans composante à Ω.
+Le défaut de calcul existe pourtant à l'unisson, dans un régime précis : quand
+le partiel de mesure k ne sépare pas les deux raies (k·Ω < 1,4 Hz). La raison
+est une ligne de physique. Pour une somme de deux sinus proches, de rapport r,
+
+f_i = fA + Ω·r(r + cos 2πΩt)/(1 + r² + 2r cos 2πΩt).
+
+La moyenne sur un battement entier vaut fA (r < 1), l'excursion au creux vaut
+−Ω·r/(1 − r), infinie à niveaux égaux, et toute fenêtre de durée T non entière
+garde une composante à Ω d'environ l'excursion multipliée par |sinc(ΩT)|. La
+fréquence instantanée d'une somme est dans la phase, pas dans l'enveloppe :
+aucun prétraitement d'amplitude n'y peut rien. Sur le vrai instrument (prises
+H6, un instrument), le calcul ne pèse que 10 % (La4, La5) à 50 % (La3 à 0,59 Hz)
+de la fluctuation lue ; le reste est la modulation de phase du tirage, l'AM
+réelle et le soufflet.
+
+Septième fait : le battement est une grandeur plus stable que les cents. C'est
+une différence, et la pression commune du soufflet (0,3 ¢/s sur le H6) s'y
+annule : 0,05 bat/min contre 0,1 à 0,3 ¢ sur chaque anche. À La4 442 Hz, 1
+bat/min = 0,017 Hz = 0,065 ¢.
+
+Huitième fait, ouvert : le résidu du partiel 2 sur le H6 est 16 fois trop grand
+(4,8 % contre 0,3 %, 17 notes, un instrument), sur toutes les raies, porteuse
+comprise, alors que le partiel 1 est parfait. Le modèle de peigne ne l'explique
+pas. Laisser libre un décalage constant de chaque partiel ne gagne presque rien
+(5,02 % → 4,83 %, décalage médian 0,025 Hz) : ce n'est pas de l'inharmonicité
+constante. Il reste une modulation lente de timbre ou de hauteur, hors peigne.
+Une contrainte aide à trier les hypothèses : deux anches de rapport ρ ne peuvent
+moduler l'enveloppe qu'à l'indice ρ.
+
+*À compléter (Ewen) : la même note au H6, 8' seul, 8'+ seul, 8'+8', même
+pression ; aucune anche seule réelle n'a encore été enregistrée. Puis une prise
+à Ω·T ≥ 4 s, ou à un rapport d'anches de 6 à 12 dB, pour le surplus du partiel
+2.*
 
 ### La dissipation dans les cavités [Dissipation in cavities]
 

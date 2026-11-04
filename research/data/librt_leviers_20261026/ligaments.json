@@ -1,0 +1,750 @@
+{
+ "tiges": {
+  "A1": {
+   "stl": "8858384.stl",
+   "palier": {
+    "largeur_min_travers": 11.987,
+    "angle_travers_deg": 81,
+    "ligament_cote1": 2.997,
+    "ligament_cote2": 2.996,
+    "selon_X": {
+     "largeur": 15.233,
+     "ligament_moins": 6.244,
+     "ligament_plus": 2.996
+    },
+    "selon_Y": {
+     "largeur": 13.268,
+     "ligament_moins": 3.001,
+     "ligament_plus": 4.273
+    },
+    "ligament_min_toutes_directions": 2.994,
+    "z_mid": -53.503,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 5.994
+   },
+   "attache": {
+    "largeur_min_travers": 7.0,
+    "angle_travers_deg": 0,
+    "ligament_cote1": 2.003,
+    "ligament_cote2": 2.003,
+    "selon_X": {
+     "largeur": 7.0,
+     "ligament_moins": 2.003,
+     "ligament_plus": 2.003
+    },
+    "selon_Y": {
+     "largeur": 45.997,
+     "ligament_moins": 41.504,
+     "ligament_plus": 1.499
+    },
+    "ligament_min_toutes_directions": 1.499,
+    "z_mid": -53.503,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 2.994
+   },
+   "goupille": {
+    "largeur_min_travers": 7.0,
+    "angle_travers_deg": 90,
+    "ligament_cote1": 2.403,
+    "ligament_cote2": 2.403,
+    "selon_X": {
+     "largeur": 41.271,
+     "ligament_moins": 17.75,
+     "ligament_plus": 21.326
+    },
+    "selon_Y": {
+     "largeur": 7.0,
+     "ligament_moins": 2.403,
+     "ligament_plus": 2.403
+    },
+    "ligament_min_toutes_directions": 2.403,
+    "z_mid": -53.503,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 2.195
+   },
+   "ecart_Z_attache_vers_r1": 2.081,
+   "ecart_Z_palier_vers_r1": 2.081
+  },
+  "A2": {
+   "stl": "8858531.stl",
+   "palier": {
+    "largeur_min_travers": 11.986,
+    "angle_travers_deg": 74,
+    "ligament_cote1": 2.997,
+    "ligament_cote2": 2.995,
+    "selon_X": {
+     "largeur": 15.233,
+     "ligament_moins": 6.244,
+     "ligament_plus": 2.996
+    },
+    "selon_Y": {
+     "largeur": 13.265,
+     "ligament_moins": 2.998,
+     "ligament_plus": 4.273
+    },
+    "ligament_min_toutes_directions": 2.994,
+    "z_mid": -58.503,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 5.994
+   },
+   "attache": {
+    "largeur_min_travers": 7.0,
+    "angle_travers_deg": 0,
+    "ligament_cote1": 2.003,
+    "ligament_cote2": 2.003,
+    "selon_X": {
+     "largeur": 7.0,
+     "ligament_moins": 2.003,
+     "ligament_plus": 2.003
+    },
+    "selon_Y": {
+     "largeur": 45.997,
+     "ligament_moins": 41.504,
+     "ligament_plus": 1.499
+    },
+    "ligament_min_toutes_directions": 1.499,
+    "z_mid": -58.503,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 2.994
+   },
+   "goupille": {
+    "largeur_min_travers": 7.0,
+    "angle_travers_deg": 90,
+    "ligament_cote1": 2.403,
+    "ligament_cote2": 2.403,
+    "selon_X": {
+     "largeur": 42.382,
+     "ligament_moins": 18.861,
+     "ligament_plus": 21.326
+    },
+    "selon_Y": {
+     "largeur": 7.0,
+     "ligament_moins": 2.403,
+     "ligament_plus": 2.403
+    },
+    "ligament_min_toutes_directions": 2.403,
+    "z_mid": -58.503,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 2.195
+   },
+   "ecart_Z_attache_vers_r2": 1.247,
+   "ecart_Z_palier_vers_r2": 1.247
+  },
+  "A3": {
+   "stl": "8858692.stl",
+   "palier": {
+    "largeur_min_travers": 11.987,
+    "angle_travers_deg": 81,
+    "ligament_cote1": 2.997,
+    "ligament_cote2": 2.996,
+    "selon_X": {
+     "largeur": 15.233,
+     "ligament_moins": 6.244,
+     "ligament_plus": 2.996
+    },
+    "selon_Y": {
+     "largeur": 13.268,
+     "ligament_moins": 3.001,
+     "ligament_plus": 4.273
+    },
+    "ligament_min_toutes_directions": 2.994,
+    "z_mid": -63.503,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 5.994
+   },
+   "attache": {
+    "largeur_min_travers": 7.0,
+    "angle_travers_deg": 0,
+    "ligament_cote1": 2.003,
+    "ligament_cote2": 2.003,
+    "selon_X": {
+     "largeur": 7.0,
+     "ligament_moins": 2.003,
+     "ligament_plus": 2.003
+    },
+    "selon_Y": {
+     "largeur": 45.997,
+     "ligament_moins": 41.504,
+     "ligament_plus": 1.499
+    },
+    "ligament_min_toutes_directions": 1.499,
+    "z_mid": -63.503,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 2.994
+   },
+   "goupille": {
+    "largeur_min_travers": 7.0,
+    "angle_travers_deg": 90,
+    "ligament_cote1": 2.403,
+    "ligament_cote2": 2.403,
+    "selon_X": {
+     "largeur": 42.465,
+     "ligament_moins": 18.944,
+     "ligament_plus": 21.326
+    },
+    "selon_Y": {
+     "largeur": 7.0,
+     "ligament_moins": 2.403,
+     "ligament_plus": 2.403
+    },
+    "ligament_min_toutes_directions": 2.403,
+    "z_mid": -63.503,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 2.195
+   },
+   "ecart_Z_attache_vers_r3": 0.414,
+   "ecart_Z_palier_vers_r3": 0.414
+  },
+  "B1": {
+   "stl": "8864762.stl",
+   "palier": {
+    "largeur_min_travers": 11.989,
+    "angle_travers_deg": 95,
+    "ligament_cote1": 2.994,
+    "ligament_cote2": 3.001,
+    "selon_X": {
+     "largeur": 15.677,
+     "ligament_moins": 6.244,
+     "ligament_plus": 3.439
+    },
+    "selon_Y": {
+     "largeur": 11.997,
+     "ligament_moins": 3.001,
+     "ligament_plus": 3.003
+    },
+    "ligament_min_toutes_directions": 2.994,
+    "z_mid": -53.503,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 5.994
+   },
+   "attache": {
+    "largeur_min_travers": 7.0,
+    "angle_travers_deg": 0,
+    "ligament_cote1": 2.452,
+    "ligament_cote2": 2.453,
+    "selon_X": {
+     "largeur": 7.0,
+     "ligament_moins": 2.452,
+     "ligament_plus": 2.453
+    },
+    "selon_Y": {
+     "largeur": 30.714,
+     "ligament_moins": 26.664,
+     "ligament_plus": 1.954
+    },
+    "ligament_min_toutes_directions": 1.954,
+    "z_mid": -53.503,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 2.095
+   },
+   "goupille": {
+    "largeur_min_travers": 7.0,
+    "angle_travers_deg": 90,
+    "ligament_cote1": 2.403,
+    "ligament_cote2": 2.403,
+    "selon_X": {
+     "largeur": 34.409,
+     "ligament_moins": 16.071,
+     "ligament_plus": 16.143
+    },
+    "selon_Y": {
+     "largeur": 7.0,
+     "ligament_moins": 2.403,
+     "ligament_plus": 2.403
+    },
+    "ligament_min_toutes_directions": 2.403,
+    "z_mid": -53.503,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 2.195
+   },
+   "ecart_Z_attache_vers_r1": 2.081,
+   "ecart_Z_palier_vers_r1": 2.081
+  },
+  "B2": {
+   "stl": "8864951.stl",
+   "palier": {
+    "largeur_min_travers": 11.989,
+    "angle_travers_deg": 95,
+    "ligament_cote1": 2.994,
+    "ligament_cote2": 3.001,
+    "selon_X": {
+     "largeur": 15.677,
+     "ligament_moins": 6.244,
+     "ligament_plus": 3.439
+    },
+    "selon_Y": {
+     "largeur": 11.997,
+     "ligament_moins": 3.001,
+     "ligament_plus": 3.003
+    },
+    "ligament_min_toutes_directions": 2.994,
+    "z_mid": -58.503,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 5.994
+   },
+   "attache": {
+    "largeur_min_travers": 7.0,
+    "angle_travers_deg": 0,
+    "ligament_cote1": 2.452,
+    "ligament_cote2": 2.453,
+    "selon_X": {
+     "largeur": 7.0,
+     "ligament_moins": 2.452,
+     "ligament_plus": 2.453
+    },
+    "selon_Y": {
+     "largeur": 30.714,
+     "ligament_moins": 26.664,
+     "ligament_plus": 1.954
+    },
+    "ligament_min_toutes_directions": 1.954,
+    "z_mid": -58.503,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 2.095
+   },
+   "goupille": {
+    "largeur_min_travers": 7.0,
+    "angle_travers_deg": 90,
+    "ligament_cote1": 2.403,
+    "ligament_cote2": 2.403,
+    "selon_X": {
+     "largeur": 36.45,
+     "ligament_moins": 18.112,
+     "ligament_plus": 16.143
+    },
+    "selon_Y": {
+     "largeur": 7.0,
+     "ligament_moins": 2.403,
+     "ligament_plus": 2.403
+    },
+    "ligament_min_toutes_directions": 2.403,
+    "z_mid": -58.503,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 2.195
+   },
+   "ecart_Z_attache_vers_r2": 1.247,
+   "ecart_Z_palier_vers_r2": 1.247
+  },
+  "B3": {
+   "stl": "8865177.stl",
+   "palier": {
+    "largeur_min_travers": 11.989,
+    "angle_travers_deg": 95,
+    "ligament_cote1": 2.994,
+    "ligament_cote2": 3.001,
+    "selon_X": {
+     "largeur": 15.677,
+     "ligament_moins": 6.244,
+     "ligament_plus": 3.439
+    },
+    "selon_Y": {
+     "largeur": 11.997,
+     "ligament_moins": 3.001,
+     "ligament_plus": 3.003
+    },
+    "ligament_min_toutes_directions": 2.994,
+    "z_mid": -63.503,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 5.994
+   },
+   "attache": {
+    "largeur_min_travers": 7.0,
+    "angle_travers_deg": 0,
+    "ligament_cote1": 2.452,
+    "ligament_cote2": 2.453,
+    "selon_X": {
+     "largeur": 7.0,
+     "ligament_moins": 2.452,
+     "ligament_plus": 2.453
+    },
+    "selon_Y": {
+     "largeur": 30.714,
+     "ligament_moins": 26.664,
+     "ligament_plus": 1.954
+    },
+    "ligament_min_toutes_directions": 1.954,
+    "z_mid": -63.503,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 2.095
+   },
+   "goupille": {
+    "largeur_min_travers": 7.0,
+    "angle_travers_deg": 90,
+    "ligament_cote1": 2.403,
+    "ligament_cote2": 2.403,
+    "selon_X": {
+     "largeur": 36.45,
+     "ligament_moins": 18.112,
+     "ligament_plus": 16.143
+    },
+    "selon_Y": {
+     "largeur": 7.0,
+     "ligament_moins": 2.403,
+     "ligament_plus": 2.403
+    },
+    "ligament_min_toutes_directions": 2.403,
+    "z_mid": -63.503,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 2.195
+   },
+   "ecart_Z_attache_vers_r3": 0.414,
+   "ecart_Z_palier_vers_r3": 0.414
+  }
+ },
+ "leviers": {
+  "r1": {
+   "stl": "8359056.stl",
+   "boite": [
+    [
+     119.0,
+     26.9,
+     -52.422
+    ],
+    [
+     195.5,
+     79.899,
+     -50.422
+    ]
+   ],
+   "pivot": {
+    "largeur_min_travers": 14.392,
+    "angle_travers_deg": 124,
+    "ligament_cote1": 5.392,
+    "ligament_cote2": 3.008,
+    "selon_X": {
+     "largeur": 39.831,
+     "ligament_moins": 8.884,
+     "ligament_plus": 24.954
+    },
+    "selon_Y": {
+     "largeur": 30.855,
+     "ligament_moins": 21.862,
+     "ligament_plus": 3.001
+    },
+    "ligament_min_toutes_directions": 2.999,
+    "z_mid": -51.422,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 5.993
+   },
+   "ressort": {
+    "largeur_min_travers": 5.063,
+    "angle_travers_deg": 87,
+    "ligament_cote1": 1.534,
+    "ligament_cote2": 1.534,
+    "selon_X": {
+     "largeur": 76.5,
+     "ligament_moins": 73.003,
+     "ligament_plus": 1.503
+    },
+    "selon_Y": {
+     "largeur": 5.07,
+     "ligament_moins": 1.517,
+     "ligament_plus": 1.559
+    },
+    "ligament_min_toutes_directions": 1.503,
+    "z_mid": -51.422,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 1.994
+   }
+  },
+  "r2": {
+   "stl": "8325602.stl",
+   "boite": [
+    [
+     83.0,
+     26.9,
+     -58.256
+    ],
+    [
+     195.5,
+     79.899,
+     -56.256
+    ]
+   ],
+   "pivot": {
+    "largeur_min_travers": 14.39,
+    "angle_travers_deg": 125,
+    "ligament_cote1": 5.394,
+    "ligament_cote2": 3.003,
+    "selon_X": {
+     "largeur": 34.304,
+     "ligament_moins": 3.358,
+     "ligament_plus": 24.954
+    },
+    "selon_Y": {
+     "largeur": 30.856,
+     "ligament_moins": 21.862,
+     "ligament_plus": 3.002
+    },
+    "ligament_min_toutes_directions": 2.995,
+    "z_mid": -57.256,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 5.993
+   },
+   "ressort": {
+    "largeur_min_travers": 5.063,
+    "angle_travers_deg": 87,
+    "ligament_cote1": 1.534,
+    "ligament_cote2": 1.534,
+    "selon_X": {
+     "largeur": 35.801,
+     "ligament_moins": 32.304,
+     "ligament_plus": 1.503
+    },
+    "selon_Y": {
+     "largeur": 5.07,
+     "ligament_moins": 1.517,
+     "ligament_plus": 1.559
+    },
+    "ligament_min_toutes_directions": 1.503,
+    "z_mid": -57.256,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 1.994
+   }
+  },
+  "r3": {
+   "stl": "8344435.stl",
+   "boite": [
+    [
+     48.0,
+     26.9,
+     -64.089
+    ],
+    [
+     195.5,
+     79.9,
+     -62.089
+    ]
+   ],
+   "pivot": {
+    "largeur_min_travers": 14.389,
+    "angle_travers_deg": 125,
+    "ligament_cote1": 5.395,
+    "ligament_cote2": 3.001,
+    "selon_X": {
+     "largeur": 35.497,
+     "ligament_moins": 4.55,
+     "ligament_plus": 24.954
+    },
+    "selon_Y": {
+     "largeur": 30.856,
+     "ligament_moins": 21.862,
+     "ligament_plus": 3.002
+    },
+    "ligament_min_toutes_directions": 2.995,
+    "z_mid": -63.089,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 5.993
+   },
+   "ressort": {
+    "largeur_min_travers": 5.063,
+    "angle_travers_deg": 87,
+    "ligament_cote1": 1.534,
+    "ligament_cote2": 1.534,
+    "selon_X": {
+     "largeur": 37.822,
+     "ligament_moins": 34.325,
+     "ligament_plus": 1.503
+    },
+    "selon_Y": {
+     "largeur": 5.07,
+     "ligament_moins": 1.517,
+     "ligament_plus": 1.559
+    },
+    "ligament_min_toutes_directions": 1.503,
+    "z_mid": -63.089,
+    "z_dispersion": 0.0,
+    "D_trou_mesure": 1.994
+   }
+  }
+ },
+ "pieds": {
+  "A1": {
+   "x_bouton": 44.48,
+   "z_pied_theorique": -61.0,
+   "pied_Y_min": 7.0,
+   "pied_Y_max_zone": 27.0,
+   "pied_X": [
+    41.331,
+    49.149
+   ],
+   "pied_Z": [
+    -62.003,
+    -60.003
+   ],
+   "piston_stl": "8827128.stl",
+   "piston_Y": [
+    -12.0,
+    16.0
+   ],
+   "piston_X": [
+    41.58,
+    47.38
+   ],
+   "piston_Z": [
+    -63.9,
+    -58.1
+   ],
+   "part_du_pied_dans_piston_pct": 40.5,
+   "dist_min_sommets_pied_au_piston_mm": 0.042,
+   "bout_piston_Y16_moins_pied_Ymin": 9.0
+  },
+  "A2": {
+   "x_bouton": 31.49,
+   "z_pied_theorique": -68.5,
+   "pied_Y_min": 7.0,
+   "pied_Y_max_zone": 14.0,
+   "pied_X": [
+    28.34,
+    37.19
+   ],
+   "pied_Z": [
+    -69.503,
+    -66.581
+   ],
+   "piston_stl": "8827022.stl",
+   "piston_Y": [
+    -12.0,
+    16.0
+   ],
+   "piston_X": [
+    28.59,
+    34.39
+   ],
+   "piston_Z": [
+    -71.4,
+    -65.6
+   ],
+   "part_du_pied_dans_piston_pct": 59.4,
+   "dist_min_sommets_pied_au_piston_mm": 0.251,
+   "bout_piston_Y16_moins_pied_Ymin": 9.0
+  },
+  "A3": {
+   "x_bouton": 18.5,
+   "z_pied_theorique": -76.0,
+   "pied_Y_min": 7.0,
+   "pied_Y_max_zone": 14.0,
+   "pied_X": [
+    15.35,
+    23.162
+   ],
+   "pied_Z": [
+    -77.003,
+    -75.003
+   ],
+   "piston_stl": "8827190.stl",
+   "piston_Y": [
+    -12.0,
+    16.0
+   ],
+   "piston_X": [
+    15.6,
+    21.4
+   ],
+   "piston_Z": [
+    -78.9,
+    -73.1
+   ],
+   "part_du_pied_dans_piston_pct": 60.1,
+   "dist_min_sommets_pied_au_piston_mm": 0.251,
+   "bout_piston_Y16_moins_pied_Ymin": 9.0
+  },
+  "B1": {
+   "x_bouton": 83.45,
+   "z_pied_theorique": -53.5,
+   "pied_Y_min": 7.0,
+   "pied_Y_max_zone": 14.0,
+   "pied_X": [
+    80.302,
+    80.302
+   ],
+   "pied_Z": [
+    -54.503,
+    -52.503
+   ],
+   "piston_stl": "8827980.stl",
+   "piston_Y": [
+    -4.5,
+    16.0
+   ],
+   "piston_X": [
+    80.55,
+    86.35
+   ],
+   "piston_Z": [
+    -56.4,
+    -50.6
+   ],
+   "part_du_pied_dans_piston_pct": 61.7,
+   "dist_min_sommets_pied_au_piston_mm": 0.253,
+   "bout_piston_Y16_moins_pied_Ymin": 9.0
+  },
+  "B2": {
+   "x_bouton": 70.46,
+   "z_pied_theorique": -61.0,
+   "pied_Y_min": 7.0,
+   "pied_Y_max_zone": 14.0,
+   "pied_X": [
+    67.312,
+    76.159
+   ],
+   "pied_Z": [
+    -62.003,
+    -60.003
+   ],
+   "piston_stl": "8827159.stl",
+   "piston_Y": [
+    -7.0,
+    16.0
+   ],
+   "piston_X": [
+    67.56,
+    73.36
+   ],
+   "piston_Z": [
+    -63.9,
+    -58.1
+   ],
+   "part_du_pied_dans_piston_pct": 60.9,
+   "dist_min_sommets_pied_au_piston_mm": 0.252,
+   "bout_piston_Y16_moins_pied_Ymin": 9.0
+  },
+  "B3": {
+   "x_bouton": 57.47,
+   "z_pied_theorique": -68.5,
+   "pied_Y_min": 7.0,
+   "pied_Y_max_zone": 14.0,
+   "pied_X": [
+    54.571,
+    63.461
+   ],
+   "pied_Z": [
+    -69.503,
+    -67.503
+   ],
+   "piston_stl": "8826358.stl",
+   "piston_Y": [
+    -9.5,
+    16.0
+   ],
+   "piston_X": [
+    54.57,
+    60.37
+   ],
+   "piston_Z": [
+    -71.4,
+    -65.6
+   ],
+   "part_du_pied_dans_piston_pct": 62.5,
+   "dist_min_sommets_pied_au_piston_mm": 0.002,
+   "bout_piston_Y16_moins_pied_Ymin": 9.0
+  }
+ },
+ "guide": {
+  "peigne": false,
+  "guide_": false,
+  "fente": false,
+  "note": "diag json ne liste que les erreurs de fonctions, menage_objets que les objets Fab_* : aucun nom de guide. Peigne cite seulement dans releve_v5.md (table SW) et theorie/rapport.md (proposition)."
+ },
+ "non_mesure": []
+}
