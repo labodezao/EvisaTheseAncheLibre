@@ -140,6 +140,29 @@ def from_languette(lang, **kw):
     return from_modal(mp, lang.L, b_bout, **kw)
 
 
+STEEL_E, STEEL_RHO = 2.10e11, 7800.0
+
+
+def steel_length(f_hz, thickness_m):
+    """Longueur (m) d'une lame d'acier uniforme encastrée-libre de fréquence f."""
+    return math.sqrt(0.5596 * thickness_m * math.sqrt(STEEL_E / (12 * STEEL_RHO)) / f_hz)
+
+
+def steel_family(f_hz, lift_440_m=0.3e-3, lift_exponent=0.0, gap_m=0.14e-3,
+                 zeta=0.003, K_p=35.0, thickness_m=0.3e-3, width_m=3.5e-3, **kw):
+    """Lame d'acier UNIFORME NOMINALE accordée par sa longueur (aucune mesure).
+
+    Sert à poser la question « selon la note » sans caler : levée
+    `lift_440_m·(L/L_440)^lift_exponent` (0 : constante, 1 : proportionnelle
+    à la longueur), épaisseur et largeur fixes. Renvoie un `AirMassReedModel`."""
+    from .languette import Languette
+    L = steel_length(f_hz, thickness_m)
+    lift = lift_440_m * (L / steel_length(440.0, thickness_m)) ** lift_exponent
+    p = from_languette(Languette.uniforme(L, width_m, thickness_m), gap_m=gap_m,
+                       x_rest_m=lift, zeta=zeta, K_p=K_p, **kw)
+    return AirMassReedModel(p)
+
+
 # ---------------------------------------------------------------------------
 # Cœur numérique (Python pur, compilé par numba si possible)
 # ---------------------------------------------------------------------------
