@@ -224,18 +224,36 @@ def _integrer(s, p0s, sub, dt, P, X, Uo, dUo, pch, pro):
     for i in range(n):
         p0 = p0s[i]
         for _ in range(sub):
-            _deriv(s, p0, P, k1)
-            for j in range(m):
-                tmp[j] = s[j] + 0.5 * dt * k1[j]
-            _deriv(tmp, p0, P, k2)
-            for j in range(m):
-                tmp[j] = s[j] + 0.5 * dt * k2[j]
-            _deriv(tmp, p0, P, k3)
-            for j in range(m):
-                tmp[j] = s[j] + dt * k3[j]
-            _deriv(tmp, p0, P, k4)
-            for j in range(m):
-                s[j] = s[j] + dt / 6.0 * (k1[j] + 2.0 * k2[j] + 2.0 * k3[j] + k4[j])
+            # Pas adapté à la raideur : le débit relaxe au taux
+            # λ = 2 (S/ρd) c |U| (c = c_p + c_r/S²), qui croît avec la
+            # pression et quand la fente se ferme. RK4 explicite n'est stable
+            # que pour λ·h < 2,78 : au-delà le pas est divisé (k pas de dt/k).
+            # Sans effet tant que λ·dt < 1,5 (les cas validés gardent k = 1).
+            S = _aire(s[0], P)
+            g = math.sqrt(math.pi * S) / (P[6] * P[7])
+            if P[14] > 0.5:
+                lam = 2.0 * g * P[9] * abs(s[2]) / (S * S)
+                lam = max(lam, 2.0 * P[8] * abs(s[4]) / P[16],
+                          math.sqrt(P[15] * (g + 1.0 / P[16])))
+            else:
+                lam = 2.0 * g * (P[8] + P[9] / (S * S)) * abs(s[2])
+            k = 1 + int(lam * dt / 1.5)
+            if k > 100000:
+                k = 100000
+            h = dt / k
+            for _r in range(k):
+                _deriv(s, p0, P, k1)
+                for j in range(m):
+                    tmp[j] = s[j] + 0.5 * h * k1[j]
+                _deriv(tmp, p0, P, k2)
+                for j in range(m):
+                    tmp[j] = s[j] + 0.5 * h * k2[j]
+                _deriv(tmp, p0, P, k3)
+                for j in range(m):
+                    tmp[j] = s[j] + h * k3[j]
+                _deriv(tmp, p0, P, k4)
+                for j in range(m):
+                    s[j] = s[j] + h / 6.0 * (k1[j] + 2.0 * k2[j] + 2.0 * k3[j] + k4[j])
         for j in range(m):
             if not math.isfinite(s[j]):
                 ok = False
@@ -494,6 +512,43 @@ class AirMassReedModel:
             raise FloatingPointError(
                 f"divergence numérique à t = {done / fs:.4f} s : augmente `oversample`")
         return AirMassResult(t, X, U, dU, pc, pr, fs, self.p, final_state=s.copy())
+
+    def played_note(self, p0, dur=3.0, fs=44100.0, oversample=8, frac=0.2):
+        """Note jouée à la pression p0, SANS retouche de la lame.
+
+        Procédure fixe (la même pour toutes les notes) : si l'équilibre est
+        instable à p0, départ au repos (clapet ouvert d'un coup) ; sinon,
+        l'anche est d'abord lancée au milieu de sa bande d'instabilité puis
+        la pression passe à p0 en gardant l'état (soufflet qui monte pendant
+        que la note sonne). Renvoie dict(f, cents (par rapport à la lame),
+        amp, plays, route)."""
+        bas, haut = self.instability_band()
+        f_lame = self.p.f0_hz
+        out = dict(p0=float(p0), f_reed=f_lame, f=float('nan'), cents=float('nan'),
+                   amp=0.0, plays=False, route='aucune', band=(bas, haut))
+        if bas is None:
+            return out
+        if p0 >= bas and (haut is None or p0 <= haut):
+            r = self.simulate(dur, p0, fs=fs, oversample=oversample)
+            route = 'repos'
+        else:
+            p_start = math.sqrt(bas * haut) if haut is not None else 2.0 * bas
+            r0 = self.simulate(dur, p_start, fs=fs, oversample=oversample)
+            r = self.simulate(dur, p0, fs=fs, oversample=oversample, state0=r0.final_state)
+            route = f'continuation depuis {p_start:.0f} Pa'
+        # « Joue » = oscillation entretenue : assez grande ET pas en train de
+        # s'éteindre (une lame grave peu amortie sonne encore des secondes
+        # après la fin de l'entretien : elle donnerait sa fréquence propre).
+        t_end = r.t[-1]
+        last = r.t >= t_end * (1.0 - 0.5 * frac)
+        prev = (r.t >= t_end * (1.0 - frac)) & ~last
+        a_last = 0.5 * float(np.ptp(r.tip[last]))
+        a_prev = 0.5 * float(np.ptp(r.tip[prev]))
+        plays = (a_last > 0.02 * self.p.x_rest_m + 5e-6) and a_last >= 0.97 * a_prev
+        f = r.frequency(frac) if plays else float('nan')
+        out.update(f=f, amp=r.amplitude(frac), plays=bool(plays), route=route,
+                   cents=1200.0 * math.log2(f / f_lame) if plays else float('nan'))
+        return out
 
     def steady(self, p0, dur=0.6, fs=44100.0, oversample=8, frac=0.4, **kw):
         """Régime établi à pression fixe : dict(f, amplitude, crête-crête, joue)."""
