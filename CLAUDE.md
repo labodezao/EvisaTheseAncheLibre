@@ -96,7 +96,7 @@ n'a de sens que reliée à ce qui se passe dans le cadre du corps.
   jamais les déplacer. Le .lyx est en CRLF dans le dépôt : garder CRLF (sinon tout le fichier change).
 
 ## Accordeur web (`web/`) — état et leçons (v58, 2026-10-12)
-Déployé sur GitHub Pages depuis `main` (https://labodezao.github.io/EvisaTheseAncheLibre/).
+Publié sur GitHub Pages (https://labodezao.github.io/EvisaTheseAncheLibre/) depuis la branche `gh-pages`, par `publier_pages.py` (essai puis réel au clic d'Ewen). Plus de GitHub Actions (12/11/2026) : contrôles = `controles_locaux.py` en local, résumé dans la PR, puis `gh pr merge`.
 
 **Le moteur se développe dans PolyReed** (dépôt privé d'Ewen,
 `J:\claude\depots\polyreed`) **et se reporte ici après chaque changement.**
