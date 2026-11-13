@@ -110,8 +110,7 @@ cd ~/tuner && node server.mjs
 # puis Chrome Android → http://localhost:8173  (autoriser le micro)
 ```
 
-Le plus simple sur mobile : le dossier `web/` est publié sur **GitHub Pages**
-(workflow `.github/workflows/pages.yml`) — ouvrez l'URL Pages directement, sans
+(branche `gh-pages`, publiée par `publier_pages.py`) — ouvrez l'URL Pages directement, sans
 Termux ni serveur. Une connexion `https://` est requise pour le micro.
 
 ### Application de bureau (Windows / macOS / Linux)
