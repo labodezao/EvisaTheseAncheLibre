@@ -88,9 +88,52 @@ Corrige l'hypothèse des calculs Elmer de `research/fem/sommier/` (trou supposé
 | Effort, sans tastière | extérieur 79,75, intérieur 97,33 | mesuré ; unité à confirmer |
 | Feutre contre mousse, transitoire de soupape | oscillations au contact, disparues en tastière guidée feutre | mesuré, qualitatif (volts sans étalonnage) |
 
+## Versement du 15/11/2026 (physique mesurée sur sons réels, modèle d'auto-entretien)
+
+Sources : audits des 14 et 15/11/2026 (hors dépôt, notes de synthèse dans le coffre, `Projets actifs/Thèse anche
+libre (Evisa)/2026-11-15 Étude - physique mesurée et modèle d'auto-entretien`). Sons : une prise au Zoom H6 d'un
+accordéon à deux voix (27 notes) et une banque de sons. Le modèle n'est réglé sur aucune mesure. Manuscrit :
+encadrés pédagogiques (16 rédigés, à relire), chapitres « Self-sustained conditions » et « Reed coupling ».
+
+### A. Mesuré sur les sons
+
+| Résultat | Valeur | Statut |
+|---|---|---|
+| Errance propre d'une note tenue, sur 1 s (écart d'Allan, anches seules) | 0,03 ¢ aigu ; 0,1 ¢ médium ; 0,6 ¢ basses | mesuré (échantillons) |
+| Marge d'erreur d'une fenêtre, sans l'errance | 10 fois trop petite ; avec l'errance ajoutée, erreur vraie = 0,54 marge | mesuré (échantillons) |
+| Hauteur contre niveau, note tenue | −0,31 ¢ par dB | mesuré, un instrument |
+| Croissance des harmoniques 3 à 5 avec la fondamentale | 1,1 à 2 dB par dB (3 à 5 attendus près du seuil) : l'anche jouée est loin du seuil | mesuré, un instrument |
+| Attaque | exponentielle, 63 /s, 21,5 périodes ; hauteur 20 ¢ sous la note, qui glisse avec le temps et non avec le niveau | mesuré, un instrument |
+| Extinction | 27 /s quelle que soit la note : lame ou salle, non décidé | mesuré, un instrument ; à confirmer (lame pincée sans air) |
+| Bruit de souffle | par bouffées, une par cycle (21 notes sur 27) ; phase retournée entre deux séries (poussé contre tiré ?) | mesuré ; sens du soufflet à confirmer |
+| Harmonique 2 | 13 dB sous ses voisines, 27 notes sur 27 | mesuré, un instrument |
+| Partiel 2 d'une note à deux voix | bat au rythme du battement : raie à f1 + f2 (16 notes sur 16), donc un élément non linéaire commun aux deux anches | mesuré, un instrument |
+| Ondulation lente de la hauteur d'une anche seule | 0,52 Hz et 0,75 Hz sur deux notes : ses raies latérales imitent une seconde anche ; l'écart d'une vraie paire grandit avec le rang du partiel, pas celui d'une ondulation | mesuré (échantillons) ; cause non décidée |
+| Écart entre partiels à l'extinction | 0,5 à 12 ¢ lus, mais 10 à 12 ¢ lus aussi sur un son fabriqué harmonique coupé net : c'est l'outil | synthèse ; inharmonicité non prouvée |
+
+### B. Calculé (modèle à lame, fente, chambre et sortie ; extensions soufflet, soupape, deux anches)
+
+| Résultat | Valeur | Statut |
+|---|---|---|
+| Démarrage | Hopf sous-critique : départ à 64,8 Pa, arrêt à 62,5 Pa (hystérésis 2,25 Pa) ; aucune autre bifurcation jusqu'à 3 kPa | calculé ; à confirmer (anche seule, manomètre) |
+| Coude d'amplitude quand la pointe ressort de la plaquette | à 330 Pa, pas une bifurcation ; doit se déplacer avec l'épaisseur de plaquette | calculé |
+| Temps de retour au cycle après une perturbation | 105 ms à bas niveau, 42 ms à 1 kPa, 27 ms à 3 kPa | calculé |
+| Périodes d'établissement pour un même Q de 167 | 47 à bas niveau, 18 à 1 kPa : l'attaque jouée fort ne donne pas le Q | calculé |
+| Attaque basse | lame, fente et chambre seules : 1 à 3 ¢ ; soupape à forte perte plus soufflet de 2 L déjà comprimé : −18 à −22 ¢, glissade suivant le temps | calculé ; cause plausible, à confirmer (pression du soufflet pendant une attaque) |
+| Second mode de la lame (6,27 f1) | 0,002 ¢ sur la hauteur | calculé |
+| Couplage de deux anches | par le soufflet : 0,05 à 0,14 Hz ; par l'air commun près des fentes (15 mm supposés) : 0,3 à 0,5 Hz, accrochage sous 0,5 Hz d'écart | calculé ; distance à mesurer |
+| Fréquence contre volume d'une cavité amont (mesure EVISA 2011 : 107, 140 puis 122 Hz de 2 à 16 cm³) | non reproduite : pas de départ aux débits mesurés, puis régime de cavité de 390 à 110 Hz sans bosse ; source à débit supposée, cotes du banc inconnues | calculé contre mesuré ; non décidé |
+| Ce que le modèle rate | attaque trop lente (5 à 46 /s), dépassement 3 dB (4 à 8 mesurés), extinction à 27 /s non atteinte | calculé contre mesuré |
+
 ## Reste à mesurer (geste à l'atelier)
 
 - Levée au comparateur et effort au doigt sur les six chaînes du Lib RT, à la première pièce.
 - Anche seule contre anche dans la paire : H6, même note, 8' seul, 8'+ seul, 8'+8', même pression.
 - H6 avec Ω·T ≥ 4 s, ou rapport d'anches de 6 à 12 dB, pour le surplus du partiel 2.
 - Tube en U à eau (1 mm d'eau ≈ 9,8 Pa) pour l'unité de pression du banc.
+- Anche seule, souffle monté puis descendu lentement (10 s), pression au tube en U : seuil, hystérésis, coude.
+- Lame pincée sans air, micro tout près : amortissement (Q), second mode ; tranche lame ou salle à l'extinction.
+- Pression du soufflet pendant une attaque : tranche l'attaque basse de 20 ¢.
+- Poussé ou tiré noté à chaque prise ; une anche bloquée au papier sur une note à deux voix (la raie f1 + f2 doit partir).
+- Distance entre les deux anches d'une note sur le sommier ; cotes d'une anche et de sa plaquette.
+- Banc de 2011 : données brutes (position de lame, pression, volumes), cotes du conduit et de la grande lame.
