@@ -122,7 +122,8 @@ encadrés pédagogiques (16 rédigés, à relire), chapitres « Self-sustained c
 | Attaque basse | lame, fente et chambre seules : 1 à 3 ¢ ; soupape à forte perte plus soufflet de 2 L déjà comprimé : −18 à −22 ¢, glissade suivant le temps | calculé ; cause plausible, à confirmer (pression du soufflet pendant une attaque) |
 | Second mode de la lame (6,27 f1) | 0,002 ¢ sur la hauteur | calculé |
 | Couplage de deux anches | par le soufflet : 0,05 à 0,14 Hz ; par l'air commun près des fentes (15 mm supposés) : 0,3 à 0,5 Hz, accrochage sous 0,5 Hz d'écart | calculé ; distance à mesurer |
-| Fréquence contre volume d'une cavité amont (mesure EVISA 2011 : 107, 140 puis 122 Hz de 2 à 16 cm³) | non reproduite : pas de départ aux débits mesurés, puis régime de cavité de 390 à 110 Hz sans bosse ; source à débit supposée, cotes du banc inconnues | calculé contre mesuré ; non décidé |
+| Fréquence contre volume d'une cavité amont (mesure EVISA 2011 : 107, 140 puis 122 Hz de 2 à 16 cm³) | non reproduite : pas de départ aux débits mesurés ; avec le pompage de la lame dans la cavité, régime de 390 à 110 Hz ; sans lui, 115 à 143 Hz (sous la fréquence propre, comme mesuré) mais sans la bosse ; lame retournée, pas d'oscillation (comme mesuré). Source à débit supposée, terme de pompage et cotes du banc non mesurés | calculé contre mesuré ; non décidé |
+| Réponse en fréquence par sinus glissant, 10 à 400 Hz (fichier de janvier 2021, objet mesuré non noté) | une résonance à 83,6 Hz, Q d'environ 100, et ses multiples 2 et 3 | mesuré ; objet à confirmer |
 | Ce que le modèle rate | attaque trop lente (5 à 46 /s), dépassement 3 dB (4 à 8 mesurés), extinction à 27 /s non atteinte | calculé contre mesuré |
 
 ## Reste à mesurer (geste à l'atelier)
