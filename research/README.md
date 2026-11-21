@@ -107,6 +107,7 @@ research/
     analyse_acoustique_osso.md  étude annexe : analyse acoustique du duo OSSO
     sample_vers_modele_physique.md  sample -> modèle physique -> STM32 / Dream
     audit_modele_anche.md    audit complet du modèle physique + corrections
+    audit_anche_fermee_volume_amont.md  anche fermée par le souffle : effet du volume amont (`upstream_reed.py`)
     experiences_a_mener.md   liste des expériences à faire au banc
     references.bib          bibliographie BibTeX (docs + manuscrits LyX)
     figures/                figures générées par les scripts (cf. son README)
