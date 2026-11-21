@@ -126,12 +126,33 @@ encadrés pédagogiques (16 rédigés, à relire), chapitres « Self-sustained c
 | Réponse en fréquence par sinus glissant, 10 à 400 Hz (fichier de janvier 2021, objet mesuré non noté) | une résonance à 83,6 Hz, Q d'environ 100, et ses multiples 2 et 3 | mesuré ; objet à confirmer |
 | Ce que le modèle rate | attaque trop lente (5 à 46 /s), dépassement 3 dB (4 à 8 mesurés), extinction à 27 /s non atteinte | calculé contre mesuré |
 
+## Versement du 20/11/2026 (étage soufflet du modèle physique)
+
+Le chapitre « Le soufflet » disait que la souplesse du soufflet et la main ne sont dans aucun modèle. Un étage
+les met maintenant en amont de la voix : `banc_recherche/soufflet.py`, branché dans `HybridVoice.simulate`
+(commande qui varie) et dans `live.Synth` (pression commune). Bornes, sources et statuts :
+`data/soufflet_20261120/`. Manuscrit : `these_parties_2_a_5_fr.md`, chapitre « Le soufflet ».
+
+| Résultat | Valeur | Statut | Source |
+|---|---|---|---|
+| Pentes du niveau commun de notes tenues, appliquées au bras | montée 120 dB/s, descente 190 dB/s ; bande 8 Hz | mesuré (enregistrements, sur le son) | `data/soufflet_20261120/LISEZMOI.md` |
+| Passage du niveau sonore à la pression | 1 dB de son pour 1 dB de pression | non décidé (provisoire) | aucune source |
+| Genou sous lequel la pente devient des Pa/s | 300 Pa | non décidé (provisoire : milieu de 100 à 1000 Pa) | chapitre « Le soufflet », seuils d'un vrai instrument |
+| Temps mort au changement de sens | 20 ms | non décidé (provisoire) | aucune mesure |
+| Résistance interne du bras | 1,4·10⁵ Pa·s/m³ ; borne 6,5·10⁵ pour que l'air ne ralentisse pas la descente de 190 dB/s | non décidé ; borne calculée | `soufflet.py`, `BORNES` |
+| Souplesse de l'air, 10 L supposés | 7,1·10⁻⁸ m³/Pa | calculé (volume non mesuré) | V/(ρc²) |
+| Changement de sens, valeurs provisoires | pression sous 300 Pa pendant au moins 138 ms | calculé sur valeurs provisoires | `tests/test_soufflet.py` |
+| Accord de trois anches à 1000 Pa demandés | la pression tombe à 930 Pa (neuf anches : 810) | calculé sur valeurs provisoires | idem |
+| Trémolo de 12 Hz demandé | 38 % de la profondeur passe (95 % à 1 Hz) ; poussé-tiré à 12 Hz : reste sous 300 Pa | calculé sur valeurs provisoires | idem |
+
 ## Reste à mesurer (geste à l'atelier)
 
 - Levée au comparateur et effort au doigt sur les six chaînes du Lib RT, à la première pièce.
 - Anche seule contre anche dans la paire : H6, même note, 8' seul, 8'+ seul, 8'+8', même pression.
 - H6 avec Ω·T ≥ 4 s, ou rapport d'anches de 6 à 12 dB, pour le surplus du partiel 2.
 - Tube en U à eau (1 mm d'eau ≈ 9,8 Pa) pour l'unité de pression du banc.
+- Soufflet : un changement de sens sur une note tenue, manomètre ou micro (temps mort, creux) ; la vitesse de la
+  main, en filmant la course avec une règle ; la loi niveau sonore contre pression d'une anche.
 - Anche seule, souffle monté puis descendu lentement (10 s), pression au tube en U : seuil, hystérésis, coude.
 - Lame pincée sans air, micro tout près : amortissement (Q), second mode ; tranche lame ou salle à l'extinction.
 - Pression du soufflet pendant une attaque : tranche l'attaque basse de 20 ¢.

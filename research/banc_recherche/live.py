@@ -584,6 +584,7 @@ class Voice:
         self.level = 0.0
         self.target = 0.0
         self.active = False
+        self.tenue = False         # touche enfoncée (le soufflet la nourrit)
         self.age = 0
 
     def note_on(self, params, note, level):
@@ -591,10 +592,12 @@ class Voice:
         self.params, self.note = params, int(note)
         self.level = self.target = float(level)
         self.active = True
+        self.tenue = True
         self.age = 0
 
     def note_off(self):
         self.target = 0.0          # on coupe l'alimentation, pas le son
+        self.tenue = False
 
     def render(self, out, glide=0.35, silence=1e-6):
         """Rend un bloc dans `out` (float32). Renvoie `True` si la voix vit.
@@ -624,7 +627,8 @@ class Voice:
                                    ctypes.c_float(self.level),
                                    out, len(out))
         self.age += len(out)
-        if self.target == 0.0 and abs(self.level) < 1e-9:
+        # une touche tenue reste vivante même soufflet à zéro : il peut repartir
+        if self.target == 0.0 and abs(self.level) < 1e-9 and not self.tenue:
             crete = float(np.max(np.abs(out))) if out.size else 0.0
             if crete < silence:
                 self.active = False
@@ -639,11 +643,21 @@ class Synth:
     mesurer honnêtement s'il tient le temps réel.
     """
 
-    def __init__(self, instrument: Instrument, polyphony=6, gain=0.5):
+    def __init__(self, instrument: Instrument, polyphony=6, gain=0.5,
+                 soufflet=None, p_max=3000.0):
         self.inst = instrument
         self.voices = [Voice() for _ in range(int(polyphony))]
         self.gain = float(gain)
         self.expression = 1.0           # 0..1, molette ou contrôleur à vent
+        # Avec un soufflet (`soufflet.Soufflet`), l'expression et le sens sont
+        # le geste du bras : une pression commune à toutes les notes, bornée
+        # par la main. Sans lui, le niveau fixe d'avant (vélocité × expression).
+        self.soufflet = soufflet
+        self.sens = 1.0                 # +1 poussé, -1 tiré
+        self.p_max = float(p_max)       # Pa, haut de la plage de jeu
+        self.pression = 0.0             # Pa, dernière pression du soufflet
+        self._dt_soufflet = 1.0 / 2000.0
+        self._reste_soufflet = 0.0
         self._scratch = None
         # −100 dBFS une fois l'échelle de sortie appliquée : inaudible, et
         # atteint en quelques dizaines de millisecondes au lieu d'une seconde.
@@ -654,8 +668,14 @@ class Synth:
         v = next((v for v in self.voices if not v.active), None)
         if v is None:                    # toutes prises : on vole la plus vieille
             v = max(self.voices, key=lambda x: x.age)
-        niveau = self.inst.level_default * self._nuance(velocity)
-        v.note_on(self.inst.params_for(note), note, niveau)
+        params = self.inst.params_for(note)
+        if self.soufflet is not None:
+            # la touche ne change pas la pression : ce levier appartient au
+            # bras (these_parties_2_a_5_fr.md l. 1058)
+            niveau = self._niveau_soufflet(params, self.pression)
+        else:
+            niveau = self.inst.level_default * self._nuance(velocity)
+        v.note_on(params, note, niveau)
         return v
 
     def note_off(self, note):
@@ -678,6 +698,36 @@ class Synth:
         v = float(np.clip(velocity, 1, 127)) / 100.0
         return float(np.clip(0.45 + 0.75 * v * self.expression, 0.45, 1.8))
 
+    # -- soufflet --------------------------------------------------------------
+    def _niveau_soufflet(self, params, p):
+        """Pression du soufflet → commande de la voix (cf. `soufflet.niveau_pour`).
+
+        Une anche libre se commande en m³/s derrière la résistance `R` du
+        passage : level = |p|/R = |p|·src_admit. Une source parfaite
+        (src_admit nul) ne reçoit pas de pression : on le refuse.
+        """
+        unite = self.inst.control_unit
+        if unite == "Pa":
+            return abs(float(p))
+        if unite == "m³/s":
+            admit = float(params.src_admit)
+            if admit <= 0.0:
+                raise ValueError("source parfaite : pas de pression à recevoir")
+            return abs(float(p)) * admit
+        raise ValueError(f"commande en « {unite} » : pas une voix à soufflet")
+
+    def _avancer_soufflet(self, n):
+        """Le soufflet avance de `n` échantillons, au pas de 0,5 ms."""
+        from .soufflet import pression_demandee
+        self._reste_soufflet += n / self.inst.samplerate
+        tenues = sum(1 for v in self.voices if v.active and v.tenue)
+        p_dem = float(pression_demandee(self.expression, self.sens,
+                                        self.p_max, self.soufflet.gamma))
+        while self._reste_soufflet >= self._dt_soufflet:
+            self.pression, _, _ = self.soufflet.pas(
+                p_dem, self._dt_soufflet, n_anches=tenues)
+            self._reste_soufflet -= self._dt_soufflet
+
     # -- audio ---------------------------------------------------------------
     def render(self, n_frames):
         """Rend `n_frames` échantillons mono, en float32, normalisés au gain."""
@@ -685,11 +735,18 @@ class Synth:
         if self._scratch is None or self._scratch.size != n:
             self._scratch = np.zeros(n, dtype=np.float32)
         somme = np.zeros(n, dtype=np.float32)
+        if self.soufflet is not None:
+            self._avancer_soufflet(n)
         for v in self.voices:
             if not v.active:
                 continue
             self._scratch[:] = 0.0
-            v.render(self._scratch, silence=self._silence)
+            if self.soufflet is not None and v.tenue:
+                # le soufflet a déjà borné la pente : pas de glissé en plus
+                v.target = self._niveau_soufflet(v.params, self.pression)
+                v.render(self._scratch, glide=1.0, silence=self._silence)
+            else:
+                v.render(self._scratch, silence=self._silence)
             somme += self._scratch
         np.multiply(somme, self.gain * self.inst.output_scale, out=somme)
         return _limiteur(somme)

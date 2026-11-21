@@ -1,0 +1,230 @@
+{
+ "_lire": "Bornes de l'étage soufflet du modèle physique de la thèse (banc_recherche/soufflet.py, 20/11/2026). Statuts : mesuré, calculé, à confirmer (écrit, pas mesuré), non décidé (ni mesuré ni écrit : valeur provisoire, provisoire = true). Lignes des sources : origin/main du dépôt EvisaTheseAncheLibre (le checkout du Drive a 53 commits de retard : le chapitre « Le soufflet » y commence l. 1004 au lieu de 1137, décalage de 133 lignes).",
+ "chaine": "geste (expression, sens) -> bras (bande, pentes, temps mort) -> p_bras = F/S -> air (R_bras, C, fuites, anches) -> p -> level = |p|/R_passage -> voix",
+ "bornes": {
+  "bande_geste_hz": {
+   "valeur": 8.0,
+   "unite": "Hz (-3 dB)",
+   "statut": "mesuré",
+   "provisoire": false,
+   "source": "research/data/soufflet_20261120/LISEZMOI.md (outil audio vers MIDI, rapport v3c l. 247-248 : niveau commun de 78 et 12 paires de notes tenues, corrélé de 0,5 à 8 Hz, 0,00 au-dessus)",
+   "note": "mesuré sur le son, appliqué ici au bras par un passe-bas causal d'ordre 2 critique ; l'outil MIDI lisse par une gaussienne symétrique (non causale)"
+  },
+  "geste_bras_max_hz": {
+   "valeur": [
+    4.0,
+    6.0
+   ],
+   "unite": "Hz",
+   "statut": "à confirmer",
+   "provisoire": false,
+   "source": "Neilson P. D. (1972), Medical & Biological Engineering, doi:10.1007/BF02474193, cité par le rapport v3c l. 261-262 (résumé seulement, non relu ici)",
+   "note": "oscillation volontaire du coude ; non utilisée dans le calcul, plus basse que la bande mesurée"
+  },
+  "pente_montee_db_s": {
+   "valeur": 120.0,
+   "unite": "dB/s",
+   "statut": "mesuré",
+   "provisoire": false,
+   "source": "research/data/soufflet_20261120/LISEZMOI.md (rapport v3c l. 249 et 271 : 99e centile pendant les tenues, 122 et 76 dB/s)",
+   "note": "mesurée sur le niveau sonore pendant les tenues, hors attaques et fins : pente de jeu, pas la limite du bras"
+  },
+  "pente_descente_db_s": {
+   "valeur": 190.0,
+   "unite": "dB/s",
+   "statut": "mesuré",
+   "provisoire": false,
+   "source": "research/data/soufflet_20261120/LISEZMOI.md (rapport v3c l. 249 et 271 : 159 et 186 dB/s)",
+   "note": "idem"
+  },
+  "gamma_niveau_pression": {
+   "valeur": 1.0,
+   "unite": "dB de son par dB de pression",
+   "statut": "non décidé",
+   "provisoire": true,
+   "source": "absente de 04_soufflet_fr.md, du chapitre « Le soufflet » et du rapport v3c",
+   "note": "provisoire : 1 dB de son = 1 dB de pression ; règle le passage des pentes mesurées (dB de son) aux pentes de pression"
+  },
+  "pression_genou_pa": {
+   "valeur": 300.0,
+   "unite": "Pa",
+   "statut": "non décidé",
+   "provisoire": true,
+   "source": "research/docs/these_parties_2_a_5_fr.md l. 1166-1168 (seuils d'un vrai instrument : une centaine à un millier de Pa)",
+   "note": "provisoire : milieu géométrique de 100 à 1000 Pa. Au-dessus, la pente mesurée en dB s'applique ; au-dessous (pas de son à mesurer), elle devient une pente en Pa/s"
+  },
+  "temps_mort_inversion_s": {
+   "valeur": 0.02,
+   "unite": "s",
+   "statut": "non décidé",
+   "provisoire": true,
+   "source": "rapport v3c l. 266 et 303 : durée d'une inversion, rien de sourcé ; research/docs/these_parties_2_a_5_fr.md l. 959-962 (la soupape se soulève et retombe à chaque changement de sens, sans durée)",
+   "note": "provisoire : même ordre que la montée de 20 ms du modèle à deux anches, elle aussi sans mesure (research/docs/these_parties_2_a_5_fr.md l. 1152)"
+  },
+  "pression_de_jeu_pa": {
+   "valeur": [
+    500.0,
+    3000.0
+   ],
+   "unite": "Pa, dans les deux signes",
+   "statut": "à confirmer",
+   "provisoire": false,
+   "source": "research/docs/these_parties_2_a_5_fr.md l. 1165-1166 (« de l'ordre de »)"
+  },
+  "surface_efficace_m2": {
+   "valeur": 0.03,
+   "unite": "m²",
+   "statut": "à confirmer",
+   "provisoire": false,
+   "source": "research/docs/design_practical/04_soufflet_fr.md l. 33 (fenêtre de 150 à 400 cm² à 1000 Pa, calculée sur des chiffres ronds) ; se mesure par S = mg/p, l. 19",
+   "note": "provisoire : 300 cm², dans la fenêtre"
+  },
+  "vitesse_main_max_m_s": {
+   "valeur": 0.5,
+   "unite": "m/s",
+   "statut": "non décidé",
+   "provisoire": true,
+   "source": "research/docs/design_practical/04_soufflet_fr.md l. 33 (chiffres ronds : course 0,4 m, phrase 4 s, soit 0,1 m/s en moyenne)",
+   "note": "provisoire : 5 fois la vitesse moyenne des chiffres ronds ; à mesurer en filmant la course avec une règle"
+  },
+  "resistance_bras_pa_s_m3": {
+   "valeur": 140000.0,
+   "unite": "Pa·s/m³",
+   "statut": "non décidé",
+   "provisoire": true,
+   "source": "research/docs/design_practical/04_soufflet_fr.md l. 9-13 et research/docs/these_parties_2_a_5_fr.md l. 141-148 (q = q0 - p/R, R non mesuré au soufflet) ; research/docs/apports_these.md section C (turbine du banc 2023 : 0,5 à 1,4·10⁶, unité à confirmer)",
+   "note": "provisoire : R·C = 10 ms. Borne calculée : R ≤ 8,686/(190·C) = 6,5·10⁵ pour que l'air seul ne ralentisse pas la descente mesurée de 190 dB/s ; la turbine du banc serait trop lente"
+  },
+  "volume_air_m3": {
+   "valeur": 0.01,
+   "unite": "m³",
+   "statut": "non décidé",
+   "provisoire": true,
+   "source": "audit du 14/11/2026 (MODELE-EWEN § 2.7 : 10 L, « cotes non mesurées ») ; research/docs/apports_these.md l. 122 emploie 2 L",
+   "note": "provisoire : 10 L, comme l'outil audio vers MIDI"
+  },
+  "souplesse_air_m3_pa": {
+   "valeur": 7.08321646026174e-08,
+   "unite": "m³/Pa",
+   "statut": "calculé",
+   "provisoire": false,
+   "source": "V/(ρc²), ρ et c de research/banc_recherche/hybrid.py l. 62-63",
+   "note": "7,1·10⁻⁸ pour 10 L (adiabatique) ; isotherme : +40 %, à confirmer"
+  },
+  "souplesse_plis_m3_pa": {
+   "valeur": 0.0,
+   "unite": "m³/Pa",
+   "statut": "non décidé",
+   "provisoire": true,
+   "source": "research/docs/design_practical/04_soufflet_fr.md l. 19 (les plis cèdent sous la pression) ; research/docs/these_parties_2_a_5_fr.md l. 1168-1170 (se mesure au manomètre)",
+   "note": "provisoire : 0"
+  },
+  "fuite_l_min_a_500pa": {
+   "valeur": 1.0,
+   "unite": "L/min à 500 Pa",
+   "statut": "à confirmer",
+   "provisoire": false,
+   "source": "research/docs/design_practical/04_soufflet_fr.md l. 51 et research/docs/these_parties_2_a_5_fr.md l. 1147-1149 (critère proposé, soufflet seul fermé ; un trou rond d'un peu plus de 1 mm)"
+  },
+  "contraction_fuite": {
+   "valeur": 0.61,
+   "unite": "-",
+   "statut": "à confirmer",
+   "provisoire": false,
+   "source": "research/docs/these_parties_2_a_5_fr.md l. 869-872 (loi d'orifice, 0,61 dans les modèles pour un jet à arête vive)"
+  },
+  "debit_anche_l_min": {
+   "valeur": 10.0,
+   "unite": "L/min à 1000 Pa",
+   "statut": "à confirmer",
+   "provisoire": false,
+   "source": "research/docs/design_practical/04_soufflet_fr.md l. 33 (chiffre rond d'un forte) et l. 37 (les modèles donnent 6 à 24 L/min, jugés trop grands)",
+   "note": "la pression de référence de 1000 Pa est celle de la fenêtre calculée l. 33"
+  },
+  "exposant_debit_anche": {
+   "valeur": 0.5,
+   "unite": "-",
+   "statut": "calculé",
+   "provisoire": false,
+   "source": "loi d'orifice à ouverture fixe (q_out de FreeReedExciter, research/banc_recherche/hybrid.py l. 591)",
+   "note": "le banc 2023 mesure 0,55 à 0,76 selon le dossier (audit du 15/11/2026, non versé) : à confirmer"
+  },
+  "resistance_passage_voix": {
+   "valeur": "celle de la voix",
+   "unite": "Pa·s/m³",
+   "statut": "à confirmer",
+   "provisoire": false,
+   "source": "FreeReedExciter.source_impedance = 2·10⁸ (hybrid.py l. 563) contre Source = 5·10⁶ (reed_oscillator.py l. 122, « une restriction d'environ 8 mm², un canal de sommier »)",
+   "note": "niveau_pour lit la résistance de la voix : le conflit 2·10⁸ / 5·10⁶ reste à trancher par la mesure, pas ici"
+  }
+ },
+ "calcules": {
+  "montee_20_dB_duree_min_s": {
+   "valeur": 0.1667,
+   "unite": "s",
+   "statut": "calculé",
+   "provisoire": false,
+   "source": "20 dB / pente_montee_db_s (au-dessus du genou)"
+  },
+  "creux_6_dB_duree_min_s": {
+   "valeur": 0.0816,
+   "unite": "s",
+   "statut": "calculé",
+   "provisoire": false,
+   "source": "6/190 + 6/120 : un creux de 6 dB sans changement de sens"
+  },
+  "inversion_sous_genou_min_s": {
+   "valeur": 0.1381,
+   "unite": "s",
+   "statut": "non décidé",
+   "provisoire": true,
+   "source": "1/k_descente + temps mort + 1/k_montee (tests/test_soufflet.py)",
+   "note": "calculé sur valeurs provisoires (genou, temps mort, gamma)"
+  },
+  "tau_air_s": {
+   "valeur": 0.0099,
+   "unite": "s",
+   "statut": "non décidé",
+   "provisoire": true,
+   "source": "R_bras · C",
+   "note": "découle de la résistance du bras, provisoire"
+  },
+  "vidage_par_une_anche_s": {
+   "valeur": 0.85,
+   "unite": "s",
+   "statut": "non décidé",
+   "provisoire": true,
+   "source": "C / (dq/dp) d'une anche à 1000 Pa (10 L/min, exposant 0,5)",
+   "note": "main arrêtée, une anche ouverte ; volume provisoire et débit en chiffre rond ; même ordre que 0,35 à 0,7 s de l'audit du 14/11/2026"
+  },
+  "pression_accord_3_anches_pa": {
+   "valeur": 929,
+   "unite": "Pa pour 1000 demandés",
+   "statut": "non décidé",
+   "provisoire": true,
+   "source": "Soufflet().simuler, R_bras provisoire",
+   "note": "ouvrir un accord fait baisser la pression (04_soufflet_fr.md l. 9)"
+  },
+  "pression_accord_9_anches_pa": {
+   "valeur": 808,
+   "unite": "Pa pour 1000 demandés",
+   "statut": "non décidé",
+   "provisoire": true,
+   "source": "idem"
+  },
+  "profondeur_tremolo_1_hz": {
+   "valeur": 0.954,
+   "unite": "sortie/demande",
+   "statut": "non décidé",
+   "provisoire": true,
+   "source": "Soufflet().simuler"
+  },
+  "profondeur_tremolo_12_hz": {
+   "valeur": 0.379,
+   "unite": "sortie/demande",
+   "statut": "non décidé",
+   "provisoire": true,
+   "source": "Soufflet().simuler"
+  }
+ }
+}
