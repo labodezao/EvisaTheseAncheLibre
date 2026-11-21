@@ -657,7 +657,7 @@ class VoiceResult:
     drive: np.ndarray           # débit injecté, ou force d'archet
     opening: np.ndarray
     fs: float
-    level: float
+    level: float                # ou un tableau, si la commande varie (soufflet)
     final_state: np.ndarray = None
 
     @property
@@ -702,7 +702,9 @@ class HybridVoice:
 
     def simulate(self, dur=1.0, fs=44100.0, level=1.0, oversample=8,
                  state0=None, settle=0.0):
-        """Fait sonner la voix. `level` est la commande de jeu.
+        """Fait sonner la voix. `level` est la commande de jeu : un nombre,
+        ou une valeur par échantillon de sortie quand le soufflet la fait
+        varier (`soufflet.jouer`).
 
         `oversample` intègre plus fin que la sortie : les non-linéarités
         (anche qui claque, archet qui décroche) sont raides, et
@@ -721,6 +723,17 @@ class HybridVoice:
         n_settle = int(settle * fs)
         total = n_out + n_settle
         dt = 1.0 / (fs * int(oversample))
+        # `level` peut varier : une valeur par échantillon de sortie (le
+        # soufflet, `soufflet.jouer`). Sur n_out valeurs, la mise en place
+        # (`settle`) prend la première.
+        varie = np.ndim(level) > 0
+        if varie:
+            lv = np.asarray(level, dtype='float64')
+            if lv.size == n_out and n_settle:
+                lv = np.concatenate([np.full(n_settle, lv[0]), lv])
+            if lv.size != total:
+                raise ValueError(f"level variable : {lv.size} valeurs pour "
+                                 f"{total} échantillons")
 
         state = np.zeros(self.n_ex + self.n_res) if state0 is None \
             else np.array(state0, dtype='float64')
@@ -737,16 +750,18 @@ class HybridVoice:
                     f"divergence numérique à t={i / fs:.4f} s "
                     f"(oversample={int(oversample)}) : le couplage est trop "
                     "raide pour ce pas — augmente `oversample`")
+            li = lv[i] if varie else level
             for _ in range(int(oversample)):
-                state = self._rk4(state, level, dt)
-            _, d, r = self.deriv(state, level)
+                state = self._rk4(state, li, dt)
+            _, d, r = self.deriv(state, li)
             resp[i], drv[i] = r, d
             opn[i] = self.exciter.opening(state[:self.n_ex])
 
         sl = slice(n_settle, None)
         return VoiceResult(t=np.arange(n_out) / fs, response=resp[sl],
                            drive=drv[sl], opening=opn[sl], fs=float(fs),
-                           level=float(level), final_state=state)
+                           level=lv[sl] if varie else float(level),
+                           final_state=state)
 
     # -- seuil ----------------------------------------------------------------
     def oscillates(self, level, dur=0.35, fs=22050.0, oversample=8,

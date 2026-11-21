@@ -1167,7 +1167,14 @@ deux signes ; les seuils des languettes sont loin en dessous, quelques dizaines
 à quelques centaines de pascals dans les modèles, là où un vrai instrument en
 demande à peu près une centaine à un millier sur tout le clavier. Le soufflet a
 aussi une souplesse propre et la main derrière ; l'audit dit que les deux se
-mesurent au manomètre et qu'aucun n'est dans un modèle.
+mesurent au manomètre et qu'aucun n'est dans un modèle. Depuis le 20/11/2026,
+un étage les place en amont du modèle de synthèse (`banc_recherche/soufflet.py`).
+Le bras y tient la pression demandée avec des pentes bornées, celles du niveau
+commun de notes tenues mesuré sur des enregistrements (120 dB/s en montée, 190
+en descente) ; il marque un temps mort à chaque changement de sens, et l'air de
+10 litres supposés amortit le tout. Seules les pentes sont mesurées : le temps
+mort, la vitesse de la main et la résistance du bras restent des valeurs
+provisoires, que le manomètre doit remplacer.
 
 Au banc le soufflet est motorisé : un axe pas-à-pas sur une table linéaire, la
 seule source d'air, piloté à vitesse donnée ou asservi à une pression,

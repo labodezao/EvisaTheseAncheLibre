@@ -70,6 +70,10 @@ research/
     hybrid.py                modèle physique GÉNÉRALISÉ (McIntyre-Schumacher-
                              Woodhouse) : anche libre, anche simple, anche double,
                              archet ; perce cylindrique/conique, corde, cavité
+    soufflet.py              étage SOUFFLET en amont des voix : geste du bras
+                             → pression bornée (pentes, temps mort au changement
+                             de sens, souplesse de l'air, fuites) ; bornes
+                             sourcées dans BORNES, les provisoires marquées
     identify.py              identification hybride depuis un son : conicité,
                              position d'archet, pente spectrale, nuance — en
                              séparant ce qui est mesuré de ce qui est supposé
