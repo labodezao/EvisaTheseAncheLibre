@@ -323,6 +323,8 @@ banc.**
 
 Valeurs par défaut (anche sol2 à 102,1 Hz, V₀ = 40 cm³, saturation 0,5 mm) :
 
+*(22/11/2026 : ces valeurs sont celles du commit f3947d0 ; les défauts ont changé depuis (V₀ = 7,9 cm³, `sweep_coupling` = 0, R = 5·10⁶), ce n'est pas une régression. Voir `audit_anche_fermee_volume_amont.md`.)*
+
 | | q_in (m³/s) | Pression | Fréquence |
 |---|---|---|---|
 | **Seuil de démarrage** | 2,40·10⁻⁶ | **23,0 Pa** | 119,2 Hz |

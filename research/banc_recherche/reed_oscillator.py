@@ -43,6 +43,15 @@ l'équilibre statique et on repère où une paire de valeurs propres traverse
 l'axe imaginaire. C'est la bifurcation de Hopf que mesurent `seuil.py` et
 `bifurcation.py` au banc — le modèle et la mesure parlent enfin de la même
 grandeur.
+
+⚠️ **Loi « le souffle OUVRE l'anche »** (force +p·Γ, ouverture = bout +
+levée). Ce n'est pas celle d'une anche d'accordéon ou de mélodica, que le
+souffle FERME (`coupled_reeds.ReedSetting`). Le seuil de ce modèle en fonction
+du volume de la chambre et son « étouffement » (lame soufflée grande ouverte,
+proportionnel à `max_open − levée`) ne décrivent donc pas une anche fermée par
+le souffle : ils donnent l'inverse de l'atelier (petit volume = démarrage le
+plus facile). Pour l'effet d'un volume amont, voir `upstream_reed.py` et
+`docs/audit_anche_fermee_volume_amont.md`.
 """
 from __future__ import annotations
 
@@ -75,6 +84,11 @@ class Chamber:
     référence dans sa chambre géométrique, et l'écart décroît quand on
     l'agrandit. **Mesurer ce décalage, c'est mesurer le volume effectif** —
     et ton accordeur le lit au dixième de cent.
+
+    ⚠️ Avec la loi « le souffle ouvre » de ce modèle, le seuil de démarrage
+    MONTE avec ce volume (l'inverse de l'atelier pour une anche fermée par le
+    souffle). Ne pas s'en servir pour prévoir l'effet d'un volume amont :
+    `upstream_reed.py`, `docs/audit_anche_fermee_volume_amont.md`.
     """
     volume_m3: float = 7.9e-6      # chambre géométrique 35 x 15 x 15 mm
     patm: float = 1e5
