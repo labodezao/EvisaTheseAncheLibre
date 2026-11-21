@@ -770,7 +770,10 @@ class HybridVoice:
 
         On regarde le dernier tiers : un transitoire qui décroît n'est pas une
         oscillation, et c'est l'erreur que j'ai faite une fois en prenant le
-        signal entier.
+        signal entier. Une dérive lente (grande chambre qui se charge sans
+        osciller) a aussi un dernier tiers qui bouge : on exige donc que la
+        fréquence de jeu de ce tiers soit finie, une dérive n'étant pas une
+        oscillation.
         """
         res = self.simulate(dur, fs=fs, level=level, oversample=oversample)
         n = res.response.size
@@ -778,7 +781,8 @@ class HybridVoice:
             return False
         tail = res.response[2 * n // 3:]
         ref = np.max(np.abs(res.response)) + 1e-30
-        return bool(np.ptp(tail) > rel_tol * ref and np.ptp(tail) > 1e-12)
+        return bool(np.ptp(tail) > rel_tol * ref and np.ptp(tail) > 1e-12
+                    and np.isfinite(playing_frequency(tail, res.fs)))
 
     def threshold(self, lo, hi, n_iter=18, **kw):
         """Plus petite commande qui fait parler l'instrument, par dichotomie.
@@ -814,7 +818,7 @@ def playing_frequency(signal, fs, fmin=40.0, fmax=4000.0):
     signal dérivé, le partiel le plus fort n'est pas le fondamental, et
     `argmax` renvoie alors une harmonique avec un aplomb trompeur.
 
-    Deux pièges de l'autocorrélation, tombés dans les deux :
+    Trois pièges de l'autocorrélation, tombés dans les trois :
 
     1. **Le lobe principal.** Près du retard zéro, l'autocorrélation vaut
        encore presque 1 — elle n'a pas fini de décroître. Un `argmax` brut sur
@@ -823,6 +827,12 @@ def playing_frequency(signal, fs, fmin=40.0, fmax=4000.0):
     2. **L'interpolation parabolique.** Elle n'a de sens qu'à un vrai sommet
        (`den < 0`) et ne peut déplacer le pic que d'un demi-échantillon. Sans
        ces deux bornes, elle projette `k` hors de la fenêtre.
+    3. **La dérive.** Une pression de grande chambre qui se charge (constante
+       de temps Zs x C de 0,16 à 2 s, plus longue que la fenêtre simulée) n'a
+       aucune oscillation : son autocorrélation ne passe jamais sous zéro.
+       Sans descente, `lo` restait au bas de la bande et la fonction rendait
+       fs/5 = 4410 Hz (4900 Hz après l'interpolation) : un chiffre absurde au
+       lieu d'un aveu. Pas de périodicité dans la bande cherchée : `nan`.
     """
     x = np.asarray(signal, dtype='float64')
     x = x - x.mean()
@@ -840,7 +850,9 @@ def playing_frequency(signal, fs, fmin=40.0, fmax=4000.0):
 
     # sortir du lobe principal avant de chercher quoi que ce soit
     below = np.nonzero(ac[:hi] < 0.0)[0]
-    lo = max(lo, int(below[0])) if below.size else lo
+    if not below.size:                    # dérive : aucune périodicité
+        return float('nan')
+    lo = max(lo, int(below[0]))
     if hi <= lo + 1:
         return float('nan')
 

@@ -149,6 +149,30 @@ def test_playing_frequency_avoue_son_ignorance():
     assert np.isnan(hybrid.playing_frequency(np.ones(10), SR))
 
 
+@pytest.mark.parametrize('tau', [0.16, 0.5, 2.1])
+def test_playing_frequency_derive_lente_n_est_pas_une_frequence(tau):
+    """Une chambre qui se charge sans osciller : l'autocorrélation ne passe
+    jamais sous zéro. Avant : fs/5 = 4410 Hz, un chiffre absurde."""
+    fs = 22050.0
+    t = np.arange(int(0.6 * fs)) / fs
+    derive = 1.0 - np.exp(-(t + 0.25) / tau)
+    assert np.isnan(hybrid.playing_frequency(derive, fs))
+
+
+def test_playing_frequency_sinus_pur_ne_regresse_pas():
+    fs = 22050.0
+    t = np.arange(int(0.6 * fs)) / fs
+    f = hybrid.playing_frequency(np.sin(2 * np.pi * 174.61 * t), fs)
+    assert abs(f - 174.61) < 0.1
+
+
+def test_oscillates_refuse_une_derive_sans_oscillation():
+    """Lame sur-amortie sur une grande chambre : la pression se charge
+    lentement, le dernier tiers n'est pas plat, mais rien n'oscille."""
+    voix = hybrid.accordeon(110.0, volume_m3=1.5e-3, q=0.3)
+    assert voix.oscillates(5e-6) is False
+
+
 # =============================================================================
 # Excitateurs
 # =============================================================================
