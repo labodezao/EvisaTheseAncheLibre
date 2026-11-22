@@ -3461,6 +3461,19 @@ Ce modèle n'est pas encore validé. La lame seule l'est (éléments finis, 0,4 
 \end_layout
 
 \begin_layout Standard
+La pression seule ne suffit pas. Elle est une grandeur intensive ; le débit, volume par seconde, est sa grandeur extensive, et la physique de l'anche ne se lit qu'avec les deux. Leur rapport est l'impédance : au débit moyen, la résistance de l'anche, dont la courbe croise celle de la soufflerie ou du soufflet au point de jeu. Leur produit est la puissance que reçoit l'anche, de l'ordre de 0,18 W pour une basse à 500 Pa et 21 l/min. Le bilan d'énergie suit : cette puissance part pour une infime part en son rayonné (de l'ordre de 
+\begin_inset Formula $10^{-5}$
+\end_inset
+), pour presque tout en tourbillons du jet dans la fente, et en frottement de la lame. Le volume amont relève lui aussi de la thermodynamique : l'air s'y comprime sans échanger sa chaleur, c'est une capacité 
+\begin_inset Formula $C=V/\rho c^{2}$
+\end_inset
+ ; le tuyau est une inertance, la fente une résistance non linéaire, et le banc comme l'instrument se réduisent à ce circuit. Un débitmètre massique (Sensirion SFM3000) donne le débit moyen et ses variations lentes ; le débit à la fréquence de la note demande une autre mesure, par exemple la pression rapide dans un volume connu, 
+\begin_inset Formula $q=(V/\rho c^{2})\,\mathrm{d}p/\mathrm{d}t$
+\end_inset
+.
+\end_layout
+
+\begin_layout Standard
 
 \shape italic
 À compléter (Ewen) : le plan de mesures du 22/11/2026 : la lame de Fa3 (épaisseurs, levée), la lame pincée sans air (amortissement), les seuils de démarrage et de plaquage sous 30, 121 et 330 cm³ puis instrument fermé, la note à quatre pressions, le temps d'attaque selon le volume ; et le débit à chaque pression, lu au débitmètre SFM3000 placé sur le tuyau d'arrivée, avant la cloche.
