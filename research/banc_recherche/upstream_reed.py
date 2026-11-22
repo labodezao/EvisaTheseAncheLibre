@@ -61,8 +61,49 @@ Limites
 - Tuyau en cellules : avec lui le réseau a des modes à basse fréquence
   (23-50 Hz) qui n'ont rien d'une note ; ils sont rapportés tels quels.
 - L'amplitude peut dépasser la levée dans certains cas : non validé.
-- Le mécanisme de Ricot, Caussé et Misdariis (2005) et l'inertie de
-  l'écoulement amont local sont absents.
+- Par défaut (`gap_inertia=None`) le mécanisme de Ricot, Caussé et Misdariis
+  (2005), l'inertie de l'air amont près de la fente, est absent : voir
+  « Inertie de la fente » pour l'option `gap_inertia="ricot"`.
+
+Inertie de la fente (option `gap_inertia="ricot"`)
+-------------------------------------------------
+Ricot, Caussé & Misdariis, JASA 117(4), 2279-2290 (2005), DOI
+10.1121/1.1852546. Par défaut le débit dans la fente est quasi stationnaire
+(`Q = α·a·√(2Δp/ρ)`) ; avec l'option, il devient une variable d'état `Q_r`
+et l'air amont, accéléré près de la fente, impose
+
+    L_r · dQ_r/dt = Δp − (ρ/2)·u·|u| ,   u = Q_r / (α·a) ,   Δp = p_u − p_d
+
+(éq. 5 de l'article, passée de 2D à 3D : `q_2D = Q_r / longueur de fente`).
+`L_r = ρ·K0 / w_eff`, où `w_eff` est la longueur de fente efficace de la
+section (`a_eff = w_eff·√(h² + jeu²)`, largeur de fente `e = √(h² + jeu²)`).
+`a` est la section équivalente de la loi existante (fente en série avec
+l'ouverture de la plaque) : la limite `L_r → 0` rend exactement la loi
+quasi stationnaire, ce qui est vérifié par les tests.
+
+`K0` : soit un nombre fixe (`k0=4.5`, la valeur du calcul de l'article, sa
+section V), soit `k0=None` : formule de l'article `K0(t) = ln(2·x_B/e(t))/π`
+(éq. 5), `x_B` = `inertia_reach_m`, distance du point B où la pression est
+supposée constante et l'air au repos. **`inertia_reach_m` = 5 mm est SUPPOSÉ**
+(l'article dit seulement que le choix de B est arbitraire et que l'influence
+de K0 devient faible au-delà d'une certaine valeur). L'éq. 5 est bien
+`K0(t)·dq/dt` (pas `d(K0·q)/dt`). Garde numérique : K0 ≥ 1e-3.
+
+La pression qui pousse la lame n'est plus `Δp` mais la pression de face
+`Δp_face = Δp − L_r·dQ_r/dt = (ρ/2)·u·|u|` (éq. 18-19), dans la même
+expression de force qu'avant (même `part` série, même Γ). Le facteur `(1 − A1)`
+et les termes `A2`, `A3` de l'éq. 8 ne sont PAS ajoutés : l'article montre
+(fig. 11) que la force d'inertie est négligeable et que A1, proportionnel à
+e², ne participe pas à l'excitation (éq. 20). Les bilans de volume amont et
+aval utilisent `Q_r`.
+
+Le système est raide (constante de temps de `Q_r` de l'ordre de
+`L_r·Q/(2·Δp)`, 1e-9 à 1e-5 s) : avec cette option l'intégration est un
+TR-BDF2 (ordre 2, L-stable, Newton à jacobien numérique), pas le RK4.
+
+`added_air_mass(l, h, rho)` : masse d'air ajoutée par face de la lame
+(éq. 9, Morse & Ingard). Non appliquée : la masse effective mesurée dans l'air
+(fréquence propre) la contient déjà, l'article le dit (éq. 10 et suite).
 
 Validation : avec un volume amont très grand et `R_s` très petit, le seuil
 (13,875 contre 13,874 Pa), le plaquage (472,046 Pa), la fréquence (173,18 Hz)
@@ -157,6 +198,15 @@ class Blade:
         return cls.uniform(length, width_m, t, e_pa, rho, zeta)
 
 
+def added_air_mass(l, h, rho=RHO_AIR):
+    """Masse d'air ajoutée par une face d'une lame rectangulaire `l` × `h` (m)
+    dans un écran (Morse & Ingard ; Ricot et al. 2005, éq. 9) :
+    `8/(9π)·ρ·l·h·(l² + l·h + h²)/(l + h)` (kg). Non appliquée par le
+    modèle : la fréquence propre mesurée dans l'air la contient déjà ; elle
+    sert à la comparer à la masse de la lame. Deux faces : le double."""
+    return 8.0 / (9.0 * math.pi) * rho * l * h * (l * l + l * h + h * h) / (l + h)
+
+
 @dataclass
 class Crossing:
     """Un franchissement de la stabilité linéaire.
@@ -191,7 +241,8 @@ class Run:
 # ---- indices du vecteur de paramètres (compatible numba) --------------------
 (P_M, P_K, P_C, P_G, P_PHI, P_ALPHA, P_WEFF, P_ASLOT, P_CL, P_LIFT, P_PLATE, P_TONG,
  P_RHO, P_KAIR, P_CU, P_CD, P_LE, P_CDA1, P_RS, P_P0, P_SWEEP, P_CC, P_LC, P_RC,
- P_C0, P_CN, P_L2, P_CDA2, P_NP) = range(29)
+ P_C0, P_CN, P_L2, P_CDA2, P_K0, P_XB, P_NP) = range(31)
+K0_FLOOR = 1e-3                          # garde numérique de K0 géométrique
 
 
 @njit(cache=True)
@@ -217,8 +268,20 @@ def _area_series(x, par):
 
 
 @njit(cache=True)
+def _gap_inertance(x, par):
+    """`L_r = ρ·K0/w_eff` (kg/m⁴) à la position `x` ; `K0` fixe si
+    `par[P_K0] >= 0`, sinon `ln(2·x_B/e)/π` avec `e = √(h² + jeu²)`."""
+    k0 = par[P_K0]
+    if k0 < 0.0:
+        h = _gap(par[P_PHI] * x, par)
+        e = math.sqrt(h * h + par[P_CL] ** 2)
+        k0 = max(math.log(2.0 * par[P_XB] / e) / math.pi, K0_FLOOR)
+    return par[P_RHO] * k0 / par[P_WEFF]
+
+
+@njit(cache=True)
 def _deriv(s, par, fl, out):
-    """État : [ẋ, x, p_u, p_d, q_e, (p_n, q_p), (q_1..q_N, p_1..p_N)]."""
+    """État : [ẋ, x, p_u, p_d, q_e, (p_n, q_p), (q_1..q_N, p_1..p_N), (Q_r)]."""
     n = fl[1]
     xd = s[0]
     x = s[1]
@@ -228,8 +291,16 @@ def _deriv(s, par, fl, out):
     rho = par[P_RHO]
     a, part = _area_series(x, par)
     dp = pu - pd
-    qr = par[P_ALPHA] * a * math.sqrt(2.0 * dp / rho) if dp > 0.0 else 0.0
-    out[0] = (dp * part * par[P_G] - par[P_K] * x - par[P_C] * xd) / par[P_M]
+    if fl[3]:
+        ns = s.shape[0]
+        qr = s[ns - 1]
+        u = qr / (par[P_ALPHA] * a)
+        dpf = 0.5 * rho * u * abs(u)              # pression de face (éq. 18-19)
+        out[ns - 1] = (dp - dpf) / _gap_inertance(x, par)
+        out[0] = (dpf * part * par[P_G] - par[P_K] * x - par[P_C] * xd) / par[P_M]
+    else:
+        qr = par[P_ALPHA] * a * math.sqrt(2.0 * dp / rho) if dp > 0.0 else 0.0
+        out[0] = (dp * part * par[P_G] - par[P_K] * x - par[P_C] * xd) / par[P_M]
     out[1] = xd
     sw = par[P_SWEEP] * par[P_G] * xd
     off = 7 if fl[2] else 5
@@ -257,7 +328,93 @@ def _deriv(s, par, fl, out):
 
 
 @njit(cache=True)
+def _scales(fl, ns):
+    """Échelle de chaque variable d'état (pas des différences finies)."""
+    scale = np.zeros(ns)
+    scale[0], scale[1] = 0.1, 1e-4
+    scale[2:4], scale[4] = 100.0, 1e-5
+    off = 5
+    if fl[2]:
+        scale[5], scale[6] = 100.0, 1e-5
+        off = 7
+    if fl[0]:
+        scale[off:off + fl[1]] = 1e-5
+        scale[off + fl[1]:off + 2 * fl[1]] = 100.0
+    if fl[3]:
+        scale[ns - 1] = 1e-5
+    return scale
+
+
+@njit(cache=True)
+def _newton_stage(y, base, c, dt, jac, par, fl, scale, f, mat, res):
+    """Résout `y = base + c·dt·f(y)` par Newton (jacobien figé)."""
+    ns = y.shape[0]
+    for i in range(ns):
+        for j in range(ns):
+            mat[i, j] = -c * dt * jac[i, j]
+        mat[i, i] += 1.0
+    for _ in range(10):
+        _deriv(y, par, fl, f)
+        big = 0.0
+        for i in range(ns):
+            res[i] = y[i] - base[i] - c * dt * f[i]
+        d = np.linalg.solve(mat, res)
+        for i in range(ns):
+            y[i] -= d[i]
+            big = max(big, abs(d[i]) / scale[i])
+        if big < 1e-9:
+            break
+
+
+@njit(cache=True)
+def _run_implicit(s, par, fl, dt, n, rec):
+    """TR-BDF2 (γ = 2 − √2) : ordre 2, L-stable. Jacobien numérique (différences
+    avant, pas 1e-6 de l'échelle) recalculé à chaque pas."""
+    ns = s.shape[0]
+    g = 2.0 - math.sqrt(2.0)
+    scale = _scales(fl, ns)
+    f0 = np.zeros(ns)
+    f = np.zeros(ns)
+    ft = np.zeros(ns)
+    jac = np.zeros((ns, ns))
+    mat = np.zeros((ns, ns))
+    res = np.zeros(ns)
+    base = np.zeros(ns)
+    s1 = np.zeros(ns)
+    s2 = np.zeros(ns)
+    a1 = 1.0 / (g * (2.0 - g))
+    a0 = (1.0 - g) ** 2 / (g * (2.0 - g))
+    c2 = (1.0 - g) / (2.0 - g)
+    for i in range(n):
+        _deriv(s, par, fl, f0)
+        for j in range(ns):
+            h = 1e-6 * scale[j]
+            old = s[j]
+            s[j] = old + h
+            _deriv(s, par, fl, ft)
+            s[j] = old
+            for r in range(ns):
+                jac[r, j] = (ft[r] - f0[r]) / h
+        for j in range(ns):
+            base[j] = s[j] + 0.5 * g * dt * f0[j]
+            s1[j] = s[j]
+        _newton_stage(s1, base, 0.5 * g, dt, jac, par, fl, scale, f, mat, res)
+        for j in range(ns):
+            base[j] = a1 * s1[j] - a0 * s[j]
+            s2[j] = s1[j]
+        _newton_stage(s2, base, c2, dt, jac, par, fl, scale, f, mat, res)
+        for j in range(ns):
+            s[j] = s2[j]
+        rec[i, 0] = par[P_PHI] * s[1]
+        rec[i, 1] = s[2]
+        rec[i, 2] = s[3]
+    return s
+
+
+@njit(cache=True)
 def _run(s, par, fl, dt, n, rec):
+    if fl[3]:
+        return _run_implicit(s, par, fl, dt, n, rec)
     ns = s.shape[0]
     k1 = np.zeros(ns)
     k2 = np.zeros(ns)
@@ -374,6 +531,11 @@ class UpstreamReed:
     `upstream_volume_m3`, `source_resistance`, `downstream_volume_m3`,
     `orifice`, `pipe` = (longueur, diamètre) en m ou None, `ballast_m3`,
     `stage2` = (V_n, orifice du trou, orifice du clapet) ou None, `sweep`.
+
+    `gap_inertia="ricot"` : inertie de l'air amont près de la fente (voir
+    « Inertie de la fente » en tête de module) ; `k0` : nombre fixe (4,5 de
+    l'article) ou `None` pour `ln(2·x_B/e)/π` avec `inertia_reach_m` = `x_B`
+    (SUPPOSÉ, 5 mm). Sans l'option, `k0` et `inertia_reach_m` ne servent pas.
     """
 
     def __init__(self, blade: Blade, setting: ReedSetting | None = None,
@@ -381,7 +543,9 @@ class UpstreamReed:
                  downstream_volume_m3=CENTRAL_DOWN_VOLUME_M3,
                  orifice: Orifice | None = None, pipe=None, ballast_m3=0.0,
                  stage2=None, sweep=1.0, rho=RHO_AIR, gamma_patm=GAMMA_PATM,
-                 n_cells=N_CELLS):
+                 n_cells=N_CELLS, gap_inertia=None, k0=4.5, inertia_reach_m=5e-3):
+        if gap_inertia not in (None, "ricot"):
+            raise ValueError("`gap_inertia` : None ou \"ricot\"")
         if setting is None:
             if blade.thickness_m is None:
                 raise ValueError("`setting` à donner : l'épaisseur de la languette est inconnue")
@@ -404,7 +568,10 @@ class UpstreamReed:
         par[P_LE] = o1.inertance(rho)
         par[P_CDA1] = o1.cd * o1.area_m2
         par[P_RS], par[P_SWEEP] = source_resistance, sweep
-        fl = np.zeros(3, dtype=np.int64)
+        par[P_K0] = -1.0 if k0 is None else float(k0)
+        par[P_XB] = inertia_reach_m
+        fl = np.zeros(4, dtype=np.int64)
+        fl[3] = 1 if gap_inertia == "ricot" else 0
         if pipe is not None:
             length, diam = pipe
             surf = math.pi * (diam / 2) ** 2
@@ -430,7 +597,11 @@ class UpstreamReed:
 
     def _n_state(self):
         fl = self._fl
-        return (7 if fl[2] else 5) + (2 * fl[1] if fl[0] else 0)
+        return (7 if fl[2] else 5) + (2 * fl[1] if fl[0] else 0) + int(fl[3])
+
+    def gap_inertance(self, x):
+        """`L_r` (kg/m⁴) pour un déplacement modal `x` (m)."""
+        return float(_gap_inertance(x, self._par))
 
     def equilibrium(self, p0):
         """État d'équilibre statique à la pression de source `p0` (racine de
@@ -445,6 +616,8 @@ class UpstreamReed:
         dp, q, _ = _static_at(x, par, fl, p0)
         s = np.zeros(self._n_state())
         s[1], s[4] = x, q
+        if fl[3]:
+            s[-1] = q                      # à l'équilibre dQ_r/dt = 0 : Δp = (ρ/2)·u²
         rho = par[P_RHO]
         pn = rho * q * q / (2 * par[P_CDA2] ** 2) if fl[2] else 0.0
         pd = pn + rho * q * q / (2 * par[P_CDA1] ** 2)
@@ -466,16 +639,7 @@ class UpstreamReed:
         par, fl = self._par.copy(), self._fl
         par[P_P0] = p0
         ns = len(s)
-        scale = np.zeros(ns)
-        scale[0], scale[1] = 0.1, 1e-4
-        scale[2:4], scale[4] = 100.0, 1e-5
-        off = 5
-        if fl[2]:
-            scale[5], scale[6] = 100.0, 1e-5
-            off = 7
-        if fl[0]:
-            scale[off:off + fl[1]] = 1e-5
-            scale[off + fl[1]:] = 100.0
+        scale = _scales(fl, ns)
         jac = np.zeros((ns, ns))
         f1, f2 = np.zeros(ns), np.zeros(ns)
         for j in range(ns):
@@ -541,6 +705,24 @@ class UpstreamReed:
         return out
 
     # ---- simulation ----------------------------------------------------------
+    def trace(self, p0, t_end, dt=2e-6, kick_tip_m=1e-6, s0=None):
+        """Intègre de 0 à `t_end` depuis l'équilibre poussé de `kick_tip_m` (ou
+        depuis l'état `s0`) ; renvoie `(t, bout_m, p_u, p_d, état_final)`."""
+        par, fl = self._par.copy(), self._fl
+        par[P_P0] = p0
+        if s0 is None:
+            s, _ = self.equilibrium(p0)
+            if s is None:
+                raise ValueError("pas d'équilibre")
+            s = s.copy()
+            s[1] += kick_tip_m / par[P_PHI]
+        else:
+            s = np.array(s0, dtype=float)
+        n = int(round(t_end / dt))
+        rec = np.zeros((n, 3))
+        s = _run(s, par, fl, dt, n, rec)
+        return dt * np.arange(1, n + 1), rec[:, 0], rec[:, 1], rec[:, 2], s
+
     def simulate(self, p0, dt=2e-6, chunk=0.25, tmax=4.0, kick_tip_m=1e-6):
         """Intègre (RK4) depuis l'équilibre poussé de `kick_tip_m` au bout.
 
