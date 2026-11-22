@@ -1,11 +1,11 @@
 # Pilote minimal SFM3000 (débitmètre massique Sensirion) en I2C.
 # ⚠ Offset et facteur d'échelle dépendent de la variante et du gaz : vérifie
-# contre ta fiche technique (air : offset 32768, échelle 140 slm typiques).
+# contre ta fiche technique (air : offset 32000, échelle 140 par slm, fiche Sensirion SFM3000).
 import time
 
 
 class SFM3000:
-    def __init__(self, i2c, addr=0x40, offset=32768, scale=140.0):
+    def __init__(self, i2c, addr=0x40, offset=32000, scale=140.0):
         self.i2c = i2c
         self.addr = addr
         self.offset = offset
