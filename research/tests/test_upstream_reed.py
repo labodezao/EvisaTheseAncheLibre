@@ -13,8 +13,9 @@ import pytest
 from banc_recherche.coupled_reeds import (CoupledReedsModel, Orifice, ReedSetting,
                                           Voicing)
 from banc_recherche.reed_oscillator import Chamber, FreeReedModel, Slot
+from banc_recherche import upstream_reed as ur
 from banc_recherche.upstream_reed import (BRASS_E_PA, BRASS_RHO, ZETA, Blade,
-                                          UpstreamReed)
+                                          UpstreamReed, added_air_mass)
 
 NOTES = {'Fa3': 174.61, 'Do4': 261.63, 'Fa4': 349.23, 'Fa5': 698.46}
 
@@ -194,3 +195,160 @@ def test_lame_pour_note_joue_la_note():
     assert Blade.for_note(698.46).f0_hz == pytest.approx(698.46, rel=3e-3)
     direct = Blade(m=1e-4, k=1e-4 * (2 * math.pi * 200.0) ** 2, gamma=5e-5)
     assert direct.f0_hz == pytest.approx(200.0)
+
+
+# ---- g. inertie de la fente (Ricot, Caussé, Misdariis 2005) -------------------
+def _blade_eig(u, p0):
+    """Valeur propre de la lame (la plus proche de sa fréquence propre, à
+    partie imaginaire positive) à l'équilibre de pression `p0`."""
+    s, _ = u.equilibrium(p0)
+    ev = np.linalg.eigvals(u.jacobian(s, p0))
+    w0 = 2.0 * math.pi * u.blade.f0_hz
+    cand = [e for e in ev if 0.5 * w0 < e.imag < 1.5 * w0]
+    return max(cand, key=lambda e: e.real)
+
+
+def _sigma(u, p0, t_end=1.0, dt=2e-6):
+    """Taux de croissance mesuré en simulation (pente du log de l'enveloppe,
+    maxima de |bout - équilibre| après 0,05 s), depuis un kick de 1 µm."""
+    t, y, _, _, _ = u.trace(p0, t_end, dt=dt)
+    s_eq, _ = u.equilibrium(p0)
+    d = np.abs(y - u._par[ur.P_PHI] * s_eq[1])
+    pk = np.where((d[1:-1] >= d[:-2]) & (d[1:-1] > d[2:]) & (t[1:-1] > 0.05))[0] + 1
+    return float(np.polyfit(t[pk], np.log(d[pk]), 1)[0])
+
+
+def test_inertie_limite_k0_nul_rejoint_le_modele_sans_inertie():
+    """`L_r -> 0` : seuils, plaquage et fréquences du modèle quasi stationnaire."""
+    ref = band('Fa4', 336)
+    inert = band('Fa4', 336, gap_inertia='ricot', k0=1e-6)
+    assert kinds(inert) == kinds(ref) == ['demarrage', 'fin']
+    for a, b in zip(inert, ref):
+        assert a.p0_pa == pytest.approx(b.p0_pa, rel=0.02)
+        assert a.f_hz == pytest.approx(b.f_hz, rel=0.02)
+    r0 = reed('Fa4', 336).simulate(600.0)
+    r1 = reed('Fa4', 336, gap_inertia='ricot', k0=1e-6).simulate(600.0)
+    assert r0.status == r1.status == 'etabli'
+    assert r1.amplitude_m == pytest.approx(r0.amplitude_m, rel=0.02)
+    assert r1.f_hz == pytest.approx(r0.f_hz, rel=0.02)
+
+
+def test_inertie_k0_geometrique_et_option_invalide():
+    u = reed('Fa4', 336, gap_inertia='ricot', k0=None, inertia_reach_m=5e-3)
+    e = math.sqrt(u.lift_m ** 2 + 30e-6 ** 2)                 # bout au repos : h = levée
+    w_eff = u._par[ur.P_WEFF]
+    assert u.gap_inertance(0.0) == pytest.approx(1.2 * math.log(2 * 5e-3 / e) / math.pi / w_eff,
+                                                 rel=1e-12)
+    assert reed('Fa4', 336, gap_inertia='ricot', k0=4.5).gap_inertance(0.0) == \
+        pytest.approx(1.2 * 4.5 / w_eff, rel=1e-12)
+    with pytest.raises(ValueError):
+        reed('Fa4', 336, gap_inertia='autre')
+
+
+def test_inertie_pas_de_temps_divise_par_deux():
+    """Convergence : amplitude après 0,3 s à 600 Pa (K0 géométrique), pas de
+    2 µs contre 1 µs, à 2 %."""
+    u = reed('Fa4', 336, gap_inertia='ricot', k0=None)
+    amp = []
+    for dt in (2e-6, 1e-6):
+        y = u.trace(600.0, 0.3, dt=dt)[1]
+        amp.append(0.5 * (y[-3000:].max() - y[-3000:].min()))
+    assert amp[0] > 3e-6                                      # la lame a démarré
+    assert amp[0] == pytest.approx(amp[1], rel=0.02)
+
+
+# -- b. solution connue : amortissement négatif à pression imposée --------------
+def _fixed_pressure_reed(zeta=ZETA):
+    """Lame réelle de Fa3, volumes énormes, `sweep = 0` : Δp imposé."""
+    b = Blade(m=0.1311e-3, k=157.8, gamma=30.0e-6, zeta=zeta)
+    st = ReedSetting(lift_m=0.4e-3, tongue_m=1e-3, plate_m=1e-3, clearance_m=30e-6)
+    return UpstreamReed(b, st, upstream_volume_m3=1.0, downstream_volume_m3=1.0,
+                        source_resistance=10.0, sweep=0.0, gap_inertia='ricot', k0=4.5)
+
+
+def _c_neg(u, p0):
+    """`alpha·G·V0·L_r·da/dx` à l'équilibre (négatif : da/dx < 0) et `c`."""
+    par = u._par
+    s, _ = u.equilibrium(p0)
+    hx = 1e-9
+    dadx = (ur._area_series(s[1] + hx, par)[0] - ur._area_series(s[1] - hx, par)[0]) / (2 * hx)
+    part = ur._area_series(s[1], par)[1]
+    v0 = math.sqrt(2.0 * (s[2] - s[3]) / par[ur.P_RHO])
+    return (par[ur.P_ALPHA] * part * par[ur.P_G] * v0 * u.gap_inertance(s[1]) * dadx,
+            par[ur.P_C])
+
+
+def test_amortissement_negatif_formule_contre_linearisation():
+    """`c_neg = alpha·G·V0·L_r·da/dx` : limite basse fréquence. La valeur propre
+    donne `c_eff = -2m·Re(lambda)` ; l'écart à `c + c_neg` vient de
+    `1/(1 + (omega·tau)^2)`, `tau = L_r·Q/(2Δp)` (relaxation de Q_r)."""
+    u = _fixed_pressure_reed()
+    m = u.blade.m
+    for p0 in (50.0, 100.0, 200.0, 500.0):
+        lam = _blade_eig(u, p0)
+        s, _ = u.equilibrium(p0)
+        cn, c = _c_neg(u, p0)
+        c_eff = -2.0 * m * lam.real
+        assert c_eff == pytest.approx(c + cn, abs=0.06 * abs(cn))          # formule brute
+        tau = u.gap_inertance(s[1]) * s[4] / (2.0 * (s[2] - s[3]))
+        corrige = c + cn / (1.0 + (lam.imag * tau) ** 2)
+        assert c_eff == pytest.approx(corrige, abs=0.005 * abs(cn))        # avec la relaxation
+
+
+def test_amortissement_negatif_seuil_simule_a_15_pct_de_l_analytique():
+    u = _fixed_pressure_reed()
+    lo, hi = 20.0, 1000.0                                     # c + c_neg(p) = 0 par dichotomie
+    for _ in range(50):
+        mid = math.sqrt(lo * hi)
+        cn, c = _c_neg(u, mid)
+        lo, hi = (mid, hi) if c + cn > 0 else (lo, mid)
+    p_an = math.sqrt(lo * hi)
+    assert 50.0 < p_an < 300.0
+    s_bas, s_haut = _sigma(u, 0.85 * p_an), _sigma(u, 1.15 * p_an)
+    assert s_bas < 0.0 < s_haut                               # le seuil simulé est dans ±15 %
+    assert s_haut == pytest.approx(_blade_eig(u, 1.15 * p_an).real, abs=0.05)
+    assert s_bas == pytest.approx(_blade_eig(u, 0.85 * p_an).real, abs=0.05)
+
+
+# -- c. cas de l'article (section V) ---------------------------------------------
+def _article_reed(zeta, k0=4.5):
+    """Acier (210 GPa, 7850), l = 22,9 mm, h = 2,5 mm, f0 = 795 Hz (épaisseur
+    déduite de f0), jeu a = 0,14 mm, levée x0 = 0,2 mm, pression imposée.
+    L'article ne donne ni masse ni amortissement : `zeta` reste libre ; la
+    plaque (1 mm) n'est pas dans l'article et ne joue pas (la lame n'y entre pas)."""
+    e_pa, rho, l, w, f0 = 210e9, 7850.0, 22.9e-3, 2.5e-3, 795.0
+    t = f0 * l ** 2 / (0.1615 * math.sqrt(e_pa / rho))
+    b = Blade.uniform(l, w, t, e_pa, rho, zeta)
+    st = ReedSetting(lift_m=0.2e-3, tongue_m=t, plate_m=1.0e-3, clearance_m=0.14e-3)
+    return UpstreamReed(b, st, upstream_volume_m3=1.0, downstream_volume_m3=1.0,
+                        source_resistance=10.0, gap_inertia='ricot', k0=k0)
+
+
+def _article_zeta_limit():
+    """Plus grand zeta pour lequel l'équilibre à 40 Pa est instable (valeur
+    propre de la lame, dichotomie)."""
+    lo, hi = 1e-5, 1e-2
+    for _ in range(40):
+        mid = math.sqrt(lo * hi)
+        if _blade_eig(_article_reed(mid), 40.0).real > 0:
+            lo = mid
+        else:
+            hi = mid
+    return math.sqrt(lo * hi)
+
+
+def test_article_acier_795_hz_oscille_a_40_pa_pour_la_moitie_du_zeta_limite():
+    assert _article_reed(0.004).blade.f0_hz == pytest.approx(795.0, rel=2e-3)
+    z_lim = _article_zeta_limit()
+    assert _blade_eig(_article_reed(1.05 * z_lim), 40.0).real < 0     # au-dessus : plus d'auto-oscillation
+    u = _article_reed(0.5 * z_lim)
+    r = u.simulate(40.0, dt=4e-6, tmax=3.0)
+    assert r.amplitude_m > 1e-4                                       # >> kick de 1 µm : elle oscille
+    assert r.f_hz == pytest.approx(795.0, rel=0.01)
+
+
+def test_masse_d_air_ajoutee_eq_9():
+    l, h, rho = 22.9e-3, 2.5e-3, 1.2
+    ref = 8 / (9 * math.pi) * rho * l * h * (l * l + l * h + h * h) / (l + h)
+    assert added_air_mass(l, h, rho) == pytest.approx(ref, rel=1e-12)
+    assert added_air_mass(l, h, rho) < 0.02 * Blade.uniform(l, h, 0.5e-3, 210e9, 7850.0).m
