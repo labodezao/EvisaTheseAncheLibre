@@ -3432,6 +3432,40 @@ Le banc mesure les mêmes grandeurs que le modèle, pour qu'on puisse enfin comp
  mesurés sur quelques anches, avec une rampe lente qui monte puis descend (expérience E3 de la liste des expériences) ; et l'hystérésis du modèle corrigé, calculée avec la même méthode.
 \end_layout
 
+\begin_layout Section
+Le volume vu par l'anche, et ce qui reste à valider
+\end_layout
+
+\begin_layout Standard
+Accordez un mélodica ouvert sous une petite cloche, à la soufflerie, puis refermez-le et jouez-le à la bouche : la note n'est plus la même, et sous la plus petite cloche les basses ne parlent pas du tout. Ce qui change entre les deux, c'est l'air que l'anche voit devant elle. Une anche libre d'accordéon ou de mélodica se ferme quand on souffle : à chaque battement elle prend une bouffée d'air au volume qui la précède, et ce volume répond par une pression qui tremble, 
+\begin_inset Formula $p'\approx\rho c^{2}\,\Delta V/V$
+\end_inset
+. Avec une bouffée de l'ordre de 0,14 cm³, la pression tremble d'environ 650 Pa sous une cloche de 30 cm³, 160 Pa sous 121 cm³, et 60 Pa dans la chambre du mélodica fermé (336 cm³). Sous la petite cloche, la pression tremble autant que la pression de jeu : la lame reste petite ou ne part pas. Un tuyau d'arrivée de 1 m ajoute une masse d'air qui, sur certaines bandes de notes, « mange » encore le volume vu par l'anche (volume apparent 
+\begin_inset Formula $V-S/(k\tan kL)$
+\end_inset
+).
+\end_layout
+
+\begin_layout Standard
+Le modèle de la thèse calculait jusqu'ici une anche qui s'ouvre quand on souffle ; il ne pouvait donc pas retrouver ce que l'atelier montre. Le modèle corrigé (anche fermée en soufflant, volume amont fini, soufflerie, tuyau et ballast) le retrouve dans sa forme : la petite cloche rend le Fa3 muet, un volume proche de celui de l'instrument le fait parler. Mais trop de volume ralentit la montée en pression et rend l'attaque molle (12 ms pour 0,35 L, 50 ms pour 1,4 L), ce que l'octodyna montre aussi : il y a un volume juste, de l'ordre de 350 à 500 cm³ pour les basses.
+\end_layout
+
+\begin_layout Standard
+Ce modèle n'est pas encore validé. La lame seule l'est (éléments finis, 0,4 % d'écart), la pente de la note selon la pression aussi (−19 cents/kPa calculés, −17 mesurés sur le banc de 2023). Trois données restent non mesurées : la levée de la lame, son amortissement, et l'inertie de l'air dans la fente, que l'article de Ricot, Caussé et Misdariis fixe à 
+\begin_inset Formula $K_{0}=4{,}5$
+\end_inset
+ quand la géométrie donne 1 à 2. Avec 4,5 le Fa3 parle, avec 1 à 2 il reste muet : un seuil ou un écart en cents tiré du modèle est donc à prendre comme non décidé. Trois étages le tranchent : les éléments finis pour la lame mesurée, un calcul d'écoulement de la lame forcée dans sa fente pour 
+\begin_inset Formula $K_{0}$
+\end_inset
+, et les mesures, qui seules jugent le volume.
+\end_layout
+
+\begin_layout Standard
+
+\shape italic
+À compléter (Ewen) : le plan de mesures du 22/11/2026 : la lame de Fa3 (épaisseurs, levée), la lame pincée sans air (amortissement), les seuils de démarrage et de plaquage sous 30, 121 et 330 cm³ puis instrument fermé, la note à quatre pressions, le temps d'attaque selon le volume ; et le débit à chaque pression, lu au débitmètre SFM3000 placé sur le tuyau d'arrivée, avant la cloche.
+\end_layout
+
 \begin_layout Section*
 Résonance intérieure — l'hystérésis comme sankhara
 \end_layout
