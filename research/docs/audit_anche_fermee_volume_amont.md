@@ -108,3 +108,29 @@ Marge de stabilité à 336 cm³, K0 géométrique : max Re(lambda) = −3,96 ; �
 Conclusion : le mécanisme est dans le modèle et va dans le sens de l'atelier (Fa3 muet à 30 et 121 cm³, parlant à 320 et 336), mais seulement avec la valeur arbitraire de K0. Non décidé. Mesures qui tranchent : amortissement de la lame (décroissance libre) et seuil de démarrage du Fa3 instrument fermé.
 
 `modal.assemble` : cause de l'erreur sur lame à deux épaisseurs prouvée (base de Rayleigh-Ritz en modes uniformes : +153 % à 1 mode, +11 % à 6, +1,6 % à 30 ; quadrature et sigma écartés). Correction (modes vrais par éléments de Hermite) et test contre l'équation transcendante à deux tronçons dans la branche `claude/modal-assemble-troncons`, non fusionnée : la lame par défaut `SECTIONS_DEFAULT` passe de 102,1 Hz à sa vraie valeur 15,59 Hz, et `test_la_note_est_celle_de_la_lame` devient rouge (+419 cents) pour une cause non prouvée.
+
+## Ajout du 22/11/2026 : temps d'attaque selon le volume amont
+
+Question d'atelier (octodyna) : un volume amont trop grand donne des attaques molles et en retard.
+Calcul : 216 attaques (Fa3 lame réelle, Do4 et Fa4 lames équivalentes ; V_u = 30 à 1500 cm³ ; sans inertie, K0 géométrique, 4,5 et 9 ; 1000 et 1500 Pa). Départ au repos, échelon de pression de source, sans kick. t90 = temps pour 90 % de l'amplitude établie. Paramètres SUPPOSÉS : levée 0,4 mm, zeta 0,004, R_s 3e6.
+
+Résultats à 1500 Pa, K0 = 4,5 (sigma en s⁻¹, t90 en ms) :
+
+| V_u (cm³) | Fa3 sigma | Fa3 t90 | Fa4 sigma | Fa4 t90 | remplissage mesuré (ms) |
+|---|---|---|---|---|---|
+| 60 | −66,7 | muet | 21,3 | 221 | 4 |
+| 121 | −32,5 | muet | 71,3 | 130 | 7 |
+| 200 | −10,9 | muet | 92,6 | 105 | 12 |
+| 336 | 3,9 | 859 | 106,1 | 102 | 19-20 |
+| 500 | 11,2 | 627 | 112,7 | 99 | 27-29 |
+| 1000 | 18,9 | 530 | 119,4 | 98 | 54 |
+| 1500 | 21,4 | 530 | 121,6 | 119 | 82 |
+
+- Le taux de croissance augmente avec le volume et sature : le modèle ne donne pas d'attaque plus lente de la lame dans un grand volume.
+- Seul le temps de mise en pression croît avec V_u (formule R_s·V/(rho·c²), mesuré 2 à 3 fois plus long).
+- Sensibilité à K0 (Fa3, 1000 cm³, 1500 Pa) : t90 = 1211 ms sans inertie, 777 géométrique, 530 pour 4,5, 312 pour 9. Volume minimal du Fa3 : 750, 500, 336, 200 cm³.
+- Do4 à 1500 Pa : équilibre linéairement stable à tous les volumes, mais oscillation déclenchée par l'échelon pour K0 = 4,5 (dès 1000 cm³) et 9 (dès 336 cm³) : bifurcation sous-critique probable, non étudiée.
+- Convergence en pas de temps : t90 à moins de 1 % sur trois cas, 5,9 % sur Fa4, K0 = 4,5, 336 cm³, 1000 Pa.
+- Amplitudes de 1,5 à 2,5 mm pour 0,4 mm de levée : hors domaine validé.
+
+Scripts et CSV hors dépôt : `J:\claude\tmp\melodica_impedance\attaque\`.
