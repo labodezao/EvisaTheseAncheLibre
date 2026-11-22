@@ -751,3 +751,13 @@ ont servi d'idée de départ, pas de preuve.
 `FreeReedModel` garde l'ancienne loi : il nourrit le moteur temps réel et la
 synthèse (`hybrid`, `live`, `embedded`). L'y corriger se fera avec des
 mesures en main.
+
+**22/11/2026, `modal.assemble` sur une lame à tronçons.** Cause : la base de projection (modes du
+cantilever uniforme, Rayleigh-Ritz) converge mal quand la raideur saute. Laiton 24 x 3 mm, bout épais
+0,8 mm, racine mince sur 6, 10, 14 mm (0,2655, 0,2861, 0,2888 mm) : f1 exacte 174,6 Hz ; avec 1 mode
++153 %, +68 %, +19 %, avec 6 modes +10,8 %, +3,1 %, +1,0 % ; avec 30 modes encore +1,6 %, +0,7 %, +0,2 %. L'intégration
+n'y est pour rien (442,06 Hz pour n_quad 400, 4 000, 40 000 et avec une quadrature indépendante à sigma exact).
+Correction : `assemble` rend M, K sur les vraies déformées propres de la lame (éléments de Hermite d'Euler-Bernoulli,
+normalisées ψ(L) = φ(L), donc M et K diagonales) ; `mode_gamma_tip` et `mode_shapes` donnent gamma, phi_tip et la forme dans cette
+base (`reed_model`, `reed_oscillator`, `fem/recalage_rk4`). Erreur sur f1 et f2 : moins de 2e-4 %, à 1 et à 6 modes.
+Test : `tests/test_modal_troncons.py` (équation transcendante exacte à deux tronçons, cas uniforme).

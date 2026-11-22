@@ -2,8 +2,8 @@
 
 Trois étapes, chacune avec un écart chiffré AVANT et APRÈS recalage.
 
-1. La languette. Ce que `reed_model` utilise : `modal.assemble` (Rayleigh-Ritz sur N = 2
-   modes du cantilever uniforme, coefficients sigma arrondis). Comparé à Euler-Bernoulli
+1. La languette. Ce que `reed_model` utilise : `modal.assemble` (modes propres de la lame en tronçons, N = 2
+   éléments finis de poutre, depuis le 22/11/2026 ; avant : Rayleigh-Ritz sur les modes du cantilever uniforme). Comparé à Euler-Bernoulli
    exact (`languette.euler_bernoulli`) et à Elmer 3D (hexaèdres quadratiques), sur les
    mêmes languettes : `SECTIONS_DEFAULT` de `reed_model`, l'anche de `matrix.txt`, les
    anches nominales de la banque, la lame de la CAO 2019 (Code_Aster). Grandeurs : f1, f2,
@@ -80,7 +80,7 @@ def languettes():
 
 # --- 1. La languette -------------------------------------------------------------------------
 def modal_reed_model(lang, n_modes=2):
-    """Ce que voit reed_model : Rayleigh-Ritz de modal.assemble (sigma arrondis), sur les
+    """Ce que voit reed_model : modes propres de modal.assemble (éléments finis de poutre), sur les
     tronçons (variables -> 8 marches). Mode 1 ramené au bout."""
     sec = lang.matrice(n_sous=8)
     rm = ReedModel(sections=sec, n_modes=n_modes, zeta=0.004)
@@ -91,8 +91,7 @@ def modal_reed_model(lang, n_modes=2):
     L = rm.L
 
     def forme(x):
-        return sum(v[i] * modal._phi(modal.bl_sigma(i + 1)[0] / L, modal.bl_sigma(i + 1)[1], np.asarray(x))
-                   for i in range(n_modes)) / tip
+        return (v @ modal.mode_shapes(sec, x, n_modes)) / tip
     p = ParametresModaux(float(f[0]), 1.0 / tip ** 2, float(w2[0]) / tip ** 2, float(rm.gamma @ v) / tip,
                          float(np.mean(forme(np.linspace(0, L, 400)))), "reed_model")
     return f, p, forme
