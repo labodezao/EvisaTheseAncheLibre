@@ -72,3 +72,39 @@ Amplitude établie (simulation, sans tuyau) : Fa5 à 1000 Pa, 0,56 mm à 121 cm�
 2. Le profil de la lame (épaisseur le long de la lame).
 3. `p_on` et `p_choke` à trois volumes (30, 121, 336 cm³), par la méthode de `seuils_auto_entretien.md`.
 4. La caractéristique pression-débit de la source (R_s).
+
+## Ajout du 22/11/2026 : inertie de l'air amont près de la fente (PR 86)
+
+Source : Ricot, Caussé, Misdariis (2005), JASA 117(4), 2279-2290, éq. 5, 8, 9, 10, 18, 19, 20 et annexe B.
+
+Option `gap_inertia="ricot"` de `UpstreamReed` (défaut inchangé au bit près) :
+- le débit de fente Q_r devient une variable d'état : `L_r dQ_r/dt = dp − (rho/2)·u·|u|`, `u = Q_r/(alpha·a)`, `L_r = rho·K0/w_eff` (éq. 5 passée de 2D à 3D) ;
+- la lame est poussée par la pression de face `(rho/2)·u·|u|` et non plus par dp (éq. 18-19) ;
+- `a` est la section série de la loi existante, pour que la limite L_r → 0 rende le modèle d'avant ;
+- non repris : le facteur (1 − A1) et les termes A2, A3 de l'éq. 8 (négligeables d'après la fig. 11 de l'article ; A1 ne participe pas à l'excitation) ;
+- masse d'air ajoutée (éq. 9) : fonction `added_air_mass`, non appliquée, car la fréquence mesurée dans l'air la contient déjà ;
+- intégrateur TR-BDF2 : la constante de temps de Q_r descend à 1e-9 s (jeu de 30 µm), le RK4 ne tient pas.
+
+Vérifications (tests) :
+- K0 → 0 : seuils et fréquences du modèle sans inertie ;
+- pression imposée : amortissement négatif `c_neg = alpha·G·V0·L_r·(da/dx) / (1 + (omega·tau)²)`, `tau = L_r·Q/(2·dp)`, égal à la valeur propre à 0,1 % ; seuil simulé à ±15 % ;
+- cas de l'article (acier, 22,9 × 2,5 mm, 795 Hz, jeu 0,14 mm, levée 0,2 mm, 40 Pa, K0 = 4,5) : auto-oscillation à 794,97 Hz si zeta < 7,25e-4. L'article ne donne ni masse ni amortissement : comparaison qualitative seulement ;
+- pas de temps divisé par 2 : écart inférieur à 2 %.
+
+K0 n'est pas réglé. L'article prend 4,5 et le dit arbitraire (choix du point B). La formule de l'article `K0 = ln(2·x_B/e)/pi` avec x_B = 2, 5 ou 10 mm (SUPPOSÉ) donne 1 à 2.
+
+Lame réelle de Fa3 (deux tronçons, m 0,1311 g, k 157,8 N/m, Gamma 30,0 mm², levée 0,4 mm SUPPOSÉE, zeta 0,004 SUPPOSÉ), démarrage / plaquage en Pa :
+
+| V_u (cm³) | sans inertie | K0 géométrique (2, 5, 10 mm) | K0 = 4,5 |
+|---|---|---|---|
+| 30 | rien | rien | rien |
+| 121 | rien | rien | rien |
+| 320 | rien | rien | 1048 / 2126 |
+| 336 | rien | rien | 899 / 2131 |
+
+K0 = 4,5, régime établi : 336 cm³, 0,334 mm et −49 cents à 1000 Pa (établi en 11,75 s), 0,428 mm et −68 cents à 2000 Pa ; 320 cm³, 0,349 mm et −64 cents à 2000 Pa. Pression imposée, K0 = 4,5 : seuil vers 100 Pa.
+Marge de stabilité à 336 cm³, K0 géométrique : max Re(lambda) = −3,96 ; −2,98 ; −2,23 s⁻¹ pour x_B = 2, 5, 10 mm (référence sans inertie : −4,7).
+
+Conclusion : le mécanisme est dans le modèle et va dans le sens de l'atelier (Fa3 muet à 30 et 121 cm³, parlant à 320 et 336), mais seulement avec la valeur arbitraire de K0. Non décidé. Mesures qui tranchent : amortissement de la lame (décroissance libre) et seuil de démarrage du Fa3 instrument fermé.
+
+`modal.assemble` : cause de l'erreur sur lame à deux épaisseurs prouvée (base de Rayleigh-Ritz en modes uniformes : +153 % à 1 mode, +11 % à 6, +1,6 % à 30 ; quadrature et sigma écartés). Correction (modes vrais par éléments de Hermite) et test contre l'équation transcendante à deux tronçons dans la branche `claude/modal-assemble-troncons`, non fusionnée : la lame par défaut `SECTIONS_DEFAULT` passe de 102,1 Hz à sa vraie valeur 15,59 Hz, et `test_la_note_est_celle_de_la_lame` devient rouge (+419 cents) pour une cause non prouvée.
