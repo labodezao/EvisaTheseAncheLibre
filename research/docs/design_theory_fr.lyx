@@ -3474,6 +3474,13 @@ La pression seule ne suffit pas. Elle est une grandeur intensive ; le débit, vo
 \end_layout
 
 \begin_layout Standard
+Que changer pour qu'une lame parle plus tôt ? Le modèle corrigé, pour une lame de 175 Hz sous 336 cm³ et un réglage changé à la fois, donne un démarrage à 155 Pa et un plaquage à 503 Pa pour une levée de 0,4 mm. Diviser l'amortissement de la lame par deux fait démarrer à 84 Pa sans toucher au plaquage : c'est le levier le plus sûr, et il se joue au pied de la lame (rivet, appui, propreté, métal). Une levée de 0,2 mm fait démarrer à 54 Pa mais plaque à 253 Pa ; une levée de 0,6 mm démarre à 454 Pa. Le jeu latéral change peu le seuil, mais l'air qui fuit est une puissance perdue pour le rendement. Ces nombres valent pour 
+\begin_inset Formula $K_{0}=4{,}5$
+\end_inset
+ ; avec la valeur géométrique, aucune de ces lames ne parle, et seul le sens des effets est à retenir.
+\end_layout
+
+\begin_layout Standard
 
 \shape italic
 À compléter (Ewen) : le plan de mesures du 22/11/2026 : la lame de Fa3 (épaisseurs, levée), la lame pincée sans air (amortissement), les seuils de démarrage et de plaquage sous 30, 121 et 330 cm³ puis instrument fermé, la note à quatre pressions, le temps d'attaque selon le volume ; et le débit à chaque pression, lu au débitmètre SFM3000 placé sur le tuyau d'arrivée, avant la cloche.
