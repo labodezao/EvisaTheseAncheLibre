@@ -3486,6 +3486,59 @@ Que changer pour qu'une lame parle plus tôt ? Le modèle corrigé, pour une lam
 À compléter (Ewen) : le plan de mesures du 22/11/2026 : la lame de Fa3 (épaisseurs, levée), la lame pincée sans air (amortissement), les seuils de démarrage et de plaquage sous 30, 121 et 330 cm³ puis instrument fermé, la note à quatre pressions, le temps d'attaque selon le volume ; et le débit à chaque pression, lu au débitmètre SFM3000 placé sur le tuyau d'arrivée, avant la cloche.
 \end_layout
 
+\begin_layout Section
+Accorder sous une cloche : report et répétabilité
+\end_layout
+
+\begin_layout Standard
+Accorder un instrument fermé oblige à le démonter à chaque retouche. On accorde donc l'anche sur sa plaque, sous une petite cloche reliée à la soufflerie, et l'on corrige par un report : chaque note est mesurée instrument fermé (A), puis sous la cloche avant toute retouche (B). Le report de la note est 
+\begin_inset Formula $r=B-A$
+\end_inset
+, et l'on accorde sous la cloche jusqu'à lire 
+\begin_inset Formula $r$
+\end_inset
+. L'accordeur PolyReed fait ce calcul seul (tare note par note : la note affiche sa valeur fermée, on accorde jusqu'à zéro). Exemple mesuré le 22 novembre 2026 : un Fa à 
+\begin_inset Formula $-2{,}8$
+\end_inset
+ cents fermé lit 
+\begin_inset Formula $-18$
+\end_inset
+ cents sous la cloche ; son report vaut 
+\begin_inset Formula $-15{,}2$
+\end_inset
+ cents.
+\end_layout
+
+\begin_layout Standard
+La méthode suppose que le report d'une note est fixe. Les mesures du même jour disent le contraire. Entre deux prises sous la cloche, l'écart médian est de 2,5 cents ; tout le médium a glissé d'un bloc d'environ 
+\begin_inset Formula $-3$
+\end_inset
+ cents en une heure ; les basses ont bougé jusqu'à 12,8 cents ; la première prise après la pose de la cloche dérive d'environ 10 cents, et reposer la cloche déplace les basses d'environ 2 cents. La cloche sert donc à dégrossir, jamais à finir : le juge final reste l'instrument fermé.
+\end_layout
+
+\begin_layout Standard
+Deux effets se mêlent. Le premier est la pression moyenne : entre la soufflerie et l'anche se trouvent le tuyau et les fuites du joint ; plus la cloche fuit, plus elle consomme d'air et plus la pression baisse devant l'anche. Chaque pose change les fuites, et la note suit la pression (environ 
+\begin_inset Formula $-17$
+\end_inset
+ cents par kPa au banc de 2023). C'est la cause probable de la non-répétabilité, non encore décidée : un manomètre à eau sur la paroi de la cloche le tranchera. Le second effet est le volume, qui est celui de la section précédente : l'instrument fermé offre à l'anche environ 
+\begin_inset Formula $530\,\mathrm{cm^{3}}$
+\end_inset
+ (chambre de 
+\begin_inset Formula $410\times41\times28\,\mathrm{mm}$
+\end_inset
+, plus une section de 
+\begin_inset Formula $12\times12\,\mathrm{mm}$
+\end_inset
+ sur toute la longueur), la cloche environ 
+\begin_inset Formula $30\,\mathrm{cm^{3}}$
+\end_inset
+, dix-huit fois moins. Cet effet est propre à chaque note ; c'est lui seul que le report sait enlever, et seulement si la pression dans la cloche est la même à chaque pose.
+\end_layout
+
+\begin_layout Standard
+Il s'en déduit une cloche d'accord mieux conçue : un volume proche de celui de l'instrument, gagné en hauteur pour garder la même surface de joint, et une prise de pression affleurant sa paroi, loin du jet, pour régler la soufflerie sur la même pression à chaque pose. Le tube de prise ne porte pas de débit : sa longueur et sa raideur ne comptent pas, seules ses fuites comptent. Deux règles d'atelier complètent la méthode quand la pression varie (à la bouche, par exemple) : comparer la note à corriger à une voisine juste dans le même souffle, leur différence étant peu sensible à la pression ; et juger la fin de l'accord par l'écart de chaque note à la moyenne de l'instrument, un décalage commun de quelques cents ne s'entendant pas.
+\end_layout
+
 \begin_layout Section*
 Résonance intérieure — l'hystérésis comme sankhara
 \end_layout
