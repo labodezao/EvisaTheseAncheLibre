@@ -32,16 +32,17 @@ def test_option_parametres_elmer_dans_reed_model_et_free_reed():
     assert fr.f_modes[0] == pytest.approx(p.f_hz) and fr.phi_tip[0] == 1.0
 
 
-def test_reed_model_surestime_la_charniere_de_45_microns():
-    """SECTIONS_DEFAULT : Rayleigh-Ritz à 2 modes (reed_model) donne ~102 Hz, la poutre
-    exacte ~15,6 Hz (Elmer 15,9 Hz) : la charnière de 45 µm n'est pas représentable sur
-    deux modes de cantilever uniforme."""
+def test_reed_model_ne_surestime_plus_la_charniere_de_45_microns():
+    """SECTIONS_DEFAULT : défaut corrigé le 22/11/2026. Avant, la base Rayleigh-Ritz de
+    poutre uniforme donnait ~102 Hz (rapport f_rm/EB = 6,55) contre ~15,6 Hz pour la
+    poutre exacte (Elmer 15,9 Hz). Maintenant modal.assemble utilise les vrais modes
+    de la lame en tronçons : f_rm égale EB à 1 % près."""
     pytest.importorskip("scipy")
     import recalage_rk4 as R
     lang = Languette.depuis_matrice(SECTIONS_DEFAULT)
     f_rm, p_rm, _ = R.modal_reed_model(lang)
     eb = euler_bernoulli(lang, 1)[0]
-    assert f_rm[0] / eb > 5
+    assert f_rm[0] / eb == pytest.approx(1.0, rel=0.01)
     # sur une lame uniforme, les trois s'accordent et la forme est la même
     U = Languette.uniforme(24e-3, 3.5e-3, 0.3e-3)
     f_u, p_u, forme = R.modal_reed_model(U)

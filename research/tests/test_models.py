@@ -1,3 +1,4 @@
+import pytest
 import numpy as np
 
 from banc_recherche import modal, phase_space, frf, reed_model, material
@@ -59,12 +60,16 @@ def test_reed_free_oscillation_at_natural_frequency():
     rm = reed_model.ReedModel(n_modes=2, zeta=0.0)
     f0 = modal.natural_frequencies_np(rm.sec, n_modes=2)[0]
     fs = max(20000.0, 8 * f0)
-    res = rm.simulate(dur=0.05, fs=fs, q_in=0.0, q0=[1e-4, 0.0])
+    # f0 = 15,59 Hz (vraie lame en tronçons, corrigé le 22/11/2026 ; 102,1 Hz avant) :
+    # fenêtre de 2 s -> résolution 0,5 Hz (1 Hz au moins), ~31 périodes.
+    res = rm.simulate(dur=2.0, fs=fs, q_in=0.0, q0=[1e-4, 0.0])
     x = res.position - res.position.mean()
     X = np.abs(np.fft.rfft(x * np.hanning(x.size)))
     fr = np.fft.rfftfreq(x.size, 1 / fs)
     fpk = fr[np.argmax(X)]
-    assert abs(fpk - f0) / f0 < 0.1
+    assert fr[1] - fr[0] <= 1.0
+    assert f0 == pytest.approx(15.59, abs=0.05)
+    assert abs(fpk - f0) / f0 < 0.05
     assert np.all(np.isfinite(res.position))
 
 
@@ -72,4 +77,11 @@ def test_reed_simulation_bounded():
     rm = reed_model.ReedModel(n_modes=2)
     res = rm.simulate(dur=0.02, fs=20000.0, q_in=3e-5)
     assert np.all(np.isfinite(res.position))
-    assert np.max(np.abs(res.position)) < 1.0     # reste physique (borné)
+    # Lame par défaut à 15,59 Hz (charnière 45 µm), 43 fois plus souple en raideur
+    # modale que l'ancienne base fausse (102,1 Hz) : la position max passe de 0,115 à
+    # 1,082 à forçage égal (pression de cavité jusqu'à 6,6 bar, aucune butée dans le
+    # modèle). Ce n'est pas numérique : fs x4 donne 1,0819 contre 1,0820. Borne = « pas de
+    # divergence » (1,72 sur 1 s, plateau), pas une amplitude physique.
+    assert np.max(np.abs(res.position)) < 2.0
+    res4 = rm.simulate(dur=0.02, fs=80000.0, q_in=3e-5)
+    assert np.max(np.abs(res4.position)) == pytest.approx(np.max(np.abs(res.position)), rel=1e-2)
