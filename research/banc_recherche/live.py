@@ -87,6 +87,7 @@ class _Params(ctypes.Structure):
         ('out_mode', ctypes.c_int), ('fs_out', ctypes.c_float),
         ('free_law', ctypes.c_int), ('plate', ctypes.c_float),
         ('tongue', ctypes.c_float), ('clear', ctypes.c_float),
+        ('pump_area', ctypes.c_float),
         ('n_aa', ctypes.c_int), ('aa', ctypes.POINTER(_Biquad)),
     ]
 
@@ -96,7 +97,8 @@ class _State(ctypes.Structure):
                 ('aa_z', _BqState * HV_MAX_AA),
                 ('response', ctypes.c_float), ('cavity', ctypes.c_float),
                 ('kicked', ctypes.c_int),
-                ('net_prec', ctypes.c_float), ('net_ok', ctypes.c_int)]
+                ('net_prec', ctypes.c_float), ('net_ok', ctypes.c_int),
+                ('y_prev', ctypes.c_float), ('y_ok', ctypes.c_int)]
 
 
 _LIB = None
@@ -286,7 +288,11 @@ def _to_c_params(p: RealtimeParams):
     cp.fs_out = float(p.samplerate)
     cp.free_law = loi_c(p)
     cp.plate, cp.tongue, cp.clear = p.plate_m, p.tongue_m, p.clearance_m
+    cp.pump_area = p.pump_area_m2
     if p.family == FAMILY_FREE_REED:
+        # surface de force (largeur x longueur de lame) : de quoi refaire
+        # S_eff = F x surface quand F change (CC 74)
+        cp.surface_force = float(p.force_area_m2)
         # de quoi refaire le biquad de l'anche quand son Q change (CC de timbre)
         cp.base_anche = (p.reed_freq_hz, p.reed_q,
                          p.rest_opening_m / p.closing_pressure_pa, fs)
@@ -706,6 +712,35 @@ CC_TIMBRE = {v[0]: k for k, v in TIMBRE_CC.items()}
 #: constante de temps du lissage d'un CC de timbre, en s
 TAU_TIMBRE_S = 0.02
 
+#: Le débit déplacé par la lame elle-même (le « pompage » : q_pompe = S_eff ×
+#: vitesse de la lame), ajouté au débit rayonné. `(numéro de CC, F à CC 0, F à
+#: CC 64, F à CC 127, grandeur)`. **F est un facteur sans unité** :
+#: `S_eff = F × largeur × longueur de la lame` de la note (`force_area_m2`, la
+#: surface de force qui sert déjà à la raideur de la lame). Échelle
+#: **linéaire** en F (pas logarithmique : F vaut 0 à CC 0), en deux segments :
+#: CC 0 = 0 (sans pompe), CC 64 = 0,8, CC 127 = 1,6.
+#:
+#: **0,8 est provisoire, non mesuré** : c'est la valeur qui, dans l'essai hors
+#: moteur (note 57, CC 11 = 80), ramène A2/A1 à -14,5 dB (réel : -20) ; la
+#: surface efficace de la lame n'a pas été mesurée sur une lame réelle.
+#: Différent de `TIMBRE_CC` : 64 n'est pas « le défaut ». Le défaut, sans aucun
+#: message CC 74 et sans l'argument `pompe`, est F = 0 : le son d'avant, à
+#: l'échantillon près. Même lissage (`TAU_TIMBRE_S`) que les CC 70 à 73 ; seule
+#: l'anche libre en sortie rayonnée l'entend. Le bilan de la chambre et la lame
+#: ne changent pas : ni l'accord ni la dynamique.
+POMPE_CC = (74, 0.0, 0.8, 1.6,
+            "débit déplacé par la lame (S_eff = F x largeur x longueur)")
+CC_POMPE = POMPE_CC[0]
+
+
+def facteur_pompe(valeur_cc):
+    """Valeur de CC 74 (0 à 127) → F, linéaire : 0 → 0, 64 → 0,8, 127 → 1,6."""
+    _, f0, f64, f127, _ = POMPE_CC
+    v = float(np.clip(valeur_cc, 0, 127))
+    if v <= 64.0:
+        return float(f0 + (f64 - f0) * v / 64.0)
+    return float(f64 + (f127 - f64) * (v - 64.0) / 63.0)
+
 
 def facteur_timbre(nom, valeur_cc):
     """Valeur de CC (0 à 127) → facteur multiplicatif du défaut, en échelle
@@ -719,7 +754,8 @@ def facteur_timbre(nom, valeur_cc):
     return float(fmax ** ((v - 64.0) / 63.0))
 
 
-def params_timbre(base, chambre=1.0, largeur=1.0, q=1.0, jeu=1.0, accord=1.0):
+def params_timbre(base, chambre=1.0, largeur=1.0, q=1.0, jeu=1.0, accord=1.0,
+                  pompe=None):
     """Copie de `base` (structure C d'une note d'anche libre) avec les quatre
     facteurs de timbre. Tous à 1.0 (ou famille sans anche libre) : `base`
     elle-même, donc le son par défaut est celui d'avant, à l'échantillon près.
@@ -731,13 +767,21 @@ def params_timbre(base, chambre=1.0, largeur=1.0, q=1.0, jeu=1.0, accord=1.0):
     - jeu : `clear` × facteur.
     - accord : facteur de la fréquence propre de la lame (`accord_pour`),
       1.0 par défaut.
+    - pompe : F, facteur du débit déplacé par la lame (`POMPE_CC`) :
+      `pump_area` = F × surface de force de la lame. `None` : celui de `base`.
     """
     info = getattr(base, 'base_anche', None)
-    if info is None or (chambre == 1.0 and largeur == 1.0 and q == 1.0
-                        and jeu == 1.0 and accord == 1.0):
+    if info is None:
+        return base
+    surface = getattr(base, 'surface_force', 0.0)
+    aire = base.pump_area if pompe is None else float(pompe) * surface
+    if (chambre == 1.0 and largeur == 1.0 and q == 1.0
+            and jeu == 1.0 and accord == 1.0 and aire == base.pump_area):
         return base
     cp = _Params.from_buffer_copy(base)
     cp.base_anche = info
+    cp.surface_force = surface
+    cp.pump_area = aire
     cp._base = base                     # le tableau de modes reste vivant
     if base.cavity_gain > 0.0:
         cp.cavity_gain = base.cavity_gain / chambre
@@ -1163,7 +1207,7 @@ class Synth:
     """
 
     def __init__(self, instrument: Instrument, polyphony=6, gain=0.5,
-                 soufflet='auto', p_max=3000.0, timbre=None):
+                 soufflet='auto', p_max=3000.0, timbre=None, pompe=0.0):
         self.inst = instrument
         self.voices = [Voice() for _ in range(int(polyphony))]
         self.gain = float(gain)
@@ -1198,6 +1242,8 @@ class Synth:
         self._tim_lisse = {k: 0.0 for k in TIMBRE_CC}
         for nom, valeur in (timbre or {}).items():
             self.regler_timbre(nom, valeur)
+        # Débit déplacé par la lame : F, cible et valeur lissée (linéaire).
+        self._pompe_cible = self._pompe_lisse = float(pompe)
 
     # -- timbre --------------------------------------------------------------
     def regler_timbre(self, nom, valeur_cc):
@@ -1224,8 +1270,19 @@ class Synth:
         if not any(v.active for v in self.voices):
             self._tim_lisse[nom] = self._tim_cible[nom]
 
+    def regler_pompe(self, F):
+        """Fixe F, le facteur du débit déplacé par la lame (`POMPE_CC`), lissé
+        comme les réglages de timbre ; pris tout de suite sans voix active."""
+        self._pompe_cible = float(F)
+        if not any(v.active for v in self.voices):
+            self._pompe_lisse = self._pompe_cible
+
     def timbre_cc(self, cc, valeur):
-        """Un message CC : `True` s'il était un CC de timbre (`TIMBRE_CC`)."""
+        """Un message CC : `True` s'il était un CC de timbre (`TIMBRE_CC`) ou
+        le CC 74 de la pompe (`POMPE_CC`)."""
+        if int(cc) == CC_POMPE:
+            self.regler_pompe(facteur_pompe(valeur))
+            return True
         nom = CC_TIMBRE.get(int(cc))
         if nom is None:
             return False
@@ -1243,14 +1300,19 @@ class Synth:
         (`accord_pour`)."""
         t = self.facteurs_timbre()
         t['accord'] = accord_pour(self.inst, note, self._tim_lisse)
+        t['pompe'] = self._pompe_lisse
         return t
 
     def _avancer_timbre(self, n):
         """Rapproche les réglages de leur cible de `n` échantillons ; si l'un
         a bougé, refait les paramètres des voix qui sonnent."""
-        if all(self._tim_lisse[k] == self._tim_cible[k] for k in TIMBRE_CC):
+        if (all(self._tim_lisse[k] == self._tim_cible[k] for k in TIMBRE_CC)
+                and self._pompe_lisse == self._pompe_cible):
             return
         a = 1.0 - float(np.exp(-n / (self.inst.samplerate * TAU_TIMBRE_S)))
+        c, x = self._pompe_cible, self._pompe_lisse
+        x += (c - x) * a
+        self._pompe_lisse = c if abs(c - x) < 1e-4 else x
         for k in TIMBRE_CC:
             c, x = self._tim_cible[k], self._tim_lisse[k]
             x += (c - x) * a
@@ -1442,7 +1504,8 @@ def lire_midi(chemin):
 def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
                 polyphonie=16, par_canal=True, gain=0.5, soufflet='auto',
                 bloc=256, queue_s=1.5, sens=1.0, lo=None, hi=None,
-                samplerate=48000.0, limiteur=True, cc='geste', timbre=None):
+                samplerate=48000.0, limiteur=True, cc='geste', timbre=None,
+                pompe=0.0):
     """Joue un fichier MIDI sur le modèle, hors temps réel, et rend le son.
 
     - `instrument` : un `Instrument`, ou un nom (`'accordeon'`) : l'instrument
@@ -1483,6 +1546,10 @@ def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
       peut les faire bouger ensuite par ses propres CC 70 à 73. **Les défauts
       de ces quatre grandeurs sont provisoires, non mesurés.**
 
+    - `pompe` : F, facteur du débit déplacé par la lame (`POMPE_CC`), 0 par
+      défaut (le son d'avant, à l'échantillon près). Le fichier peut le faire
+      bouger par son CC 74 (64 = 0,8, **provisoire, non mesuré**).
+
     `limiteur=False` rend les canaux linéaires : pour mesurer la crête de la
     somme et en tirer un gain commun, jamais pour écouter.
     """
@@ -1496,7 +1563,7 @@ def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
             samplerate=samplerate)
     sr = float(instrument.samplerate)
     synth = Synth(instrument, polyphony=polyphonie, gain=gain,
-                  soufflet=soufflet, timbre=timbre)
+                  soufflet=soufflet, timbre=timbre, pompe=pompe)
     synth.sens = float(sens)
     if cc not in ('geste', 'pression'):
         raise ValueError("cc : 'geste' ou 'pression', pas %r" % (cc,))
@@ -1866,6 +1933,10 @@ def main(argv=None):
                        help=f"CC {cc_n} : {grandeur}, de x{fmin:g} (0) à "
                             f"x{fmax:g} (127), 64 = défaut (provisoire, non "
                             f"mesuré)")
+    p.add_argument('--pompe', type=float, default=0.0, metavar='F',
+                   help=f"CC {CC_POMPE} : facteur F du débit déplacé par la "
+                        f"lame (S_eff = F x largeur x longueur), 0 = sans "
+                        f"(défaut) ; CC 64 = 0,8 (provisoire, non mesuré)")
     args = p.parse_args(argv)
     timbre = {nom: getattr(args, 'cc_' + nom) for nom in TIMBRE_CC}
 
@@ -1914,7 +1985,8 @@ def main(argv=None):
                                 samplerate=args.sr, a4_hz=args.la,
                                 tune=not args.brut)
     synth = Synth(inst, polyphony=args.polyphonie, gain=args.gain,
-                  soufflet=None if args.sans_soufflet else 'auto', timbre=timbre)
+                  soufflet=None if args.sans_soufflet else 'auto', timbre=timbre,
+                  pompe=args.pompe)
 
     if args.midi_fichier:
         if not args.wav:
@@ -1925,7 +1997,7 @@ def main(argv=None):
                              gain=args.gain, par_canal=True,
                              soufflet=None if args.sans_soufflet else 'auto',
                              cc='pression' if args.cc_pression else 'geste',
-                             timbre=timbre)
+                             timbre=timbre, pompe=args.pompe)
         mix = np.sum(list(canaux.values()), axis=0)
         _ecrire_wav(args.wav, mix, inst.samplerate)
         print(f"→ {args.wav}  ({len(mix) / inst.samplerate:.1f} s, canaux "

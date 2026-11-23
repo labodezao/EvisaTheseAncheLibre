@@ -248,6 +248,16 @@ class RealtimeParams:
     clearance_m: float = 0.0
     reed_area_m2: float = 0.0
     source_impedance: float = 0.0                  # 0 = source parfaite
+    #: surface de force de la lame, `largeur × longueur de la lame` (celle qui
+    #: sert à `closing_pressure_pa` : `FreeReedExciter.force_area_m2`).
+    force_area_m2: float = 0.0
+    #: débit déplacé par la lame elle-même (anche libre, sortie rayonnée) :
+    #: facteur F sans unité, `S_eff = F × force_area_m2`, et le débit rayonné
+    #: est le débit de fente **moins** `S_eff × vitesse de la lame` dans le
+    #: signe du débit net injecté (c'est le débit sortant de la chambre plus
+    #: `S_eff × vitesse`, y > 0 ouvrant la fente). 0 (défaut) : le son d'avant,
+    #: à l'échantillon près. Le bilan de la chambre et la lame ne changent pas.
+    pompe: float = 0.0
 
     # excitateur — archet
     mu_static: float = 0.8
@@ -264,6 +274,11 @@ class RealtimeParams:
     @property
     def fs_internal(self):
         return self.samplerate * self.oversample
+
+    @property
+    def pump_area_m2(self):
+        """`S_eff = F × largeur × longueur de la lame`, en m²."""
+        return float(self.pompe) * float(self.force_area_m2)
 
     @property
     def sections_antirepliement(self):
@@ -315,7 +330,7 @@ OVERSAMPLE_MIN = {FAMILY_SINGLE_REED: 4, FAMILY_FREE_REED: 4, FAMILY_BOW: 8}
 
 
 def params_from_voice(voice: HybridVoice, samplerate=48000.0, oversample=None,
-                      name=None, sortie=None):
+                      name=None, sortie=None, pompe=0.0):
     """Traduit une `HybridVoice` continue en jeu de paramètres embarquables.
 
     `oversample=None` prend le minimum sûr de la famille (`OVERSAMPLE_MIN`).
@@ -329,6 +344,9 @@ def params_from_voice(voice: HybridVoice, samplerate=48000.0, oversample=None,
 
     `sortie` : `SORTIE_RAYONNEE` ou `SORTIE_PRESSION` (défaut de la famille,
     cf. `sortie_par_defaut`).
+
+    `pompe` : facteur F du débit déplacé par la lame (`RealtimeParams.pompe`),
+    0 par défaut. Il ne joue que pour l'anche libre en sortie rayonnée.
     """
     ex = voice.exciter
     fam = (FAMILY_BOW if isinstance(ex, BowExciter)
@@ -364,6 +382,8 @@ def params_from_voice(voice: HybridVoice, samplerate=48000.0, oversample=None,
         p.tongue_m = ex.tongue_m
         p.clearance_m = ex.clearance_m
         p.reed_area_m2 = ex.area_m2
+        p.force_area_m2 = float(ex.force_area_m2)
+        p.pompe = float(pompe)
         p.source_impedance = (ex.source_impedance
                               if np.isfinite(ex.source_impedance) else 0.0)
         # raideur équivalente : la pression qui déplacerait la languette de h₀
@@ -434,6 +454,8 @@ class RealtimeVoice:
         self.drive = 0.0
         self._kick = True
         self._net_prec = None       # débit net au dernier échantillon de sortie
+        self._y_prec = None         # position de la lame au pas précédent
+        self._y_anche = 0.0         # position de la lame au pas courant
 
     # -- la non-linéarité, la seule chose qui coûte --------------------------
     def _exciter(self, response, level):
@@ -454,6 +476,7 @@ class RealtimeVoice:
 
         # anche libre : la pression l'ouvre, la soupape interdit le retour
         y = self.reed.step(response)
+        self._y_anche = y
         z = p.rest_opening_m + y
         if p.loi == LOI_TRAVERSANTE:
             # la languette traverse sa fente (`coupled_reeds.ReedSetting.gap`,
@@ -508,11 +531,20 @@ class RealtimeVoice:
                     self.cavity += drive / (p.compliance * p.fs_internal)
                     self.cavity *= 0.99999      # fuite lente : évite la dérive continue
                 self.response = acoustic + self.cavity
+                src = drive
+                if p.family == FAMILY_FREE_REED:
+                    # vitesse de la lame : différence arrière au pas interne
+                    if self._y_prec is None:
+                        self._y_prec = self._y_anche
+                    if rayonnee and p.pump_area_m2 != 0.0:
+                        src = drive - p.pump_area_m2 * (
+                            self._y_anche - self._y_prec) * fs_int
+                    self._y_prec = self._y_anche
                 if rayonnee:
                     if self._net_prec is None:
-                        self._net_prec = drive
-                    x = (drive - self._net_prec) * fs_int
-                    self._net_prec = drive
+                        self._net_prec = src
+                    x = (src - self._net_prec) * fs_int
+                    self._net_prec = src
                 else:
                     x = self.response
                 y = self.aa.step(x)
@@ -671,6 +703,11 @@ typedef struct {
     float tongue;                /* m, épaisseur de la lame au bout */
     float clear;                 /* m, jeu latéral languette/fente */
 
+    /* débit déplacé par la lame : S_eff = F * largeur * longueur de lame, m2.
+     * 0 (défaut d'une structure remise à zéro) : pas de pompe. Anche libre,
+     * sortie rayonnée seulement. */
+    float pump_area;
+
     /* filtre anti-repliement avant décimation : n_aa sections d'ordre 2
      * (elliptique, calculé en Python à la construction). n_aa = 0 : aucun
      * filtre (oversample = 1). */
@@ -687,6 +724,8 @@ typedef struct {
     int   kicked;
     float net_prec;              /* débit net au dernier pas interne */
     int   net_ok;                /* 0 : pas encore de débit précédent */
+    float y_prev;                /* position de la lame au pas précédent */
+    int   y_ok;                  /* 0 : pas encore de position précédente */
 } hv_state;
 
 void hv_reset(hv_state *st);
@@ -731,12 +770,15 @@ void hv_reset(hv_state *st)
     st->kicked = 0;
     st->net_prec = 0.0f;
     st->net_ok = 0;
+    st->y_prev = 0.0f;
+    st->y_ok = 0;
 }
 
 /* La non-linéarité : le seul endroit où l'instrument cesse d'être un filtre. */
 static inline float hv_exciter(const hv_params *p, hv_state *st,
-                               float response, float level)
+                               float response, float level, float *y_lame)
 {
+    *y_lame = 0.0f;
     if (p->family == HV_FAMILY_BOW) {
         const float v_rel = p->bow_speed - response;
         const float av = v_rel < 0.0f ? -v_rel : v_rel;
@@ -779,6 +821,7 @@ static inline float hv_exciter(const hv_params *p, hv_state *st,
         if (response > 0.0f)
             q_out = p->flow_gain * h * response / sqrtf(response + p->visc_pa);
         if (p->src_admit > 0.0f) q_src -= response * p->src_admit;
+        *y_lame = y;
         return q_src - q_out;
     }
 }
@@ -791,9 +834,13 @@ void hv_render(const hv_params *p, hv_state *st, float level,
     for (i = 0; i < n; ++i) {
         float y = 0.0f;
         for (k = 0; k < p->oversample; ++k) {
-            float acoustic = 0.0f, drive, x;
+            float acoustic = 0.0f, drive, x, y_lame, src;
             if (!st->kicked) { st->response += 1e-6f; st->kicked = 1; }
-            drive = hv_exciter(p, st, st->response, level);
+            drive = hv_exciter(p, st, st->response, level, &y_lame);
+            if (p->family == HV_FAMILY_FREE_REED && !st->y_ok) {
+                st->y_prev = y_lame;         /* vitesse nulle au premier pas */
+                st->y_ok = 1;
+            }
             for (m = 0; m < p->n_modes; ++m)
                 acoustic += bq_step(&p->modes[m], &st->z[m], drive);
             if (p->cavity_gain > 0.0f) {
@@ -803,11 +850,17 @@ void hv_render(const hv_params *p, hv_state *st, float level,
             if (p->out_mode == HV_OUT_PRESSURE) {
                 x = st->response;
             } else {
-                /* dérivée du débit net au pas interne ; 0 au premier pas */
-                if (!st->net_ok) { st->net_prec = drive; st->net_ok = 1; }
-                x = (drive - st->net_prec) * fs_int;
-                st->net_prec = drive;
+                /* dérivée du débit net au pas interne ; 0 au premier pas. Le
+                 * débit déplacé par la lame (S_eff * vitesse) s'y retranche
+                 * avant la dérivation : même signe que le débit net. */
+                src = drive;
+                if (p->family == HV_FAMILY_FREE_REED && p->pump_area != 0.0f)
+                    src = drive - p->pump_area * (y_lame - st->y_prev) * fs_int;
+                if (!st->net_ok) { st->net_prec = src; st->net_ok = 1; }
+                x = (src - st->net_prec) * fs_int;
+                st->net_prec = src;
             }
+            st->y_prev = y_lame;
             /* passe-bas avant décimation : on ne garde que le dernier pas */
             for (m = 0; m < p->n_aa; ++m)
                 x = bq_step(&p->aa[m], &st->aa_z[m], x);
@@ -902,6 +955,7 @@ def to_c_params(params: RealtimeParams, ident=None):
           f"    .plate = {_f(params.plate_m)},",
           f"    .tongue = {_f(params.tongue_m)},",
           f"    .clear = {_f(params.clearance_m)},",
+          f"    .pump_area = {_f(params.pump_area_m2)},",
           f"    .n_aa = {len(aa)},",
           f"    .aa = {ident}_aa,",
           "};", "",
