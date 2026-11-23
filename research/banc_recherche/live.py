@@ -45,7 +45,7 @@ import numpy as np
 
 from . import hybrid
 from .embedded import (RealtimeParams, params_from_voice, to_c_engine, loi_c,
-                       biquad_bandpass, biquad_lowpass, FAMILY_BOW,
+                       biquad_bandpass, biquad_reed, FAMILY_BOW,
                        FAMILY_SINGLE_REED, FAMILY_FREE_REED, SORTIE_RAYONNEE,
                        SORTIE_PRESSION)
 from .hybrid import RHO
@@ -61,6 +61,11 @@ class _Biquad(ctypes.Structure):
     _fields_ = [(n, ctypes.c_float) for n in ('b0', 'b1', 'b2', 'a1', 'a2')]
 
 
+class _Reed(ctypes.Structure):
+    """Biquad de l'anche (`hv_reed`) : `da1` = a1 + 2, `ea2` = 1 - a2."""
+    _fields_ = [(n, ctypes.c_float) for n in ('b0', 'b1', 'b2', 'da1', 'ea2')]
+
+
 class _BqState(ctypes.Structure):
     _fields_ = [('z1', ctypes.c_float), ('z2', ctypes.c_float)]
 
@@ -70,7 +75,7 @@ class _Params(ctypes.Structure):
         ('family', ctypes.c_int), ('n_modes', ctypes.c_int),
         ('oversample', ctypes.c_int),
         ('modes', ctypes.POINTER(_Biquad)),
-        ('reed', _Biquad),
+        ('reed', _Reed),
         ('rest_opening', ctypes.c_float), ('width', ctypes.c_float),
         ('vena', ctypes.c_float), ('max_open', ctypes.c_float),
         ('leak', ctypes.c_float), ('src_admit', ctypes.c_float),
@@ -241,12 +246,12 @@ def _to_c_params(p: RealtimeParams):
         modes[i] = _Biquad(*[float(x) for x in c])
 
     if p.family == FAMILY_BOW:
-        reed = _Biquad(0., 0., 0., 0., 0.)
+        reed = _Reed(0., 0., 0., 0., 0.)
     else:
         signe = -1.0 if p.family == FAMILY_SINGLE_REED else 1.0
-        c = biquad_lowpass(p.reed_freq_hz, p.reed_q,
-                           signe * p.rest_opening_m / p.closing_pressure_pa, fs)
-        reed = _Biquad(*[float(x) for x in (c or (0.,) * 5)])
+        reed = _Reed(*biquad_reed(
+            p.reed_freq_hz, p.reed_q,
+            signe * p.rest_opening_m / p.closing_pressure_pa, fs))
 
     cp = _Params()
     cp.family = int(p.family)
@@ -270,6 +275,10 @@ def _to_c_params(p: RealtimeParams):
     cp.fs_out = float(p.samplerate)
     cp.free_law = loi_c(p)
     cp.plate, cp.tongue, cp.clear = p.plate_m, p.tongue_m, p.clearance_m
+    if p.family == FAMILY_FREE_REED:
+        # de quoi refaire le biquad de l'anche quand son Q change (CC de timbre)
+        cp.base_anche = (p.reed_freq_hz, p.reed_q,
+                         p.rest_opening_m / p.closing_pressure_pa, fs)
     return cp, modes
 
 
@@ -304,6 +313,9 @@ class Instrument:
     fingerings: list = field(default_factory=list, repr=False)
     _params: dict = field(default_factory=dict, repr=False)
     _keep: list = field(default_factory=list, repr=False)
+    #: accord des réglages de timbre (anche libre) : `{note: tableau}`, voir
+    #: `table_accord_timbre`. Vide : le timbre ne retouche pas la lame.
+    accord_timbre: dict = field(default_factory=dict, repr=False)
 
     def params_for(self, note):
         """Structure C de la note, ou de la plus proche disponible.
@@ -412,7 +424,7 @@ def niveau_nominal(ex) -> float:
 
 def build_instrument(name="clarinette", lo=36, hi=96, samplerate=48000.0,
                      a4_hz=440.0, on_progress=None, tune=True, sortie=None,
-                     **kw):
+                     accord_timbre=True, **kw):
     """Prépare un instrument jouable : une perce par demi-ton.
 
     Chaque note a **sa propre géométrie** — c'est un modèle physique, pas un
@@ -427,6 +439,10 @@ def build_instrument(name="clarinette", lo=36, hi=96, samplerate=48000.0,
     l'anche libre (accordéon), le rayonnement, dérivée du débit net
     (`embedded.SORTIE_RAYONNEE`). `embedded.SORTIE_PRESSION` redonne l'ancienne
     sortie, la pression de la chambre, pour comparer.
+
+    `accord_timbre` (anche libre accordée seulement) : calcule, ou relit de son
+    cache, le tableau qui ramène la lame à sa note quand un CC de timbre
+    bouge (`table_accord_timbre`). `False` pour s'en passer.
     """
     voix_ref = hybrid.build(name)
     ex = voix_ref.exciter
@@ -453,6 +469,8 @@ def build_instrument(name="clarinette", lo=36, hi=96, samplerate=48000.0,
             on_progress(n - inst.lo + 1, inst.hi - inst.lo + 1)
 
     inst.output_scale = _mesurer_echelle(inst)
+    if tune and accord_timbre:
+        inst.accord_timbre = table_accord_timbre(inst)
     return inst
 
 
@@ -612,12 +630,411 @@ def _mesurer_echelle(inst: Instrument, notes=None):
 # Polyphonie
 # =============================================================================
 
+# =============================================================================
+# Réglages de timbre de l'accordéon, pilotés en CC MIDI
+# =============================================================================
+
+#: LA table des CC de timbre (24/11/2026, ordre 7 de la feuille de route).
+#: `nom: (numéro de CC, facteur à CC 0, facteur à CC 127, grandeur réglée)`.
+#:
+#: Chaque réglage est un **facteur multiplicatif** de la valeur par défaut du
+#: modèle, en échelle logarithmique : CC 64 = facteur 1 (le défaut, à
+#: l'échantillon près), CC 0 = facteur mini, CC 127 = facteur maxi.
+#:
+#: **Les valeurs par défaut de ces quatre grandeurs sont provisoires, non
+#: mesurées sur une lame réelle** (volume de chambre : 40 cm³ à 110 Hz ; largeur
+#: de lame : 4,8 mm ; Q : 60 ; jeu : 15 µm). Ce sont des réglages de timbre, pas
+#: des cotes d'instrument : leur facteur 1 n'est pas une mesure.
+#:
+#: Les numéros 70 à 73 sont ceux des « sound controllers » du MIDI ; aucun
+#: n'était lu par le moteur (il lit 2, 11 et 123). Seule l'anche libre a ces
+#: réglages ; les autres familles les ignorent.
+#:
+#: Effets mesurés hors moteur : volume x2 et largeur x0,5 baissent chacun le
+#: spectre d'environ 5 dB et ralentissent la montée ; Q règle le temps de
+#: réponse des graves ; le jeu a peu d'effet.
+TIMBRE_CC = {
+    'chambre': (70, 0.5, 2.0, "volume de la chambre de l'anche"),
+    'largeur': (71, 0.5, 2.0, "largeur de la lame"),
+    'q':       (72, 0.5, 2.0, "facteur de qualité Q de la lame"),
+    'jeu':     (73, 0.5, 3.0, "jeu latéral lame / fente"),
+}
+#: numéro de CC → nom du réglage
+CC_TIMBRE = {v[0]: k for k, v in TIMBRE_CC.items()}
+#: constante de temps du lissage d'un CC de timbre, en s
+TAU_TIMBRE_S = 0.02
+
+
+def facteur_timbre(nom, valeur_cc):
+    """Valeur de CC (0 à 127) → facteur multiplicatif du défaut, en échelle
+    logarithmique : 64 donne exactement 1.0, 0 le facteur mini, 127 le maxi."""
+    _, fmin, fmax, _ = TIMBRE_CC[nom]
+    v = float(np.clip(valeur_cc, 0, 127))
+    if v == 64.0:
+        return 1.0
+    if v < 64.0:
+        return float(fmin ** ((64.0 - v) / 64.0))
+    return float(fmax ** ((v - 64.0) / 63.0))
+
+
+def params_timbre(base, chambre=1.0, largeur=1.0, q=1.0, jeu=1.0, accord=1.0):
+    """Copie de `base` (structure C d'une note d'anche libre) avec les quatre
+    facteurs de timbre. Tous à 1.0 (ou famille sans anche libre) : `base`
+    elle-même, donc le son par défaut est celui d'avant, à l'échantillon près.
+
+    - chambre : compliance ∝ volume, donc `cavity_gain` ÷ facteur ;
+    - largeur : `flow_gain` et `width` × facteur ;
+    - q : biquad de l'anche refait avec Q × facteur (même fréquence, même gain
+      statique) ;
+    - jeu : `clear` × facteur.
+    - accord : facteur de la fréquence propre de la lame (`accord_pour`),
+      1.0 par défaut.
+    """
+    info = getattr(base, 'base_anche', None)
+    if info is None or (chambre == 1.0 and largeur == 1.0 and q == 1.0
+                        and jeu == 1.0 and accord == 1.0):
+        return base
+    cp = _Params.from_buffer_copy(base)
+    cp.base_anche = info
+    cp._base = base                     # le tableau de modes reste vivant
+    if base.cavity_gain > 0.0:
+        cp.cavity_gain = base.cavity_gain / chambre
+    cp.width = base.width * largeur
+    cp.flow_gain = base.flow_gain * largeur
+    cp.clear = base.clear * jeu
+    if q != 1.0 or accord != 1.0:
+        f, q0, gain, fs = info
+        cp.reed = _Reed(*biquad_reed(f * accord, q0 * q, gain, fs))
+    return cp
+
+
+# -----------------------------------------------------------------------------
+# L'accord suit le timbre : la lame est retouchée pour que la note reste juste
+# -----------------------------------------------------------------------------
+#
+# Chambre, largeur de lame et Q déplacent la hauteur de la note de quelques
+# cents (jusqu'à 50 aux bornes, dans l'aigu) : l'accord se fait une fois, à la
+# construction, avec les réglages par défaut. Un accordeur, après avoir changé
+# la chambre ou la lame, retouche la lame pour ramener la note. C'est ce
+# geste : la **fréquence propre de la lame** est corrigée selon les réglages.
+#
+# Mesuré (accordeon/cc_accord) : la somme des dérives de chaque CC seul ne
+# prédit pas celle d'une combinaison (jusqu'à 26 cents d'écart à la note 84,
+# chambre et Q à 0). Le tableau est donc tabulé en trois dimensions, chambre x
+# largeur x Q, par note, sur la hauteur mesurée du modèle. Le jeu de fente (CC 73) déplace la hauteur de 0,4 cent au
+# plus : pas de correction.
+
+#: réglages tabulés et valeurs de CC de leur grille
+ACCORD_GRILLE = {
+    'chambre': (0, 16, 32, 48, 64, 80, 96, 112, 127),
+    'largeur': (0, 64, 127),
+    'q':       (0, 16, 32, 48, 64, 80, 96, 112, 127),
+}
+ACCORD_NOMS = tuple(ACCORD_GRILLE)
+#: durée rendue pour mesurer une hauteur, s, et début de la fenêtre analysée :
+#: dans le grave à Q élevé, la hauteur met plus d'une seconde à se poser (note
+#: 45, Q 127 : -4,0 cents à 0,5-1 s, -5,5 à 1-1,5 s, -5,8 à 1,5-2 s)
+ACCORD_DUREE_S = 2.5
+ACCORD_DEBUT_S = 1.5
+#: à changer quand une modification de ce bloc change les chiffres du tableau
+ACCORD_VERSION = 4
+
+
+def _hauteur_longue(y, fs, f_nom):
+    """Fréquence (Hz) d'un signal périodique, par autocorrélation sur un long
+    retard : le pic de `m` périodes est localisé à un échantillon près, donc la
+    période à 1/m d'échantillon (m allant jusqu'à une vingtaine). Cherché
+    autour de la hauteur nominale `f_nom` (écart toléré : un quart de période).
+    `nan` si le signal est vide ou non périodique."""
+    y = np.asarray(y, dtype='float64')
+    y = y - y.mean()
+    n = y.size
+    if n < 64 or float(np.std(y)) < 1e-12:
+        return float('nan')
+    m_fft = 1 << int(np.ceil(np.log2(2 * n)))
+    F = np.fft.rfft(y, m_fft)
+    ac = np.fft.irfft(F * np.conj(F), m_fft)[:n]
+    ac = ac / ac[0]
+
+    def pic(k0, w):
+        k0 = int(round(k0))
+        lo, hi = max(k0 - w, 2), min(k0 + w, n - 2)
+        if hi <= lo:
+            return None
+        k = lo + int(np.argmax(ac[lo:hi + 1]))
+        a, b, c = ac[k - 1], ac[k], ac[k + 1]
+        den = a - 2.0 * b + c
+        return k + (0.5 * (a - c) / den if den < 0.0 else 0.0), b
+
+    T = fs / float(f_nom)
+    r = pic(T, max(int(T / 4.0), 2))
+    if r is None or r[1] < 0.3:
+        return float('nan')
+    T1, m = r[0], 1
+    m_max = int(0.45 * n / T1)
+    while m < m_max:
+        m2 = min(4 * m, m_max)
+        r = pic(m2 * T1, max(int(T1 / 4.0), 2))
+        if r is None:
+            break
+        T1, m = r[0] / m2, m2
+    return float(fs / T1)
+
+
+def _hauteur_note(base, niveau, f_nom, samplerate, dur=ACCORD_DUREE_S):
+    """Hauteur (Hz) que joue `base` à `niveau`, sur la pression de chambre,
+    comme `_frequence_jouee` (mêmes raisons), mais mesurée par
+    `_hauteur_longue`, sur la fenêtre qui commence à `ACCORD_DEBUT_S`. `nan` si
+    rien ne sort."""
+    mesure = _Params()
+    ctypes.memmove(ctypes.byref(mesure), ctypes.byref(base),
+                   ctypes.sizeof(base))
+    mesure.out_mode = 1
+    v = Voice()
+    v.note_on(mesure, 60, niveau)
+    n = int(dur * samplerate)
+    buf = np.zeros(1024, dtype=np.float32)
+    x = np.empty(n, dtype=np.float32)
+    for i in range(0, n, 1024):
+        buf[:] = 0.0
+        v.render(buf)
+        x[i:i + 1024] = buf[:min(1024, n - i)]
+    return _hauteur_longue(x[int(ACCORD_DEBUT_S * samplerate):], samplerate,
+                           f_nom)
+
+
+def _facteurs_grille(i, j, k):
+    return dict(chambre=facteur_timbre('chambre', ACCORD_GRILLE['chambre'][i]),
+                largeur=facteur_timbre('largeur', ACCORD_GRILLE['largeur'][j]),
+                q=facteur_timbre('q', ACCORD_GRILLE['q'][k]))
+
+
+def _ecart_cents(base, fac, lg, niveau, f_nom, samplerate, f_ref):
+    """Écart de hauteur (cents) à `f_ref`, la lame retouchée de `lg` (ln du
+    facteur de fréquence) ; `nan` si la note ne sonne pas."""
+    f = _hauteur_note(params_timbre(base, accord=float(np.exp(lg)), **fac),
+                      niveau, f_nom, samplerate)
+    return 1200.0 * float(np.log2(f / f_ref)) if f > 0.0 else float('nan')
+
+
+#: pas de tâtonnement de la lame (ln de la fréquence) quand la sécante ne
+#: suffit pas : 0,0004 vaut un peu moins d'un cent de lame
+ACCORD_PAS = 0.0004
+
+
+def _tableau_note(base, niveau, f_nom, samplerate, tolerance_cents=0.3):
+    """Le tableau d'une note : `ln(facteur de fréquence de lame)` qui ramène la
+    hauteur jouée à celle des réglages par défaut, pour chaque point de la
+    grille. Mesuré sur le moteur, point par point.
+
+    La hauteur jouée suit la lame d'un pour un, continûment (le biquad de
+    l'anche du moteur C n'avait pas la finesse : marches de 4 cents à la note
+    45, cf. `embedded.hv_reed`). On part de la correction du voisin, on se
+    rapproche à la sécante, puis, si l'écart reste au-dessus de
+    `tolerance_cents`, on tâte la lame de part et d'autre par pas de
+    `ACCORD_PAS` pour trouver le palier le plus proche, dont on prend le
+    milieu (filet de sécurité). Un point où la note ne sonne pas ou reste à
+    plus de 3 cents reste à 0. Rend `(tableau, pire écart en cents sur les points gardés, nombre de
+    points sans mesure)`.
+    """
+    f_ref = _hauteur_note(base, niveau, f_nom, samplerate)
+    ng = [len(ACCORD_GRILLE[nom]) for nom in ACCORD_NOMS]
+    tab = np.zeros(ng)
+    if not np.isfinite(f_ref):
+        return tab, 0.0, int(np.prod(ng))
+    K0 = 1200.0 / np.log(2.0) * 0.93                 # cents par unité de ln
+    pire, perdus, lg = 0.0, 0, 0.0
+
+    for i in range(ng[0]):
+        for jj in range(ng[1]):
+            j = jj if i % 2 == 0 else ng[1] - 1 - jj     # va-et-vient : le
+            for kk in range(ng[2]):                      # voisin reste proche
+                k = kk if (i * ng[1] + jj) % 2 == 0 else ng[2] - 1 - kk
+                cc = (ACCORD_GRILLE['chambre'][i], ACCORD_GRILLE['largeur'][j],
+                      ACCORD_GRILLE['q'][k])
+                if cc == (64, 64, 64):
+                    lg = 0.0
+                    continue
+                fac = _facteurs_grille(i, j, k)
+                vus = {}
+
+                def ecart(x):
+                    x = round(float(x), 6)
+                    if x not in vus:
+                        vus[x] = _ecart_cents(base, fac, x, niveau, f_nom,
+                                              samplerate, f_ref)
+                    return vus[x]
+
+                K, prec, x = K0, None, lg
+                for _ in range(4):
+                    d = ecart(x)
+                    if not np.isfinite(d) or abs(d) <= tolerance_cents:
+                        break
+                    if prec is not None and abs(x - prec[0]) > 1e-9:
+                        K = float(np.clip((d - prec[1]) / (x - prec[0]),
+                                          0.4 * K0, 2.0 * K0))
+                    pas = d / K
+                    if prec is not None and abs(d - prec[1]) < 0.25:
+                        pas = np.sign(d) * max(abs(pas), ACCORD_PAS)
+                    prec = (x, d)
+                    x -= pas
+                bons = {u: v for u, v in vus.items() if np.isfinite(v)}
+                if not bons:
+                    perdus += 1
+                    lg = 0.0
+                    continue
+                u0 = min(bons, key=lambda u: abs(bons[u]))
+                if abs(bons[u0]) > tolerance_cents:
+                    for sens in (-1.0, 1.0):          # on tâte la lame
+                        for m in (1, 2, 3):
+                            e = ecart(u0 + sens * m * ACCORD_PAS)
+                            if not np.isfinite(e) or abs(e) > abs(bons[u0]) + 1.0:
+                                break
+                    bons = {u: v for u, v in vus.items() if np.isfinite(v)}
+                    u0 = min(bons, key=lambda u: abs(bons[u]))
+                # le milieu des essais qui valent le meilleur
+                egaux = [u for u, v in bons.items()
+                         if abs(abs(v) - abs(bons[u0])) < 0.15
+                         and abs(u - u0) <= 3 * ACCORD_PAS]
+                lg = float(np.mean(egaux))
+                d = ecart(lg) if round(lg, 6) in vus else _ecart_cents(
+                    base, fac, lg, niveau, f_nom, samplerate, f_ref)
+                if np.isfinite(d) and abs(d) <= 3.0:
+                    tab[i, j, k] = lg
+                    pire = max(pire, abs(d))
+                else:
+                    perdus += 1
+                    lg = 0.0
+    return tab, pire, perdus
+
+
+def _cle_accord(inst, notes):
+    h = hashlib.sha1()
+    h.update(repr((ACCORD_VERSION, ACCORD_GRILLE, ACCORD_DUREE_S, ACCORD_DEBUT_S,
+                   inst.name,
+                   inst.samplerate, inst.a4_hz, inst.level_default,
+                   TIMBRE_CC)).encode())
+    for n in notes:
+        p = inst._params[n]
+        h.update(repr((n, getattr(p, 'base_anche', None), p.cavity_gain,
+                       p.width, p.flow_gain, p.clear, p.rest_opening, p.vena,
+                       p.max_open, p.leak, p.src_admit, p.visc_pa, p.plate,
+                       p.tongue, p.oversample)).encode())
+    return h.hexdigest()[:16]
+
+
+def dossier_cache():
+    """Où `table_accord_timbre` garde ses tableaux : la variable
+    d'environnement `BANC_RECHERCHE_CACHE`, sinon `research/.cache_banc/`
+    (ignoré par git)."""
+    d = os.environ.get('BANC_RECHERCHE_CACHE')
+    return pathlib.Path(d) if d else (pathlib.Path(__file__).resolve()
+                                      .parent.parent / '.cache_banc')
+
+
+def table_accord_timbre(inst, cache=True, fils=None, rapport=None):
+    """Tableau d'accord du timbre pour toutes les notes d'un instrument à anche
+    libre : `{note: ndarray (chambre, largeur, Q)}` de `ln(facteur de
+    fréquence de lame)`, à passer à `params_timbre(accord=exp(...))`.
+
+    Mesuré sur le moteur (cf. `_tableau_note`), une note par fil : l'appel C
+    rend le verrou de Python. Calculé une fois puis gardé dans
+    `dossier_cache()`, sous une clé qui dépend des paramètres des notes et de
+    la grille. Instrument sans anche libre : `{}`. `rapport`, s'il est donné
+    (un dict), reçoit `ecart_max_cents`, `points_sans_mesure`, `secondes`,
+    `depuis_cache`.
+    """
+    import time
+    notes = sorted(n for n, p in inst._params.items()
+                   if getattr(p, 'base_anche', None) is not None)
+    if not notes:
+        return {}
+    cle = _cle_accord(inst, notes)
+    fichier = dossier_cache() / ('accord_%s_%s.npz' % (inst.name, cle))
+    if cache and fichier.exists():
+        with np.load(fichier) as z:
+            if list(z['notes']) == notes:
+                if rapport is not None:
+                    rapport.update(depuis_cache=True, ecart_max_cents=float(
+                        z['ecart_max']), points_sans_mesure=int(z['perdus']))
+                return {n: z['tab'][i] for i, n in enumerate(notes)}
+    from concurrent.futures import ThreadPoolExecutor
+    t0 = time.perf_counter()
+
+    def une(n):
+        return _tableau_note(inst._params[n], inst.level_default,
+                             midi_to_hz(n, inst.a4_hz), inst.samplerate)
+
+    nfils = fils or min(16, os.cpu_count() or 1)
+    with ThreadPoolExecutor(max_workers=nfils) as ex:
+        res = list(ex.map(une, notes))
+    tabs = np.array([r[0] for r in res])
+    pire = max(r[1] for r in res)
+    perdus = sum(r[2] for r in res)
+    if cache:
+        try:
+            fichier.parent.mkdir(parents=True, exist_ok=True)
+            np.savez(fichier, notes=np.array(notes), tab=tabs,
+                     ecart_max=pire, perdus=perdus)
+        except OSError:
+            pass                      # pas de cache : on le recalculera
+    if rapport is not None:
+        rapport.update(depuis_cache=False, ecart_max_cents=float(pire),
+                       points_sans_mesure=int(perdus),
+                       secondes=time.perf_counter() - t0)
+    return {n: tabs[i] for i, n in enumerate(notes)}
+
+
+def _cc_de_facteur(nom, ln_facteur):
+    """Inverse de `facteur_timbre`, sur le logarithme du facteur."""
+    _, fmin, fmax, _ = TIMBRE_CC[nom]
+    x = float(ln_facteur)
+    if x <= 0.0:
+        return 64.0 - 64.0 * x / float(np.log(fmin))
+    return 64.0 + 63.0 * x / float(np.log(fmax))
+
+
+def accord_pour(inst, note, ln_facteurs):
+    """Facteur de fréquence de lame qui garde `note` à sa hauteur quand les
+    réglages valent `ln_facteurs` (`{nom: ln du facteur}`, ceux de
+    `Synth._tim_lisse`) : interpolation trilinéaire du tableau, dans l'espace
+    des valeurs de CC. Tous les réglages à leur défaut : exactement 1.0."""
+    if not inst.accord_timbre or all(ln_facteurs[nom] == 0.0
+                                     for nom in ACCORD_NOMS):
+        return 1.0
+    n = int(np.clip(int(note), min(inst.accord_timbre),
+                    max(inst.accord_timbre)))
+    tab = inst.accord_timbre.get(n)
+    if tab is None:
+        n = min(inst.accord_timbre, key=lambda k: abs(k - n))
+        tab = inst.accord_timbre[n]
+    pos = []
+    for nom in ACCORD_NOMS:
+        g = ACCORD_GRILLE[nom]
+        v = float(np.clip(_cc_de_facteur(nom, ln_facteurs[nom]), g[0], g[-1]))
+        i = max(int(min(np.searchsorted(g, v, side='right') - 1,
+                        len(g) - 2)), 0)
+        pos.append((i, (v - g[i]) / (g[i + 1] - g[i])))
+    total = 0.0
+    for a in (0, 1):
+        for b in (0, 1):
+            for c in (0, 1):
+                w = ((pos[0][1] if a else 1 - pos[0][1])
+                     * (pos[1][1] if b else 1 - pos[1][1])
+                     * (pos[2][1] if c else 1 - pos[2][1]))
+                if w:
+                    total += w * tab[pos[0][0] + a, pos[1][0] + b,
+                                     pos[2][0] + c]
+    return float(np.exp(total))
+
+
 class Voice:
     """Une voix : un état C, une note, une nuance."""
 
     def __init__(self):
         self.state = _State()
         self.params = None
+        self.base = None           # paramètres de la note, sans timbre
         self.note = -1
         self.level = 0.0
         self.target = 0.0
@@ -627,9 +1044,11 @@ class Voice:
         self.appuis = 0            # appuis non relâchés sur (canal, note)
         self.age = 0
 
-    def note_on(self, params, note, level, canal=0):
+    def note_on(self, params, note, level, canal=0, timbre=None):
         engine_library().hv_reset(ctypes.byref(self.state))
-        self.params, self.note = params, int(note)
+        self.base = params
+        self.params = params_timbre(params, **timbre) if timbre else params
+        self.note = int(note)
         self.canal = int(canal)
         self.level = self.target = float(level)
         self.active = True
@@ -699,7 +1118,7 @@ class Synth:
     """
 
     def __init__(self, instrument: Instrument, polyphony=6, gain=0.5,
-                 soufflet='auto', p_max=3000.0):
+                 soufflet='auto', p_max=3000.0, timbre=None):
         self.inst = instrument
         self.voices = [Voice() for _ in range(int(polyphony))]
         self.gain = float(gain)
@@ -728,6 +1147,72 @@ class Synth:
         # −100 dBFS une fois l'échelle de sortie appliquée : inaudible, et
         # atteint en quelques dizaines de millisecondes au lieu d'une seconde.
         self._silence = 1e-5 / max(instrument.output_scale, 1e-12)
+        # Réglages de timbre : cible et valeur lissée, en logarithme népérien
+        # du facteur (0 = défaut).
+        self._tim_cible = {k: 0.0 for k in TIMBRE_CC}
+        self._tim_lisse = {k: 0.0 for k in TIMBRE_CC}
+        for nom, valeur in (timbre or {}).items():
+            self.regler_timbre(nom, valeur)
+
+    # -- timbre --------------------------------------------------------------
+    def regler_timbre(self, nom, valeur_cc):
+        """Fixe un réglage de timbre par sa valeur de CC (0 à 127, 64 = défaut).
+
+        Le changement est **lissé** (constante de temps `TAU_TIMBRE_S`, appliquée
+        bloc par bloc) et vaut pour les notes qui sonnent comme pour les
+        suivantes. Sans voix active, il est pris tout de suite.
+
+        Les valeurs par défaut des quatre grandeurs sont provisoires, non
+        mesurées.
+
+        **L'accord suit.** La fréquence propre de la lame est retouchée selon
+        les réglages (`table_accord_timbre`, `accord_pour`) : la note garde sa
+        hauteur, à ±1 cent de celle des réglages par défaut pour un CC seul ;
+        une combinaison laisse un résidu mesuré (accordeon/cc_accord). Sans
+        tableau (`accord_timbre=False`, instrument non accordé), la hauteur
+        dérive comme avant.
+        """
+        if nom not in TIMBRE_CC:
+            raise KeyError("réglage de timbre inconnu : %r (connus : %s)"
+                           % (nom, ', '.join(TIMBRE_CC)))
+        self._tim_cible[nom] = float(np.log(facteur_timbre(nom, valeur_cc)))
+        if not any(v.active for v in self.voices):
+            self._tim_lisse[nom] = self._tim_cible[nom]
+
+    def timbre_cc(self, cc, valeur):
+        """Un message CC : `True` s'il était un CC de timbre (`TIMBRE_CC`)."""
+        nom = CC_TIMBRE.get(int(cc))
+        if nom is None:
+            return False
+        self.regler_timbre(nom, valeur)
+        return True
+
+    def facteurs_timbre(self):
+        """Facteurs multiplicatifs en cours (lissés), `{nom: facteur}`."""
+        return {k: float(np.exp(x)) if x != 0.0 else 1.0
+                for k, x in self._tim_lisse.items()}
+
+    def _timbre_voix(self, note):
+        """Les arguments de `params_timbre` d'une note : les quatre facteurs
+        lissés, et l'accord de la lame qui garde la note à sa hauteur
+        (`accord_pour`)."""
+        t = self.facteurs_timbre()
+        t['accord'] = accord_pour(self.inst, note, self._tim_lisse)
+        return t
+
+    def _avancer_timbre(self, n):
+        """Rapproche les réglages de leur cible de `n` échantillons ; si l'un
+        a bougé, refait les paramètres des voix qui sonnent."""
+        if all(self._tim_lisse[k] == self._tim_cible[k] for k in TIMBRE_CC):
+            return
+        a = 1.0 - float(np.exp(-n / (self.inst.samplerate * TAU_TIMBRE_S)))
+        for k in TIMBRE_CC:
+            c, x = self._tim_cible[k], self._tim_lisse[k]
+            x += (c - x) * a
+            self._tim_lisse[k] = c if abs(c - x) < 1e-4 else x
+        for v in self.voices:
+            if v.active and v.base is not None:
+                v.params = params_timbre(v.base, **self._timbre_voix(v.note))
 
     # -- clavier -------------------------------------------------------------
     def note_on(self, note, velocity=100, canal=0):
@@ -752,7 +1237,8 @@ class Synth:
             niveau = self._niveau_soufflet(params, self.pression)
         else:
             niveau = self.inst.level_default * self._nuance(velocity)
-        v.note_on(params, note, niveau, canal=canal)
+        v.note_on(params, note, niveau, canal=canal,
+                  timbre=self._timbre_voix(note))
         return v
 
     def note_off(self, note, canal=None):
@@ -818,6 +1304,7 @@ class Synth:
         Rend `[(voix, bloc brut float32), …]` : la sortie du moteur, avant
         gain, avant somme. Le bloc est à la voix, pas partagé.
         """
+        self._avancer_timbre(n)
         if self.soufflet is not None:
             self._avancer_soufflet(n)
         blocs = []
@@ -910,7 +1397,7 @@ def lire_midi(chemin):
 def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
                 polyphonie=16, par_canal=True, gain=0.5, soufflet='auto',
                 bloc=256, queue_s=1.5, sens=1.0, lo=None, hi=None,
-                samplerate=48000.0, limiteur=True, cc='geste'):
+                samplerate=48000.0, limiteur=True, cc='geste', timbre=None):
     """Joue un fichier MIDI sur le modèle, hors temps réel, et rend le son.
 
     - `instrument` : un `Instrument`, ou un nom (`'accordeon'`) : l'instrument
@@ -946,6 +1433,11 @@ def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
 
     La vélocité est transmise telle quelle à `Synth.note_on`.
 
+    - `timbre` : valeurs de départ des réglages de timbre, `{nom: CC 0 à 127}`
+      (noms et numéros de CC : `TIMBRE_CC`, 70 à 73 ; 64 = défaut). Le fichier
+      peut les faire bouger ensuite par ses propres CC 70 à 73. **Les défauts
+      de ces quatre grandeurs sont provisoires, non mesurés.**
+
     `limiteur=False` rend les canaux linéaires : pour mesurer la crête de la
     somme et en tirer un gain commun, jamais pour écouter.
     """
@@ -959,7 +1451,7 @@ def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
             samplerate=samplerate)
     sr = float(instrument.samplerate)
     synth = Synth(instrument, polyphony=polyphonie, gain=gain,
-                  soufflet=soufflet)
+                  soufflet=soufflet, timbre=timbre)
     synth.sens = float(sens)
     if cc not in ('geste', 'pression'):
         raise ValueError("cc : 'geste' ou 'pression', pas %r" % (cc,))
@@ -1034,6 +1526,8 @@ def _appliquer_midi(synth, msg):
             synth.expression = msg.value / 127.0
         elif msg.control == 123:
             synth.all_notes_off()
+        else:
+            synth.timbre_cc(msg.control, msg.value)
 
 
 def realtime_factor(instrument: Instrument, n_voices=4, block=256,
@@ -1322,7 +1816,13 @@ def main(argv=None):
     p.add_argument('--cavite-cm3', type=float, default=None,
                    help="volume de cavité d'anche (corrige l'octave d'un cône "
                         "tronqué ; cf. tutt.cavite_qui_accorde_l_octave)")
+    for nom, (cc_n, fmin, fmax, grandeur) in TIMBRE_CC.items():
+        p.add_argument('--cc-' + nom, type=int, default=64, metavar='0-127',
+                       help=f"CC {cc_n} : {grandeur}, de x{fmin:g} (0) à "
+                            f"x{fmax:g} (127), 64 = défaut (provisoire, non "
+                            f"mesuré)")
     args = p.parse_args(argv)
+    timbre = {nom: getattr(args, 'cc_' + nom) for nom in TIMBRE_CC}
 
     if args.liste:
         print("instruments :", ', '.join(sorted(hybrid.INSTRUMENTS)))
@@ -1369,7 +1869,7 @@ def main(argv=None):
                                 samplerate=args.sr, a4_hz=args.la,
                                 tune=not args.brut)
     synth = Synth(inst, polyphony=args.polyphonie, gain=args.gain,
-                  soufflet=None if args.sans_soufflet else 'auto')
+                  soufflet=None if args.sans_soufflet else 'auto', timbre=timbre)
 
     if args.midi_fichier:
         if not args.wav:
@@ -1379,7 +1879,8 @@ def main(argv=None):
                              fin_s=args.fin, polyphonie=args.polyphonie,
                              gain=args.gain, par_canal=True,
                              soufflet=None if args.sans_soufflet else 'auto',
-                             cc='pression' if args.cc_pression else 'geste')
+                             cc='pression' if args.cc_pression else 'geste',
+                             timbre=timbre)
         mix = np.sum(list(canaux.values()), axis=0)
         _ecrire_wav(args.wav, mix, inst.samplerate)
         print(f"→ {args.wav}  ({len(mix) / inst.samplerate:.1f} s, canaux "
@@ -1440,6 +1941,8 @@ def _jouer_midi(synth, motif, blocksize=256, device=None):
                 synth.expression = msg.value / 127.0
             elif msg.control == 123:
                 synth.all_notes_off()
+            else:
+                synth.timbre_cc(msg.control, msg.value)
 
     flux = _sortie_audio(synth, blocksize=blocksize, device=device)
     port = mido.open_input(trouve, callback=on_msg)

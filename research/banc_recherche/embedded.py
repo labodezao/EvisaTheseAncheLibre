@@ -88,6 +88,17 @@ def biquad_bandpass(freq_hz, q, peak, fs):
             -2.0 * np.cos(w0) / a0, (1.0 - alpha) / a0)
 
 
+def biquad_reed(freq_hz, q, dc_gain, fs):
+    """Coefficients du biquad de l'anche pour le moteur C, `(b0, b1, b2, a1 + 2,
+    1 - a2)` : `biquad_lowpass` en double précision, a1 et a2 rendus en écart à
+    leurs limites (cf. `hv_reed`). `(0,) * 5` si la lame n'a pas de filtre."""
+    c = biquad_lowpass(freq_hz, q, dc_gain, fs)
+    if c is None:
+        return (0.0,) * 5
+    b0, b1, b2, a1, a2 = (float(x) for x in c)
+    return (b0, b1, b2, a1 + 2.0, 1.0 - a2)
+
+
 def biquad_lowpass(freq_hz, q, dc_gain, fs):
     """Passe-bas résonant de gain continu `dc_gain` — la dynamique d'une anche.
 
@@ -517,6 +528,13 @@ C_ENGINE_H = r'''/* Moteur de modèle physique hybride — temps réel, embarqua
 #define HV_LAW_THROUGH 1
 
 typedef struct { float b0, b1, b2, a1, a2; } hv_biquad;
+/* Biquad de l'anche : a1 et a2 sont stockés en écart à leurs valeurs limites,
+ * da1 = a1 + 2 et ea2 = 1 - a2. Une lame grave (quelques centaines de Hz à
+ * 192 kHz) a ses pôles tout près de z = 1 : a1 vaut -1,9999 et a2 0,9999, et
+ * le pas de la simple précision (1,2e-7 sur a1) y fait des marches de 1 à 8
+ * cents sur la fréquence de la lame. Les écarts, eux, gardent toute leur
+ * précision. */
+typedef struct { float b0, b1, b2, da1, ea2; } hv_reed;
 typedef struct { float z1, z2; } hv_bqstate;
 
 typedef struct {
@@ -525,7 +543,7 @@ typedef struct {
     int   oversample;
 
     const hv_biquad *modes;      /* n_modes résonances */
-    hv_biquad reed;              /* dynamique de l'anche (inutilisé : archet) */
+    hv_reed reed;                /* dynamique de l'anche (inutilisé : archet) */
 
     /* anches */
     float rest_opening;          /* h0, m */
@@ -585,6 +603,16 @@ static inline float bq_step(const hv_biquad *c, hv_bqstate *s, float x)
     return y;
 }
 
+/* Le biquad de l'anche, même forme que bq_step, mais a1 = da1 - 2 et
+ * a2 = 1 - ea2 : -a1*y = 2*y - da1*y et -a2*y = -y + ea2*y. */
+static inline float reed_step(const hv_reed *c, hv_bqstate *s, float x)
+{
+    const float y = c->b0 * x + s->z1;
+    s->z1 = c->b1 * x + 2.0f * y - c->da1 * y + s->z2;
+    s->z2 = c->b2 * x - y + c->ea2 * y;
+    return y;
+}
+
 void hv_reset(hv_state *st)
 {
     int i;
@@ -611,7 +639,7 @@ static inline float hv_exciter(const hv_params *p, hv_state *st,
 
     if (p->family == HV_FAMILY_SINGLE_REED) {
         const float dp = level - response;
-        const float y  = bq_step(&p->reed, &st->reed_z, dp);
+        const float y  = reed_step(&p->reed, &st->reed_z, dp);
         float h = p->rest_opening + y;
         float adp;
         if (h < 0.0f) h = 0.0f;              /* l'anche claque sur la table */
@@ -625,7 +653,7 @@ static inline float hv_exciter(const hv_params *p, hv_state *st,
     }
 
     {   /* anche libre : la pression l'ouvre, la soupape interdit le retour */
-        const float y = bq_step(&p->reed, &st->reed_z, response);
+        const float y = reed_step(&p->reed, &st->reed_z, response);
         const float z = p->rest_opening + y;
         float h, q_out = 0.0f, q_src = level;
         if (p->free_law == HV_LAW_THROUGH) {
@@ -700,9 +728,9 @@ def to_c_params(params: RealtimeParams, ident=None):
         reed = (0.0, 0.0, 0.0, 0.0, 0.0)
     else:
         sign = -1.0 if params.family == FAMILY_SINGLE_REED else +1.0
-        reed = biquad_lowpass(params.reed_freq_hz, params.reed_q,
-                              sign * params.rest_opening_m /
-                              params.closing_pressure_pa, fs) or (0.,) * 5
+        reed = biquad_reed(params.reed_freq_hz, params.reed_q,
+                           sign * params.rest_opening_m /
+                           params.closing_pressure_pa, fs)
 
     L = [f"/* {params.name} — table générée par banc_recherche.embedded.",
          " * NE PAS ÉDITER : régénérer depuis le modèle Python.",
@@ -731,7 +759,7 @@ def to_c_params(params: RealtimeParams, ident=None):
           f"    .oversample = {params.oversample},",
           f"    .modes = {ident}_modes,",
           f"    .reed = {{{_f(reed[0])}, {_f(reed[1])}, {_f(reed[2])}, "
-          f"{_f(reed[3])}, {_f(reed[4])}}},",
+          f"{_f(reed[3])}, {_f(reed[4])}}},   /* b0 b1 b2 a1+2 1-a2 */",
           f"    .rest_opening = {_f(params.rest_opening_m)},",
           f"    .width = {_f(params.width_m)},",
           f"    .vena = {_f(params.vena_contracta)},",
