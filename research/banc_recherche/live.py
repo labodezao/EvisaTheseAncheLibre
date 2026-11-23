@@ -706,6 +706,11 @@ class Synth:
         self.sens = 1.0                 # +1 poussé, -1 tiré
         self.p_max = float(p_max)       # Pa, haut de la plage de jeu
         self.pression = 0.0             # Pa, dernière pression du soufflet
+        # `True` : l'expression est déjà une pression mesurée (CC 11 d'un
+        # fichier tiré d'un enregistrement) ; elle ne repasse pas par le bras
+        # ni par le réservoir. Le jeu en direct reste à `False` : le CC est
+        # alors un geste.
+        self.pression_mesuree = False
         self._dt_soufflet = 1.0 / 2000.0
         self._reste_soufflet = 0.0
         self._scratch = None
@@ -775,6 +780,10 @@ class Synth:
         tenues = sum(1 for v in self.voices if v.active and v.tenue)
         p_dem = float(pression_demandee(self.expression, self.sens,
                                         self.p_max, self.soufflet.gamma))
+        if self.pression_mesuree:
+            self._reste_soufflet = 0.0
+            self.pression = p_dem
+            return
         while self._reste_soufflet >= self._dt_soufflet:
             self.pression, _, _ = self.soufflet.pas(
                 p_dem, self._dt_soufflet, n_anches=tenues)
@@ -879,7 +888,7 @@ def lire_midi(chemin):
 def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
                 polyphonie=16, par_canal=True, gain=0.5, soufflet='auto',
                 bloc=256, queue_s=1.5, sens=1.0, lo=None, hi=None,
-                samplerate=48000.0, limiteur=True):
+                samplerate=48000.0, limiteur=True, cc='geste'):
     """Joue un fichier MIDI sur le modèle, hors temps réel, et rend le son.
 
     - `instrument` : un `Instrument`, ou un nom (`'accordeon'`) : l'instrument
@@ -896,6 +905,22 @@ def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
       (le soufflet, les notes tenues et les voix doivent être dans leur
       état), seul le son de la fenêtre est gardé. `queue_s` laisse les
       dernières notes s'éteindre quand `fin_s` dépasse le fichier.
+
+    - `cc` : ce que le CC 11 (et 2) du fichier représente.
+      `'geste'` (défaut, le jeu en direct) : le geste du bras, qui passe par
+      le soufflet (passe-bas, pentes bornées, réservoir).
+      `'pression'` : une pression déjà mesurée, par exemple le CC 11 de la
+      chaîne audio vers MIDI. Ce niveau vient d'un enregistrement, donc d'un
+      vrai soufflet ; la chaîne lui a déjà appliqué les bornes de la thèse
+      (bande 8 Hz, pentes 120 / 190 dB/s). Le faire repasser par le bras les
+      appliquerait deux fois et retarderait l'enveloppe de 45 ms. La pression
+      commune vaut alors `soufflet.pression_demandee(expression)` sans bras
+      ni réservoir. Les CC arrivent par pas de 10 ms : l'expression est
+      interpolée linéairement entre deux messages consécutifs (au centre de
+      chaque bloc, 5,3 ms au plus) pour éviter les marches ; au-delà de
+      `GAP_CC_MAX_S` sans message, la valeur est tenue, pas rampée.
+      Le soufflet reste celui du direct : rien n'est retiré, il n'est pas
+      appliqué deux fois.
 
     La vélocité est transmise telle quelle à `Synth.note_on`.
 
@@ -914,6 +939,15 @@ def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
     synth = Synth(instrument, polyphony=polyphonie, gain=gain,
                   soufflet=soufflet)
     synth.sens = float(sens)
+    if cc not in ('geste', 'pression'):
+        raise ValueError("cc : 'geste' ou 'pression', pas %r" % (cc,))
+    interp = None
+    if cc == 'pression' and synth.soufflet is not None:
+        synth.pression_mesuree = True
+        cc_evts = [(t, m.value / 127.0) for t, m in evts
+                   if m.type == 'control_change' and m.control in CC_EXPRESSION]
+        if cc_evts:
+            interp = _expression_interpolee(cc_evts)
 
     duree = (evts[-1][0] if evts else 0.0) + float(queue_s)
     fin = duree if fin_s is None else float(fin_s)
@@ -931,6 +965,8 @@ def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
             i_evt += 1
         suivant = dates[i_evt] if i_evt < len(evts) else n_total
         n = max(1, min(int(bloc), suivant - pos, n_total - pos))
+        if interp is not None:
+            synth.expression = interp((pos + 0.5 * n) / sr)
         for c, x in synth.render_canaux(n, limiteur=limiteur).items():
             if c not in sortie:
                 sortie[c] = np.zeros(n_total, dtype=np.float32)
@@ -941,6 +977,28 @@ def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
     if par_canal:
         return sortie
     return np.sum(list(sortie.values()), axis=0, dtype=np.float32)
+
+
+#: Au-delà de cet écart entre deux CC, `rendre_midi(cc='pression')` tient la
+#: valeur au lieu de la rampe (la chaîne émet un CC toutes les 10 ms).
+GAP_CC_MAX_S = 0.05
+
+
+def _expression_interpolee(cc_evts):
+    """`[(t, expression)]` → fonction `t → expression`, linéaire entre deux
+    messages écartés de `GAP_CC_MAX_S` au plus, constante sinon."""
+    ts = np.array([t for t, _ in cc_evts], dtype=float)
+    vs = np.array([v for _, v in cc_evts], dtype=float)
+
+    def f(t):
+        k = int(np.searchsorted(ts, t, side='right')) - 1
+        if k < 0:
+            return float(vs[0])
+        if k + 1 >= len(ts) or ts[k + 1] - ts[k] > GAP_CC_MAX_S:
+            return float(vs[k])
+        a = (t - ts[k]) / (ts[k + 1] - ts[k])
+        return float(vs[k] + a * (vs[k + 1] - vs[k]))
+    return f
 
 
 def _appliquer_midi(synth, msg):
@@ -1215,6 +1273,10 @@ def main(argv=None):
     p.add_argument('--par-canal', action='store_true',
                    help="--midi-fichier : un WAV par canal MIDI "
                         "(FICHIER_canalN.wav), un seul gain commun")
+    p.add_argument('--cc-pression', action='store_true',
+                   help="--midi-fichier : le CC 11 est une pression déjà "
+                        "mesurée (chaîne audio vers MIDI), pas un geste : "
+                        "sans bras ni réservoir")
     p.add_argument('--sans-soufflet', action='store_true',
                    help="pas de soufflet : niveau fixe, vélocité × expression")
     p.add_argument('--grave', type=int, default=40, help="note MIDI la plus basse")
@@ -1294,7 +1356,8 @@ def main(argv=None):
         canaux = rendre_midi(args.midi_fichier, inst, debut_s=args.debut,
                              fin_s=args.fin, polyphonie=args.polyphonie,
                              gain=args.gain, par_canal=True,
-                             soufflet=None if args.sans_soufflet else 'auto')
+                             soufflet=None if args.sans_soufflet else 'auto',
+                             cc='pression' if args.cc_pression else 'geste')
         mix = np.sum(list(canaux.values()), axis=0)
         _ecrire_wav(args.wav, mix, inst.samplerate)
         print(f"→ {args.wav}  ({len(mix) / inst.samplerate:.1f} s, canaux "
