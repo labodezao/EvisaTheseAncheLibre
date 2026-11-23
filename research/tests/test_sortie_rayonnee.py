@@ -1,0 +1,274 @@
+"""Sortie rayonnée de l'anche libre : la dérivée du débit net, pas la pression.
+
+Audit du 23/11/2026 : le moteur sortait la pression de la chambre. Elle
+intègre le débit (partiel 8 à -43,5 dB au lieu de -7,5 dB), et elle porte la
+pression continue du soufflet, qui s'additionne d'une voix à l'autre et
+écrase le limiteur : un accord de quatre notes était muet.
+
+La partie Python n'a besoin que de numpy. Celle du noyau C saute sans
+compilateur (`live._compilateur`, qui trouve aussi MSVC), celle du lecteur
+MIDI sans `mido`.
+"""
+import numpy as np
+import pytest
+
+from banc_recherche import embedded as emb
+from banc_recherche import hybrid, live
+from banc_recherche.soufflet import Soufflet
+
+SR = 48000.0
+NIVEAU = 2.9e-6                      # m³/s, niveau nominal de l'anche libre
+
+sans_compilateur = pytest.mark.skipif(
+    live._compilateur()[0] is None, reason="pas de compilateur C")
+
+
+def partiels(x, f_nom, sr, n=8):
+    """Niveaux des partiels 1..n (dB, relatifs au fondamental)."""
+    x = np.asarray(x, float) - np.mean(x)
+    A = np.abs(np.fft.rfft(x * np.hanning(len(x)), 1 << 18))
+    fr = np.fft.rfftfreq(1 << 18, 1.0 / sr)
+
+    def pic(fc, tol):
+        m = (fr > fc * (1 - tol)) & (fr < fc * (1 + tol))
+        return fr[m][np.argmax(A[m])], A[m].max()
+
+    f1, a1 = pic(f_nom, 0.03)
+    return [20 * np.log10(pic(k * f1, 0.02)[1] / a1) for k in range(1, n + 1)]
+
+
+def _params_accordeon(f0=220.0, sortie=None):
+    return emb.params_from_voice(hybrid.accordeon(f0_hz=f0), samplerate=SR,
+                                 name='accordeon', sortie=sortie)
+
+
+@pytest.fixture(scope='module')
+def la220():
+    """Le la 220 en moteur Python de référence : rayonnée et pression."""
+    out = {}
+    for nom in (emb.SORTIE_RAYONNEE, emb.SORTIE_PRESSION):
+        x, _ = emb.RealtimeVoice(_params_accordeon(sortie=nom)).render(
+            int(0.8 * SR), NIVEAU)
+        out[nom] = x[int(0.3 * SR):]
+    return out
+
+
+# -- la sortie par défaut -----------------------------------------------------
+
+def test_l_anche_libre_sort_le_rayonnement_par_defaut():
+    assert _params_accordeon().sortie_effective == emb.SORTIE_RAYONNEE
+    assert (_params_accordeon(sortie=emb.SORTIE_PRESSION).sortie_effective
+            == emb.SORTIE_PRESSION)
+
+
+def test_les_autres_familles_gardent_leur_sortie():
+    """La pression de la perce reste celle d'un tuyau, la vitesse celle d'une corde."""
+    for nom in ('clarinette', 'violon'):
+        p = emb.params_from_voice(hybrid.build(nom))
+        assert p.sortie_effective == emb.SORTIE_PRESSION
+    p = emb.params_from_voice(hybrid.build('clarinette'),
+                              sortie=emb.SORTIE_RAYONNEE)
+    assert p.sortie_effective == emb.SORTIE_RAYONNEE      # demandée : possible
+
+
+def test_la_table_c_exportee_dit_la_sortie():
+    ray = emb.to_c_params(_params_accordeon())
+    pre = emb.to_c_params(_params_accordeon(sortie=emb.SORTIE_PRESSION))
+    assert '.out_mode = 0,' in ray and '.out_mode = 1,' in pre
+    assert '.fs_out = 48000.0f,' in ray
+
+
+# -- le spectre -----------------------------------------------------------------
+
+def test_le_partiel_8_du_la_220_est_celui_de_hybrid_radiated(la220):
+    """La référence : `VoiceResult.radiated` du modèle continu (RK4)."""
+    res = hybrid.accordeon(f0_hz=220.0).simulate(
+        dur=0.5, fs=24000.0, level=NIVEAU, oversample=4, settle=0.3)
+    ref = partiels(res.radiated, 220.0, 24000.0)
+    moteur = partiels(la220[emb.SORTIE_RAYONNEE], 220.0, SR)
+    assert abs(moteur[7] - ref[7]) < 3.0             # mesuré : 0,3 dB
+    assert moteur[7] > -12.0                          # avant : -43,5 dB
+    for k in range(1, 8):
+        assert abs(moteur[k] - ref[k]) < 3.0
+
+
+def test_l_ancienne_sortie_reste_accessible_sous_son_nom(la220):
+    pre = la220[emb.SORTIE_PRESSION]
+    assert partiels(pre, 220.0, SR)[7] < -35.0        # la chambre coupe les aigus
+    assert np.mean(pre) > np.std(pre)                 # et porte une pression continue
+
+
+# -- le continu -----------------------------------------------------------------
+
+def test_la_sortie_rayonnee_n_a_pas_de_composante_continue(la220):
+    ray = la220[emb.SORTIE_RAYONNEE]
+    assert abs(np.mean(ray)) < 0.01 * np.std(ray)
+
+
+def test_la_decimation_est_une_moyenne_sur_les_sous_pas():
+    """Somme des sorties = débit net final moins débit net initial, au pas près :
+    la décimation est un filtre en boîte (aucun sous-pas ne se perd)."""
+    rv = emb.RealtimeVoice(_params_accordeon())
+    rv.render(1, NIVEAU)
+    net0 = rv.drive
+    a, _ = rv.render(2000, NIVEAU)
+    assert np.sum(a) / SR == pytest.approx(rv.drive - net0, abs=1e-9)
+
+
+def test_le_premier_echantillon_apres_reset_est_nul():
+    rv = emb.RealtimeVoice(_params_accordeon())
+    a, _ = rv.render(4, NIVEAU)
+    assert a[0] == 0.0 and np.any(a[1:] != 0.0)
+
+
+# -- le noyau C : identique à la référence Python ------------------------------
+
+@sans_compilateur
+@pytest.mark.parametrize("sortie", [emb.SORTIE_RAYONNEE, emb.SORTIE_PRESSION])
+def test_le_noyau_c_suit_la_reference_python(sortie):
+    p = _params_accordeon(sortie=sortie)
+    cp, garde = live._to_c_params(p)
+    v = live.Voice()
+    v.note_on(cp, 57, NIVEAU)
+    bloc = np.zeros(256, np.float32)
+    morceaux = []
+    for _ in range(2):
+        v.render(bloc, glide=1.0)
+        morceaux.append(bloc.copy())
+    c = np.concatenate(morceaux).astype(float)
+    py, _ = emb.RealtimeVoice(p).render(512, NIVEAU)
+    assert np.max(np.abs(c - py)) < 5e-3 * np.std(py)    # float32 contre float64
+
+
+# -- le synthé : somme des voix, limiteur, soufflet ----------------------------
+
+@pytest.fixture(scope='module')
+def accordeon():
+    return live.build_instrument('accordeon', lo=57, hi=69, tune=False)
+
+
+def _niveau_db(x):
+    x = np.asarray(x, float)
+    return 20 * np.log10(max(np.sqrt(np.mean((x - x.mean()) ** 2)), 1e-12))
+
+
+def _jouer(inst, notes, expression, duree=1.5, bloc=256):
+    s = live.Synth(inst, polyphony=6, soufflet=Soufflet())
+    s.expression = expression
+    for _ in range(int(2.0 * SR / bloc)):
+        s.render(bloc)                 # soufflet établi avant la touche
+    for n in notes:
+        s.note_on(n, 100)
+    x = np.concatenate([s.render(bloc) for _ in range(int(duree * SR / bloc))])
+    return s, x[int(0.5 * SR):]
+
+
+@sans_compilateur
+def test_un_accord_de_quatre_notes_n_ecrase_pas_une_note(accordeon):
+    _, une = _jouer(accordeon, (57,), 0.7)
+    _, accord = _jouer(accordeon, (57, 61, 64, 69), 0.7)
+    assert _niveau_db(accord) >= _niveau_db(une)          # avant : 67 dB plus bas
+    assert np.max(np.abs(accord)) < 1.0
+
+
+@sans_compilateur
+def test_la_somme_des_voix_n_a_pas_de_composante_continue(accordeon):
+    _, accord = _jouer(accordeon, (57, 61, 64, 69), 0.7)
+    assert abs(np.mean(accord)) < 0.01 * np.std(accord)   # avant : +2,2 pour 0,7
+
+
+@sans_compilateur
+def test_une_note_tenue_suit_l_expression(accordeon):
+    """Soufflet branché : le CC 11 change une note déjà sonnante."""
+    s = live.Synth(accordeon, polyphony=2, soufflet=Soufflet())
+    s.expression = 0.3
+    for _ in range(int(2.0 * SR / 256)):
+        s.render(256)
+    s.note_on(57, 100)
+    bas = np.concatenate([s.render(256) for _ in range(int(1.5 * SR / 256))])
+    s.expression = 0.9
+    haut = np.concatenate([s.render(256) for _ in range(int(1.5 * SR / 256))])
+    assert _niveau_db(haut[int(0.5 * SR):]) > _niveau_db(bas[int(0.5 * SR):]) + 3.0
+
+
+def test_le_soufflet_est_branche_par_defaut_pour_l_anche_libre():
+    libre = live.Instrument(name='accordeon', control_unit='m³/s')
+    vent = live.Instrument(name='clarinette', control_unit='Pa')
+    assert live.Synth(libre).soufflet is not None
+    assert live.Synth(vent).soufflet is None              # pression de bouche
+    assert live.Synth(libre, soufflet=None).soufflet is None
+
+
+@sans_compilateur
+def test_la_sortie_par_canal_somme_a_la_sortie_commune(accordeon):
+    def synth():
+        s = live.Synth(accordeon, polyphony=4, soufflet=Soufflet())
+        s.expression = 0.7
+        for n, c in ((57, 1), (64, 2), (69, 0)):
+            s.note_on(n, 100, canal=c)
+        return s
+    a, b = synth(), synth()
+    for _ in range(40):
+        somme = a.render(256)
+        canaux = b.render_canaux(256)
+        assert np.allclose(sum(canaux.values()), somme, atol=1e-6)
+    assert set(canaux) == {0, 1, 2}
+
+
+# -- le lecteur de fichier MIDI -------------------------------------------------
+
+@sans_compilateur
+def test_rendre_midi_notes_et_cc_a_l_echantillon_pres(accordeon, tmp_path):
+    mido = pytest.importorskip('mido')
+    mid = mido.MidiFile(ticks_per_beat=1000)         # 60 bpm : 1000 ticks = 1 s
+    for canal, note in ((0, 69), (1, 57), (2, 64)):
+        t = mido.MidiTrack()
+        if canal == 0:
+            t.append(mido.MetaMessage('set_tempo', tempo=1000000, time=0))
+            t.append(mido.Message('control_change', channel=0, control=11,
+                                  value=100, time=0))
+        t.append(mido.Message('note_on', channel=canal, note=note, velocity=90,
+                              time=1000 + 100 * canal))
+        t.append(mido.Message('note_off', channel=canal, note=note, velocity=0,
+                              time=1000))
+        mid.tracks.append(t)
+    chemin = tmp_path / 'essai.mid'
+    mid.save(str(chemin))
+
+    sortie = live.rendre_midi(chemin, accordeon, polyphonie=4, fin_s=3.0)
+    assert sorted(sortie) == [0, 1, 2]
+    assert all(len(x) == int(3.0 * SR) for x in sortie.values())
+    assert all(np.all(np.isfinite(x)) for x in sortie.values())
+    for canal, x in sortie.items():
+        debut = int((1.0 + 0.1 * canal) * SR)
+        assert np.max(np.abs(x[:debut])) == 0.0, canal         # rien avant la note
+        assert np.max(np.abs(x[debut:debut + 4800])) > 0.0, canal
+
+    # fenêtre : seules les secondes demandées, un seul tableau si pas par canal
+    fen = live.rendre_midi(chemin, accordeon, debut_s=1.0, fin_s=2.0,
+                           polyphonie=4, par_canal=False)
+    assert fen.shape == (int(1.0 * SR),)
+    assert np.allclose(fen, sum(x[int(1.0 * SR):int(2.0 * SR)]
+                                for x in sortie.values()), atol=1e-6)
+
+
+@sans_compilateur
+def test_l_accordage_se_mesure_sur_la_pression_pas_sur_le_rayonnement():
+    """L'autocorrélation d'un rayonnement (impulsions de signes alternés) se
+    trompait d'octave : sur le rayonnement, la, do# et fa# sortaient à +1200
+    ou +1900 cents. L'oscillateur, lui, joue la même note quelle que soit la
+    sortie : l'accordage la mesure sur la pression de la chambre."""
+    inst = live.build_instrument('accordeon', lo=62, hi=66)         # accordé
+    assert inst.params_for(64).out_mode == 0                        # sortie : rayonnée
+    for note in (62, 63, 64, 65, 66):
+        v = live.Voice()
+        v.note_on(inst.params_for(note), note, NIVEAU)
+        bloc = np.zeros(256, np.float32)
+        xs = []
+        for _ in range(int(2.0 * SR / 256)):
+            v.render(bloc, glide=1.0)
+            xs.append(bloc.copy())
+        net = np.cumsum(np.concatenate(xs).astype(float)[int(1.0 * SR):])
+        f = hybrid.playing_frequency(net, SR)            # intégrale = débit net, lisse
+        ecart = 1200 * np.log2(f / live.midi_to_hz(note))
+        assert abs(ecart) < 40.0, (note, ecart)
