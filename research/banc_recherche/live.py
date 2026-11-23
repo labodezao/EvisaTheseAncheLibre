@@ -45,7 +45,7 @@ import numpy as np
 
 from . import hybrid
 from .embedded import (RealtimeParams, params_from_voice, to_c_engine, loi_c,
-                       biquad_bandpass, biquad_lowpass, FAMILY_BOW,
+                       biquad_bandpass, biquad_reed, FAMILY_BOW,
                        FAMILY_SINGLE_REED, FAMILY_FREE_REED, SORTIE_RAYONNEE,
                        SORTIE_PRESSION)
 from .hybrid import RHO
@@ -61,6 +61,11 @@ class _Biquad(ctypes.Structure):
     _fields_ = [(n, ctypes.c_float) for n in ('b0', 'b1', 'b2', 'a1', 'a2')]
 
 
+class _Reed(ctypes.Structure):
+    """Biquad de l'anche (`hv_reed`) : `da1` = a1 + 2, `ea2` = 1 - a2."""
+    _fields_ = [(n, ctypes.c_float) for n in ('b0', 'b1', 'b2', 'da1', 'ea2')]
+
+
 class _BqState(ctypes.Structure):
     _fields_ = [('z1', ctypes.c_float), ('z2', ctypes.c_float)]
 
@@ -70,7 +75,7 @@ class _Params(ctypes.Structure):
         ('family', ctypes.c_int), ('n_modes', ctypes.c_int),
         ('oversample', ctypes.c_int),
         ('modes', ctypes.POINTER(_Biquad)),
-        ('reed', _Biquad),
+        ('reed', _Reed),
         ('rest_opening', ctypes.c_float), ('width', ctypes.c_float),
         ('vena', ctypes.c_float), ('max_open', ctypes.c_float),
         ('leak', ctypes.c_float), ('src_admit', ctypes.c_float),
@@ -241,12 +246,12 @@ def _to_c_params(p: RealtimeParams):
         modes[i] = _Biquad(*[float(x) for x in c])
 
     if p.family == FAMILY_BOW:
-        reed = _Biquad(0., 0., 0., 0., 0.)
+        reed = _Reed(0., 0., 0., 0., 0.)
     else:
         signe = -1.0 if p.family == FAMILY_SINGLE_REED else 1.0
-        c = biquad_lowpass(p.reed_freq_hz, p.reed_q,
-                           signe * p.rest_opening_m / p.closing_pressure_pa, fs)
-        reed = _Biquad(*[float(x) for x in (c or (0.,) * 5)])
+        reed = _Reed(*biquad_reed(
+            p.reed_freq_hz, p.reed_q,
+            signe * p.rest_opening_m / p.closing_pressure_pa, fs))
 
     cp = _Params()
     cp.family = int(p.family)
@@ -699,8 +704,7 @@ def params_timbre(base, chambre=1.0, largeur=1.0, q=1.0, jeu=1.0, accord=1.0):
     cp.clear = base.clear * jeu
     if q != 1.0 or accord != 1.0:
         f, q0, gain, fs = info
-        c = biquad_lowpass(f * accord, q0 * q, gain, fs)
-        cp.reed = _Biquad(*[float(x) for x in (c or (0.,) * 5)])
+        cp.reed = _Reed(*biquad_reed(f * accord, q0 * q, gain, fs))
     return cp
 
 
@@ -716,10 +720,8 @@ def params_timbre(base, chambre=1.0, largeur=1.0, q=1.0, jeu=1.0, accord=1.0):
 #
 # Mesuré (accordeon/cc_accord) : la somme des dérives de chaque CC seul ne
 # prédit pas celle d'une combinaison (jusqu'à 26 cents d'écart à la note 84,
-# chambre et Q à 0), et la hauteur en fonction de Q n'est pas lisse dans le
-# grave (±5 cents d'un pas de CC à l'autre, note 45). Le tableau est donc
-# tabulé en trois dimensions, chambre x largeur x Q, par note, sur la hauteur
-# mesurée du modèle. Le jeu de fente (CC 73) déplace la hauteur de 0,4 cent au
+# chambre et Q à 0). Le tableau est donc tabulé en trois dimensions, chambre x
+# largeur x Q, par note, sur la hauteur mesurée du modèle. Le jeu de fente (CC 73) déplace la hauteur de 0,4 cent au
 # plus : pas de correction.
 
 #: réglages tabulés et valeurs de CC de leur grille
@@ -729,10 +731,13 @@ ACCORD_GRILLE = {
     'q':       (0, 16, 32, 48, 64, 80, 96, 112, 127),
 }
 ACCORD_NOMS = tuple(ACCORD_GRILLE)
-#: durée rendue pour mesurer une hauteur, s (la seconde moitié est analysée)
-ACCORD_DUREE_S = 1.0
+#: durée rendue pour mesurer une hauteur, s, et début de la fenêtre analysée :
+#: dans le grave à Q élevé, la hauteur met plus d'une seconde à se poser (note
+#: 45, Q 127 : -4,0 cents à 0,5-1 s, -5,5 à 1-1,5 s, -5,8 à 1,5-2 s)
+ACCORD_DUREE_S = 2.5
+ACCORD_DEBUT_S = 1.5
 #: à changer quand une modification de ce bloc change les chiffres du tableau
-ACCORD_VERSION = 2
+ACCORD_VERSION = 4
 
 
 def _hauteur_longue(y, fs, f_nom):
@@ -779,7 +784,8 @@ def _hauteur_longue(y, fs, f_nom):
 def _hauteur_note(base, niveau, f_nom, samplerate, dur=ACCORD_DUREE_S):
     """Hauteur (Hz) que joue `base` à `niveau`, sur la pression de chambre,
     comme `_frequence_jouee` (mêmes raisons), mais mesurée par
-    `_hauteur_longue`. `nan` si rien ne sort."""
+    `_hauteur_longue`, sur la fenêtre qui commence à `ACCORD_DEBUT_S`. `nan` si
+    rien ne sort."""
     mesure = _Params()
     ctypes.memmove(ctypes.byref(mesure), ctypes.byref(base),
                    ctypes.sizeof(base))
@@ -793,7 +799,8 @@ def _hauteur_note(base, niveau, f_nom, samplerate, dur=ACCORD_DUREE_S):
         buf[:] = 0.0
         v.render(buf)
         x[i:i + 1024] = buf[:min(1024, n - i)]
-    return _hauteur_longue(x[n // 2:], samplerate, f_nom)
+    return _hauteur_longue(x[int(ACCORD_DEBUT_S * samplerate):], samplerate,
+                           f_nom)
 
 
 def _facteurs_grille(i, j, k):
@@ -810,8 +817,8 @@ def _ecart_cents(base, fac, lg, niveau, f_nom, samplerate, f_ref):
     return 1200.0 * float(np.log2(f / f_ref)) if f > 0.0 else float('nan')
 
 
-#: pas de recherche de la lame (ln de la fréquence) quand la hauteur est en
-#: marches : 0,0004 vaut un peu moins d'un cent de lame
+#: pas de tâtonnement de la lame (ln de la fréquence) quand la sécante ne
+#: suffit pas : 0,0004 vaut un peu moins d'un cent de lame
 ACCORD_PAS = 0.0004
 
 
@@ -820,17 +827,14 @@ def _tableau_note(base, niveau, f_nom, samplerate, tolerance_cents=0.3):
     hauteur jouée à celle des réglages par défaut, pour chaque point de la
     grille. Mesuré sur le moteur, point par point.
 
-    **La hauteur du moteur est en marches** dans le grave : la période d'une
-    anche libre est calée sur la cadence interne, d'où des paliers de 4 cents
-    (note 45) ou 2 cents (note 57) quand la lame bouge, avec des retours en
-    arrière, et des paliers qui ne contiennent pas toujours la hauteur de
-    référence : la meilleure correction y laisse jusqu'à la demi-marche
-    (2 cents à la note 45). On part donc de la correction du voisin, on se
+    La hauteur jouée suit la lame d'un pour un, continûment (le biquad de
+    l'anche du moteur C n'avait pas la finesse : marches de 4 cents à la note
+    45, cf. `embedded.hv_reed`). On part de la correction du voisin, on se
     rapproche à la sécante, puis, si l'écart reste au-dessus de
     `tolerance_cents`, on tâte la lame de part et d'autre par pas de
     `ACCORD_PAS` pour trouver le palier le plus proche, dont on prend le
-    milieu. Un point où la note ne sonne pas ou reste à plus de 3 cents reste
-    à 0. Rend `(tableau, pire écart en cents sur les points gardés, nombre de
+    milieu (filet de sécurité). Un point où la note ne sonne pas ou reste à
+    plus de 3 cents reste à 0. Rend `(tableau, pire écart en cents sur les points gardés, nombre de
     points sans mesure)`.
     """
     f_ref = _hauteur_note(base, niveau, f_nom, samplerate)
@@ -906,7 +910,8 @@ def _tableau_note(base, niveau, f_nom, samplerate, tolerance_cents=0.3):
 
 def _cle_accord(inst, notes):
     h = hashlib.sha1()
-    h.update(repr((ACCORD_VERSION, ACCORD_GRILLE, ACCORD_DUREE_S, inst.name,
+    h.update(repr((ACCORD_VERSION, ACCORD_GRILLE, ACCORD_DUREE_S, ACCORD_DEBUT_S,
+                   inst.name,
                    inst.samplerate, inst.a4_hz, inst.level_default,
                    TIMBRE_CC)).encode())
     for n in notes:

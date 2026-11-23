@@ -9,10 +9,14 @@ Mesuré à la **pression d'accord** (celle de `level_default`) : à d'autres
 pressions la dérive du timbre n'est pas la même, et le tableau, mesuré à une
 seule pression, ne la suit qu'en partie (non testé ici).
 
-Dans le grave, la période du moteur n'avance que par marches (4 cents à la note
-45, 2 cents à la note 57, avec des retours en arrière) : la meilleure lame
-retombe à une demi-marche de la note. La tolérance de ces deux notes est celle
-de leur marche, pas 1 cent.
+Dans le grave, ce test tenait 2,4 cents (note 45) et 1,5 cent (note 57) : la
+hauteur jouée n'avançait que par marches de 4 et 1 cent quand la lame bougeait,
+avec des retours en arrière. La cause était le biquad de l'anche du moteur C, dont
+les coefficients en simple précision ne placent pas ses pôles plus finement que
+cela près de z = 1 (`hv_reed` stocke maintenant a1 + 2 et 1 - a2) ; la mesure de
+hauteur n'y était pour rien. Les quatre notes sont tenues à ±1 cent, la hauteur étant lue sur la seconde
+moitié d'une note de 3 s : à Q élevé dans le grave, elle met plus d'une seconde
+à se poser.
 """
 import dataclasses
 
@@ -28,7 +32,7 @@ SR = 48000.0
 NOTES = (45, 57, 69, 84)
 VALS = (0, 16, 32, 48, 64, 80, 96, 112, 127)
 #: écart toléré à la hauteur de CC 64, en cents
-TOLERANCE = {45: 3.0, 57: 2.0, 69: 1.0, 84: 1.0}
+TOLERANCE = {45: 1.0, 57: 1.0, 69: 1.0, 84: 1.0}
 
 
 @pytest.fixture(scope='module')
@@ -50,7 +54,7 @@ def _synth(inst, timbre=None):
     return s
 
 
-def _hauteur(inst, note, timbre=None, duree=2.0):
+def _hauteur(inst, note, timbre=None, duree=3.0):
     s = _synth(inst, timbre)
     s.note_on(note, 100)
     x = np.concatenate([s.render(256) for _ in range(int(duree * SR) // 256)])
@@ -82,6 +86,20 @@ def test_tous_a_64_le_son_est_celui_d_avant(acc):
         assert s.voices[0].params is inst.params_for(69)
         sons.append(np.concatenate([s.render(256) for _ in range(40)]))
     assert np.array_equal(sons[0], sons[1])
+
+
+@pytest.mark.parametrize('note', (45, 57))
+def test_la_hauteur_suit_la_lame_au_demi_cent(acc, note):
+    """Fréquence propre de la lame demandée de 0,5 cent en 0,5 cent : la hauteur
+    jouée avance d'autant, sans marche ni retour en arrière (le biquad de l'anche
+    en simple précision la faisait avancer de 4 cents d'un coup à la note 45,
+    avec des retours)."""
+    base, f_nom = acc.params_for(note), live.midi_to_hz(note)
+    h = [_cents(live._hauteur_note(
+        live.params_timbre(base, accord=2.0 ** (c / 1200.0)), acc.level_default,
+        f_nom, SR), f_nom) for c in np.arange(0.0, 3.01, 0.5)]
+    pas = np.diff(h)
+    assert np.all(pas > 0.2) and np.all(pas < 0.8), np.round(h, 2)
 
 
 @pytest.mark.parametrize('note', NOTES)
