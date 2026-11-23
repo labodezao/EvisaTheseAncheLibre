@@ -108,18 +108,30 @@ def test_la_sortie_rayonnee_n_a_pas_de_composante_continue(la220):
     assert abs(np.mean(ray)) < 0.01 * np.std(ray)
 
 
-def test_la_decimation_est_une_moyenne_sur_les_sous_pas():
-    """Somme des sorties = débit net final moins débit net initial, au pas près :
-    la décimation est un filtre en boîte (aucun sous-pas ne se perd)."""
-    rv = emb.RealtimeVoice(_params_accordeon())
-    rv.render(1, NIVEAU)
-    net0 = rv.drive
-    a, _ = rv.render(2000, NIVEAU)
-    assert np.sum(a) / SR == pytest.approx(rv.drive - net0, abs=1e-9)
+def test_la_decimation_passe_le_debit_au_pas_interne_dans_le_filtre_elliptique():
+    """La sortie à 48 kHz est exactement la dérivée du débit net au pas interne
+    (192 kHz), passée dans le filtre anti-repliement, dont on garde un pas sur
+    quatre. Le pas interne est obtenu sans décimation (suréchantillonnage 1 à
+    192 kHz : mêmes biquads, mêmes pas) et filtré par `scipy.signal.sosfilt`."""
+    from dataclasses import replace
+    from scipy import signal
+    p = _params_accordeon()
+    assert p.oversample == 4
+    sos = emb.antirepliement_sos(4, SR)
+    assert len(sos) >= 4
+    a, _ = emb.RealtimeVoice(p).render(2000, NIVEAU)
+    p1 = replace(p, samplerate=4 * SR, oversample=1)
+    interne, _ = emb.RealtimeVoice(p1).render(4 * 2000, NIVEAU)
+    ref = signal.sosfilt(np.array([[*c[:3], 1.0, *c[3:]] for c in sos]),
+                         interne)[3::4]
+    assert np.max(np.abs(a - ref)) < 1e-9 * np.max(np.abs(ref))
 
 
-def test_le_premier_echantillon_apres_reset_est_nul():
-    rv = emb.RealtimeVoice(_params_accordeon())
+def test_le_premier_pas_apres_reset_est_nul():
+    """Pas de débit net précédent : la dérivée du premier pas interne vaut 0,
+    pas `drive × fs` (suréchantillonnage 1 : aucun filtre, la sortie est ce pas)."""
+    from dataclasses import replace
+    rv = emb.RealtimeVoice(replace(_params_accordeon(), oversample=1))
     a, _ = rv.render(4, NIVEAU)
     assert a[0] == 0.0 and np.any(a[1:] != 0.0)
 

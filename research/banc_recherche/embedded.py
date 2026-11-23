@@ -117,6 +117,64 @@ def biquad_lowpass(freq_hz, q, dc_gain, fs):
     return (b / a0, 2.0 * b / a0, b / a0, -2.0 * cw / a0, (1.0 - alpha) / a0)
 
 
+#: sections d'ordre 2 au plus du filtre anti-repliement (ordre 10)
+HV_MAX_AA = 5
+
+#: bord de bande passante et début de bande atténuée du filtre anti-repliement,
+#: en fraction de la cadence de sortie (20 kHz et 28 kHz à 48 kHz) : tout repli
+#: reste au-dessus de 20 kHz.
+AA_PASSANTE = 20000.0 / 48000.0
+AA_COUPEE = 28000.0 / 48000.0
+AA_LIMITE_PASSANTE = 18000.0 / 48000.0   # ondulation mesurée jusqu'ici
+AA_ONDULATION_MAX_DB = 0.1
+AA_ATTENUATION_MIN_DB = 80.0
+
+
+def antirepliement_sos(oversample, samplerate):
+    """Sections d'ordre 2 `(b0, b1, b2, a1, a2)` du filtre passe-bas qui
+    précède la décimation de `oversample` pas vers `samplerate`. `[]` si
+    `oversample == 1` (rien à replier).
+
+    Elliptique, à la cadence interne ; le plus petit ordre de 6 à 10 qui tient,
+    **vérifié sur la réponse** (`sosfreqz`) : ondulation de bande passante
+    < 0,1 dB jusqu'à 18/48 de la cadence de sortie, atténuation >= 80 dB à
+    partir de 28/48. Calculé à la construction, jamais dans le fil audio.
+    Le gain est centré sur 0 dB (ondulation de +-0,025 dB).
+    """
+    from scipy import signal
+    n = int(oversample)
+    if n <= 1:
+        return []
+    fs_int = float(samplerate) * n
+    rp = 0.05
+    f_edge = AA_PASSANTE * float(samplerate)
+    w = np.concatenate([
+        np.linspace(1.0, AA_LIMITE_PASSANTE * samplerate, 400),
+        np.linspace(AA_COUPEE * samplerate, fs_int / 2.0, 4000)])
+    npass = 400
+    derniere = None
+    for ordre in range(6, 2 * HV_MAX_AA + 1):
+        sos = signal.ellip(ordre, rp, AA_ATTENUATION_MIN_DB + 1.0, f_edge,
+                           fs=fs_int, output='sos')
+        sos = sos.copy()
+        g = 10.0 ** (rp / 40.0)                    # centre l'ondulation sur 0 dB
+        sos[0, :3] *= g
+        _, h = signal.sosfreqz(sos, worN=w, fs=fs_int)
+        db = 20.0 * np.log10(np.maximum(np.abs(h), 1e-30))
+        derniere = sos
+        if (np.max(np.abs(db[:npass])) < AA_ONDULATION_MAX_DB
+                and np.max(db[npass:]) <= -AA_ATTENUATION_MIN_DB):
+            break
+    else:
+        raise ValueError("filtre anti-repliement : aucun ordre <= %d ne tient "
+                         "(suréchantillonnage %d)" % (2 * HV_MAX_AA, n))
+    out = []
+    for r in derniere:
+        a0 = float(r[3])
+        out.append(tuple(float(x) / a0 for x in (r[0], r[1], r[2], r[4], r[5])))
+    return out
+
+
 class BiquadBank:
     """Banc de biquads en forme directe II transposée.
 
@@ -206,6 +264,11 @@ class RealtimeParams:
     @property
     def fs_internal(self):
         return self.samplerate * self.oversample
+
+    @property
+    def sections_antirepliement(self):
+        """Filtre passe-bas avant décimation (`antirepliement_sos`)."""
+        return antirepliement_sos(self.oversample, self.samplerate)
 
     @property
     def sortie_effective(self):
@@ -315,6 +378,27 @@ def params_from_voice(voice: HybridVoice, samplerate=48000.0, oversample=None,
     return p
 
 
+class BiquadCascade:
+    """Cascade de biquads en forme directe II transposée (le filtre
+    anti-repliement). Vide : identité."""
+
+    def __init__(self, coeffs):
+        self.c = [tuple(float(x) for x in c) for c in coeffs]
+        self.z = [[0.0, 0.0] for _ in self.c]
+
+    def reset(self):
+        for z in self.z:
+            z[0] = z[1] = 0.0
+
+    def step(self, x):
+        for (b0, b1, b2, a1, a2), z in zip(self.c, self.z):
+            y = b0 * x + z[0]
+            z[0] = b1 * x - a1 * y + z[1]
+            z[1] = b2 * x - a2 * y
+            x = y
+        return x
+
+
 class RealtimeVoice:
     """Implémentation de référence, **identique au C** pas pour pas.
 
@@ -338,11 +422,13 @@ class RealtimeVoice:
             self.reed = BiquadBank([biquad_lowpass(
                 params.reed_freq_hz, params.reed_q,
                 sign * params.rest_opening_m / params.closing_pressure_pa, fs)])
+        self.aa = BiquadCascade(params.sections_antirepliement)
         self.reset()
 
     def reset(self):
         self.res.reset()
         self.reed.reset()
+        self.aa.reset()
         self.response = 0.0
         self.cavity = 0.0
         self.drive = 0.0
@@ -390,14 +476,16 @@ class RealtimeVoice:
 
         - `SORTIE_RAYONNEE` : la dérivée du débit net injecté dans le
           résonateur, `d(drive)/dt`, comme `hybrid.VoiceResult.radiated`.
-          Calculée au pas suréchantillonné puis ramenée au pas de sortie par
-          la **moyenne sur les sous-pas** : elle vaut exactement la différence
-          du débit net entre deux échantillons de sortie, divisée par le pas
-          de sortie. C'est un filtre (boîte) avant décimation, pas une
-          décimation brute : les aigus de la dérivée ne se replient pas. Le
-          premier échantillon après `reset` vaut 0 (pas de débit précédent).
+          Calculée à chaque pas suréchantillonné (`Δdrive × fs_interne`), puis
+          passée dans le **filtre elliptique anti-repliement**
+          (`antirepliement_sos`), dont on ne garde qu'un échantillon sur
+          `oversample`. Les partiels au-dessus de la moitié de la cadence de
+          sortie ne se replient plus dans la bande. Le premier pas après
+          `reset` vaut 0 (pas de débit précédent).
         - `SORTIE_PRESSION` : la pression de la chambre (anche libre, tuyau)
-          ou la vitesse de corde (archet), l'ancienne sortie.
+          ou la vitesse de corde (archet), l'ancienne sortie, filtrée et
+          décimée de la même façon.
+        Suréchantillonnage 1 : pas de filtre, sortie au pas interne.
         """
         p = self.p
         sortie = sortie or p.sortie_effective
@@ -405,6 +493,7 @@ class RealtimeVoice:
         n = int(n_samples)
         audio = np.zeros(n)
         opening = np.zeros(n) if out_opening else None
+        fs_int = p.fs_internal
 
         for i in range(n):
             h = float('nan')
@@ -419,13 +508,15 @@ class RealtimeVoice:
                     self.cavity += drive / (p.compliance * p.fs_internal)
                     self.cavity *= 0.99999      # fuite lente : évite la dérive continue
                 self.response = acoustic + self.cavity
-            if rayonnee:
-                if self._net_prec is None:
-                    self._net_prec = self.drive
-                audio[i] = (self.drive - self._net_prec) * p.samplerate
-                self._net_prec = self.drive
-            else:
-                audio[i] = self.response
+                if rayonnee:
+                    if self._net_prec is None:
+                        self._net_prec = drive
+                    x = (drive - self._net_prec) * fs_int
+                    self._net_prec = drive
+                else:
+                    x = self.response
+                y = self.aa.step(x)
+            audio[i] = y
             if out_opening:
                 opening[i] = h
         return audio, opening
@@ -439,7 +530,8 @@ def cpu_estimate(params: RealtimeParams, mcu_mflops=480.0):
     optimiste de 20 à 40 % — les accès mémoire et la boucle comptent aussi.
     À confronter à un vrai profilage sur carte, comme tout le reste.
     """
-    n_biq = len(params.modes) + (0 if params.family == FAMILY_BOW else 1)
+    n_aa = len(params.sections_antirepliement)     # filtre avant décimation
+    n_biq = len(params.modes) + (0 if params.family == FAMILY_BOW else 1) + n_aa
     per_internal = n_biq * 9 + 15          # biquads + non-linéarité
     mflops = per_internal * params.fs_internal / 1e6
     return {
@@ -511,13 +603,20 @@ C_ENGINE_H = r'''/* Moteur de modèle physique hybride — temps réel, embarqua
 #define HV_MAX_MODES 24
 #endif
 
+/* Sections d'ordre 2 au plus du filtre anti-repliement (ordre 10). */
+#ifndef HV_MAX_AA
+#define HV_MAX_AA 5
+#endif
+
 #define HV_FAMILY_SINGLE_REED 0
 #define HV_FAMILY_FREE_REED   1
 #define HV_FAMILY_BOW         2
 
 /* Sortie de hv_render. 0 (défaut d'une structure remise à zéro) : le
- * rayonnement, dérivée du débit net injecté dans le résonateur, moyennée sur
- * les sous-pas d'un échantillon de sortie. 1 : la pression de la chambre. */
+ * rayonnement, dérivée du débit net injecté dans le résonateur, calculée à
+ * chaque pas interne. 1 : la pression de la chambre. Dans les deux cas le
+ * signal passe par le filtre anti-repliement (aa) avant qu'on garde un pas
+ * interne sur `oversample`. */
 #define HV_OUT_RADIATED 0
 #define HV_OUT_PRESSURE 1
 
@@ -571,15 +670,22 @@ typedef struct {
     float plate;                 /* m, épaisseur de la plaque */
     float tongue;                /* m, épaisseur de la lame au bout */
     float clear;                 /* m, jeu latéral languette/fente */
+
+    /* filtre anti-repliement avant décimation : n_aa sections d'ordre 2
+     * (elliptique, calculé en Python à la construction). n_aa = 0 : aucun
+     * filtre (oversample = 1). */
+    int   n_aa;
+    const hv_biquad *aa;
 } hv_params;
 
 typedef struct {
     hv_bqstate z[HV_MAX_MODES];
     hv_bqstate reed_z;
+    hv_bqstate aa_z[HV_MAX_AA];  /* état du filtre anti-repliement */
     float response;
     float cavity;
     int   kicked;
-    float net_prec;              /* débit net au dernier échantillon de sortie */
+    float net_prec;              /* débit net au dernier pas interne */
     int   net_ok;                /* 0 : pas encore de débit précédent */
 } hv_state;
 
@@ -619,6 +725,7 @@ void hv_reset(hv_state *st)
     for (i = 0; i < HV_MAX_MODES; ++i) { st->z[i].z1 = 0.0f; st->z[i].z2 = 0.0f; }
     st->reed_z.z1 = 0.0f;
     st->reed_z.z2 = 0.0f;
+    for (i = 0; i < HV_MAX_AA; ++i) { st->aa_z[i].z1 = 0.0f; st->aa_z[i].z2 = 0.0f; }
     st->response = 0.0f;
     st->cavity = 0.0f;
     st->kicked = 0;
@@ -680,10 +787,11 @@ void hv_render(const hv_params *p, hv_state *st, float level,
                float *out, int n)
 {
     int i, k, m;
+    const float fs_int = p->fs_out * (float)p->oversample;
     for (i = 0; i < n; ++i) {
-        float drive = 0.0f;
+        float y = 0.0f;
         for (k = 0; k < p->oversample; ++k) {
-            float acoustic = 0.0f;
+            float acoustic = 0.0f, drive, x;
             if (!st->kicked) { st->response += 1e-6f; st->kicked = 1; }
             drive = hv_exciter(p, st, st->response, level);
             for (m = 0; m < p->n_modes; ++m)
@@ -692,16 +800,20 @@ void hv_render(const hv_params *p, hv_state *st, float level,
                 st->cavity = (st->cavity + drive * p->cavity_gain) * p->cavity_leak;
             }
             st->response = acoustic + st->cavity;
+            if (p->out_mode == HV_OUT_PRESSURE) {
+                x = st->response;
+            } else {
+                /* dérivée du débit net au pas interne ; 0 au premier pas */
+                if (!st->net_ok) { st->net_prec = drive; st->net_ok = 1; }
+                x = (drive - st->net_prec) * fs_int;
+                st->net_prec = drive;
+            }
+            /* passe-bas avant décimation : on ne garde que le dernier pas */
+            for (m = 0; m < p->n_aa; ++m)
+                x = bq_step(&p->aa[m], &st->aa_z[m], x);
+            y = x;
         }
-        if (p->out_mode == HV_OUT_PRESSURE) {
-            out[i] = st->response;
-        } else {
-            /* Moyenne des différences sur les sous-pas = (net_fin - net_début)
-             * / pas de sortie : un filtre en boîte avant la décimation. */
-            if (!st->net_ok) { st->net_prec = drive; st->net_ok = 1; }
-            out[i] = (drive - st->net_prec) * p->fs_out;
-            st->net_prec = drive;
-        }
+        out[i] = y;
     }
 }
 '''
@@ -748,6 +860,15 @@ def to_c_params(params: RealtimeParams, ident=None):
         L.append("    {0.0f, 0.0f, 0.0f, 0.0f, 0.0f},")
     L.append("};")
     L.append("")
+    aa = params.sections_antirepliement
+    L.append(f"static const hv_biquad {ident}_aa[{max(len(aa), 1)}] = {{"
+             "  /* filtre anti-repliement */")
+    for b0, b1, b2, a1, a2 in aa:
+        L.append(f"    {{{_f(b0)}, {_f(b1)}, {_f(b2)}, {_f(a1)}, {_f(a2)}}},")
+    if not aa:
+        L.append("    {0.0f, 0.0f, 0.0f, 0.0f, 0.0f},")
+    L.append("};")
+    L.append("")
 
     flow_gain = params.vena_contracta * params.width_m * np.sqrt(2.0 / RHO)
     cavity_gain = (1.0 / (params.compliance * fs)) if params.compliance > 0 else 0.0
@@ -776,10 +897,13 @@ def to_c_params(params: RealtimeParams, ident=None):
           f"    .cavity_leak = {_f(0.99999 if cavity_gain else 0.0)},",
           f"    .out_mode = {0 if params.sortie_effective == SORTIE_RAYONNEE else 1},",
           f"    .fs_out = {_f(params.samplerate)},",
+
           f"    .free_law = {loi_c(params)},",
           f"    .plate = {_f(params.plate_m)},",
           f"    .tongue = {_f(params.tongue_m)},",
           f"    .clear = {_f(params.clearance_m)},",
+          f"    .n_aa = {len(aa)},",
+          f"    .aa = {ident}_aa,",
           "};", "",
           f"#endif /* {ident.upper()}_PARAMS_H */", ""]
     return "\n".join(L)

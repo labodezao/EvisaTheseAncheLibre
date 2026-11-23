@@ -51,6 +51,7 @@ from .embedded import (RealtimeParams, params_from_voice, to_c_engine, loi_c,
 from .hybrid import RHO
 
 HV_MAX_MODES = 24
+HV_MAX_AA = 5
 
 
 # =============================================================================
@@ -86,11 +87,13 @@ class _Params(ctypes.Structure):
         ('out_mode', ctypes.c_int), ('fs_out', ctypes.c_float),
         ('free_law', ctypes.c_int), ('plate', ctypes.c_float),
         ('tongue', ctypes.c_float), ('clear', ctypes.c_float),
+        ('n_aa', ctypes.c_int), ('aa', ctypes.POINTER(_Biquad)),
     ]
 
 
 class _State(ctypes.Structure):
     _fields_ = [('z', _BqState * HV_MAX_MODES), ('reed_z', _BqState),
+                ('aa_z', _BqState * HV_MAX_AA),
                 ('response', ctypes.c_float), ('cavity', ctypes.c_float),
                 ('kicked', ctypes.c_int),
                 ('net_prec', ctypes.c_float), ('net_ok', ctypes.c_int)]
@@ -167,10 +170,10 @@ def _commande_compilation(cc, famille, dossier, source, cible):
         deff = dossier / 'hybridvoice.def'
         deff.write_text("EXPORTS\n" + "\n".join(HV_EXPORTS) + "\n",
                         encoding='utf-8')
-        return [cc, '/nologo', '/O2', '/LD', f'/DHV_MAX_MODES={HV_MAX_MODES}',
+        return [cc, '/nologo', '/O2', '/LD', f'/DHV_MAX_MODES={HV_MAX_MODES}', f'/DHV_MAX_AA={HV_MAX_AA}',
                 str(source), f'/Fe:{cible}', '/link', f'/DEF:{deff}']
     cmd = [cc, '-std=c99', '-O2', '-shared',
-           f'-DHV_MAX_MODES={HV_MAX_MODES}', str(source), '-o', str(cible)]
+           f'-DHV_MAX_MODES={HV_MAX_MODES}', f'-DHV_MAX_AA={HV_MAX_AA}', str(source), '-o', str(cible)]
     if sys.platform != 'win32':
         cmd.insert(3, '-fPIC')          # inutile et bruyant sous Windows
         cmd.append('-lm')               # la libm y est déjà dans la libc
@@ -241,9 +244,14 @@ def _to_c_params(p: RealtimeParams):
     coeffs = [biquad_bandpass(f, q, pk, fs) for f, q, pk in p.modes]
     coeffs = [c for c in coeffs if c is not None][:HV_MAX_MODES]
 
-    modes = (_Biquad * max(len(coeffs), 1))()
+    # un seul tableau : les modes, puis les sections du filtre anti-repliement
+    aa = p.sections_antirepliement
+    nm = max(len(coeffs), 1)
+    modes = (_Biquad * (nm + len(aa)))()
     for i, c in enumerate(coeffs):
         modes[i] = _Biquad(*[float(x) for x in c])
+    for i, c in enumerate(aa):
+        modes[nm + i] = _Biquad(*[float(x) for x in c])
 
     if p.family == FAMILY_BOW:
         reed = _Reed(0., 0., 0., 0., 0.)
@@ -258,6 +266,9 @@ def _to_c_params(p: RealtimeParams):
     cp.n_modes = len(coeffs)
     cp.oversample = int(p.oversample)
     cp.modes = ctypes.cast(modes, ctypes.POINTER(_Biquad))
+    cp.n_aa = len(aa)
+    cp.aa = ctypes.cast(ctypes.addressof(modes) + nm * ctypes.sizeof(_Biquad),
+                        ctypes.POINTER(_Biquad))
     cp.reed = reed
     cp.rest_opening = p.rest_opening_m
     cp.width = p.width_m
