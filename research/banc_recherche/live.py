@@ -723,6 +723,20 @@ TAU_TIMBRE_S = 0.02
 #: **0,8 est provisoire, non mesuré** : c'est la valeur qui, dans l'essai hors
 #: moteur (note 57, CC 11 = 80), ramène A2/A1 à -14,5 dB (réel : -20) ; la
 #: surface efficace de la lame n'a pas été mesurée sur une lame réelle.
+#: **Deux faits mesurés (23/11/2026), à F = 1, au fondamental** : la pompe
+#: vaut 10 à 15 fois le débit de fente (notes 57, 65, 69 ; CC 40, 80, 110 ;
+#: note 65, CC 80 : 11,0 fois), parce que la fente du moteur laisse passer peu
+#: d'air (levée et jeu réglés par similitude : la lame bouge de 16 à 49 fois
+#: la levée), pas parce que la lame serait trop grande. Le bilan complet de la
+#: chambre (fa4, 600 Pa, cotes nominales non mesurées) ne donne que 0,54 fois,
+#: presque en quadrature. Sur l'air d'essai, plus F est grand, moins
+#: l'enveloppe suit le soufflet (corrélation avec le CC 11 en dB : 0,60 à
+#: F = 0 ; 0,63 à F = 0,1 ; 0,58 à 0,4 ; 0,43 à 1) : le recul vient du poids
+#: trop fort de la pompe, pas de la pompe elle-même. **Plage conseillée :
+#: F de 0 à 0,2** ; F ≈ 0,05 est le poids qui s'accorde avec le bilan,
+#: provisoire tant que les cotes réelles ne sont pas mesurées ; au-dessus de
+#: 0,2 l'enveloppe suit moins le soufflet. Le défaut reste 0.
+#:
 #: Différent de `TIMBRE_CC` : 64 n'est pas « le défaut ». Le défaut, sans aucun
 #: message CC 74 et sans l'argument `pompe`, est F = 0 : le son d'avant, à
 #: l'échantillon près. Même lissage (`TAU_TIMBRE_S`) que les CC 70 à 73 ; seule
@@ -769,6 +783,9 @@ def params_timbre(base, chambre=1.0, largeur=1.0, q=1.0, jeu=1.0, accord=1.0,
       1.0 par défaut.
     - pompe : F, facteur du débit déplacé par la lame (`POMPE_CC`) :
       `pump_area` = F × surface de force de la lame. `None` : celui de `base`.
+      Mesuré (23/11/2026) : à F = 1 la pompe vaut 10 à 15 fois le débit de
+      fente ; plage conseillée F de 0 à 0,2, F ≈ 0,05 = poids du bilan
+      (provisoire) ; au-dessus de 0,2 l'enveloppe suit moins le soufflet.
     """
     info = getattr(base, 'base_anche', None)
     if info is None:
@@ -1204,6 +1221,13 @@ class Synth:
     Sans dépendance audio ni MIDI : il rend des blocs quand on lui en demande.
     C'est ce qui le rend testable sans carte son — et ce qui permet de
     mesurer honnêtement s'il tient le temps réel.
+
+    `pompe` : F, facteur du débit déplacé par la lame (`POMPE_CC`), 0 par
+    défaut. Mesuré le 23/11/2026 : à F = 1 la pompe vaut 10 à 15 fois le débit
+    de fente (la fente du moteur laisse passer peu d'air), alors que le bilan
+    de la chambre en donne 0,54 ; au-dessus de F = 0,2 l'enveloppe suit moins
+    le soufflet. Plage conseillée 0 à 0,2 ; F ≈ 0,05 = poids du bilan,
+    provisoire (cotes réelles non mesurées).
     """
 
     def __init__(self, instrument: Instrument, polyphony=6, gain=0.5,
@@ -1549,6 +1573,11 @@ def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
     - `pompe` : F, facteur du débit déplacé par la lame (`POMPE_CC`), 0 par
       défaut (le son d'avant, à l'échantillon près). Le fichier peut le faire
       bouger par son CC 74 (64 = 0,8, **provisoire, non mesuré**).
+      Deux faits mesurés (23/11/2026) : à F = 1 la pompe vaut 10 à 15 fois
+      le débit de fente (11,0 fois pour la note 65 à CC 11 = 80), alors que
+      le bilan de la chambre en donne 0,54 ; sur l'air d'essai, au-dessus de
+      F = 0,2 l'enveloppe suit moins le soufflet. Plage conseillée : F de 0 à
+      0,2 ; F ≈ 0,05 = poids du bilan, provisoire (cotes réelles non mesurées).
 
     `limiteur=False` rend les canaux linéaires : pour mesurer la crête de la
     somme et en tirer un gain commun, jamais pour écouter.
@@ -1936,7 +1965,11 @@ def main(argv=None):
     p.add_argument('--pompe', type=float, default=0.0, metavar='F',
                    help=f"CC {CC_POMPE} : facteur F du débit déplacé par la "
                         f"lame (S_eff = F x largeur x longueur), 0 = sans "
-                        f"(défaut) ; CC 64 = 0,8 (provisoire, non mesuré)")
+                        f"(défaut) ; CC 64 = 0,8 (provisoire, non mesuré). Mesuré : à "
+                        f"F = 1 la pompe vaut 10 à 15 fois le débit de fente ; "
+                        f"plage conseillée 0 à 0,2, F = 0,05 = poids du bilan "
+                        f"(provisoire) ; au-dessus de 0,2 l'enveloppe suit "
+                        f"moins le soufflet")
     args = p.parse_args(argv)
     timbre = {nom: getattr(args, 'cc_' + nom) for nom in TIMBRE_CC}
 

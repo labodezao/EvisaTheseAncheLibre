@@ -300,3 +300,60 @@ def test_rendre_midi_prend_pompe_et_le_cc_74(acc, tmp_path):
                for v in (a, b, c))
     assert np.array_equal(a, b)
     assert np.max(np.abs(c - a)) > 0.1 * np.std(a)
+
+
+# -- la trouvaille du 23/11/2026 : la pompe pèse 10 à 15 fois la fente à F = 1 --
+
+@sans_compilateur
+def test_a_f_1_la_pompe_vaut_onze_fois_le_debit_de_fente_note_65(acc):
+    """Note 65, CC 11 = 80, régime établi : à F = 1, le fondamental de la part
+    de la lame (sortie à F = 1 moins sortie à F = 0, exacte car la pompe
+    n'entre pas dans le bilan) vaut 11,0 fois celui de la part de la fente
+    (mesuré le 23/11/2026 : 10,98, phase +32°). Le bilan complet de la chambre
+    n'en donne que 0,54. Le poids de la pompe (F ≈ 0,05) en découle.
+
+    Si ce test bouge, la fente a changé : recalculer le poids de la pompe.
+    """
+    import ctypes
+    B = 256
+    s = live.Synth(acc, polyphony=1, pompe=0.0)
+    s.pression_mesuree = True
+    s.expression = 80 / 127.0
+    s.note_on(65, 100)
+    v = s.voices[0]
+    # même voix, même état de départ, avec F = 1 : seule la sortie diffère
+    v.paramsB = live.params_timbre(v.base, pompe=1.0)
+    v.stateB = live._State()
+    lib = live.engine_library()
+    lib.hv_reset(ctypes.byref(v.stateB))
+    A, L = [], []
+    for _ in range(int(3.0 * SR) // B):
+        s._avancer_timbre(B)
+        s._avancer_soufflet(B)
+        v.target = s._niveau_soufflet(v.params, s.pression)
+        v.level += (v.target - v.level) * 1.0
+        oa = np.zeros(1, dtype=np.float32)
+        ob = np.zeros(1, dtype=np.float32)
+        for _k in range(B):
+            lib.hv_render(ctypes.byref(v.params), ctypes.byref(v.state),
+                          ctypes.c_float(v.level), oa, 1)
+            lib.hv_render(ctypes.byref(v.paramsB), ctypes.byref(v.stateB),
+                          ctypes.c_float(v.level), ob, 1)
+            A.append(oa[0])
+            L.append(ob[0] - oa[0])
+    w = slice(int(2.0 * SR), None)               # régime établi
+    A = np.asarray(A, float)[w]
+    L = np.asarray(L, float)[w]
+    t = np.arange(len(A)) / SR
+    f0 = 440.0 * 2 ** ((65 - 69) / 12)
+
+    def fondamental(x, f):
+        M = np.column_stack([np.cos(2 * np.pi * f * t), np.sin(2 * np.pi * f * t)])
+        c = np.linalg.lstsq(M, x - x.mean(), rcond=None)[0]
+        return complex(c[0], -c[1])
+
+    # fréquence exacte : maximum du fondamental de la part de la fente
+    fs_ = np.linspace(f0 * 0.985, f0 * 1.03, 91)
+    f = max(fs_, key=lambda g: abs(fondamental(A, g)))
+    rapport = abs(fondamental(L, f)) / abs(fondamental(A, f))
+    assert rapport == pytest.approx(11.0, rel=0.10), rapport
