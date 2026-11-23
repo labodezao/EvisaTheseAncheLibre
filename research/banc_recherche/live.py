@@ -620,6 +620,7 @@ class Voice:
         self.active = False
         self.tenue = False         # touche enfoncée (le soufflet la nourrit)
         self.canal = 0             # canal MIDI, pour séparer les sommes
+        self.appuis = 0            # appuis non relâchés sur (canal, note)
         self.age = 0
 
     def note_on(self, params, note, level, canal=0):
@@ -629,9 +630,15 @@ class Voice:
         self.level = self.target = float(level)
         self.active = True
         self.tenue = True
+        self.appuis = 1
         self.age = 0
 
-    def note_off(self):
+    def note_off(self, tout=False):
+        """Un relâchement. La soupape ne se ferme qu'au dernier appui
+        (`tout=True` : sans compter, pour « toutes notes coupées »)."""
+        self.appuis = 0 if tout else max(0, self.appuis - 1)
+        if self.appuis > 0:
+            return
         self.target = 0.0          # on coupe l'alimentation, pas le son
         self.tenue = False
 
@@ -720,6 +727,17 @@ class Synth:
 
     # -- clavier -------------------------------------------------------------
     def note_on(self, note, velocity=100, canal=0):
+        # Une anche par note et par voix : une note rejouée pendant qu'elle
+        # tient garde sa soupape ouverte, on compte l'appui de plus. Son
+        # relâchement (le off de l'ancienne note, qui peut tomber après ce
+        # on) ne ferme alors pas la nouvelle ; la soupape ne se ferme qu'au
+        # dernier relâchement.
+        v = next((v for v in self.voices
+                  if v.active and v.tenue and v.note == int(note)
+                  and v.canal == int(canal)), None)
+        if v is not None:
+            v.appuis += 1
+            return v
         v = next((v for v in self.voices if not v.active), None)
         if v is None:                    # toutes prises : on vole la plus vieille
             v = max(self.voices, key=lambda x: x.age)
@@ -742,7 +760,7 @@ class Synth:
 
     def all_notes_off(self):
         for v in self.voices:
-            v.note_off()
+            v.note_off(tout=True)
 
     def _nuance(self, velocity):
         """Vélocité et expression → multiple du niveau nominal.
