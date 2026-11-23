@@ -380,3 +380,70 @@ def test_une_touche_sans_doigte_rend_la_plus_proche():
     notes = sorted(n for _, _, _, n in inst.fingerings)
     trou = next(n for n in range(notes[0], notes[-1]) if n not in notes)
     assert inst.params_for(trou) is not None
+
+
+# -- une note rejouée à la même hauteur (chaîne audio vers MIDI) -------------
+
+@pytest.fixture(scope='module')
+def accordeon_62():
+    return live.build_instrument('accordeon', lo=57, hi=67)
+
+
+def _niveaux_db(inst, suite, duree=0.9, pas=0.01):
+    """Niveau de sortie (dB) par tranche de `pas` s, pour une suite
+    `[(seconde, 'on' | 'off')]` sur la note 62, canal 0."""
+    s = live.Synth(inst, polyphony=8)
+    s.pression_mesuree = True
+    s.expression = 0.8
+    sr = inst.samplerate
+    n = int(duree * sr)
+    sortie = np.zeros(n, dtype=np.float32)
+    suite = sorted(suite)
+    pos = i = 0
+    while pos < n:
+        while i < len(suite) and int(round(suite[i][0] * sr)) <= pos:
+            if suite[i][1] == 'on':
+                s.note_on(62, 100, canal=0)
+            else:
+                s.note_off(62, canal=0)
+            i += 1
+        suivant = int(round(suite[i][0] * sr)) if i < len(suite) else n
+        m = max(1, min(256, suivant - pos, n - pos))
+        sortie[pos:pos + m] = s.render(m)
+        pos += m
+    k = int(pas * sr)
+    return [20 * np.log10(np.sqrt(np.mean(sortie[j:j + k] ** 2)) + 1e-9)
+            for j in range(0, n - k + 1, k)]
+
+
+def test_le_off_de_l_ancienne_note_n_eteint_pas_la_nouvelle(accordeon_62):
+    """on, on à la même hauteur, off 5 ms après, off final 500 ms après :
+    la note tient jusqu'au dernier off (avant : -180 dB dès 30 ms)."""
+    niv = _niveaux_db(accordeon_62, [(0.0, 'on'), (0.100, 'on'),
+                                     (0.105, 'off'), (0.600, 'off')])
+    tenue = niv[15:58]                    # 150 ms à 580 ms
+    assert min(tenue) > -40.0
+    assert niv[-1] < -60.0                # le dernier off la libère
+
+
+def test_off_avant_le_second_on_la_note_repart(accordeon_62):
+    """Essai contraire : le off tombe avant le on ; la note est rejouée."""
+    niv = _niveaux_db(accordeon_62, [(0.0, 'on'), (0.095, 'off'),
+                                     (0.100, 'on'), (0.600, 'off')])
+    assert min(niv[20:58]) > -40.0
+    assert niv[-1] < -60.0
+
+
+def test_les_appuis_se_comptent_par_canal_et_note(accordeon_62):
+    s = live.Synth(accordeon_62, polyphony=4)
+    s.note_on(62, 100, canal=0)
+    v = s.note_on(62, 100, canal=0)
+    autre = s.note_on(62, 100, canal=1)        # autre canal : autre anche
+    assert s.active_voices == 2 and autre is not v
+    s.note_off(62, canal=0)
+    assert v.tenue
+    s.note_off(62, canal=0)
+    assert not v.tenue and autre.tenue
+    s.note_on(62, 100, canal=0); s.note_on(62, 100, canal=0)
+    s.all_notes_off()                          # coupe tout, sans compter
+    assert not any(x.tenue for x in s.voices)

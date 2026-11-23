@@ -44,7 +44,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from . import hybrid
-from .embedded import (RealtimeParams, params_from_voice, to_c_engine,
+from .embedded import (RealtimeParams, params_from_voice, to_c_engine, loi_c,
                        biquad_bandpass, biquad_lowpass, FAMILY_BOW,
                        FAMILY_SINGLE_REED, FAMILY_FREE_REED, SORTIE_RAYONNEE,
                        SORTIE_PRESSION)
@@ -79,6 +79,8 @@ class _Params(ctypes.Structure):
         ('v_char', ctypes.c_float), ('bow_speed', ctypes.c_float),
         ('cavity_gain', ctypes.c_float), ('cavity_leak', ctypes.c_float),
         ('out_mode', ctypes.c_int), ('fs_out', ctypes.c_float),
+        ('free_law', ctypes.c_int), ('plate', ctypes.c_float),
+        ('tongue', ctypes.c_float), ('clear', ctypes.c_float),
     ]
 
 
@@ -266,6 +268,8 @@ def _to_c_params(p: RealtimeParams):
     cp.cavity_leak = 0.99999 if cp.cavity_gain else 0.0
     cp.out_mode = 0 if p.sortie_effective == SORTIE_RAYONNEE else 1
     cp.fs_out = float(p.samplerate)
+    cp.free_law = loi_c(p)
+    cp.plate, cp.tongue, cp.clear = p.plate_m, p.tongue_m, p.clearance_m
     return cp, modes
 
 
@@ -620,6 +624,7 @@ class Voice:
         self.active = False
         self.tenue = False         # touche enfoncée (le soufflet la nourrit)
         self.canal = 0             # canal MIDI, pour séparer les sommes
+        self.appuis = 0            # appuis non relâchés sur (canal, note)
         self.age = 0
 
     def note_on(self, params, note, level, canal=0):
@@ -629,9 +634,15 @@ class Voice:
         self.level = self.target = float(level)
         self.active = True
         self.tenue = True
+        self.appuis = 1
         self.age = 0
 
-    def note_off(self):
+    def note_off(self, tout=False):
+        """Un relâchement. La soupape ne se ferme qu'au dernier appui
+        (`tout=True` : sans compter, pour « toutes notes coupées »)."""
+        self.appuis = 0 if tout else max(0, self.appuis - 1)
+        if self.appuis > 0:
+            return
         self.target = 0.0          # on coupe l'alimentation, pas le son
         self.tenue = False
 
@@ -706,6 +717,11 @@ class Synth:
         self.sens = 1.0                 # +1 poussé, -1 tiré
         self.p_max = float(p_max)       # Pa, haut de la plage de jeu
         self.pression = 0.0             # Pa, dernière pression du soufflet
+        # `True` : l'expression est déjà une pression mesurée (CC 11 d'un
+        # fichier tiré d'un enregistrement) ; elle ne repasse pas par le bras
+        # ni par le réservoir. Le jeu en direct reste à `False` : le CC est
+        # alors un geste.
+        self.pression_mesuree = False
         self._dt_soufflet = 1.0 / 2000.0
         self._reste_soufflet = 0.0
         self._scratch = None
@@ -715,6 +731,17 @@ class Synth:
 
     # -- clavier -------------------------------------------------------------
     def note_on(self, note, velocity=100, canal=0):
+        # Une anche par note et par voix : une note rejouée pendant qu'elle
+        # tient garde sa soupape ouverte, on compte l'appui de plus. Son
+        # relâchement (le off de l'ancienne note, qui peut tomber après ce
+        # on) ne ferme alors pas la nouvelle ; la soupape ne se ferme qu'au
+        # dernier relâchement.
+        v = next((v for v in self.voices
+                  if v.active and v.tenue and v.note == int(note)
+                  and v.canal == int(canal)), None)
+        if v is not None:
+            v.appuis += 1
+            return v
         v = next((v for v in self.voices if not v.active), None)
         if v is None:                    # toutes prises : on vole la plus vieille
             v = max(self.voices, key=lambda x: x.age)
@@ -737,7 +764,7 @@ class Synth:
 
     def all_notes_off(self):
         for v in self.voices:
-            v.note_off()
+            v.note_off(tout=True)
 
     def _nuance(self, velocity):
         """Vélocité et expression → multiple du niveau nominal.
@@ -775,6 +802,10 @@ class Synth:
         tenues = sum(1 for v in self.voices if v.active and v.tenue)
         p_dem = float(pression_demandee(self.expression, self.sens,
                                         self.p_max, self.soufflet.gamma))
+        if self.pression_mesuree:
+            self._reste_soufflet = 0.0
+            self.pression = p_dem
+            return
         while self._reste_soufflet >= self._dt_soufflet:
             self.pression, _, _ = self.soufflet.pas(
                 p_dem, self._dt_soufflet, n_anches=tenues)
@@ -879,7 +910,7 @@ def lire_midi(chemin):
 def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
                 polyphonie=16, par_canal=True, gain=0.5, soufflet='auto',
                 bloc=256, queue_s=1.5, sens=1.0, lo=None, hi=None,
-                samplerate=48000.0, limiteur=True):
+                samplerate=48000.0, limiteur=True, cc='geste'):
     """Joue un fichier MIDI sur le modèle, hors temps réel, et rend le son.
 
     - `instrument` : un `Instrument`, ou un nom (`'accordeon'`) : l'instrument
@@ -896,6 +927,22 @@ def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
       (le soufflet, les notes tenues et les voix doivent être dans leur
       état), seul le son de la fenêtre est gardé. `queue_s` laisse les
       dernières notes s'éteindre quand `fin_s` dépasse le fichier.
+
+    - `cc` : ce que le CC 11 (et 2) du fichier représente.
+      `'geste'` (défaut, le jeu en direct) : le geste du bras, qui passe par
+      le soufflet (passe-bas, pentes bornées, réservoir).
+      `'pression'` : une pression déjà mesurée, par exemple le CC 11 de la
+      chaîne audio vers MIDI. Ce niveau vient d'un enregistrement, donc d'un
+      vrai soufflet ; la chaîne lui a déjà appliqué les bornes de la thèse
+      (bande 8 Hz, pentes 120 / 190 dB/s). Le faire repasser par le bras les
+      appliquerait deux fois et retarderait l'enveloppe de 45 ms. La pression
+      commune vaut alors `soufflet.pression_demandee(expression)` sans bras
+      ni réservoir. Les CC arrivent par pas de 10 ms : l'expression est
+      interpolée linéairement entre deux messages consécutifs (au centre de
+      chaque bloc, 5,3 ms au plus) pour éviter les marches ; au-delà de
+      `GAP_CC_MAX_S` sans message, la valeur est tenue, pas rampée.
+      Le soufflet reste celui du direct : rien n'est retiré, il n'est pas
+      appliqué deux fois.
 
     La vélocité est transmise telle quelle à `Synth.note_on`.
 
@@ -914,6 +961,15 @@ def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
     synth = Synth(instrument, polyphony=polyphonie, gain=gain,
                   soufflet=soufflet)
     synth.sens = float(sens)
+    if cc not in ('geste', 'pression'):
+        raise ValueError("cc : 'geste' ou 'pression', pas %r" % (cc,))
+    interp = None
+    if cc == 'pression' and synth.soufflet is not None:
+        synth.pression_mesuree = True
+        cc_evts = [(t, m.value / 127.0) for t, m in evts
+                   if m.type == 'control_change' and m.control in CC_EXPRESSION]
+        if cc_evts:
+            interp = _expression_interpolee(cc_evts)
 
     duree = (evts[-1][0] if evts else 0.0) + float(queue_s)
     fin = duree if fin_s is None else float(fin_s)
@@ -931,6 +987,8 @@ def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
             i_evt += 1
         suivant = dates[i_evt] if i_evt < len(evts) else n_total
         n = max(1, min(int(bloc), suivant - pos, n_total - pos))
+        if interp is not None:
+            synth.expression = interp((pos + 0.5 * n) / sr)
         for c, x in synth.render_canaux(n, limiteur=limiteur).items():
             if c not in sortie:
                 sortie[c] = np.zeros(n_total, dtype=np.float32)
@@ -941,6 +999,28 @@ def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
     if par_canal:
         return sortie
     return np.sum(list(sortie.values()), axis=0, dtype=np.float32)
+
+
+#: Au-delà de cet écart entre deux CC, `rendre_midi(cc='pression')` tient la
+#: valeur au lieu de la rampe (la chaîne émet un CC toutes les 10 ms).
+GAP_CC_MAX_S = 0.05
+
+
+def _expression_interpolee(cc_evts):
+    """`[(t, expression)]` → fonction `t → expression`, linéaire entre deux
+    messages écartés de `GAP_CC_MAX_S` au plus, constante sinon."""
+    ts = np.array([t for t, _ in cc_evts], dtype=float)
+    vs = np.array([v for _, v in cc_evts], dtype=float)
+
+    def f(t):
+        k = int(np.searchsorted(ts, t, side='right')) - 1
+        if k < 0:
+            return float(vs[0])
+        if k + 1 >= len(ts) or ts[k + 1] - ts[k] > GAP_CC_MAX_S:
+            return float(vs[k])
+        a = (t - ts[k]) / (ts[k + 1] - ts[k])
+        return float(vs[k] + a * (vs[k + 1] - vs[k]))
+    return f
 
 
 def _appliquer_midi(synth, msg):
@@ -1215,6 +1295,10 @@ def main(argv=None):
     p.add_argument('--par-canal', action='store_true',
                    help="--midi-fichier : un WAV par canal MIDI "
                         "(FICHIER_canalN.wav), un seul gain commun")
+    p.add_argument('--cc-pression', action='store_true',
+                   help="--midi-fichier : le CC 11 est une pression déjà "
+                        "mesurée (chaîne audio vers MIDI), pas un geste : "
+                        "sans bras ni réservoir")
     p.add_argument('--sans-soufflet', action='store_true',
                    help="pas de soufflet : niveau fixe, vélocité × expression")
     p.add_argument('--grave', type=int, default=40, help="note MIDI la plus basse")
@@ -1294,7 +1378,8 @@ def main(argv=None):
         canaux = rendre_midi(args.midi_fichier, inst, debut_s=args.debut,
                              fin_s=args.fin, polyphonie=args.polyphonie,
                              gain=args.gain, par_canal=True,
-                             soufflet=None if args.sans_soufflet else 'auto')
+                             soufflet=None if args.sans_soufflet else 'auto',
+                             cc='pression' if args.cc_pression else 'geste')
         mix = np.sum(list(canaux.values()), axis=0)
         _ecrire_wav(args.wav, mix, inst.samplerate)
         print(f"→ {args.wav}  ({len(mix) / inst.samplerate:.1f} s, canaux "

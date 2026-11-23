@@ -14,7 +14,7 @@ import pytest
 
 from banc_recherche import embedded as emb
 from banc_recherche import hybrid, live
-from banc_recherche.soufflet import Soufflet
+from banc_recherche.soufflet import Soufflet, pression_demandee
 
 SR = 48000.0
 NIVEAU = 2.9e-6                      # m³/s, niveau nominal de l'anche libre
@@ -37,8 +37,11 @@ def partiels(x, f_nom, sr, n=8):
     return [20 * np.log10(pic(k * f1, 0.02)[1] / a1) for k in range(1, n + 1)]
 
 
-def _params_accordeon(f0=220.0, sortie=None):
-    return emb.params_from_voice(hybrid.accordeon(f0_hz=f0), samplerate=SR,
+def _params_accordeon(f0=220.0, sortie=None, loi=None):
+    """`loi=None` : le défaut de `hybrid.accordeon` (traversante) ; 'ecretee'
+    pour fixer l'ancienne loi, quand un test en dépend."""
+    kw = {} if loi is None else {'loi': loi}
+    return emb.params_from_voice(hybrid.accordeon(f0_hz=f0, **kw), samplerate=SR,
                                  name='accordeon', sortie=sortie)
 
 
@@ -126,7 +129,11 @@ def test_le_premier_echantillon_apres_reset_est_nul():
 @sans_compilateur
 @pytest.mark.parametrize("sortie", [emb.SORTIE_RAYONNEE, emb.SORTIE_PRESSION])
 def test_le_noyau_c_suit_la_reference_python(sortie):
-    p = _params_accordeon(sortie=sortie)
+    # L'ancienne loi, explicitement : la tolérance de 5e-3 a été fixée sur elle.
+    # En loi traversante, l'écart float32 / float64 de la montée d'amplitude
+    # est un peu plus grand (1e-2 mesuré) : voir test_loi_traversante.py, qui
+    # compare les deux chemins pour la nouvelle loi.
+    p = _params_accordeon(sortie=sortie, loi='ecretee')
     cp, garde = live._to_c_params(p)
     v = live.Voice()
     v.note_on(cp, 57, NIVEAU)
@@ -152,8 +159,8 @@ def _niveau_db(x):
     return 20 * np.log10(max(np.sqrt(np.mean((x - x.mean()) ** 2)), 1e-12))
 
 
-def _jouer(inst, notes, expression, duree=1.5, bloc=256):
-    s = live.Synth(inst, polyphony=6, soufflet=Soufflet())
+def _jouer(inst, notes, expression, duree=1.5, bloc=256, gain=0.5):
+    s = live.Synth(inst, polyphony=6, soufflet=Soufflet(), gain=gain)
     s.expression = expression
     for _ in range(int(2.0 * SR / bloc)):
         s.render(bloc)                 # soufflet établi avant la touche
@@ -171,10 +178,28 @@ def test_un_accord_de_quatre_notes_n_ecrase_pas_une_note(accordeon):
     assert np.max(np.abs(accord)) < 1.0
 
 
+@pytest.fixture(scope='module')
+def accordeon_ecretee():
+    return live.build_instrument('accordeon', lo=57, hi=69, tune=False,
+                                 loi='ecretee')
+
+
 @sans_compilateur
-def test_la_somme_des_voix_n_a_pas_de_composante_continue(accordeon):
-    _, accord = _jouer(accordeon, (57, 61, 64, 69), 0.7)
+def test_la_somme_des_voix_n_a_pas_de_composante_continue(accordeon_ecretee):
+    # Ancienne loi, explicitement : à 0,7 la loi traversante, plus forte, fait
+    # travailler le limiteur (crête 1,0), dont l'écrêtage asymétrique crée un
+    # continu (3,7 % de l'écart type) qui n'est pas celui de la voix. Même
+    # propriété pour la loi traversante, sous le limiteur : test suivant.
+    _, accord = _jouer(accordeon_ecretee, (57, 61, 64, 69), 0.7)
     assert abs(np.mean(accord)) < 0.01 * np.std(accord)   # avant : +2,2 pour 0,7
+
+
+@sans_compilateur
+def test_la_somme_des_voix_n_a_pas_de_composante_continue_en_loi_traversante(accordeon):
+    # gain réduit : à 0,5 la somme de quatre voix traversantes dépasse le seuil du limiteur
+    _, accord = _jouer(accordeon, (57, 61, 64, 69), 0.7, gain=0.1)
+    assert np.max(np.abs(accord)) < 0.7                   # le limiteur n'agit pas
+    assert abs(np.mean(accord)) < 0.01 * np.std(accord)
 
 
 @sans_compilateur
@@ -272,3 +297,80 @@ def test_l_accordage_se_mesure_sur_la_pression_pas_sur_le_rayonnement():
         f = hybrid.playing_frequency(net, SR)            # intégrale = débit net, lisse
         ecart = 1200 * np.log2(f / live.midi_to_hz(note))
         assert abs(ecart) < 40.0, (note, ecart)
+
+
+# -- le CC du fichier : un geste, ou une pression déjà mesurée ----------------
+
+def _retard_s(ref, x, pas_s, max_s=0.2):
+    """Retard de `x` sur `ref` (s), au maximum de la corrélation croisée."""
+    ref = np.asarray(ref, float) - np.mean(ref)
+    x = np.asarray(x, float) - np.mean(x)
+    n = int(max_s / pas_s)
+    cc = [np.dot(ref[:len(ref) - k], x[k:]) for k in range(n)]
+    return int(np.argmax(cc)) * pas_s
+
+
+def _pression_suivie(tmp_path, monkeypatch, cc):
+    """Pression commune du synthé pendant un CC en créneaux lissés, relevée
+    à chaque bloc ; sans voix, donc sans compilateur."""
+    mido = pytest.importorskip('mido')
+    pas = 0.01
+    t = np.arange(0.0, 6.0, pas)
+    # créneaux (période 1,2 s) lissés sur 0,3 s : proche d'un niveau mesuré
+    carre = (np.sin(2 * np.pi * t / 1.2) > 0).astype(float)
+    lisse = np.convolve(carre, np.ones(30) / 30, mode='same')
+    valeurs = np.round(127 * (0.3 + 0.6 * lisse)).astype(int)
+    mid = mido.MidiFile(ticks_per_beat=1000)
+    tr = mido.MidiTrack()
+    tr.append(mido.MetaMessage('set_tempo', tempo=1000000, time=0))
+    tr.append(mido.Message('note_on', channel=0, note=57, velocity=90, time=0))
+    for v in valeurs:
+        tr.append(mido.Message('control_change', channel=0, control=11,
+                               value=int(v), time=10))
+    mid.tracks.append(tr)
+    chemin = tmp_path / 'creneaux.mid'
+    mid.save(str(chemin))
+
+    releves = []                      # (fin du bloc en s, pression)
+    fait = [0]
+
+    class SynthSansVoix(live.Synth):
+        def note_on(self, *a, **k):
+            pass
+
+        def _rendre_voix(self, n):
+            self._avancer_soufflet(n)
+            fait[0] += n
+            releves.append((fait[0] / SR, self.pression))
+            return []
+
+    monkeypatch.setattr(live, 'Synth', SynthSansVoix)
+    inst = live.Instrument(name='accordeon', lo=57, hi=57, samplerate=SR,
+                           control_unit='m³/s')
+    live.rendre_midi(chemin, inst, fin_s=6.0, bloc=64, cc=cc)
+    attendu = pression_demandee(valeurs / 127.0)     # à chaque message (10 ms)
+    # pression relevée sur la même grille de 10 ms (dernier bloc avant la date)
+    ts = np.array([r[0] for r in releves])
+    ps = np.array([r[1] for r in releves])
+    idx = np.searchsorted(ts, t + pas, side='right') - 1
+    return _retard_s(attendu, ps[np.clip(idx, 0, None)], pas)
+
+
+def test_cc_pression_suit_la_demande_sans_retard(tmp_path, monkeypatch):
+    assert _pression_suivie(tmp_path, monkeypatch, 'pression') < 0.005
+
+
+def test_cc_geste_garde_le_retard_du_soufflet(tmp_path, monkeypatch):
+    assert _pression_suivie(tmp_path, monkeypatch, 'geste') > 0.020
+
+
+def test_cc_inconnu_refuse(tmp_path):
+    mido = pytest.importorskip('mido')
+    mid = mido.MidiFile(ticks_per_beat=1000)
+    mid.tracks.append(mido.MidiTrack())
+    chemin = tmp_path / 'vide.mid'
+    mid.save(str(chemin))
+    inst = live.Instrument(name='accordeon', lo=57, hi=57, samplerate=SR,
+                           control_unit='m³/s')
+    with pytest.raises(ValueError):
+        live.rendre_midi(chemin, inst, fin_s=0.1, cc='autre')

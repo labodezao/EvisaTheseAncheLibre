@@ -436,6 +436,9 @@ comme `hybrid`) ; l'ancienne pression de chambre reste disponible par
 `sortie='pression'`. Le synthé a un soufflet par défaut (CC 11 et 2). Un
 fichier MIDI se rend avec `live.rendre_midi(chemin, instrument, debut_s, fin_s)`
 (un tableau par canal) ou `python -m banc_recherche.live --midi-fichier f.mid --wav s.wav`.
+Un CC 11 tiré d'un enregistrement (chaîne audio vers MIDI) est une pression déjà
+mesurée, pas un geste : `cc='pression'` (ou `--cc-pression`) ne le repasse pas par
+le bras du soufflet. Le défaut, `cc='geste'`, est le jeu en direct.
 
 ```python
 from banc_recherche import live

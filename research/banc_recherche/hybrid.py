@@ -549,6 +549,41 @@ class FreeReedExciter(Exciter):
     `force_area_m2` reste, lui, bien réel : c'est la surface sur laquelle la
     pression appuie. Les deux étaient confondus parce qu'ils valaient le même
     nombre ; ils n'ont pas la même physique.
+
+    **Deux lois de passage** (`loi`), c'est-à-dire deux façons de passer du
+    déplacement `y` de la languette à la hauteur `h` du passage d'air :
+
+    - `'ecretee'` (l'ancienne, gardée telle quelle) : `h = clip(y + h₀, fuite,
+      max_open)`. La languette ne fait jamais que s'approcher de la plaque ou
+      s'en éloigner.
+    - `'traversante'` : la languette traverse sa fente, comme une vraie anche
+      libre. Section = `largeur × √(gap² + jeu²)`, `gap` étant celui de
+      `coupled_reeds.ReedSetting.gap` : au-dessus de la plaque `gap = y + h₀` ;
+      entre la face de la plaque et la sortie de la lame, la languette est dans
+      la fente et `gap = 0` ; ressortie de l'autre côté, `gap` croît de
+      nouveau. Seul le jeu latéral (`clearance_m`) laisse passer l'air quand
+      `gap = 0`. Pas de butée haute. `plate_m`, `tongue_m` et `clearance_m`
+      sont données **à la cote de référence (110 Hz)** ; `accordeon()` les
+      divise par `r = f/110` comme toutes les longueurs. La force sur la
+      languette, elle, est inchangée.
+
+    **Pourquoi la loi traversante** (audit du 23/11/2026, mesures hors moteur
+    dans `J:/claude/tmp/modele_instruments/accordeon/brillance/` et
+    `traversante/`). L'ouverture écrêtée ferme l'anche pendant la moitié de la
+    période : le débit est haché, ce qui donne un spectre trop brillant
+    (centroïde 9 kHz contre 1,5 kHz sur l'enregistrement), et la butée haute
+    `max_open_m` couche la languette, d'où l'extinction des notes aiguës à forte
+    pression. Une vraie anche libre traverse sa fente.
+
+    **D'où vient le réglage** (`accordeon()` : levée au repos = `rest_offset_m`,
+    plaque 1,2 mm, lame 0,4 mm, jeu 15 µm, Q 60) : réglage « e3 » d'un plan
+    d'expériences fractionné 2^(5-2) hors moteur (`plan_traversante/plan.py`,
+    `plan.txt`), retenu pour sa parole (34 cas sur 35 sonnent) et son centroïde.
+    **Les valeurs de fente (plaque, lame, jeu) et le Q ne sont pas mesurés sur
+    une lame réelle : provisoires.**
+
+    **Non résolu** : la hauteur monte encore un peu avec la pression (+0,3
+    cent par 100 Pa) alors que celle d'une vraie anche baisse.
     """
     freq_hz: float = 102.1
     q: float = 125.0
@@ -556,6 +591,10 @@ class FreeReedExciter(Exciter):
     rest_offset_m: float = 0.10e-3
     max_open_m: float = 0.50e-3
     leak_m: float = 2.0e-6
+    loi: str = 'ecretee'                 # 'ecretee' (ancienne) ou 'traversante'
+    plate_m: float = 1.2e-3              # loi traversante : plaque (réf. 110 Hz)
+    tongue_m: float = 0.4e-3             # loi traversante : lame au bout
+    clearance_m: float = 15e-6           # loi traversante : jeu languette/fente
     area_m2: float = 0.0                 # balayage : nul pour une anche libre
     force_area_m2: float = 9.6e-5        # surface sur laquelle la pression agit
     mass_kg: float = 2.0e-4
@@ -575,7 +614,26 @@ class FreeReedExciter(Exciter):
     def omega(self):
         return 2.0 * np.pi * self.freq_hz
 
+    LOIS = ('ecretee', 'traversante')
+
+    def __post_init__(self):
+        if self.loi not in self.LOIS:
+            raise ValueError("loi : 'ecretee' ou 'traversante', pas %r"
+                             % (self.loi,))
+
+    def gap(self, y):
+        """Loi traversante : hauteur de passage (m) pour un déplacement `y`.
+        Même loi que `coupled_reeds.ReedSetting.gap`, écrite dans le sens du
+        moteur (`y > 0` ouvre ; levée au repos = `rest_offset_m`)."""
+        z = y + self.rest_offset_m
+        if z > 0.0:
+            return z                           # au-dessus de la plaque
+        return max(-z - self.tongue_m - self.plate_m, 0.0)   # 0 : dans la fente
+
     def opening(self, state):
+        if self.loi == 'traversante':
+            g = self.gap(float(state[0]))
+            return float(np.sqrt(g * g + self.clearance_m ** 2))
         return float(np.clip(state[0] + self.rest_offset_m,
                              self.leak_m, self.max_open_m))
 
@@ -957,8 +1015,15 @@ def _wind(exciter, f0, kind, n_modes, q, bore_mm, peak_ratio, name,
 ACCORDEON_REF_HZ = 110.0     # l'anche dont les cotes servent de référence
 
 
-def accordeon(f0_hz=110.0, volume_m3=None, **kw):
+def accordeon(f0_hz=110.0, volume_m3=None, loi='traversante', **kw):
     """Anche libre sur chambre fermée.
+
+    `loi='traversante'` (défaut) : la languette traverse sa fente, avec le
+    réglage « e3 » (plaque 1,2 mm, lame 0,4 mm, jeu 15 µm, Q 60, levée au repos
+    `rest_offset_m`, longueurs divisées par `r = f/110`). `loi='ecretee'` :
+    l'ancienne ouverture écrêtée et son Q 125, inchangée. Cause, origine du
+    réglage et limites : voir `FreeReedExciter`. Toute cote passée
+    explicitement l'emporte.
 
     Le seul de la famille dont le résonateur n'a **aucun mode** : juste une
     compliance. C'est pourquoi l'anche impose sa hauteur au lieu de la
@@ -1006,6 +1071,11 @@ def accordeon(f0_hz=110.0, volume_m3=None, **kw):
         'force_area_m2': ref.force_area_m2 / r ** 2,
         'mass_kg': ref.mass_kg / r ** 3,
     }
+    if loi == 'traversante':
+        echelle.update({'plate_m': ref.plate_m / r,
+                        'tongue_m': ref.tongue_m / r,
+                        'clearance_m': ref.clearance_m / r,
+                        'q': 60.0})        # Q du réglage e3 (provisoire)
     for cle, valeur in echelle.items():
         kw.setdefault(cle, valeur)
     if volume_m3 is None:
@@ -1016,7 +1086,7 @@ def accordeon(f0_hz=110.0, volume_m3=None, **kw):
         # sans le recaler le rend muet (mesuré : test_live).
         volume_m3 = 40e-6 / r ** 3
 
-    ex = FreeReedExciter(freq_hz=f0_hz, **kw)
+    ex = FreeReedExciter(freq_hz=f0_hz, loi=loi, **kw)
     res = Resonator(compliance=chamber_compliance(volume_m3), name="chambre")
     return HybridVoice(ex, res, name="accordéon")
 

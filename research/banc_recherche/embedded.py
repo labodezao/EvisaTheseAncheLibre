@@ -168,6 +168,15 @@ class RealtimeParams:
     visc_pa: float = 1.0
     max_open_m: float = 0.0                        # >0 : anche libre (saturation)
     leak_m: float = 0.0
+    #: loi de passage de l'anche libre (cf. `hybrid.FreeReedExciter`) :
+    #: `LOI_ECRETEE` (`clip(y + h₀, fuite, max_open)`, l'ancienne) ou
+    #: `LOI_TRAVERSANTE` (la languette traverse sa fente : section
+    #: `largeur × √(gap² + jeu²)`, sans butée haute). Plaque, lame et jeu ne
+    #: servent qu'à la seconde ; la levée au repos est `rest_opening_m`.
+    loi: str = 'ecretee'
+    plate_m: float = 0.0
+    tongue_m: float = 0.0
+    clearance_m: float = 0.0
     reed_area_m2: float = 0.0
     source_impedance: float = 0.0                  # 0 = source parfaite
 
@@ -190,6 +199,17 @@ class RealtimeParams:
     @property
     def sortie_effective(self):
         return self.sortie or sortie_par_defaut(self.family)
+
+
+#: Lois de passage de l'anche libre (code C : 0 et 1).
+LOI_ECRETEE = 'ecretee'
+LOI_TRAVERSANTE = 'traversante'
+
+
+def loi_c(params):
+    """Numéro de la loi pour le C : 0 écrêtée (défaut d'une structure remise à
+    zéro), 1 traversante."""
+    return 1 if params.loi == LOI_TRAVERSANTE else 0
 
 
 #: Sorties d'une voix. La pression de la chambre est un signal **intégré** : la
@@ -265,6 +285,10 @@ def params_from_voice(voice: HybridVoice, samplerate=48000.0, oversample=None,
         p.vena_contracta = ex.vena_contracta
         p.max_open_m = ex.max_open_m
         p.leak_m = ex.leak_m
+        p.loi = ex.loi
+        p.plate_m = ex.plate_m
+        p.tongue_m = ex.tongue_m
+        p.clearance_m = ex.clearance_m
         p.reed_area_m2 = ex.area_m2
         p.source_impedance = (ex.source_impedance
                               if np.isfinite(ex.source_impedance) else 0.0)
@@ -333,7 +357,14 @@ class RealtimeVoice:
 
         # anche libre : la pression l'ouvre, la soupape interdit le retour
         y = self.reed.step(response)
-        h = min(max(p.rest_opening_m + y, p.leak_m), p.max_open_m)
+        z = p.rest_opening_m + y
+        if p.loi == LOI_TRAVERSANTE:
+            # la languette traverse sa fente (`coupled_reeds.ReedSetting.gap`,
+            # lue dans le sens du moteur) ; seul le jeu passe quand gap = 0
+            g = z if z > 0.0 else max(-z - (p.tongue_m + p.plate_m), 0.0)
+            h = np.sqrt(g * g + p.clearance_m * p.clearance_m)
+        else:
+            h = min(max(z, p.leak_m), p.max_open_m)
         q_out = (p.vena_contracta * p.width_m * h * np.sqrt(2.0 / RHO)
                  * response / np.sqrt(response + p.visc_pa)) if response > 0.0 else 0.0
         q_src = level
@@ -479,6 +510,12 @@ C_ENGINE_H = r'''/* Moteur de modèle physique hybride — temps réel, embarqua
 #define HV_OUT_RADIATED 0
 #define HV_OUT_PRESSURE 1
 
+/* Loi de passage de l'anche libre. 0 (défaut d'une structure remise à zéro) :
+ * ouverture écrêtée clip(h0 + y, leak, max_open). 1 : la languette traverse sa
+ * fente, section width*sqrt(gap^2 + clear^2), sans butée haute. */
+#define HV_LAW_CLIPPED 0
+#define HV_LAW_THROUGH 1
+
 typedef struct { float b0, b1, b2, a1, a2; } hv_biquad;
 typedef struct { float z1, z2; } hv_bqstate;
 
@@ -510,6 +547,12 @@ typedef struct {
     /* sortie */
     int   out_mode;              /* HV_OUT_RADIATED ou HV_OUT_PRESSURE */
     float fs_out;                /* cadence de sortie, Hz (fs_interne/oversample) */
+
+    /* anche libre, loi traversante (rest_opening = levée au repos) */
+    int   free_law;              /* HV_LAW_CLIPPED ou HV_LAW_THROUGH */
+    float plate;                 /* m, épaisseur de la plaque */
+    float tongue;                /* m, épaisseur de la lame au bout */
+    float clear;                 /* m, jeu latéral languette/fente */
 } hv_params;
 
 typedef struct {
@@ -583,10 +626,21 @@ static inline float hv_exciter(const hv_params *p, hv_state *st,
 
     {   /* anche libre : la pression l'ouvre, la soupape interdit le retour */
         const float y = bq_step(&p->reed, &st->reed_z, response);
-        float h = p->rest_opening + y;
-        float q_out = 0.0f, q_src = level;
-        if (h < p->leak)     h = p->leak;
-        if (h > p->max_open) h = p->max_open;
+        const float z = p->rest_opening + y;
+        float h, q_out = 0.0f, q_src = level;
+        if (p->free_law == HV_LAW_THROUGH) {
+            /* la languette traverse sa fente : seul le jeu passe si gap = 0 */
+            float g = z;
+            if (z <= 0.0f) {
+                g = -z - (p->tongue + p->plate);
+                if (g < 0.0f) g = 0.0f;
+            }
+            h = sqrtf(g * g + p->clear * p->clear);
+        } else {
+            h = z;
+            if (h < p->leak)     h = p->leak;
+            if (h > p->max_open) h = p->max_open;
+        }
         if (response > 0.0f)
             q_out = p->flow_gain * h * response / sqrtf(response + p->visc_pa);
         if (p->src_admit > 0.0f) q_src -= response * p->src_admit;
@@ -694,6 +748,10 @@ def to_c_params(params: RealtimeParams, ident=None):
           f"    .cavity_leak = {_f(0.99999 if cavity_gain else 0.0)},",
           f"    .out_mode = {0 if params.sortie_effective == SORTIE_RAYONNEE else 1},",
           f"    .fs_out = {_f(params.samplerate)},",
+          f"    .free_law = {loi_c(params)},",
+          f"    .plate = {_f(params.plate_m)},",
+          f"    .tongue = {_f(params.tongue_m)},",
+          f"    .clear = {_f(params.clearance_m)},",
           "};", "",
           f"#endif /* {ident.upper()}_PARAMS_H */", ""]
     return "\n".join(L)
