@@ -142,7 +142,13 @@ def test_chambre_et_largeur_baissent_le_centroide_dans_le_sens_attendu(acc, note
     c0 = _centroide(d[-int(0.3 * SR):])
     plus, _ = _note(acc, note, 0.5, timbre={'chambre': 127})      # chambre x2
     moins, _ = _note(acc, note, 0.5, timbre={'chambre': 0})       # chambre x0,5
-    assert _centroide(plus[-int(0.3 * SR):]) < c0 < _centroide(moins[-int(0.3 * SR):])
+    assert _centroide(plus[-int(0.3 * SR):]) < c0
+    if note == 57:
+        # À hauteur gardée (l'accord suit le timbre), la chambre réduite
+        # n'éclaircit plus à coup sûr : à la note 69 le centroïde baisse de 4 %
+        # (mesuré, accordeon/cc_accord). Avant l'accord, cette hausse venait
+        # de la hauteur qui montait de 13 cents.
+        assert c0 < _centroide(moins[-int(0.3 * SR):])
     large, _ = _note(acc, note, 0.5, timbre={'largeur': 127})     # lame x2
     fine, _ = _note(acc, note, 0.5, timbre={'largeur': 0})        # lame x0,5
     assert _centroide(fine[-int(0.3 * SR):]) < c0 < _centroide(large[-int(0.3 * SR):])
