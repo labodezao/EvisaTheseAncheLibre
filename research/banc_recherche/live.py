@@ -51,6 +51,7 @@ from .embedded import (RealtimeParams, params_from_voice, to_c_engine, loi_c,
 from .hybrid import RHO
 
 HV_MAX_MODES = 24
+HV_MAX_AA = 5
 
 
 # =============================================================================
@@ -86,11 +87,13 @@ class _Params(ctypes.Structure):
         ('out_mode', ctypes.c_int), ('fs_out', ctypes.c_float),
         ('free_law', ctypes.c_int), ('plate', ctypes.c_float),
         ('tongue', ctypes.c_float), ('clear', ctypes.c_float),
+        ('n_aa', ctypes.c_int), ('aa', ctypes.POINTER(_Biquad)),
     ]
 
 
 class _State(ctypes.Structure):
     _fields_ = [('z', _BqState * HV_MAX_MODES), ('reed_z', _BqState),
+                ('aa_z', _BqState * HV_MAX_AA),
                 ('response', ctypes.c_float), ('cavity', ctypes.c_float),
                 ('kicked', ctypes.c_int),
                 ('net_prec', ctypes.c_float), ('net_ok', ctypes.c_int)]
@@ -167,10 +170,10 @@ def _commande_compilation(cc, famille, dossier, source, cible):
         deff = dossier / 'hybridvoice.def'
         deff.write_text("EXPORTS\n" + "\n".join(HV_EXPORTS) + "\n",
                         encoding='utf-8')
-        return [cc, '/nologo', '/O2', '/LD', f'/DHV_MAX_MODES={HV_MAX_MODES}',
+        return [cc, '/nologo', '/O2', '/LD', f'/DHV_MAX_MODES={HV_MAX_MODES}', f'/DHV_MAX_AA={HV_MAX_AA}',
                 str(source), f'/Fe:{cible}', '/link', f'/DEF:{deff}']
     cmd = [cc, '-std=c99', '-O2', '-shared',
-           f'-DHV_MAX_MODES={HV_MAX_MODES}', str(source), '-o', str(cible)]
+           f'-DHV_MAX_MODES={HV_MAX_MODES}', f'-DHV_MAX_AA={HV_MAX_AA}', str(source), '-o', str(cible)]
     if sys.platform != 'win32':
         cmd.insert(3, '-fPIC')          # inutile et bruyant sous Windows
         cmd.append('-lm')               # la libm y est déjà dans la libc
@@ -241,9 +244,14 @@ def _to_c_params(p: RealtimeParams):
     coeffs = [biquad_bandpass(f, q, pk, fs) for f, q, pk in p.modes]
     coeffs = [c for c in coeffs if c is not None][:HV_MAX_MODES]
 
-    modes = (_Biquad * max(len(coeffs), 1))()
+    # un seul tableau : les modes, puis les sections du filtre anti-repliement
+    aa = p.sections_antirepliement
+    nm = max(len(coeffs), 1)
+    modes = (_Biquad * (nm + len(aa)))()
     for i, c in enumerate(coeffs):
         modes[i] = _Biquad(*[float(x) for x in c])
+    for i, c in enumerate(aa):
+        modes[nm + i] = _Biquad(*[float(x) for x in c])
 
     if p.family == FAMILY_BOW:
         reed = _Reed(0., 0., 0., 0., 0.)
@@ -258,6 +266,9 @@ def _to_c_params(p: RealtimeParams):
     cp.n_modes = len(coeffs)
     cp.oversample = int(p.oversample)
     cp.modes = ctypes.cast(modes, ctypes.POINTER(_Biquad))
+    cp.n_aa = len(aa)
+    cp.aa = ctypes.cast(ctypes.addressof(modes) + nm * ctypes.sizeof(_Biquad),
+                        ctypes.POINTER(_Biquad))
     cp.reed = reed
     cp.rest_opening = p.rest_opening_m
     cp.width = p.width_m
@@ -334,21 +345,37 @@ class Instrument:
         return len(self._params)
 
 
-def _frequence_jouee(cp, niveau, samplerate, dur=0.6):
+def _frequence_jouee(cp, niveau, samplerate, dur=None, debut=None, f_nom=None):
     """Ce que la note joue **vraiment**, mesuré sur le moteur lui-même.
 
-    On coupe la première moitié : le transitoire d'attaque n'est pas encore
-    périodique, et le mesurer reviendrait à accorder un instrument pendant
-    qu'on souffle dedans pour la première fois. On retire aussi la moyenne —
-    une anche libre sort une pression de chambre fortement décalée, et
-    l'autocorrélation d'un signal à composante continue pointe sur le
-    décalage plutôt que sur la période.
+    On mesure la hauteur **établie**, pas celle de l'attaque. Deux choses
+    faussaient l'accord de construction, mesurées sur l'accordéon (pression de
+    chambre) :
+
+    - la fenêtre : la première moitié de 0,6 s ne suffit pas, la hauteur
+      s'établit en 0,5 s et plus (note 45 : -1,21 cent tenue, +3,8 à 0,25 s) ;
+      `ACCORD_DUREE_S` et `ACCORD_DEBUT_S` donnent la durée rendue et le début
+      de la fenêtre, ceux de la table d'accord du timbre ;
+    - l'estimateur : `hybrid.playing_frequency` (autocorrélation sur 0,3 s)
+      lit +0,04 cent là où la note 48 tient -2,30 (jusqu'à 1,4 cent de biais
+      sur 0,3 s, 0,2 encore sur 0,6 s). `_hauteur_longue` donne, à 0,01 cent,
+      ce que donne la pente de phase du fondamental sur 1 s.
+
+    `f_nom` : la hauteur attendue, autour de laquelle `_hauteur_longue`
+    cherche ; sans elle, `playing_frequency` en donne une première valeur.
+    `dur` plus court que `ACCORD_DUREE_S` : la fenêtre commence à sa moitié
+    au plus. On retire la moyenne : une anche libre sort une pression de
+    chambre fortement décalée, et l'autocorrélation d'un signal à composante
+    continue pointe sur le décalage plutôt que sur la période.
     """
     # La hauteur est celle de l'oscillateur, pas du signal qu'on écoute. On la
     # mesure donc sur la pression de la chambre, lisse : l'autocorrélation d'un
     # rayonnement (dérivée d'un quasi-carré, des impulsions de signes
     # alternés) se trompe d'octave. Mesuré : la même note à -1904 cents sur le
     # rayonnement, à -2 cents sur la pression.
+    dur = ACCORD_DUREE_S if dur is None else float(dur)
+    if debut is None:
+        debut = min(ACCORD_DEBUT_S, dur / 2.0)
     mesure = _Params()
     ctypes.memmove(ctypes.byref(mesure), ctypes.byref(cp), ctypes.sizeof(cp))
     mesure.out_mode = 1
@@ -361,14 +388,18 @@ def _frequence_jouee(cp, niveau, samplerate, dur=0.6):
         buf[:] = 0.0
         v.render(buf)
         x[i:i + 512] = buf[:min(512, n - i)]
-    y = x[n // 2:].astype('float64')
+    y = x[int(debut * samplerate):].astype('float64')
     y -= y.mean()
     if np.max(np.abs(y)) < 1e-9:
         return None                       # rien ne sort : rien à accorder
-    return hybrid.playing_frequency(y, samplerate)
+    if not f_nom:
+        f_nom = hybrid.playing_frequency(y, samplerate)
+        if not f_nom > 0.0:
+            return float('nan')
+    return _hauteur_longue(y, samplerate, f_nom)
 
 
-def _accorder(name, cible_hz, niveau, samplerate, passes=2, sortie=None, **kw):
+def _accorder(name, cible_hz, niveau, samplerate, passes=8, sortie=None, **kw):
     """Retouche la note jusqu'à ce qu'elle joue juste. Un accordage, vraiment.
 
     Un modèle physique ne joue pas la fréquence qu'on lui dessine : la perce
@@ -377,8 +408,11 @@ def _accorder(name, cible_hz, niveau, samplerate, passes=2, sortie=None, **kw):
     la famille — audible, et faux au clavier.
 
     Le facteur d'instrument fait exactement ce qu'on fait ici : il mesure ce
-    que ça donne, corrige la cote, remesure. Deux passes suffisent, l'écart
-    étant presque proportionnel à la correction.
+    que ça donne, corrige la cote, remesure. L'écart est presque proportionnel à la
+    correction : l'accordéon tient à 0,05 cent en deux corrections ; les autres
+    familles (perce, pavillon, anche double) oscillent parfois d'une passe à
+    l'autre autour de la cible. On garde donc **la meilleure des mesures**
+    (au plus `passes` corrections, arrêt dès 0,05 cent), pas la dernière.
 
     Ce n'est **pas** une correction de hauteur plaquée à la sortie : c'est la
     géométrie qu'on change. Le timbre, le transitoire et le seuil sont ceux
@@ -388,16 +422,24 @@ def _accorder(name, cible_hz, niveau, samplerate, passes=2, sortie=None, **kw):
     voix = hybrid.INSTRUMENTS[name](f0_hz=design, **kw)
     p = params_from_voice(voix, samplerate=samplerate, name=name, sortie=sortie)
     cp, garde = _to_c_params(p)
-    for _ in range(int(passes)):
-        joue = _frequence_jouee(cp, niveau, samplerate)
+    meilleur = (float('inf'), cp, garde)
+    for k in range(int(passes) + 1):
+        joue = _frequence_jouee(cp, niveau, samplerate, f_nom=cible_hz)
         if not joue or not (0.5 < joue / cible_hz < 2.0):
+            if k == 0:
+                meilleur = (0.0, cp, garde)
             break                         # muette, ou dans un autre registre
+        ecart = abs(1200.0 * float(np.log2(joue / cible_hz)))
+        if ecart < meilleur[0]:
+            meilleur = (ecart, cp, garde)
+        if ecart <= ACCORD_ARRET_CENTS or k == int(passes):
+            break
         design *= cible_hz / joue
         voix = hybrid.INSTRUMENTS[name](f0_hz=design, **kw)
         p = params_from_voice(voix, samplerate=samplerate, name=name,
                               sortie=sortie)
         cp, garde = _to_c_params(p)
-    return cp, garde
+    return meilleur[1], meilleur[2]
 
 
 def niveau_nominal(ex) -> float:
@@ -736,6 +778,9 @@ ACCORD_NOMS = tuple(ACCORD_GRILLE)
 #: 45, Q 127 : -4,0 cents à 0,5-1 s, -5,5 à 1-1,5 s, -5,8 à 1,5-2 s)
 ACCORD_DUREE_S = 2.5
 ACCORD_DEBUT_S = 1.5
+#: l'accord de construction s'arrête quand la note tient sa cible à ce point
+#: près, en cents (la mesure elle-même est juste à 0,03 cent)
+ACCORD_ARRET_CENTS = 0.05
 #: à changer quand une modification de ce bloc change les chiffres du tableau
 ACCORD_VERSION = 4
 
