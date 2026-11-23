@@ -1708,6 +1708,8 @@ def _tab_live(state, plot_widget):
                     s.expression = msg.value / 127.0
                 elif msg.control == 123:              # all notes off
                     s.all_notes_off()
+                else:                                 # CC 70 à 73 : timbre
+                    s.timbre_cc(msg.control, msg.value)
             elif msg.type == 'pitchwheel':
                 pass                                   # à faire : pitch bend continu
 

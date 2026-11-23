@@ -270,6 +270,10 @@ def _to_c_params(p: RealtimeParams):
     cp.fs_out = float(p.samplerate)
     cp.free_law = loi_c(p)
     cp.plate, cp.tongue, cp.clear = p.plate_m, p.tongue_m, p.clearance_m
+    if p.family == FAMILY_FREE_REED:
+        # de quoi refaire le biquad de l'anche quand son Q change (CC de timbre)
+        cp.base_anche = (p.reed_freq_hz, p.reed_q,
+                         p.rest_opening_m / p.closing_pressure_pa, fs)
     return cp, modes
 
 
@@ -612,12 +616,91 @@ def _mesurer_echelle(inst: Instrument, notes=None):
 # Polyphonie
 # =============================================================================
 
+# =============================================================================
+# Réglages de timbre de l'accordéon, pilotés en CC MIDI
+# =============================================================================
+
+#: LA table des CC de timbre (24/11/2026, ordre 7 de la feuille de route).
+#: `nom: (numéro de CC, facteur à CC 0, facteur à CC 127, grandeur réglée)`.
+#:
+#: Chaque réglage est un **facteur multiplicatif** de la valeur par défaut du
+#: modèle, en échelle logarithmique : CC 64 = facteur 1 (le défaut, à
+#: l'échantillon près), CC 0 = facteur mini, CC 127 = facteur maxi.
+#:
+#: **Les valeurs par défaut de ces quatre grandeurs sont provisoires, non
+#: mesurées sur une lame réelle** (volume de chambre : 40 cm³ à 110 Hz ; largeur
+#: de lame : 4,8 mm ; Q : 60 ; jeu : 15 µm). Ce sont des réglages de timbre, pas
+#: des cotes d'instrument : leur facteur 1 n'est pas une mesure.
+#:
+#: Les numéros 70 à 73 sont ceux des « sound controllers » du MIDI ; aucun
+#: n'était lu par le moteur (il lit 2, 11 et 123). Seule l'anche libre a ces
+#: réglages ; les autres familles les ignorent.
+#:
+#: Effets mesurés hors moteur : volume x2 et largeur x0,5 baissent chacun le
+#: spectre d'environ 5 dB et ralentissent la montée ; Q règle le temps de
+#: réponse des graves ; le jeu a peu d'effet.
+TIMBRE_CC = {
+    'chambre': (70, 0.5, 2.0, "volume de la chambre de l'anche"),
+    'largeur': (71, 0.5, 2.0, "largeur de la lame"),
+    'q':       (72, 0.5, 2.0, "facteur de qualité Q de la lame"),
+    'jeu':     (73, 0.5, 3.0, "jeu latéral lame / fente"),
+}
+#: numéro de CC → nom du réglage
+CC_TIMBRE = {v[0]: k for k, v in TIMBRE_CC.items()}
+#: constante de temps du lissage d'un CC de timbre, en s
+TAU_TIMBRE_S = 0.02
+
+
+def facteur_timbre(nom, valeur_cc):
+    """Valeur de CC (0 à 127) → facteur multiplicatif du défaut, en échelle
+    logarithmique : 64 donne exactement 1.0, 0 le facteur mini, 127 le maxi."""
+    _, fmin, fmax, _ = TIMBRE_CC[nom]
+    v = float(np.clip(valeur_cc, 0, 127))
+    if v == 64.0:
+        return 1.0
+    if v < 64.0:
+        return float(fmin ** ((64.0 - v) / 64.0))
+    return float(fmax ** ((v - 64.0) / 63.0))
+
+
+def params_timbre(base, chambre=1.0, largeur=1.0, q=1.0, jeu=1.0):
+    """Copie de `base` (structure C d'une note d'anche libre) avec les quatre
+    facteurs de timbre. Tous à 1.0 (ou famille sans anche libre) : `base`
+    elle-même, donc le son par défaut est celui d'avant, à l'échantillon près.
+
+    - chambre : compliance ∝ volume, donc `cavity_gain` ÷ facteur ;
+    - largeur : `flow_gain` et `width` × facteur ;
+    - q : biquad de l'anche refait avec Q × facteur (même fréquence, même gain
+      statique) ;
+    - jeu : `clear` × facteur.
+    L'accord n'est PAS recalculé : voir `Synth.regler_timbre`.
+    """
+    info = getattr(base, 'base_anche', None)
+    if info is None or (chambre == 1.0 and largeur == 1.0 and q == 1.0
+                        and jeu == 1.0):
+        return base
+    cp = _Params.from_buffer_copy(base)
+    cp.base_anche = info
+    cp._base = base                     # le tableau de modes reste vivant
+    if base.cavity_gain > 0.0:
+        cp.cavity_gain = base.cavity_gain / chambre
+    cp.width = base.width * largeur
+    cp.flow_gain = base.flow_gain * largeur
+    cp.clear = base.clear * jeu
+    if q != 1.0:
+        f, q0, gain, fs = info
+        c = biquad_lowpass(f, q0 * q, gain, fs)
+        cp.reed = _Biquad(*[float(x) for x in (c or (0.,) * 5)])
+    return cp
+
+
 class Voice:
     """Une voix : un état C, une note, une nuance."""
 
     def __init__(self):
         self.state = _State()
         self.params = None
+        self.base = None           # paramètres de la note, sans timbre
         self.note = -1
         self.level = 0.0
         self.target = 0.0
@@ -627,9 +710,11 @@ class Voice:
         self.appuis = 0            # appuis non relâchés sur (canal, note)
         self.age = 0
 
-    def note_on(self, params, note, level, canal=0):
+    def note_on(self, params, note, level, canal=0, timbre=None):
         engine_library().hv_reset(ctypes.byref(self.state))
-        self.params, self.note = params, int(note)
+        self.base = params
+        self.params = params_timbre(params, **timbre) if timbre else params
+        self.note = int(note)
         self.canal = int(canal)
         self.level = self.target = float(level)
         self.active = True
@@ -699,7 +784,7 @@ class Synth:
     """
 
     def __init__(self, instrument: Instrument, polyphony=6, gain=0.5,
-                 soufflet='auto', p_max=3000.0):
+                 soufflet='auto', p_max=3000.0, timbre=None):
         self.inst = instrument
         self.voices = [Voice() for _ in range(int(polyphony))]
         self.gain = float(gain)
@@ -728,6 +813,64 @@ class Synth:
         # −100 dBFS une fois l'échelle de sortie appliquée : inaudible, et
         # atteint en quelques dizaines de millisecondes au lieu d'une seconde.
         self._silence = 1e-5 / max(instrument.output_scale, 1e-12)
+        # Réglages de timbre : cible et valeur lissée, en logarithme népérien
+        # du facteur (0 = défaut).
+        self._tim_cible = {k: 0.0 for k in TIMBRE_CC}
+        self._tim_lisse = {k: 0.0 for k in TIMBRE_CC}
+        for nom, valeur in (timbre or {}).items():
+            self.regler_timbre(nom, valeur)
+
+    # -- timbre --------------------------------------------------------------
+    def regler_timbre(self, nom, valeur_cc):
+        """Fixe un réglage de timbre par sa valeur de CC (0 à 127, 64 = défaut).
+
+        Le changement est **lissé** (constante de temps `TAU_TIMBRE_S`, appliquée
+        bloc par bloc) et vaut pour les notes qui sonnent comme pour les
+        suivantes. Sans voix active, il est pris tout de suite.
+
+        Les valeurs par défaut des quatre grandeurs sont provisoires, non
+        mesurées.
+
+        **L'accord ne suit pas.** `build_instrument` accorde chaque note à
+        l'instant de sa construction, avec les valeurs par défaut ; rien ne la
+        réaccorde quand un réglage bouge, et on ne masque pas l'écart : volume
+        et largeur déplacent la hauteur de quelques cents (mesure aux bornes
+        dans `accordeon/cc_timbre/effets.txt`).
+        """
+        if nom not in TIMBRE_CC:
+            raise KeyError("réglage de timbre inconnu : %r (connus : %s)"
+                           % (nom, ', '.join(TIMBRE_CC)))
+        self._tim_cible[nom] = float(np.log(facteur_timbre(nom, valeur_cc)))
+        if not any(v.active for v in self.voices):
+            self._tim_lisse[nom] = self._tim_cible[nom]
+
+    def timbre_cc(self, cc, valeur):
+        """Un message CC : `True` s'il était un CC de timbre (`TIMBRE_CC`)."""
+        nom = CC_TIMBRE.get(int(cc))
+        if nom is None:
+            return False
+        self.regler_timbre(nom, valeur)
+        return True
+
+    def facteurs_timbre(self):
+        """Facteurs multiplicatifs en cours (lissés), `{nom: facteur}`."""
+        return {k: float(np.exp(x)) if x != 0.0 else 1.0
+                for k, x in self._tim_lisse.items()}
+
+    def _avancer_timbre(self, n):
+        """Rapproche les réglages de leur cible de `n` échantillons ; si l'un
+        a bougé, refait les paramètres des voix qui sonnent."""
+        if all(self._tim_lisse[k] == self._tim_cible[k] for k in TIMBRE_CC):
+            return
+        a = 1.0 - float(np.exp(-n / (self.inst.samplerate * TAU_TIMBRE_S)))
+        for k in TIMBRE_CC:
+            c, x = self._tim_cible[k], self._tim_lisse[k]
+            x += (c - x) * a
+            self._tim_lisse[k] = c if abs(c - x) < 1e-4 else x
+        f = self.facteurs_timbre()
+        for v in self.voices:
+            if v.active and v.base is not None:
+                v.params = params_timbre(v.base, **f)
 
     # -- clavier -------------------------------------------------------------
     def note_on(self, note, velocity=100, canal=0):
@@ -752,7 +895,8 @@ class Synth:
             niveau = self._niveau_soufflet(params, self.pression)
         else:
             niveau = self.inst.level_default * self._nuance(velocity)
-        v.note_on(params, note, niveau, canal=canal)
+        v.note_on(params, note, niveau, canal=canal,
+                  timbre=self.facteurs_timbre())
         return v
 
     def note_off(self, note, canal=None):
@@ -818,6 +962,7 @@ class Synth:
         Rend `[(voix, bloc brut float32), …]` : la sortie du moteur, avant
         gain, avant somme. Le bloc est à la voix, pas partagé.
         """
+        self._avancer_timbre(n)
         if self.soufflet is not None:
             self._avancer_soufflet(n)
         blocs = []
@@ -910,7 +1055,7 @@ def lire_midi(chemin):
 def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
                 polyphonie=16, par_canal=True, gain=0.5, soufflet='auto',
                 bloc=256, queue_s=1.5, sens=1.0, lo=None, hi=None,
-                samplerate=48000.0, limiteur=True, cc='geste'):
+                samplerate=48000.0, limiteur=True, cc='geste', timbre=None):
     """Joue un fichier MIDI sur le modèle, hors temps réel, et rend le son.
 
     - `instrument` : un `Instrument`, ou un nom (`'accordeon'`) : l'instrument
@@ -946,6 +1091,11 @@ def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
 
     La vélocité est transmise telle quelle à `Synth.note_on`.
 
+    - `timbre` : valeurs de départ des réglages de timbre, `{nom: CC 0 à 127}`
+      (noms et numéros de CC : `TIMBRE_CC`, 70 à 73 ; 64 = défaut). Le fichier
+      peut les faire bouger ensuite par ses propres CC 70 à 73. **Les défauts
+      de ces quatre grandeurs sont provisoires, non mesurés.**
+
     `limiteur=False` rend les canaux linéaires : pour mesurer la crête de la
     somme et en tirer un gain commun, jamais pour écouter.
     """
@@ -959,7 +1109,7 @@ def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
             samplerate=samplerate)
     sr = float(instrument.samplerate)
     synth = Synth(instrument, polyphony=polyphonie, gain=gain,
-                  soufflet=soufflet)
+                  soufflet=soufflet, timbre=timbre)
     synth.sens = float(sens)
     if cc not in ('geste', 'pression'):
         raise ValueError("cc : 'geste' ou 'pression', pas %r" % (cc,))
@@ -1034,6 +1184,8 @@ def _appliquer_midi(synth, msg):
             synth.expression = msg.value / 127.0
         elif msg.control == 123:
             synth.all_notes_off()
+        else:
+            synth.timbre_cc(msg.control, msg.value)
 
 
 def realtime_factor(instrument: Instrument, n_voices=4, block=256,
@@ -1322,7 +1474,13 @@ def main(argv=None):
     p.add_argument('--cavite-cm3', type=float, default=None,
                    help="volume de cavité d'anche (corrige l'octave d'un cône "
                         "tronqué ; cf. tutt.cavite_qui_accorde_l_octave)")
+    for nom, (cc_n, fmin, fmax, grandeur) in TIMBRE_CC.items():
+        p.add_argument('--cc-' + nom, type=int, default=64, metavar='0-127',
+                       help=f"CC {cc_n} : {grandeur}, de x{fmin:g} (0) à "
+                            f"x{fmax:g} (127), 64 = défaut (provisoire, non "
+                            f"mesuré)")
     args = p.parse_args(argv)
+    timbre = {nom: getattr(args, 'cc_' + nom) for nom in TIMBRE_CC}
 
     if args.liste:
         print("instruments :", ', '.join(sorted(hybrid.INSTRUMENTS)))
@@ -1369,7 +1527,7 @@ def main(argv=None):
                                 samplerate=args.sr, a4_hz=args.la,
                                 tune=not args.brut)
     synth = Synth(inst, polyphony=args.polyphonie, gain=args.gain,
-                  soufflet=None if args.sans_soufflet else 'auto')
+                  soufflet=None if args.sans_soufflet else 'auto', timbre=timbre)
 
     if args.midi_fichier:
         if not args.wav:
@@ -1379,7 +1537,8 @@ def main(argv=None):
                              fin_s=args.fin, polyphonie=args.polyphonie,
                              gain=args.gain, par_canal=True,
                              soufflet=None if args.sans_soufflet else 'auto',
-                             cc='pression' if args.cc_pression else 'geste')
+                             cc='pression' if args.cc_pression else 'geste',
+                             timbre=timbre)
         mix = np.sum(list(canaux.values()), axis=0)
         _ecrire_wav(args.wav, mix, inst.samplerate)
         print(f"→ {args.wav}  ({len(mix) / inst.samplerate:.1f} s, canaux "
@@ -1440,6 +1599,8 @@ def _jouer_midi(synth, motif, blocksize=256, device=None):
                 synth.expression = msg.value / 127.0
             elif msg.control == 123:
                 synth.all_notes_off()
+            else:
+                synth.timbre_cc(msg.control, msg.value)
 
     flux = _sortie_audio(synth, blocksize=blocksize, device=device)
     port = mido.open_input(trouve, callback=on_msg)
