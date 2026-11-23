@@ -177,9 +177,39 @@ class RealtimeParams:
     v_char: float = 0.05
     bow_speed: float = 0.2
 
+    #: ce que la voix sort : `SORTIE_RAYONNEE` (dérivée du débit net, ce que
+    #: `hybrid.VoiceResult.radiated` appelle le rayonnement) ou
+    #: `SORTIE_PRESSION` (pression de la chambre, l'ancienne sortie). `None` :
+    #: le défaut de la famille (`sortie_par_defaut`).
+    sortie: str = None
+
     @property
     def fs_internal(self):
         return self.samplerate * self.oversample
+
+    @property
+    def sortie_effective(self):
+        return self.sortie or sortie_par_defaut(self.family)
+
+
+#: Sorties d'une voix. La pression de la chambre est un signal **intégré** : la
+#: chambre intègre le débit, donc elle coupe les aigus (partiel 8 de la la 220
+#: à -43,5 dB), et elle porte la pression continue du soufflet (centaines de
+#: Pa, qui s'additionnent d'une voix à l'autre). Ce qu'un instrument rayonne
+#: est la dérivée du débit net : celle de `hybrid.VoiceResult.radiated`.
+SORTIE_RAYONNEE = 'rayonnee'
+SORTIE_PRESSION = 'pression'
+
+
+def sortie_par_defaut(family):
+    """Sortie par défaut : rayonnée pour l'anche libre (l'accordéon).
+
+    Les autres familles gardent la pression de la perce ou la vitesse de
+    corde : le défaut n'a été prouvé (audit du 23/11/2026) que sur l'anche
+    libre, et leurs tests et leurs échelles de sortie lisent cette grandeur.
+    Elles peuvent la demander : `RealtimeParams(sortie=SORTIE_RAYONNEE)`.
+    """
+    return SORTIE_RAYONNEE if family == FAMILY_FREE_REED else SORTIE_PRESSION
 
 
 #: suréchantillonnage minimal par famille, **mesuré** et non supposé.
@@ -191,7 +221,7 @@ OVERSAMPLE_MIN = {FAMILY_SINGLE_REED: 4, FAMILY_FREE_REED: 4, FAMILY_BOW: 8}
 
 
 def params_from_voice(voice: HybridVoice, samplerate=48000.0, oversample=None,
-                      name=None):
+                      name=None, sortie=None):
     """Traduit une `HybridVoice` continue en jeu de paramètres embarquables.
 
     `oversample=None` prend le minimum sûr de la famille (`OVERSAMPLE_MIN`).
@@ -202,6 +232,9 @@ def params_from_voice(voice: HybridVoice, samplerate=48000.0, oversample=None,
     (Newton) : en audio temps réel, un coût **fixe** par échantillon vaut
     mieux qu'un coût moyen plus bas mais variable. Un nombre d'itérations qui
     dépend du signal, c'est une échéance qu'on rate un jour de concert.
+
+    `sortie` : `SORTIE_RAYONNEE` ou `SORTIE_PRESSION` (défaut de la famille,
+    cf. `sortie_par_defaut`).
     """
     ex = voice.exciter
     fam = (FAMILY_BOW if isinstance(ex, BowExciter)
@@ -212,7 +245,8 @@ def params_from_voice(voice: HybridVoice, samplerate=48000.0, oversample=None,
     p = RealtimeParams(name=name or voice.name or "voix",
                        samplerate=float(samplerate), oversample=int(oversample),
                        modes=[(m.freq_hz, m.q, m.peak) for m in voice.resonator.modes],
-                       compliance=float(voice.resonator.compliance or 0.0))
+                       compliance=float(voice.resonator.compliance or 0.0),
+                       sortie=sortie)
 
     if isinstance(ex, (SingleReedExciter, DoubleReedExciter)):
         p.family = FAMILY_SINGLE_REED
@@ -278,6 +312,7 @@ class RealtimeVoice:
         self.cavity = 0.0
         self.drive = 0.0
         self._kick = True
+        self._net_prec = None       # débit net au dernier échantillon de sortie
 
     # -- la non-linéarité, la seule chose qui coûte --------------------------
     def _exciter(self, response, level):
@@ -306,13 +341,25 @@ class RealtimeVoice:
             q_src -= response / p.source_impedance
         return q_src - q_out, h
 
-    def render(self, n_samples, level, out_opening=False):
+    def render(self, n_samples, level, out_opening=False, sortie=None):
         """Rend `n_samples` à la commande `level`. Renvoie `(audio, ouverture)`.
 
-        L'audio est la grandeur que l'instrument rayonne : la pression pour un
-        tuyau, la vitesse de corde pour un archet.
+        `sortie` choisit le signal (défaut : `params.sortie_effective`).
+
+        - `SORTIE_RAYONNEE` : la dérivée du débit net injecté dans le
+          résonateur, `d(drive)/dt`, comme `hybrid.VoiceResult.radiated`.
+          Calculée au pas suréchantillonné puis ramenée au pas de sortie par
+          la **moyenne sur les sous-pas** : elle vaut exactement la différence
+          du débit net entre deux échantillons de sortie, divisée par le pas
+          de sortie. C'est un filtre (boîte) avant décimation, pas une
+          décimation brute : les aigus de la dérivée ne se replient pas. Le
+          premier échantillon après `reset` vaut 0 (pas de débit précédent).
+        - `SORTIE_PRESSION` : la pression de la chambre (anche libre, tuyau)
+          ou la vitesse de corde (archet), l'ancienne sortie.
         """
         p = self.p
+        sortie = sortie or p.sortie_effective
+        rayonnee = sortie == SORTIE_RAYONNEE
         n = int(n_samples)
         audio = np.zeros(n)
         opening = np.zeros(n) if out_opening else None
@@ -330,7 +377,13 @@ class RealtimeVoice:
                     self.cavity += drive / (p.compliance * p.fs_internal)
                     self.cavity *= 0.99999      # fuite lente : évite la dérive continue
                 self.response = acoustic + self.cavity
-            audio[i] = self.response
+            if rayonnee:
+                if self._net_prec is None:
+                    self._net_prec = self.drive
+                audio[i] = (self.drive - self._net_prec) * p.samplerate
+                self._net_prec = self.drive
+            else:
+                audio[i] = self.response
             if out_opening:
                 opening[i] = h
         return audio, opening
@@ -420,6 +473,12 @@ C_ENGINE_H = r'''/* Moteur de modèle physique hybride — temps réel, embarqua
 #define HV_FAMILY_FREE_REED   1
 #define HV_FAMILY_BOW         2
 
+/* Sortie de hv_render. 0 (défaut d'une structure remise à zéro) : le
+ * rayonnement, dérivée du débit net injecté dans le résonateur, moyennée sur
+ * les sous-pas d'un échantillon de sortie. 1 : la pression de la chambre. */
+#define HV_OUT_RADIATED 0
+#define HV_OUT_PRESSURE 1
+
 typedef struct { float b0, b1, b2, a1, a2; } hv_biquad;
 typedef struct { float z1, z2; } hv_bqstate;
 
@@ -447,6 +506,10 @@ typedef struct {
     /* cavité fermée (accordéon) : 0 si perce ouverte */
     float cavity_gain;           /* 1/(C*fs_interne) */
     float cavity_leak;
+
+    /* sortie */
+    int   out_mode;              /* HV_OUT_RADIATED ou HV_OUT_PRESSURE */
+    float fs_out;                /* cadence de sortie, Hz (fs_interne/oversample) */
 } hv_params;
 
 typedef struct {
@@ -455,6 +518,8 @@ typedef struct {
     float response;
     float cavity;
     int   kicked;
+    float net_prec;              /* débit net au dernier échantillon de sortie */
+    int   net_ok;                /* 0 : pas encore de débit précédent */
 } hv_state;
 
 void hv_reset(hv_state *st);
@@ -486,6 +551,8 @@ void hv_reset(hv_state *st)
     st->response = 0.0f;
     st->cavity = 0.0f;
     st->kicked = 0;
+    st->net_prec = 0.0f;
+    st->net_ok = 0;
 }
 
 /* La non-linéarité : le seul endroit où l'instrument cesse d'être un filtre. */
@@ -532,8 +599,9 @@ void hv_render(const hv_params *p, hv_state *st, float level,
 {
     int i, k, m;
     for (i = 0; i < n; ++i) {
+        float drive = 0.0f;
         for (k = 0; k < p->oversample; ++k) {
-            float drive, acoustic = 0.0f;
+            float acoustic = 0.0f;
             if (!st->kicked) { st->response += 1e-6f; st->kicked = 1; }
             drive = hv_exciter(p, st, st->response, level);
             for (m = 0; m < p->n_modes; ++m)
@@ -543,7 +611,15 @@ void hv_render(const hv_params *p, hv_state *st, float level,
             }
             st->response = acoustic + st->cavity;
         }
-        out[i] = st->response;
+        if (p->out_mode == HV_OUT_PRESSURE) {
+            out[i] = st->response;
+        } else {
+            /* Moyenne des différences sur les sous-pas = (net_fin - net_début)
+             * / pas de sortie : un filtre en boîte avant la décimation. */
+            if (!st->net_ok) { st->net_prec = drive; st->net_ok = 1; }
+            out[i] = (drive - st->net_prec) * p->fs_out;
+            st->net_prec = drive;
+        }
     }
 }
 '''
@@ -616,6 +692,8 @@ def to_c_params(params: RealtimeParams, ident=None):
           f"    .bow_speed = {_f(params.bow_speed)},",
           f"    .cavity_gain = {_f(cavity_gain)},",
           f"    .cavity_leak = {_f(0.99999 if cavity_gain else 0.0)},",
+          f"    .out_mode = {0 if params.sortie_effective == SORTIE_RAYONNEE else 1},",
+          f"    .fs_out = {_f(params.samplerate)},",
           "};", "",
           f"#endif /* {ident.upper()}_PARAMS_H */", ""]
     return "\n".join(L)

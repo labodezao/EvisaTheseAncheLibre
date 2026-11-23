@@ -46,7 +46,8 @@ import numpy as np
 from . import hybrid
 from .embedded import (RealtimeParams, params_from_voice, to_c_engine,
                        biquad_bandpass, biquad_lowpass, FAMILY_BOW,
-                       FAMILY_SINGLE_REED, FAMILY_FREE_REED)
+                       FAMILY_SINGLE_REED, FAMILY_FREE_REED, SORTIE_RAYONNEE,
+                       SORTIE_PRESSION)
 from .hybrid import RHO
 
 HV_MAX_MODES = 24
@@ -77,13 +78,15 @@ class _Params(ctypes.Structure):
         ('mu_s', ctypes.c_float), ('mu_d', ctypes.c_float),
         ('v_char', ctypes.c_float), ('bow_speed', ctypes.c_float),
         ('cavity_gain', ctypes.c_float), ('cavity_leak', ctypes.c_float),
+        ('out_mode', ctypes.c_int), ('fs_out', ctypes.c_float),
     ]
 
 
 class _State(ctypes.Structure):
     _fields_ = [('z', _BqState * HV_MAX_MODES), ('reed_z', _BqState),
                 ('response', ctypes.c_float), ('cavity', ctypes.c_float),
-                ('kicked', ctypes.c_int)]
+                ('kicked', ctypes.c_int),
+                ('net_prec', ctypes.c_float), ('net_ok', ctypes.c_int)]
 
 
 _LIB = None
@@ -203,7 +206,8 @@ def engine_library(force=False):
             (d / nom).write_text(texte, encoding='utf-8')
         cmd = _commande_compilation(cc, famille, d, d / 'hybrid_voice.c', so)
         # cwd dans le dossier de travail : MSVC sème ses .obj là où il est
-        r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(d))
+        r = subprocess.run(cmd, capture_output=True, text=True, cwd=str(d),
+                           encoding='utf-8', errors='replace')
         if r.returncode != 0 or not so.exists():
             raise RuntimeError(
                 f"impossible de compiler le moteur C avec « {cc} » :\n"
@@ -260,6 +264,8 @@ def _to_c_params(p: RealtimeParams):
     cp.v_char, cp.bow_speed = p.v_char, p.bow_speed
     cp.cavity_gain = (1.0 / (p.compliance * fs)) if p.compliance > 0 else 0.0
     cp.cavity_leak = 0.99999 if cp.cavity_gain else 0.0
+    cp.out_mode = 0 if p.sortie_effective == SORTIE_RAYONNEE else 1
+    cp.fs_out = float(p.samplerate)
     return cp, modes
 
 
@@ -322,8 +328,16 @@ def _frequence_jouee(cp, niveau, samplerate, dur=0.6):
     l'autocorrélation d'un signal à composante continue pointe sur le
     décalage plutôt que sur la période.
     """
+    # La hauteur est celle de l'oscillateur, pas du signal qu'on écoute. On la
+    # mesure donc sur la pression de la chambre, lisse : l'autocorrélation d'un
+    # rayonnement (dérivée d'un quasi-carré, des impulsions de signes
+    # alternés) se trompe d'octave. Mesuré : la même note à -1904 cents sur le
+    # rayonnement, à -2 cents sur la pression.
+    mesure = _Params()
+    ctypes.memmove(ctypes.byref(mesure), ctypes.byref(cp), ctypes.sizeof(cp))
+    mesure.out_mode = 1
     v = Voice()
-    v.note_on(cp, 60, niveau)
+    v.note_on(mesure, 60, niveau)
     n = int(dur * samplerate)
     buf = np.zeros(512, dtype=np.float32)
     x = np.empty(n, dtype=np.float32)
@@ -338,7 +352,7 @@ def _frequence_jouee(cp, niveau, samplerate, dur=0.6):
     return hybrid.playing_frequency(y, samplerate)
 
 
-def _accorder(name, cible_hz, niveau, samplerate, passes=2, **kw):
+def _accorder(name, cible_hz, niveau, samplerate, passes=2, sortie=None, **kw):
     """Retouche la note jusqu'à ce qu'elle joue juste. Un accordage, vraiment.
 
     Un modèle physique ne joue pas la fréquence qu'on lui dessine : la perce
@@ -356,7 +370,7 @@ def _accorder(name, cible_hz, niveau, samplerate, passes=2, **kw):
     """
     design = float(cible_hz)
     voix = hybrid.INSTRUMENTS[name](f0_hz=design, **kw)
-    p = params_from_voice(voix, samplerate=samplerate, name=name)
+    p = params_from_voice(voix, samplerate=samplerate, name=name, sortie=sortie)
     cp, garde = _to_c_params(p)
     for _ in range(int(passes)):
         joue = _frequence_jouee(cp, niveau, samplerate)
@@ -364,7 +378,8 @@ def _accorder(name, cible_hz, niveau, samplerate, passes=2, **kw):
             break                         # muette, ou dans un autre registre
         design *= cible_hz / joue
         voix = hybrid.INSTRUMENTS[name](f0_hz=design, **kw)
-        p = params_from_voice(voix, samplerate=samplerate, name=name)
+        p = params_from_voice(voix, samplerate=samplerate, name=name,
+                              sortie=sortie)
         cp, garde = _to_c_params(p)
     return cp, garde
 
@@ -392,7 +407,8 @@ def niveau_nominal(ex) -> float:
 
 
 def build_instrument(name="clarinette", lo=36, hi=96, samplerate=48000.0,
-                     a4_hz=440.0, on_progress=None, tune=True, **kw):
+                     a4_hz=440.0, on_progress=None, tune=True, sortie=None,
+                     **kw):
     """Prépare un instrument jouable : une perce par demi-ton.
 
     Chaque note a **sa propre géométrie** — c'est un modèle physique, pas un
@@ -402,6 +418,11 @@ def build_instrument(name="clarinette", lo=36, hi=96, samplerate=48000.0,
     `tune=True` accorde ensuite chaque note sur le moteur (cf. `_accorder`).
     `tune=False` laisse l'instrument tel que la géométrie le donne — c'est ce
     qu'il faut pour étudier l'écart lui-même, pas pour jouer.
+
+    `sortie` : ce que les voix sortent. Par défaut celui de la famille : pour
+    l'anche libre (accordéon), le rayonnement, dérivée du débit net
+    (`embedded.SORTIE_RAYONNEE`). `embedded.SORTIE_PRESSION` redonne l'ancienne
+    sortie, la pression de la chambre, pour comparer.
     """
     voix_ref = hybrid.build(name)
     ex = voix_ref.exciter
@@ -415,10 +436,12 @@ def build_instrument(name="clarinette", lo=36, hi=96, samplerate=48000.0,
     for n in range(inst.lo, inst.hi + 1):
         f0 = midi_to_hz(n, a4_hz)
         if tune:
-            cp, garde = _accorder(name, f0, niveau, samplerate, **kw)
+            cp, garde = _accorder(name, f0, niveau, samplerate, sortie=sortie,
+                                  **kw)
         else:
             voix = hybrid.INSTRUMENTS[name](f0_hz=f0, **kw)
-            p = params_from_voice(voix, samplerate=samplerate, name=name)
+            p = params_from_voice(voix, samplerate=samplerate, name=name,
+                                  sortie=sortie)
             cp, garde = _to_c_params(p)
         inst._params[n] = cp
         inst._keep.append(garde)          # sans ça, le tableau est libéré
@@ -446,6 +469,17 @@ def _limiteur(x, seuil=0.7):
         comprime = seuil + marge * np.tanh((a[haut] - seuil) / marge)
         x[haut] = np.sign(x[haut]) * comprime
     return x
+
+
+def _facteur_limiteur(x, seuil=0.7):
+    """Le facteur (≤ 1) que `_limiteur` applique à chaque échantillon de `x`."""
+    a = np.abs(x)
+    f = np.ones(a.shape, dtype=np.float32)
+    haut = a > seuil
+    if np.any(haut):
+        marge = 1.0 - seuil
+        f[haut] = (seuil + marge * np.tanh((a[haut] - seuil) / marge)) / a[haut]
+    return f
 
 
 def build_instrument_from_bore(dat, famille='cornemuse', doigtes=None,
@@ -585,11 +619,13 @@ class Voice:
         self.target = 0.0
         self.active = False
         self.tenue = False         # touche enfoncée (le soufflet la nourrit)
+        self.canal = 0             # canal MIDI, pour séparer les sommes
         self.age = 0
 
-    def note_on(self, params, note, level):
+    def note_on(self, params, note, level, canal=0):
         engine_library().hv_reset(ctypes.byref(self.state))
         self.params, self.note = params, int(note)
+        self.canal = int(canal)
         self.level = self.target = float(level)
         self.active = True
         self.tenue = True
@@ -635,6 +671,14 @@ class Voice:
         return self.active
 
 
+def _soufflet_par_defaut(instrument):
+    """Un `Soufflet` pour l'anche libre, `None` pour le reste."""
+    if instrument.control_unit != "m³/s":
+        return None
+    from .soufflet import Soufflet
+    return Soufflet()
+
+
 class Synth:
     """Moteur polyphonique. C'est l'objet que pilote la GUI.
 
@@ -644,7 +688,7 @@ class Synth:
     """
 
     def __init__(self, instrument: Instrument, polyphony=6, gain=0.5,
-                 soufflet=None, p_max=3000.0):
+                 soufflet='auto', p_max=3000.0):
         self.inst = instrument
         self.voices = [Voice() for _ in range(int(polyphony))]
         self.gain = float(gain)
@@ -652,6 +696,12 @@ class Synth:
         # Avec un soufflet (`soufflet.Soufflet`), l'expression et le sens sont
         # le geste du bras : une pression commune à toutes les notes, bornée
         # par la main. Sans lui, le niveau fixe d'avant (vélocité × expression).
+        # `'auto'` (défaut) : un soufflet pour une voix qui se commande en
+        # débit derrière une résistance (anche libre, accordéon) ; aucun pour
+        # les autres familles, qui se commandent en pression de bouche ou en
+        # force d'archet. `None` : jamais de soufflet.
+        if isinstance(soufflet, str) and soufflet == 'auto':
+            soufflet = _soufflet_par_defaut(instrument)
         self.soufflet = soufflet
         self.sens = 1.0                 # +1 poussé, -1 tiré
         self.p_max = float(p_max)       # Pa, haut de la plage de jeu
@@ -664,7 +714,7 @@ class Synth:
         self._silence = 1e-5 / max(instrument.output_scale, 1e-12)
 
     # -- clavier -------------------------------------------------------------
-    def note_on(self, note, velocity=100):
+    def note_on(self, note, velocity=100, canal=0):
         v = next((v for v in self.voices if not v.active), None)
         if v is None:                    # toutes prises : on vole la plus vieille
             v = max(self.voices, key=lambda x: x.age)
@@ -675,12 +725,14 @@ class Synth:
             niveau = self._niveau_soufflet(params, self.pression)
         else:
             niveau = self.inst.level_default * self._nuance(velocity)
-        v.note_on(params, note, niveau)
+        v.note_on(params, note, niveau, canal=canal)
         return v
 
-    def note_off(self, note):
+    def note_off(self, note, canal=None):
+        """Relâche `note` ; `canal=None` : sur tous les canaux."""
         for v in self.voices:
-            if v.active and v.note == int(note):
+            if (v.active and v.note == int(note)
+                    and (canal is None or v.canal == int(canal))):
                 v.note_off()
 
     def all_notes_off(self):
@@ -729,31 +781,179 @@ class Synth:
             self._reste_soufflet -= self._dt_soufflet
 
     # -- audio ---------------------------------------------------------------
-    def render(self, n_frames):
-        """Rend `n_frames` échantillons mono, en float32, normalisés au gain."""
-        n = int(n_frames)
-        if self._scratch is None or self._scratch.size != n:
-            self._scratch = np.zeros(n, dtype=np.float32)
-        somme = np.zeros(n, dtype=np.float32)
+    def _rendre_voix(self, n):
+        """Avance le soufflet et les voix de `n` échantillons.
+
+        Rend `[(voix, bloc brut float32), …]` : la sortie du moteur, avant
+        gain, avant somme. Le bloc est à la voix, pas partagé.
+        """
         if self.soufflet is not None:
             self._avancer_soufflet(n)
+        blocs = []
         for v in self.voices:
             if not v.active:
                 continue
-            self._scratch[:] = 0.0
+            bloc = np.zeros(n, dtype=np.float32)
             if self.soufflet is not None and v.tenue:
                 # le soufflet a déjà borné la pente : pas de glissé en plus
                 v.target = self._niveau_soufflet(v.params, self.pression)
-                v.render(self._scratch, glide=1.0, silence=self._silence)
+                v.render(bloc, glide=1.0, silence=self._silence)
             else:
-                v.render(self._scratch, silence=self._silence)
-            somme += self._scratch
+                v.render(bloc, silence=self._silence)
+            blocs.append((v, bloc))
+        return blocs
+
+    def render(self, n_frames):
+        """Rend `n_frames` échantillons mono, en float32, normalisés au gain.
+
+        Chaque voix sort le **rayonnement** (dérivée du débit net, cf.
+        `embedded.SORTIE_RAYONNEE`) : sans composante continue, donc la somme
+        d'un accord n'a pas de pression continue qui sature le limiteur.
+        """
+        n = int(n_frames)
+        somme = np.zeros(n, dtype=np.float32)
+        for _, bloc in self._rendre_voix(n):
+            somme += bloc
         np.multiply(somme, self.gain * self.inst.output_scale, out=somme)
         return _limiteur(somme)
+
+    def render_canaux(self, n_frames, limiteur=True):
+        """Comme `render`, mais la somme des voix reste séparée par canal MIDI.
+
+        Rend `{canal: tableau float32}`. Le soufflet, la pression et le gain
+        sont communs ; le limiteur aussi, appliqué à la **somme de tous les
+        canaux** : on lui prend le facteur de réduction par échantillon et on
+        l'applique à chaque canal, donc la somme des canaux rendus vaut
+        exactement ce que `render` aurait sorti. `limiteur=False` rend les
+        canaux linéaires (pour mesurer la crête de la somme et choisir un gain).
+        """
+        n = int(n_frames)
+        echelle = self.gain * self.inst.output_scale
+        canaux = {}
+        for v, bloc in self._rendre_voix(n):
+            if v.canal not in canaux:
+                canaux[v.canal] = np.zeros(n, dtype=np.float32)
+            canaux[v.canal] += bloc
+        total = np.zeros(n, dtype=np.float32)
+        for x in canaux.values():
+            x *= echelle
+            total += x
+        if limiteur:
+            facteur = _facteur_limiteur(total)
+            for x in canaux.values():
+                x *= facteur
+        return canaux
 
     @property
     def active_voices(self):
         return sum(1 for v in self.voices if v.active)
+
+
+# =============================================================================
+# Un fichier MIDI, hors temps réel
+# =============================================================================
+
+#: Contrôleurs MIDI qui tiennent le geste du bras : expression (11) et
+#: contrôleur de souffle (2), comme `_jouer_midi`. La vélocité, elle, n'est
+#: lue que sans soufflet (`Synth._nuance`) : avec soufflet, la touche ne change
+#: pas la pression, elle ouvre seulement la soupape.
+CC_EXPRESSION = (2, 11)
+
+
+def lire_midi(chemin):
+    """Les messages d'un fichier MIDI, triés : `[(seconde, message), …]`.
+
+    `mido` est importé ici : le moteur et ses tests n'en ont pas besoin. Le
+    temps est celui du fichier, tempo compris (`mido` itère en secondes).
+    """
+    import mido
+    t = 0.0
+    out = []
+    for msg in mido.MidiFile(str(chemin)):
+        t += msg.time
+        if not msg.is_meta:
+            out.append((t, msg))
+    return out
+
+
+def rendre_midi(chemin_mid, instrument, debut_s=None, fin_s=None,
+                polyphonie=16, par_canal=True, gain=0.5, soufflet='auto',
+                bloc=256, queue_s=1.5, sens=1.0, lo=None, hi=None,
+                samplerate=48000.0, limiteur=True):
+    """Joue un fichier MIDI sur le modèle, hors temps réel, et rend le son.
+
+    - `instrument` : un `Instrument`, ou un nom (`'accordeon'`) : l'instrument
+      est alors bâti sur l'étendue des notes du fichier (`lo`, `hi`).
+    - notes et CC 2/11 arrivent au synthé **à l'échantillon près** : le rendu
+      est coupé aux dates des messages, par blocs d'au plus `bloc` échantillons.
+    - un seul `Synth` : un seul soufflet, une seule pression commune (le CC 11
+      est celui du bras, quel que soit son canal), un seul gain, un seul
+      limiteur. Seule la **somme des voix** est séparée par canal MIDI.
+    - `par_canal=True` : `{canal: float32}` (un tableau par canal qui joue ;
+      0 mélodie, 1 basses, 2 accords dans nos fichiers). `False` : un seul
+      tableau, la somme.
+    - `debut_s`, `fin_s` : fenêtre rendue. Le fichier est joué depuis le début
+      (le soufflet, les notes tenues et les voix doivent être dans leur
+      état), seul le son de la fenêtre est gardé. `queue_s` laisse les
+      dernières notes s'éteindre quand `fin_s` dépasse le fichier.
+
+    La vélocité est transmise telle quelle à `Synth.note_on`.
+
+    `limiteur=False` rend les canaux linéaires : pour mesurer la crête de la
+    somme et en tirer un gain commun, jamais pour écouter.
+    """
+    evts = lire_midi(chemin_mid)
+    notes = [m.note for _, m in evts if m.type == 'note_on']
+    if isinstance(instrument, str):
+        instrument = build_instrument(
+            instrument,
+            lo=int(lo if lo is not None else (min(notes) if notes else 45)),
+            hi=int(hi if hi is not None else (max(notes) if notes else 84)),
+            samplerate=samplerate)
+    sr = float(instrument.samplerate)
+    synth = Synth(instrument, polyphony=polyphonie, gain=gain,
+                  soufflet=soufflet)
+    synth.sens = float(sens)
+
+    duree = (evts[-1][0] if evts else 0.0) + float(queue_s)
+    fin = duree if fin_s is None else float(fin_s)
+    n_total = int(round(fin * sr))
+    n_debut = int(round(max(0.0, float(debut_s or 0.0)) * sr))
+    canaux = sorted({m.channel for _, m in evts if m.type == 'note_on'}) or [0]
+    sortie = {c: np.zeros(n_total, dtype=np.float32) for c in canaux}
+
+    dates = [int(round(t * sr)) for t, _ in evts]
+    i_evt = 0
+    pos = 0
+    while pos < n_total:
+        while i_evt < len(evts) and dates[i_evt] <= pos:
+            _appliquer_midi(synth, evts[i_evt][1])
+            i_evt += 1
+        suivant = dates[i_evt] if i_evt < len(evts) else n_total
+        n = max(1, min(int(bloc), suivant - pos, n_total - pos))
+        for c, x in synth.render_canaux(n, limiteur=limiteur).items():
+            if c not in sortie:
+                sortie[c] = np.zeros(n_total, dtype=np.float32)
+            sortie[c][pos:pos + n] = x
+        pos += n
+
+    sortie = {c: x[n_debut:] for c, x in sortie.items()}
+    if par_canal:
+        return sortie
+    return np.sum(list(sortie.values()), axis=0, dtype=np.float32)
+
+
+def _appliquer_midi(synth, msg):
+    """Un message MIDI → le synthé. Même table que `_jouer_midi`."""
+    if msg.type == 'note_on' and msg.velocity > 0:
+        synth.note_on(msg.note, msg.velocity, canal=msg.channel)
+    elif msg.type in ('note_off', 'note_on'):
+        synth.note_off(msg.note, canal=msg.channel)
+    elif msg.type == 'control_change':
+        if msg.control in CC_EXPRESSION:
+            synth.expression = msg.value / 127.0
+        elif msg.control == 123:
+            synth.all_notes_off()
 
 
 def realtime_factor(instrument: Instrument, n_voices=4, block=256,
@@ -1005,6 +1205,18 @@ def main(argv=None):
                    help="rendre une phrase dans un WAV au lieu de jouer")
     p.add_argument('--midi', metavar='PORT',
                    help="jouer depuis ce port MIDI (sous-chaîne du nom)")
+    p.add_argument('--midi-fichier', metavar='FICHIER.mid',
+                   help="jouer ce fichier MIDI hors temps réel, vers --wav "
+                        "(notes et CC 11, à l'échantillon près)")
+    p.add_argument('--debut', type=float, default=None,
+                   help="--midi-fichier : début de la fenêtre rendue, en s")
+    p.add_argument('--fin', type=float, default=None,
+                   help="--midi-fichier : fin de la fenêtre rendue, en s")
+    p.add_argument('--par-canal', action='store_true',
+                   help="--midi-fichier : un WAV par canal MIDI "
+                        "(FICHIER_canalN.wav), un seul gain commun")
+    p.add_argument('--sans-soufflet', action='store_true',
+                   help="pas de soufflet : niveau fixe, vélocité × expression")
     p.add_argument('--grave', type=int, default=40, help="note MIDI la plus basse")
     p.add_argument('--aigu', type=int, default=88, help="note MIDI la plus haute")
     p.add_argument('--polyphonie', type=int, default=6)
@@ -1072,7 +1284,28 @@ def main(argv=None):
         inst = build_instrument(args.instrument, lo=args.grave, hi=args.aigu,
                                 samplerate=args.sr, a4_hz=args.la,
                                 tune=not args.brut)
-    synth = Synth(inst, polyphony=args.polyphonie, gain=args.gain)
+    synth = Synth(inst, polyphony=args.polyphonie, gain=args.gain,
+                  soufflet=None if args.sans_soufflet else 'auto')
+
+    if args.midi_fichier:
+        if not args.wav:
+            print("--midi-fichier demande --wav FICHIER.wav", file=sys.stderr)
+            return 2
+        canaux = rendre_midi(args.midi_fichier, inst, debut_s=args.debut,
+                             fin_s=args.fin, polyphonie=args.polyphonie,
+                             gain=args.gain, par_canal=True,
+                             soufflet=None if args.sans_soufflet else 'auto')
+        mix = np.sum(list(canaux.values()), axis=0)
+        _ecrire_wav(args.wav, mix, inst.samplerate)
+        print(f"→ {args.wav}  ({len(mix) / inst.samplerate:.1f} s, canaux "
+              f"{sorted(canaux)} sommés)")
+        if args.par_canal:
+            base = pathlib.Path(args.wav)
+            for c, x in sorted(canaux.items()):
+                f = base.with_name(f"{base.stem}_canal{c}{base.suffix}")
+                _ecrire_wav(f, x, inst.samplerate)
+                print(f"→ {f}")
+        return 0
 
     if args.wav:
         x = rendre_phrase(synth)

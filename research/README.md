@@ -431,6 +431,12 @@ le STM32 ; `live.py` le compile en bibliothèque partagée et l'appelle par
 `ctypes`. **Le même code que sur la carte**, à vitesse native — et donc, en
 prime, une vérification permanente que ce qui part sur la carte fonctionne.
 
+Pour l'anche libre, la sortie est la sortie rayonnée (dérivée du débit net,
+comme `hybrid`) ; l'ancienne pression de chambre reste disponible par
+`sortie='pression'`. Le synthé a un soufflet par défaut (CC 11 et 2). Un
+fichier MIDI se rend avec `live.rendre_midi(chemin, instrument, debut_s, fin_s)`
+(un tableau par canal) ou `python -m banc_recherche.live --midi-fichier f.mid --wav s.wav`.
+
 ```python
 from banc_recherche import live
 inst = live.build_instrument('cornemuse', lo=48, hi=84)   # une perce par note

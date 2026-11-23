@@ -10,9 +10,8 @@ import pytest
 from banc_recherche import live, hybrid
 
 pytestmark = pytest.mark.skipif(
-    __import__('shutil').which('cc') is None and
-    __import__('shutil').which('gcc') is None,
-    reason="pas de compilateur C")
+    live._compilateur()[0] is None,      # le même choix que `engine_library` :
+    reason="pas de compilateur C")       # gcc, clang, cc, ou MSVC (`cl`)
 
 
 @pytest.fixture(scope='module')
