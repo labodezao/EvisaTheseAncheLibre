@@ -184,7 +184,7 @@ def _muettes(acc, expr, cas):
 
 @pytest.mark.parametrize('expr', (0.3, 1.0))
 def test_aucune_note_de_45_a_84_ne_se_tait_aux_bornes(acc, expr):
-    """Silence = sous -80 dBFS (même règle que les rendus Tatard), sur la
+    """Silence = sous -80 dBFS (même règle que les rendus de l'accordéon), sur la
     dernière 0,3 s de 0,8 s de note, gain 0,5 et échelle de sortie. Chaque CC
     seul à 0 puis à 127, les quatre à 127, et (expression 1,0) les quatre à 0."""
     muettes = _muettes(acc, expr, _bornes(tous0=(expr == 1.0)))
