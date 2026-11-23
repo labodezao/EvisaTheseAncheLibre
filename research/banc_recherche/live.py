@@ -44,7 +44,7 @@ from dataclasses import dataclass, field
 import numpy as np
 
 from . import hybrid
-from .embedded import (RealtimeParams, params_from_voice, to_c_engine,
+from .embedded import (RealtimeParams, params_from_voice, to_c_engine, loi_c,
                        biquad_bandpass, biquad_lowpass, FAMILY_BOW,
                        FAMILY_SINGLE_REED, FAMILY_FREE_REED, SORTIE_RAYONNEE,
                        SORTIE_PRESSION)
@@ -79,6 +79,8 @@ class _Params(ctypes.Structure):
         ('v_char', ctypes.c_float), ('bow_speed', ctypes.c_float),
         ('cavity_gain', ctypes.c_float), ('cavity_leak', ctypes.c_float),
         ('out_mode', ctypes.c_int), ('fs_out', ctypes.c_float),
+        ('free_law', ctypes.c_int), ('plate', ctypes.c_float),
+        ('tongue', ctypes.c_float), ('clear', ctypes.c_float),
     ]
 
 
@@ -266,6 +268,8 @@ def _to_c_params(p: RealtimeParams):
     cp.cavity_leak = 0.99999 if cp.cavity_gain else 0.0
     cp.out_mode = 0 if p.sortie_effective == SORTIE_RAYONNEE else 1
     cp.fs_out = float(p.samplerate)
+    cp.free_law = loi_c(p)
+    cp.plate, cp.tongue, cp.clear = p.plate_m, p.tongue_m, p.clearance_m
     return cp, modes
 
 

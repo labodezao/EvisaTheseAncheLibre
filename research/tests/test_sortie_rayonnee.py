@@ -37,8 +37,11 @@ def partiels(x, f_nom, sr, n=8):
     return [20 * np.log10(pic(k * f1, 0.02)[1] / a1) for k in range(1, n + 1)]
 
 
-def _params_accordeon(f0=220.0, sortie=None):
-    return emb.params_from_voice(hybrid.accordeon(f0_hz=f0), samplerate=SR,
+def _params_accordeon(f0=220.0, sortie=None, loi=None):
+    """`loi=None` : le défaut de `hybrid.accordeon` (traversante) ; 'ecretee'
+    pour fixer l'ancienne loi, quand un test en dépend."""
+    kw = {} if loi is None else {'loi': loi}
+    return emb.params_from_voice(hybrid.accordeon(f0_hz=f0, **kw), samplerate=SR,
                                  name='accordeon', sortie=sortie)
 
 
@@ -126,7 +129,11 @@ def test_le_premier_echantillon_apres_reset_est_nul():
 @sans_compilateur
 @pytest.mark.parametrize("sortie", [emb.SORTIE_RAYONNEE, emb.SORTIE_PRESSION])
 def test_le_noyau_c_suit_la_reference_python(sortie):
-    p = _params_accordeon(sortie=sortie)
+    # L'ancienne loi, explicitement : la tolérance de 5e-3 a été fixée sur elle.
+    # En loi traversante, l'écart float32 / float64 de la montée d'amplitude
+    # est un peu plus grand (1e-2 mesuré) : voir test_loi_traversante.py, qui
+    # compare les deux chemins pour la nouvelle loi.
+    p = _params_accordeon(sortie=sortie, loi='ecretee')
     cp, garde = live._to_c_params(p)
     v = live.Voice()
     v.note_on(cp, 57, NIVEAU)
@@ -152,8 +159,8 @@ def _niveau_db(x):
     return 20 * np.log10(max(np.sqrt(np.mean((x - x.mean()) ** 2)), 1e-12))
 
 
-def _jouer(inst, notes, expression, duree=1.5, bloc=256):
-    s = live.Synth(inst, polyphony=6, soufflet=Soufflet())
+def _jouer(inst, notes, expression, duree=1.5, bloc=256, gain=0.5):
+    s = live.Synth(inst, polyphony=6, soufflet=Soufflet(), gain=gain)
     s.expression = expression
     for _ in range(int(2.0 * SR / bloc)):
         s.render(bloc)                 # soufflet établi avant la touche
@@ -171,10 +178,28 @@ def test_un_accord_de_quatre_notes_n_ecrase_pas_une_note(accordeon):
     assert np.max(np.abs(accord)) < 1.0
 
 
+@pytest.fixture(scope='module')
+def accordeon_ecretee():
+    return live.build_instrument('accordeon', lo=57, hi=69, tune=False,
+                                 loi='ecretee')
+
+
 @sans_compilateur
-def test_la_somme_des_voix_n_a_pas_de_composante_continue(accordeon):
-    _, accord = _jouer(accordeon, (57, 61, 64, 69), 0.7)
+def test_la_somme_des_voix_n_a_pas_de_composante_continue(accordeon_ecretee):
+    # Ancienne loi, explicitement : à 0,7 la loi traversante, plus forte, fait
+    # travailler le limiteur (crête 1,0), dont l'écrêtage asymétrique crée un
+    # continu (3,7 % de l'écart type) qui n'est pas celui de la voix. Même
+    # propriété pour la loi traversante, sous le limiteur : test suivant.
+    _, accord = _jouer(accordeon_ecretee, (57, 61, 64, 69), 0.7)
     assert abs(np.mean(accord)) < 0.01 * np.std(accord)   # avant : +2,2 pour 0,7
+
+
+@sans_compilateur
+def test_la_somme_des_voix_n_a_pas_de_composante_continue_en_loi_traversante(accordeon):
+    # gain réduit : à 0,5 la somme de quatre voix traversantes dépasse le seuil du limiteur
+    _, accord = _jouer(accordeon, (57, 61, 64, 69), 0.7, gain=0.1)
+    assert np.max(np.abs(accord)) < 0.7                   # le limiteur n'agit pas
+    assert abs(np.mean(accord)) < 0.01 * np.std(accord)
 
 
 @sans_compilateur
