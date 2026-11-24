@@ -145,6 +145,17 @@ les met maintenant en amont de la voix : `banc_recherche/soufflet.py`, branché 
 | Accord de trois anches à 1000 Pa demandés | la pression tombe à 930 Pa (neuf anches : 810) | calculé sur valeurs provisoires | idem |
 | Trémolo de 12 Hz demandé | 38 % de la profondeur passe (95 % à 1 Hz) ; poussé-tiré à 12 Hz : reste sous 300 Pa | calculé sur valeurs provisoires | idem |
 
+## Versement du 24/11/2026 (le clavier entier selon la pression du soufflet)
+
+Moteur temps réel de l'accordéon (`banc_recherche/live.py`, `hybrid.accordeon`), une voix, sortie rayonnée. Scripts : `research/scripts/carte_clavier_pression.py`, `carte_clavier_source.py`, `seuil_lineaire_accordeon.py` ; test `research/tests/test_clavier_pression.py`.
+
+- Carte mesurée, notes 36 à 96, pression posée d'un coup (100 à 2500 Pa) puis rampe lente de 0 à 3000 Pa : plus aucune extinction à forte pression (loi traversante). Mais 348 cases sur 427 seulement jouent entre 100 et 1000 Pa : les notes 36 à 48 et 88 à 96 ne partent pas à basse pression (départ en rampe à 711 Pa pour la note 36, 62 Pa pour la 66, 933 Pa pour la 92 ; rien pour 95 et 96).
+- Cause prouvée hors moteur : toutes les cotes de `accordeon()` suivent la similitude r = f/110, sauf la résistance de source, fixe à 2e8 Pa·s/m³. Le seuil linéaire du modèle (valeurs propres du jacobien lame + chambre) a la forme de la carte (corrélation 0,986 sur 59 notes, aucun seuil à la note 96) et devient le même à toutes les notes dès que R suit r². La pression de transition visqueuse n'y est pour rien (4 % au plus).
+- Correction : R = R_ref × r². Sur le moteur, 427 cases sur 427 jouent pour R_ref = 5e6, 1,5e7 et 4e7 ; départ en rampe de 45 à 146 Pa à 1,5e7. Le nominal d'accord devient une pression (580 Pa), convertie en débit note par note.
+- **Provisoire** : R_ref = 1,5e7 n'est pas une mesure (seuil linéaire le plus bas vers 1e7, établissement le plus court). La chambre est alors à 0,41 fois la pression du soufflet. La valeur attend la rampe de pression étalonnée sur la table à soufflet.
+- Ce que la similitude ne fait pas, mesuré contre deux prises réelles (6 notes) : le spectre de tenue du modèle est le même à toutes les notes (rang 3 le plus fort), alors que les prises passent d'un grave riche à un aigu presque pur ; la hauteur du modèle monte avec la pression (+8 cents de 100 à 1000 Pa) quand celle d'une vraie anche baisse ; à l'attaque la hauteur part au-dessus (+12 à +212 cents à 20 ms) quand le réel part en dessous ; le niveau baisse de 6 dB par octave (30 dB sur le clavier). Rien de cela n'est corrigé.
+- Trois tests du moteur restent rouges avec la nouvelle loi (accord sous les CC de timbre à la note 45 : 1,5 cent pour 1,0 ; un pas de 0,801 cent pour 0,8 ; test de clic à la largeur maximale) : la branche n'est pas fusionnable en l'état.
+
 ## Reste à mesurer (geste à l'atelier)
 
 - Levée au comparateur et effort au doigt sur les six chaînes du Lib RT, à la première pièce.
