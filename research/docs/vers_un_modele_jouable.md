@@ -170,3 +170,12 @@ déterminante pour la hauteur (470 Hz au lieu de 220).
 **Non fait** : je n'ai **pas** produit de modèle d'anche libre auto-oscillant
 validé. Mes essais rapides échouent, et je préfère te le dire que de te
 livrer quelque chose qui a l'air de marcher. Le premier jalon reste l'étape 1.
+
+## Ce que la session du 24/11/2026 a établi : le clavier entier selon la pression
+
+Mesures et preuve : `apports_these.md`, versement du 24/11/2026.
+
+- Avec la résistance de source fixe, 348 cases sur 427 jouaient (61 notes, 7 pressions de 100 à 1000 Pa) : les graves et les aigus ne partaient pas à basse pression. La cause est cette résistance, seule cote hors similitude. Elle suit maintenant la note (R = 1,5e7 × r², valeur provisoire) et les 427 cases jouent.
+- Le soufflet change bien la note tenue (expression de 0,3 à 0,9 : +16,5 dB en 0,15 s aux notes 40, 69 et 93), et aucune note ne s'éteint jusqu'à 3000 Pa.
+- La similitude ne suffit pas pour le timbre : même spectre à toutes les notes, hauteur qui monte avec la pression, attaque qui part trop haut et trop vite, 6 dB de moins par octave. La suite est de remplacer les cotes de similitude par les cotes réelles de la chambre et de la lame, puis d'ajouter la soupape de clavier.
+- Non décidé : la valeur de la résistance de source et la pression nominale (580 Pa), qui attendent une rampe de pression étalonnée.
