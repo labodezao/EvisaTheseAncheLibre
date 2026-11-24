@@ -23,24 +23,52 @@ La version du **07/04/2023** remplace le BMP280 par un **XGZP6847D**, un capteur
 Ce que dit le pilote `xgzp6847d.py` :
 
 - `pression = valeur_ADC / 1024` (valeur signée sur 24 bits).
-- La notice du fabricant (`pression\XGZP6847D-Pressure-Sensor-V2.5.pdf`, page 10) donne le
-  facteur K selon la gamme du capteur. **K = 1024 correspond à la gamme 4 à 8 kPa**, et le
-  résultat est **en pascals**.
-- Au démarrage, le pilote moyenne 80 lectures (`Calc_off`) mais **ne retranche pas** ce zéro :
-  `Get_DPress()` rend la valeur brute. `MesAnche` garde ce zéro dans `p0`.
+- Le capteur monté est de **−5 à 5 kPa** (confirmé par Ewen). Pour cette gamme la notice du
+  fabricant (`pression\XGZP6847D-Pressure-Sensor-V2.5.pdf`, page 9) donne **K = 1024** : l'échelle
+  du pilote est juste, et la pression sortie est en **pascals**, à condition de retrancher le zéro
+  (voir plus bas). (Une première lecture de la page 10 avait fait croire à une gamme 4 à 8 kPa :
+  c'était une erreur, il n'y a pas de facteur à corriger.)
+- Au démarrage, le pilote moyenne 80 lectures (`Calc_off`, rangées dans `press_offset`) mais **ne
+  retranche pas** ce zéro : `Get_DPress()` rend la valeur brute. `MesAnche` garde de son côté un
+  `p0` (une seule lecture). Le fabricant dit qu'un décalage de quelques Pa à vide est normal.
 - La « température » enregistrée est celle **de la puce du capteur**, pas celle de l'air.
-- Un registre est réglé à la main : `0xA6 = 0x2B` (gain et suréchantillonnage, voir la notice).
+- Un registre est réglé à la main : `0xA6 = 0x2B` (gain 32, suréchantillonnage 8192). Doute
+  secondaire : ce n'est un écart que si l'usine avait posé une autre valeur (non journalisée).
 
 ## Ce qui est établi, plausible, à tester
 
-- Établi : le code du 07/04/2023 lit un XGZP6847D et le convertit en Pa avec K = 1024.
-- Plausible : les campagnes d'avril et de septembre 2023 ont été faites avec ce code. Les
-  valeurs 55 à 2 040 Pa collent avec un capteur de 4 à 8 kPa.
-- À tester : le modèle exact du capteur monté (sa gamme). Si la gamme n'est pas 4 à 8 kPa,
-  le facteur K est faux et les pressions sont fausses d'un facteur 2 ou plus. Test simple :
-  le tube en U à eau (1 mm d'eau = 9,8 Pa) en parallèle sur la chambre.
-- À tester : la campagne `data - e1` (21/01/2023) est plus ancienne. Elle a peut-être été
-  faite avec le SDP810 (décembre 2022) ou le BMP280.
+- Établi : le code du 07/04/2023 lit un XGZP6847D de −5 à 5 kPa et le convertit avec K = 1024 ;
+  les pressions des campagnes d'avril et de septembre 2023 sont des pascals **une fois le zéro
+  retranché**.
+- Établi : la campagne `data - e1` (21/01/2023) a été mesurée **avant** ce capteur, avec un
+  script qui ne lisait que 2 octets : sa pression (655 partout) n'est pas en pascals. Elle reste à part.
+- Plausible : les campagnes d'avril et de septembre 2023 ont été faites avec ce code.
+- À tester : le tube en U à eau (1 mm d'eau = 9,8 Pa) en parallèle sur la chambre donnerait le
+  zéro et l'échelle d'un coup, lors d'une prochaine mesure.
+
+## Étalonnage a posteriori (24/11/2026)
+
+Lecture seule des enregistrements (`data`, `data_D#0_1_L_2v`, `data_d1_L`, copies du Drive).
+
+- **Le zéro `p0` n'est écrit dans aucun fichier.** `Mes_Full_Mes` ne renvoie que la pression,
+  la température de la puce et le débit (6 lignes) : ni `p0` ni `press_offset`.
+- **Le zéro ne se retrouve pas essai par essai.** Le clapet s'ouvre à l'échantillon 83 sur 300
+  (0,83 s, centiles 5 à 95 : 81 à 84 ; une chute de 30 à 45 % de la pression). Avant l'ouverture
+  le ventilateur souffle clapet fermé : la pression lue est celle de la chambre (95 à 2 050 Pa),
+  pas celle de l'air libre. La plus basse valeur lue vaut 75 Pa (Si1), 65 (Ré#1 à 2 voix) et
+  54,7 (`d1_L`, tout premier essai) ; à la consigne la plus basse du ventilateur, avant ouverture,
+  médiane 138 Pa (95 à 145) en Si1 et 132 (93 à 136) en Ré#1. Aucun essai ne montre donc un zéro,
+  et la dérive du zéro au fil d'une série n'est pas mesurable.
+- **La valeur brute est gardée** : les valeurs sont `ADC / 1024` en flottants 32 bits, donc
+  `ADC = valeur × 1024` (entier à l'arrondi près). Ce brut n'a pas son zéro retranché.
+- `data_d1_L` : la fin de la ligne pression y contient l'axe du temps (valeurs de 0 à 3) dans
+  plus d'un tiers des essais ; on coupe avant. Pas de son dans ce dossier.
+- **Étalonnable** : l'échelle (K = 1024, pascals), les écarts de pression entre essais d'une
+  même campagne (donc les pentes, un décalage de 10 Pa change peu les pentes par doublement
+  de pression), la température de la puce (Si1 30 à 33 °C, Ré#1 22 à 26 °C).
+  **Non étalonnable** : le niveau absolu en pascals de chaque essai (zéro inconnu, de l'ordre de
+  quelques Pa d'après le fabricant, sans mesure) ; le débit (zéro et échelle non vérifiés) ; la
+  pression de `data - e1`.
 
 ## Comment relancer
 
