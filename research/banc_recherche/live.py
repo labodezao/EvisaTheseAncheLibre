@@ -746,6 +746,9 @@ TIMBRE_CC = {
 CC_TIMBRE = {v[0]: k for k, v in TIMBRE_CC.items()}
 #: constante de temps du lissage d'un CC de timbre, en s
 TAU_TIMBRE_S = 0.02
+#: plus grand morceau, en échantillons, entre deux pas du lissage : le facteur
+#: de timbre avance dans le bloc de rendu, pas seulement entre deux blocs
+SOUS_BLOC_TIMBRE = 32
 
 #: Le débit déplacé par la lame elle-même (le « pompage » : q_pompe = S_eff ×
 #: vitesse de la lame), ajouté au débit rayonné. `(numéro de CC, F à CC 0, F à
@@ -1230,10 +1233,20 @@ class Voice:
         if not self.active:
             return False
         self.level += (self.target - self.level) * float(glide)
+        self.moteur(out, 0, len(out))
+        return self.fin_de_bloc(out, silence)
+
+    def moteur(self, out, i, j):
+        """Fait avancer l'état C de `out[i:j]`, au niveau et aux paramètres
+        courants (`Voice.render` en un seul appel ; `Synth` en sous-blocs quand
+        le timbre bouge)."""
         engine_library().hv_render(ctypes.byref(self.params),
                                    ctypes.byref(self.state),
                                    ctypes.c_float(self.level),
-                                   out, len(out))
+                                   out[i:j], j - i)
+
+    def fin_de_bloc(self, out, silence):
+        """Âge, libération : à la fin d'un bloc rendu. `True` si la voix vit."""
         self.age += len(out)
         # une touche tenue reste vivante même soufflet à zéro : il peut repartir
         if self.target == 0.0 and abs(self.level) < 1e-9 and not self.tenue:
@@ -1310,8 +1323,8 @@ class Synth:
         """Fixe un réglage de timbre par sa valeur de CC (0 à 127, 64 = défaut).
 
         Le changement est **lissé** (constante de temps `TAU_TIMBRE_S`, appliquée
-        bloc par bloc) et vaut pour les notes qui sonnent comme pour les
-        suivantes. Sans voix active, il est pris tout de suite.
+        par morceaux d'au plus `SOUS_BLOC_TIMBRE` échantillons dans le bloc) et
+        vaut pour les notes qui sonnent comme pour les suivantes. Sans voix active, il est pris tout de suite.
 
         Les valeurs par défaut des quatre grandeurs sont provisoires, non
         mesurées.
@@ -1471,7 +1484,10 @@ class Synth:
         Rend `[(voix, bloc brut float32), …]` : la sortie du moteur, avant
         gain, avant somme. Le bloc est à la voix, pas partagé.
         """
-        self._avancer_timbre(n)
+        en_transition = (self._timbre_en_transition()
+                         and n > SOUS_BLOC_TIMBRE)
+        if not en_transition:
+            self._avancer_timbre(n)          # un pas, comme avant
         if self.soufflet is not None:
             self._avancer_soufflet(n)
         blocs = []
@@ -1482,11 +1498,47 @@ class Synth:
             if self.soufflet is not None and v.tenue:
                 # le soufflet a déjà borné la pente : pas de glissé en plus
                 v.target = self._niveau_soufflet(v.params, self.pression)
-                v.render(bloc, glide=1.0, silence=self._silence)
+                glide = 1.0
             else:
-                v.render(bloc, silence=self._silence)
-            blocs.append((v, bloc))
-        return blocs
+                glide = 0.35
+            if en_transition:
+                # le timbre avance DANS le bloc : un lissage appliqué une fois
+                # par bloc saute à chaque frontière, d'autant plus fort que le
+                # bloc est long (clic, borne du test de CC de timbre)
+                v.level += (v.target - v.level) * glide
+                blocs.append((v, bloc, glide))
+            else:
+                v.render(bloc, glide=glide, silence=self._silence)
+                blocs.append((v, bloc, None))
+        if en_transition:
+            self._rendre_en_sous_blocs(blocs, n)
+        return [(v, bloc) for v, bloc, _ in blocs]
+
+    def _timbre_en_transition(self):
+        """`True` si un réglage de timbre ou la pompe n'a pas atteint sa cible."""
+        return (any(self._tim_lisse[k] != self._tim_cible[k] for k in TIMBRE_CC)
+                or self._pompe_lisse != self._pompe_cible)
+
+    def _rendre_en_sous_blocs(self, blocs, n):
+        """Rend `n` échantillons par morceaux d'au plus `SOUS_BLOC_TIMBRE` : le
+        lissage du timbre avance d'un morceau avant chacun (toutes les voix, y
+        compris celles déjà rendues d'un bloc entier, qui ne sont pas touchées).
+
+        Un morceau, donc un `hv_render`, par voix : l'état C continue d'un
+        morceau à l'autre, la sortie ne dépend pas du découpage tant que rien ne
+        bouge.
+        """
+        i = 0
+        while i < n:
+            m = min(SOUS_BLOC_TIMBRE, n - i)
+            self._avancer_timbre(m)
+            for v, bloc, glide in blocs:
+                if glide is not None:
+                    v.moteur(bloc, i, i + m)
+            i += m
+        for v, bloc, glide in blocs:
+            if glide is not None:
+                v.fin_de_bloc(bloc, self._silence)
 
     def render(self, n_frames):
         """Rend `n_frames` échantillons mono, en float32, normalisés au gain.
