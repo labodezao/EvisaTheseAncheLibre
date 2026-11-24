@@ -5,7 +5,7 @@ une trentaine de cents, parce que l'accord se fait une fois, à la construction.
 Un accordeur ramène la lame à sa note après tout changement ; le moteur le fait
 en retouchant la fréquence propre de la lame (`live.table_accord_timbre`).
 
-Mesuré à la **pression d'accord** (celle de `level_default`) : à d'autres
+Mesuré à la **pression d'accord** (celle de `niveau_pour`, 580 Pa) : à d'autres
 pressions la dérive du timbre n'est pas la même, et le tableau, mesuré à une
 seule pression, ne la suit qu'en partie (non testé ici).
 
@@ -43,7 +43,7 @@ def acc():
 def _expression_accord(inst):
     """Expression qui donne la pression d'accord (p = p_max x expression²)."""
     s = live.Synth(inst, polyphony=1)
-    pression = inst.level_default / inst.params_for(57).src_admit
+    pression = inst.niveau_pour(57) / inst.params_for(57).src_admit
     return float(np.sqrt(pression / s.p_max))
 
 
@@ -96,7 +96,7 @@ def test_la_hauteur_suit_la_lame_au_demi_cent(acc, note):
     avec des retours)."""
     base, f_nom = acc.params_for(note), live.midi_to_hz(note)
     h = [_cents(live._hauteur_note(
-        live.params_timbre(base, accord=2.0 ** (c / 1200.0)), acc.level_default,
+        live.params_timbre(base, accord=2.0 ** (c / 1200.0)), acc.niveau_pour(note),
         f_nom, SR), f_nom) for c in np.arange(0.0, 3.01, 0.5)]
     pas = np.diff(h)
     assert np.all(pas > 0.2) and np.all(pas < 0.8), np.round(h, 2)

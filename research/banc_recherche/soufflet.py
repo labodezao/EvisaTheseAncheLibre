@@ -182,11 +182,14 @@ BORNES = {
              "15/11/2026, non versé) : à confirmer"),
     "resistance_passage_voix": dict(
         valeur="celle de la voix", unite="Pa·s/m³", statut="à confirmer",
-        source="FreeReedExciter.source_impedance = 2·10⁸ (hybrid.py l. 563) "
-               "contre Source = 5·10⁶ (reed_oscillator.py l. 122, « une "
+        source="pour l'accordéon, R suit la note : "
+               "hybrid.ACCORDEON_SOURCE_REF × (f/110)² = 1,5·10⁷ à 110 Hz "
+               "(provisoire, 24/11/2026 ; défaut de la classe FreeReedExciter "
+               "resté à 2·10⁸) ; reed_oscillator.Source = 5·10⁶ (l. 122, « une "
                "restriction d'environ 8 mm², un canal de sommier »)",
-        note="niveau_pour lit la résistance de la voix : le conflit 2·10⁸ / "
-             "5·10⁶ reste à trancher par la mesure, pas ici"),
+        note="niveau_pour lit la résistance de la voix : la valeur de "
+             "référence (1,5·10⁷ contre 5·10⁶ et 2·10⁸) reste à trancher par "
+             "la mesure (rampe de pression étalonnée), pas ici"),
 }
 
 

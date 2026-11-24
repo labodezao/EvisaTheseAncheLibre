@@ -40,7 +40,10 @@ def partiels(x, f_nom, sr, n=8):
 def _params_accordeon(f0=220.0, sortie=None, loi=None):
     """`loi=None` : le défaut de `hybrid.accordeon` (traversante) ; 'ecretee'
     pour fixer l'ancienne loi, quand un test en dépend."""
-    kw = {} if loi is None else {'loi': loi}
+    # R = 2e8 fixe : NIVEAU est un débit (m³/s) calculé pour l'ancienne source
+    kw = {'source_impedance': 2.0e8}
+    if loi is not None:
+        kw['loi'] = loi
     return emb.params_from_voice(hybrid.accordeon(f0_hz=f0, **kw), samplerate=SR,
                                  name='accordeon', sortie=sortie)
 
@@ -85,7 +88,7 @@ def test_la_table_c_exportee_dit_la_sortie():
 
 def test_le_partiel_8_du_la_220_est_celui_de_hybrid_radiated(la220):
     """La référence : `VoiceResult.radiated` du modèle continu (RK4)."""
-    res = hybrid.accordeon(f0_hz=220.0).simulate(
+    res = hybrid.accordeon(f0_hz=220.0, source_impedance=2.0e8).simulate(
         dur=0.5, fs=24000.0, level=NIVEAU, oversample=4, settle=0.3)
     ref = partiels(res.radiated, 220.0, 24000.0)
     moteur = partiels(la220[emb.SORTIE_RAYONNEE], 220.0, SR)

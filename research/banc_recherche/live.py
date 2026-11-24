@@ -324,6 +324,11 @@ class Instrument:
     a4_hz: float = 440.0
     level_default: float = 1.0
     control_unit: str = ""
+    #: anche libre de l'accordéon : pression de soufflet nominale (Pa) que
+    #: reçoit chaque note ; le niveau en m³/s de la note est cette pression
+    #: × SA admittance de source (`niveau_pour`). 0 : pas de loi, tout le
+    #: monde joue à `level_default`.
+    pression_nominale: float = 0.0
     output_scale: float = 1.0
     #: pour un instrument bâti sur une vraie perce : la gamme de ses doigtés,
     #: `[(nom, trous, fréquence, note MIDI), …]`. Vide sinon.
@@ -346,6 +351,22 @@ class Instrument:
             return self._params[n]
         dispo = min(self._params, key=lambda k: abs(k - n))
         return self._params[dispo]
+
+    def niveau_pour(self, note):
+        """Niveau de jeu nominal de `note`, dans l'unité de la commande.
+
+        Anche libre commandée en « m³/s » (accordéon) : la source suit la note
+        (`hybrid.accordeon`, `R ∝ r²`), donc le même débit ne ferait pas la
+        même pression d'une note à l'autre. Le nominal est une PRESSION,
+        `pression_nominale × src_admit` de la note. Sinon (autres familles,
+        perce, instrument sans pression nominale) : `level_default`, qui reste
+        le niveau de la note de référence.
+        """
+        if self.control_unit == "m³/s" and self.pression_nominale > 0.0:
+            admit = float(self.params_for(note).src_admit)
+            if admit > 0.0:
+                return float(self.pression_nominale) * admit
+        return self.level_default
 
     def __len__(self):
         return len(self._params)
@@ -430,6 +451,10 @@ def _accorder(name, cible_hz, niveau, samplerate, passes=8, sortie=None, **kw):
     cp, garde = _to_c_params(p)
     meilleur = (float('inf'), cp, garde)
     for k in range(int(passes) + 1):
+        if isinstance(voix.exciter, hybrid.FreeReedExciter):
+            # la commande est une pression : son débit dépend de la résistance
+            # de source de la voix de CETTE passe (elle suit la note)
+            niveau = niveau_nominal(voix.exciter)
         joue = _frequence_jouee(cp, niveau, samplerate, f_nom=cible_hz)
         if not joue or not (0.5 < joue / cible_hz < 2.0):
             if k == 0:
@@ -466,6 +491,13 @@ def niveau_nominal(ex) -> float:
     if isinstance(ex, hybrid.BowExciter):
         return 0.25
     if isinstance(ex, hybrid.FreeReedExciter):
+        # Une PRESSION nominale, convertie en débit par la résistance de
+        # source de la voix : 580 Pa / 2·10⁸ = 2,9·10⁻⁶ m³/s (l'ancien
+        # nominal) pour R = 2·10⁸ ; pour l'accordéon, R suit la note
+        # (`hybrid.ACCORDEON_SOURCE_REF`, provisoire), le débit aussi.
+        R = float(ex.source_impedance)
+        if np.isfinite(R) and R > 0.0:
+            return hybrid.ACCORDEON_PRESSION_NOMINALE_PA / R
         return 2.9e-6
     return 0.62 * getattr(ex, 'closing_pressure_pa', 4000.0)
 
@@ -499,7 +531,10 @@ def build_instrument(name="clarinette", lo=36, hi=96, samplerate=48000.0,
     inst = Instrument(name=name, lo=int(lo), hi=int(hi),
                       samplerate=float(samplerate), a4_hz=float(a4_hz),
                       level_default=float(niveau),
-                      control_unit=getattr(ex, 'control_unit', '') or '')
+                      control_unit=getattr(ex, 'control_unit', '') or '',
+                      pression_nominale=(
+                          hybrid.ACCORDEON_PRESSION_NOMINALE_PA
+                          if isinstance(ex, hybrid.FreeReedExciter) else 0.0))
 
     for n in range(inst.lo, inst.hi + 1):
         f0 = midi_to_hz(n, a4_hz)
@@ -637,7 +672,7 @@ def _crete_etablie(inst: Instrument, note, dur=2.5, fenetre=0.1):
     quelques centièmes de seconde au moteur C : autant les prendre.
     """
     v = Voice()
-    v.note_on(inst.params_for(note), int(note), inst.level_default)
+    v.note_on(inst.params_for(note), int(note), inst.niveau_pour(note))
     bloc = max(64, int(fenetre * inst.samplerate))
     buf = np.zeros(bloc, dtype=np.float32)
     crete = 0.0
@@ -1019,6 +1054,7 @@ def _cle_accord(inst, notes):
     h.update(repr((ACCORD_VERSION, ACCORD_GRILLE, ACCORD_DUREE_S, ACCORD_DEBUT_S,
                    inst.name,
                    inst.samplerate, inst.a4_hz, inst.level_default,
+                   inst.pression_nominale,
                    TIMBRE_CC)).encode())
     for n in notes:
         p = inst._params[n]
@@ -1068,7 +1104,7 @@ def table_accord_timbre(inst, cache=True, fils=None, rapport=None):
     t0 = time.perf_counter()
 
     def une(n):
-        return _tableau_note(inst._params[n], inst.level_default,
+        return _tableau_note(inst._params[n], inst.niveau_pour(n),
                              midi_to_hz(n, inst.a4_hz), inst.samplerate)
 
     nfils = fils or min(16, os.cpu_count() or 1)
@@ -1367,7 +1403,7 @@ class Synth:
             # bras (these_parties_2_a_5_fr.md l. 1058)
             niveau = self._niveau_soufflet(params, self.pression)
         else:
-            niveau = self.inst.level_default * self._nuance(velocity)
+            niveau = self.inst.niveau_pour(note) * self._nuance(velocity)
         v.note_on(params, note, niveau, canal=canal,
                   timbre=self._timbre_voix(note))
         return v

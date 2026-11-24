@@ -29,9 +29,12 @@ def f_de(n):
     return 440.0 * 2 ** ((n - 69) / 12)
 
 
-def _rendre_c(n, e, loi, duree=1.0, sortie=emb.SORTIE_RAYONNEE):
-    """Une note, pression constante `pression_demandee(e)`, par le noyau C."""
-    v = hybrid.accordeon(f_de(n), loi=loi)
+def _rendre_c(n, e, loi, duree=1.0, sortie=emb.SORTIE_RAYONNEE,
+              source_impedance=None):
+    """Une note, pression constante `pression_demandee(e)`, par le noyau C.
+    `source_impedance` : fixée à la voix si donnée, sinon la loi de la note."""
+    kw = {} if source_impedance is None else {'source_impedance': source_impedance}
+    v = hybrid.accordeon(f_de(n), loi=loi, **kw)
     p = emb.params_from_voice(v, samplerate=SR, name='accordeon', sortie=sortie)
     cp, garde = live._to_c_params(p)
     niveau = float(pression_demandee(e)) / v.exciter.source_impedance
@@ -166,7 +169,9 @@ def test_le_niveau_monte_avec_la_pression():
 # -- le noyau C et la référence Python donnent le même son ----------------------
 
 def _params(note, loi='traversante', sortie=None):
-    return emb.params_from_voice(hybrid.accordeon(f_de(note), loi=loi),
+    # R = 2e8 fixe : ces tests posent un niveau en m³/s calculé pour 2e8
+    return emb.params_from_voice(hybrid.accordeon(f_de(note), loi=loi,
+                                                  source_impedance=2.0e8),
                                  samplerate=SR, name='accordeon', sortie=sortie)
 
 
@@ -215,6 +220,6 @@ def test_le_noyau_c_et_python_ont_meme_niveau_et_meme_hauteur(note, e):
     p = _params(note)
     niveau = float(pression_demandee(e)) / 2.0e8
     py, _ = emb.RealtimeVoice(p).render(int(0.6 * SR), niveau)
-    c, _ = _rendre_c(note, e, 'traversante', duree=0.6)
+    c, _ = _rendre_c(note, e, 'traversante', duree=0.6, source_impedance=2.0e8)
     assert abs(_niveau_db(py) - _niveau_db(c)) < 0.5
     assert abs(_centroide(py) - _centroide(c)) < 0.1 * _centroide(py)

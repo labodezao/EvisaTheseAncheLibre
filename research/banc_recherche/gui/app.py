@@ -1602,7 +1602,7 @@ def _tab_live(state, plot_widget):
             ecarts = []
             for n in range(inst.lo, inst.hi + 1, 6):
                 f = live._frequence_jouee(inst.params_for(n),
-                                          inst.level_default, inst.samplerate)
+                                          inst.niveau_pour(n), inst.samplerate)
                 if f:
                     ecarts.append(1200 * np.log2(f / live.midi_to_hz(n)))
             just = float(np.median(np.abs(ecarts))) if ecarts else float('nan')

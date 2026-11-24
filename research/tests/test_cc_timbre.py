@@ -204,10 +204,11 @@ def test_aucune_note_de_45_a_84_ne_se_tait_aux_bornes(acc, expr):
     assert not muettes, muettes
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "les quatre CC à 0 ensemble, expression 0,3 : les notes 81 à 84 se taisent "
-    "(-87 à -94 dBFS). Constaté, pas corrigé : ne pas resserrer les bornes en "
-    "silence, décision à prendre (voir accordeon/cc_timbre/effets.txt)."))
+# Avant la loi de source en r² (24/11/2026), ce test était un xfail strict : les
+# quatre CC à 0 ensemble, expression 0,3, les notes 81 à 84 se taisaient (-87 à
+# -94 dBFS ; voir accordeon/cc_timbre/effets.txt). Avec R = 1,5e7 r² elles
+# jouent : le xfail strict est devenu un échec (XPASS), le test est maintenant
+# un test ordinaire, même assertion.
 def test_les_quatre_cc_a_zero_a_expression_faible_eteignent_le_haut(acc):
     assert not _muettes(acc, 0.3, [{nom: 0 for nom in NOMS}])
 
