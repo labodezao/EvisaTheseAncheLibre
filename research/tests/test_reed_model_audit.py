@@ -52,10 +52,11 @@ def test_frequences_propres_triees_et_coherentes():
     assert np.allclose(f_modele, f_modal, rtol=1e-6)
 
 
-def test_matrice_de_masse_non_diagonale():
-    """Constat d'audit : la base cantilever uniforme n'est PAS la base propre
-    de l'anche multi-tronçon. C'est justement ce qui rendait `M @ diag(2ζω)`
-    invalide — si ce test devient faux, la correction n'est plus nécessaire."""
+def test_matrice_de_masse_diagonale_apres_correction():
+    """Défaut corrigé le 22/11/2026. Constat d'audit d'origine : la base cantilever
+    uniforme n'était PAS la base propre de l'anche multi-tronçon (couplage hors
+    diagonale 0,43). Maintenant modal.assemble utilise les vrais modes de la lame
+    en tronçons : la masse modale est diagonale."""
     M, _ = modal.assemble(SECTIONS_DEFAULT, 2)
     couplage = abs(M[0, 1]) / np.sqrt(abs(M[0, 0] * M[1, 1]))
-    assert couplage > 0.1
+    assert couplage < 1e-6

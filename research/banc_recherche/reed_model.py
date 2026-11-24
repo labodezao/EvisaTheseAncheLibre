@@ -75,18 +75,9 @@ class ReedModel:
             self.phi_tip = np.array([1.0])
         else:
             self.M, self.K = modal.assemble(self.sec, n_modes, n_quad)
-            # Projection pression→mode et tip : γ_i = ∫ φ_i·b dx ; φ_tip_i = φ_i(L).
-            edges = np.concatenate([[0.0], np.cumsum(self.sec[:, 0])])
-            gamma = np.zeros(n_modes)
-            for s in range(self.sec.shape[0]):
-                x = np.linspace(edges[s], edges[s + 1], n_quad)
-                for i in range(n_modes):
-                    k, sg = modal.bl_sigma(i + 1)[0] / self.L, modal.bl_sigma(i + 1)[1]
-                    gamma[i] += self.sec[s, 2] * modal._trapz(modal._phi(k, sg, x), x)
-            self.gamma = gamma
-            self.phi_tip = np.array([modal._phi(modal.bl_sigma(i + 1)[0] / self.L,
-                                                modal.bl_sigma(i + 1)[1], self.L)
-                                     for i in range(n_modes)])
+            # Projection pression→mode et tip, dans la même base que M, K (déformées propres
+            # de la lame en tronçons) : γ_i = ∫ ψ_i·b dx ; φ_tip_i = ψ_i(L).
+            self.gamma, self.phi_tip = modal.mode_gamma_tip(self.sec, n_modes, n_quad)
         self.N = n_modes
         self.Minv = np.linalg.inv(self.M)
         # Amortissement modal proportionnel.

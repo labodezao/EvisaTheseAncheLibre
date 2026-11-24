@@ -227,18 +227,8 @@ class FreeReedModel:
             self.M, self.K = modal.assemble(self.sec, self.N)
             self.Minv = np.linalg.inv(self.M)
 
-            # Projection pression -> force modale, et déformée au bout.
-            edges = np.concatenate([[0.0], np.cumsum(self.sec[:, 0])])
-            gamma = np.zeros(self.N)
-            for s in range(self.sec.shape[0]):
-                x = np.linspace(edges[s], edges[s + 1], 400)
-                for i in range(self.N):
-                    k, sg = modal.bl_sigma(i + 1)[0] / self.L, modal.bl_sigma(i + 1)[1]
-                    gamma[i] += self.sec[s, 2] * modal._trapz(modal._phi(k, sg, x), x)
-            self.gamma = gamma
-            self.phi_tip = np.array([
-                modal._phi(modal.bl_sigma(i + 1)[0] / self.L,
-                           modal.bl_sigma(i + 1)[1], self.L) for i in range(self.N)])
+            # Projection pression -> force modale, et déformée au bout (même base que M, K).
+            self.gamma, self.phi_tip = modal.mode_gamma_tip(self.sec, self.N)
 
         w2, Phi = self._eig()
         self.omega = np.sqrt(np.clip(w2, 0.0, None))
