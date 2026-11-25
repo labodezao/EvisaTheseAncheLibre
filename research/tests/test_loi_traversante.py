@@ -29,14 +29,17 @@ def f_de(n):
     return 440.0 * 2 ** ((n - 69) / 12)
 
 
-def _rendre_c(n, e, loi, duree=1.0, sortie=emb.SORTIE_RAYONNEE):
-    """Une note, pression constante `pression_demandee(e)`, par le noyau C."""
-    v = hybrid.accordeon(f_de(n), loi=loi)
+def _rendre_c(n, e, loi, duree=1.0, sortie=emb.SORTIE_RAYONNEE,
+              source_impedance=None):
+    """Une note, pression constante `pression_demandee(e)`, par le noyau C.
+    `source_impedance` : fixée à la voix si donnée, sinon la loi de la note."""
+    kw = {} if source_impedance is None else {'source_impedance': source_impedance}
+    v = hybrid.accordeon(f_de(n), loi=loi, **kw)
     p = emb.params_from_voice(v, samplerate=SR, name='accordeon', sortie=sortie)
     cp, garde = live._to_c_params(p)
     niveau = float(pression_demandee(e)) / v.exciter.source_impedance
     voix = live.Voice()
-    voix.note_on(cp, n, niveau)
+    voix.note_on(cp, n, niveau, ouverture_ms=0)   # noyau seul : sans la soupape
     sortie_c = np.empty(int(duree * SR), np.float32)
     bloc = np.zeros(512, np.float32)
     lib = live.engine_library()
@@ -89,9 +92,20 @@ def test_l_ancienne_loi_reste_disponible_telle_quelle():
         assert ex.opening(np.array([y, 0.0])) == attendu
 
 
-def test_la_loi_par_defaut_de_l_excitateur_nu_est_l_ancienne():
-    """Les autres usages de `FreeReedExciter` ne changent pas."""
-    assert hybrid.FreeReedExciter().loi == 'ecretee'
+def test_le_defaut_des_deux_structures_est_la_loi_traversante():
+    """Une anche d'accordéon est libre : elle traverse sa fente. Décision du
+    25/11/2026 ; l'ancienne loi se demande par son nom et sonne autrement."""
+    assert hybrid.FreeReedExciter().loi == 'traversante'
+    assert emb.RealtimeParams().loi == 'traversante'
+    assert emb.loi_c(emb.RealtimeParams()) == 1
+    assert hybrid.FreeReedExciter(loi='ecretee').loi == 'ecretee'
+    assert emb.loi_c(emb.RealtimeParams(loi='ecretee')) == 0
+    base = emb.RealtimeParams(family=emb.FAMILY_FREE_REED, reed_freq_hz=220.0)
+    plain = emb.RealtimeVoice(base).render(2048, 3e-6)[0]
+    ecretee = emb.RealtimeVoice(emb.RealtimeParams(
+        family=emb.FAMILY_FREE_REED, reed_freq_hz=220.0, loi='ecretee')
+    ).render(2048, 3e-6)[0]
+    assert not np.allclose(plain, ecretee)
 
 
 def test_une_loi_inconnue_est_refusee():
@@ -166,7 +180,9 @@ def test_le_niveau_monte_avec_la_pression():
 # -- le noyau C et la référence Python donnent le même son ----------------------
 
 def _params(note, loi='traversante', sortie=None):
-    return emb.params_from_voice(hybrid.accordeon(f_de(note), loi=loi),
+    # R = 2e8 fixe : ces tests posent un niveau en m³/s calculé pour 2e8
+    return emb.params_from_voice(hybrid.accordeon(f_de(note), loi=loi,
+                                                  source_impedance=2.0e8),
                                  samplerate=SR, name='accordeon', sortie=sortie)
 
 
@@ -191,7 +207,7 @@ def test_le_noyau_c_suit_la_reference_python_en_loi_traversante(note, e, sortie)
     niveau = float(pression_demandee(e)) / 2.0e8
     cp, garde = live._to_c_params(p)
     v = live.Voice()
-    v.note_on(cp, note, niveau)
+    v.note_on(cp, note, niveau, ouverture_ms=0)   # noyau seul : sans la soupape
     bloc = np.zeros(256, np.float32)
     morceaux = []
     for _ in range(2):
@@ -215,6 +231,6 @@ def test_le_noyau_c_et_python_ont_meme_niveau_et_meme_hauteur(note, e):
     p = _params(note)
     niveau = float(pression_demandee(e)) / 2.0e8
     py, _ = emb.RealtimeVoice(p).render(int(0.6 * SR), niveau)
-    c, _ = _rendre_c(note, e, 'traversante', duree=0.6)
+    c, _ = _rendre_c(note, e, 'traversante', duree=0.6, source_impedance=2.0e8)
     assert abs(_niveau_db(py) - _niveau_db(c)) < 0.5
     assert abs(_centroide(py) - _centroide(c)) < 0.1 * _centroide(py)

@@ -5,7 +5,7 @@ une trentaine de cents, parce que l'accord se fait une fois, à la construction.
 Un accordeur ramène la lame à sa note après tout changement ; le moteur le fait
 en retouchant la fréquence propre de la lame (`live.table_accord_timbre`).
 
-Mesuré à la **pression d'accord** (celle de `level_default`) : à d'autres
+Mesuré à la **pression d'accord** (celle de `niveau_pour`, 580 Pa) : à d'autres
 pressions la dérive du timbre n'est pas la même, et le tableau, mesuré à une
 seule pression, ne la suit qu'en partie (non testé ici).
 
@@ -30,7 +30,10 @@ pytestmark = pytest.mark.skipif(
 
 SR = 48000.0
 NOTES = (45, 57, 69, 84)
+#: les points de la grille d'accord, puis des valeurs hors grille (entre deux
+#: points : l'interpolation du tableau y est seule en cause)
 VALS = (0, 16, 32, 48, 64, 80, 96, 112, 127)
+VALS_HORS_GRILLE = (8, 24, 40, 56, 72, 88, 104, 120)
 #: écart toléré à la hauteur de CC 64, en cents
 TOLERANCE = {45: 1.0, 57: 1.0, 69: 1.0, 84: 1.0}
 
@@ -43,7 +46,7 @@ def acc():
 def _expression_accord(inst):
     """Expression qui donne la pression d'accord (p = p_max x expression²)."""
     s = live.Synth(inst, polyphony=1)
-    pression = inst.level_default / inst.params_for(57).src_admit
+    pression = inst.niveau_pour(57) / inst.params_for(57).src_admit
     return float(np.sqrt(pression / s.p_max))
 
 
@@ -71,7 +74,9 @@ def test_le_tableau_couvre_les_notes(acc):
     forme = tuple(len(live.ACCORD_GRILLE[n]) for n in live.ACCORD_NOMS)
     for n, tab in acc.accord_timbre.items():
         assert tab.shape == forme and np.all(np.isfinite(tab))
-        assert tab[4, 1, 4] == 0.0                     # tous à 64 : rien
+        centre = tuple(live.ACCORD_GRILLE[nom].index(64)
+                       for nom in live.ACCORD_NOMS)
+        assert tab[centre] == 0.0                      # tous à 64 : rien
 
 
 def test_tous_a_64_le_son_est_celui_d_avant(acc):
@@ -96,7 +101,7 @@ def test_la_hauteur_suit_la_lame_au_demi_cent(acc, note):
     avec des retours)."""
     base, f_nom = acc.params_for(note), live.midi_to_hz(note)
     h = [_cents(live._hauteur_note(
-        live.params_timbre(base, accord=2.0 ** (c / 1200.0)), acc.level_default,
+        live.params_timbre(base, accord=2.0 ** (c / 1200.0)), acc.niveau_pour(note),
         f_nom, SR), f_nom) for c in np.arange(0.0, 3.01, 0.5)]
     pas = np.diff(h)
     assert np.all(pas > 0.2) and np.all(pas < 0.8), np.round(h, 2)
@@ -107,7 +112,7 @@ def test_un_cc_seul_garde_la_hauteur(acc, note):
     f0 = _hauteur(acc, note)
     pires = {}
     for nom in live.TIMBRE_CC:
-        ecarts = [_cents(_hauteur(acc, note, {nom: v}), f0) for v in VALS]
+        ecarts = [_cents(_hauteur(acc, note, {nom: v}), f0) for v in VALS + VALS_HORS_GRILLE]
         pires[nom] = max(abs(e) for e in ecarts)
     assert max(pires.values()) <= TOLERANCE[note], pires
 

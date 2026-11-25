@@ -34,7 +34,7 @@ def _tenue_cents(inst, n, debut_s=3.0, fin_s=4.0):
     ctypes.memmove(ctypes.byref(m), ctypes.byref(cp), ctypes.sizeof(cp))
     m.out_mode = 1
     v = live.Voice()
-    v.note_on(m, 60, inst.level_default)
+    v.note_on(m, 60, inst.niveau_pour(n))
     buf = np.zeros(512, dtype=np.float32)
     sortie = []
     for _ in range(int(fin_s * SR) // 512):
@@ -60,7 +60,7 @@ def test_l_accordeon_construit_tient_sa_cible_a_un_cent(acc, n):
 def test_la_mesure_d_accord_voit_la_hauteur_tenue(acc, n):
     """Ce que `_frequence_jouee` lit est ce que la note tient, à 0,1 cent."""
     cible = live.midi_to_hz(n, acc.a4_hz)
-    lue = live._frequence_jouee(acc.params_for(n), acc.level_default, SR,
+    lue = live._frequence_jouee(acc.params_for(n), acc.niveau_pour(n), SR,
                                 f_nom=cible)
     lue = 1200.0 * float(np.log2(lue / cible))
     assert abs(lue - _tenue_cents(acc, n)) <= 0.1

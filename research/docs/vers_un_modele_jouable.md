@@ -170,3 +170,22 @@ déterminante pour la hauteur (470 Hz au lieu de 220).
 **Non fait** : je n'ai **pas** produit de modèle d'anche libre auto-oscillant
 validé. Mes essais rapides échouent, et je préfère te le dire que de te
 livrer quelque chose qui a l'air de marcher. Le premier jalon reste l'étape 1.
+
+## Ce que la session du 24/11/2026 a établi : le clavier entier selon la pression
+
+Mesures et preuve : `apports_these.md`, versement du 24/11/2026.
+
+- Avec la résistance de source fixe, 348 cases sur 427 jouaient (61 notes, 7 pressions de 100 à 1000 Pa) : les graves et les aigus ne partaient pas à basse pression. La cause est cette résistance, seule cote hors similitude. Elle suit maintenant la note (R = 1,5e7 × r², valeur provisoire) et les 427 cases jouent.
+- Le soufflet change bien la note tenue (expression de 0,3 à 0,9 : +16,5 dB en 0,15 s aux notes 40, 69 et 93), et aucune note ne s'éteint jusqu'à 3000 Pa.
+- La similitude ne suffit pas pour le timbre : même spectre à toutes les notes, hauteur qui monte avec la pression, attaque qui part trop haut et trop vite, 6 dB de moins par octave. La suite est de remplacer les cotes de similitude par les cotes réelles de la chambre et de la lame, puis d'ajouter la soupape de clavier.
+- Non décidé : la valeur de la résistance de source et la pression nominale (580 Pa), qui attendent une rampe de pression étalonnée.
+
+## Ce que la session du 25/11/2026 a établi : le sens de l'anche avant les cotes
+
+Mesures et preuve : `apports_these.md`, versement du 25/11/2026.
+
+- Le banc de 2023 (ventilateur, caisson, table et soupape, sans caisse) est la vérité du sous-système anche + cavité + soupape : le modèle s'y compare caisse coupée. La caisse se valide à part, contre un instrument entier.
+- Trois défauts ont une seule cause : dans le moteur temps réel, la pression de chambre ouvre la fente. Il joue donc au-dessus de la lame, monte avec la pression et part haut à l'attaque, là où l'accordéon fait l'inverse. Aucun réglage de cote n'inverse ce signe, et les cotes dessinées du sommier éteignent l'aigu.
+- L'anche soufflée-fermée du dépôt (`upstream_reed.UpstreamReed`) a le bon signe sur les trois points et un aigu qui s'appauvrit, mais ne parle pas aux volumes d'un sommier avec ses cotes supposées.
+- La suite : hors moteur, trouver à quelles cotes l'anche soufflée-fermée parle à 13-21 cm³ (levée, jeu, plaque, K0, résistance de source, masse d'air ajoutée), en plan fractionné, contre le banc de 2023 ; le moteur temps réel ne change de loi qu'ensuite. Les mesures d'atelier qui trancheraient : levée, jeu et amortissement d'une anche, et la lame pincée puis jouée.
+- Versé dans le moteur : soupape de clavier (plus de claquement), résonateur de l'anche en double précision, tableau d'accord plus fin, lissage des réglages de timbre dans le bloc.

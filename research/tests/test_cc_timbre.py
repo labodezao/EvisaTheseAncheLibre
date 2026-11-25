@@ -204,10 +204,11 @@ def test_aucune_note_de_45_a_84_ne_se_tait_aux_bornes(acc, expr):
     assert not muettes, muettes
 
 
-@pytest.mark.xfail(strict=True, reason=(
-    "les quatre CC à 0 ensemble, expression 0,3 : les notes 81 à 84 se taisent "
-    "(-87 à -94 dBFS). Constaté, pas corrigé : ne pas resserrer les bornes en "
-    "silence, décision à prendre (voir accordeon/cc_timbre/effets.txt)."))
+# Avant la loi de source en r² (24/11/2026), ce test était un xfail strict : les
+# quatre CC à 0 ensemble, expression 0,3, les notes 81 à 84 se taisaient (-87 à
+# -94 dBFS ; voir accordeon/cc_timbre/effets.txt). Avec R = 1,5e7 r² elles
+# jouent : le xfail strict est devenu un échec (XPASS), le test est maintenant
+# un test ordinaire, même assertion.
 def test_les_quatre_cc_a_zero_a_expression_faible_eteignent_le_haut(acc):
     assert not _muettes(acc, 0.3, [{nom: 0 for nom in NOMS}])
 
@@ -242,6 +243,25 @@ def test_pas_de_clic_quand_un_cc_bouge_pendant_une_note(acc, nom, val):
     apres = _raideur(x[i0:i0 + int(0.4 * SR)]).max()
     assert apres <= 1.5 * avant, (apres, avant)
     assert s.facteurs_timbre()[nom] == pytest.approx(live.facteur_timbre(nom, val))
+
+
+@pytest.mark.parametrize('nom,val', [('largeur', 0), ('largeur', 127), ('chambre', 0)])
+def test_le_clic_ne_depend_pas_de_la_taille_de_bloc(acc, nom, val):
+    """Le lissage du timbre avance dans le bloc de rendu (`SOUS_BLOC_TIMBRE`) :
+    le plus grand saut rapporté au niveau après le changement est le même, à 5 %
+    près, pour des blocs de 32, 256 et 512 échantillons. Appliqué une fois par
+    bloc, le facteur de largeur sautait de 13 à 23 % à chaque frontière : 2,12
+    (bloc de 32), 2,68 (256), 4,97 (512) pour une borne de 2,42."""
+    maxima = []
+    for bloc in (32, 256, 512):
+        s = _synth(acc, 0.5)
+        s.note_on(57, 100)
+        k_saut = int(1.0 * SR) // bloc
+        i0 = k_saut * bloc
+        x = _jouer(s, int(1.6 * SR) // bloc * bloc, bloc=bloc,
+                   evts={k_saut: lambda sy: sy.regler_timbre(nom, val)})
+        maxima.append(_raideur(x[i0:i0 + int(0.4 * SR)]).max())
+    assert max(maxima) <= 1.05 * min(maxima), maxima
 
 
 def test_le_changement_vaut_pour_les_notes_qui_sonnent(acc):

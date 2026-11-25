@@ -8,7 +8,14 @@ filtre anti-repliement ; le bilan de la chambre et la lame ne changent pas.
 
 Défaut F = 0 : le son d'avant, à l'échantillon près. Les références du moteur
 d'avant (`ref_pompe_f0.npz`) ont été rendues par le moteur de `origin/main`
-avant l'ajout. Le défaut de F, 0,8 au CC 74 = 64, est **provisoire, non mesuré**.
+avant l'ajout (commit 4c3fb3d, biquad de l'anche en float32).
+
+Références `c` et `synth` régénérées le 25/11/2026 après le passage du biquad de
+l'anche en double (5f44123) : par les routines mêmes de ce fichier (`_c(_params(), n)`
+et `Synth(ouverture_ms=0)`, 40 blocs), avec le moteur d'alors. Cause prouvée du
+changement : l'ancien test passe au commit parent de 5f44123, et au commit de la soupape
+dont on a seulement annulé 5f44123 ; écart avant régénération 3,1e-3 sur une crête de
+0,0415 (`c`). `python` (biquad déjà en float64 dans le miroir Python) est inchangée. Le défaut de F, 0,8 au CC 74 = 64, est **provisoire, non mesuré**.
 """
 import pathlib
 
@@ -29,14 +36,17 @@ F_TEST = 0.8
 
 
 def _params(f0=220.0, pompe=0.0):
-    return emb.params_from_voice(hybrid.accordeon(f0_hz=f0), samplerate=SR,
-                                 name='accordeon', pompe=pompe)
+    # R = 2e8 fixe : NIVEAU est un débit (m³/s) et les références chiffrées
+    # (`ref_pompe_f0.npz`, essai hors moteur) sont celles de l'ancienne source
+    return emb.params_from_voice(
+        hybrid.accordeon(f0_hz=f0, source_impedance=2.0e8), samplerate=SR,
+        name='accordeon', pompe=pompe)
 
 
 def _c(p, n_blocs):
     cp, _garde = live._to_c_params(p)
     v = live.Voice()
-    v.note_on(cp, 57, NIVEAU)
+    v.note_on(cp, 57, NIVEAU, ouverture_ms=0)    # F = 0 : sans la soupape non plus
     bloc = np.zeros(256, np.float32)
     morceaux = []
     for _ in range(n_blocs):
@@ -48,6 +58,14 @@ def _c(p, n_blocs):
 @pytest.fixture(scope='module')
 def acc():
     return live.build_instrument('accordeon', lo=57, hi=69)
+
+
+@pytest.fixture(scope='module')
+def acc_2e8():
+    """L'ancienne source (R = 2e8 fixe) : celle des chiffres de l'essai hors
+    moteur (A2/A1, A3/A1 de la note 57 à CC 11 = 80)."""
+    return live.build_instrument('accordeon', lo=57, hi=69,
+                                 source_impedance=2.0e8)
 
 
 def _tenue(inst, note, F=0.0, expr=80 / 127.0, duree=3.0):
@@ -122,17 +140,18 @@ def test_f0_c_identique_au_moteur_d_avant():
 
 @sans_compilateur
 def test_f0_synth_identique_au_moteur_d_avant():
-    inst = live.build_instrument('accordeon', lo=57, hi=57)
+    inst = live.build_instrument('accordeon', lo=57, hi=57,
+                                 source_impedance=2.0e8)
     ref = np.load(REF)['synth']
     for kw in ({}, {'pompe': 0.0}):
-        s = live.Synth(inst, polyphony=1, **kw)
+        s = live.Synth(inst, polyphony=1, ouverture_ms=0, **kw)
         s.pression_mesuree = True
         s.expression = 80 / 127.0
         s.note_on(57, 100)
         x = np.concatenate([s.render(256).copy() for _ in range(40)])
         assert np.array_equal(x, ref)
     # le CC 74 à 0 est F = 0 : même son
-    s = live.Synth(inst, polyphony=1)
+    s = live.Synth(inst, polyphony=1, ouverture_ms=0)
     s.pression_mesuree = True
     s.expression = 80 / 127.0
     assert s.timbre_cc(74, 0)
@@ -216,12 +235,12 @@ def test_le_signe_la_pompe_est_moins_s_eff_fois_l_acceleration_de_la_lame():
 
 
 @sans_compilateur
-def test_le_signe_dans_le_spectre_suit_l_essai_hors_moteur(acc):
+def test_le_signe_dans_le_spectre_suit_l_essai_hors_moteur(acc_2e8):
     """Essai hors moteur (note 57, CC 11 = 80) : avec S_eff = +0,8 x surface,
     A2/A1 = -14,5 dB et A3/A1 = -8,9 dB ; le signe contraire donne -14,8 et
     -8,2 : A3/A1 plus haut."""
-    plus = _f0_et_partiels(_tenue(acc, 57, +F_TEST), 220.0)[1]
-    moins = _f0_et_partiels(_tenue(acc, 57, -F_TEST), 220.0)[1]
+    plus = _f0_et_partiels(_tenue(acc_2e8, 57, +F_TEST), 220.0)[1]
+    moins = _f0_et_partiels(_tenue(acc_2e8, 57, -F_TEST), 220.0)[1]
     assert abs(plus[1] - (-14.5)) < 1.0 and abs(plus[2] - (-8.9)) < 1.0, plus
     assert moins[2] > plus[2] + 0.3, (plus, moins)
 

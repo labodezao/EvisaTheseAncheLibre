@@ -553,10 +553,10 @@ class FreeReedExciter(Exciter):
     **Deux lois de passage** (`loi`), c'est-à-dire deux façons de passer du
     déplacement `y` de la languette à la hauteur `h` du passage d'air :
 
-    - `'ecretee'` (l'ancienne, gardée telle quelle) : `h = clip(y + h₀, fuite,
+    - `'ecretee'` (l'ancienne, gardée telle quelle, à demander par son nom) : `h = clip(y + h₀, fuite,
       max_open)`. La languette ne fait jamais que s'approcher de la plaque ou
       s'en éloigner.
-    - `'traversante'` : la languette traverse sa fente, comme une vraie anche
+    - `'traversante'` (le défaut) : la languette traverse sa fente, comme une vraie anche
       libre. Section = `largeur × √(gap² + jeu²)`, `gap` étant celui de
       `coupled_reeds.ReedSetting.gap` : au-dessus de la plaque `gap = y + h₀` ;
       entre la face de la plaque et la sortie de la lame, la languette est dans
@@ -591,7 +591,7 @@ class FreeReedExciter(Exciter):
     rest_offset_m: float = 0.10e-3
     max_open_m: float = 0.50e-3
     leak_m: float = 2.0e-6
-    loi: str = 'ecretee'                 # 'ecretee' (ancienne) ou 'traversante'
+    loi: str = 'traversante'             # défaut ; 'ecretee' (ancienne) à nommer
     plate_m: float = 1.2e-3              # loi traversante : plaque (réf. 110 Hz)
     tongue_m: float = 0.4e-3             # loi traversante : lame au bout
     clearance_m: float = 15e-6           # loi traversante : jeu languette/fente
@@ -605,6 +605,9 @@ class FreeReedExciter(Exciter):
     #   mais ce qui borne l'amplitude dans CE modèle-là n'a pas été
     #   démontré dans la réduction temps réel : la recaler est une étape
     #   mesurée à part, pas une valeur par défaut à recopier.
+    #   Ce défaut de la CLASSE (source) ne change pas ; celui de la loi, si. `accordeon()` fait suivre la
+    #   résistance de source à la note (`ACCORDEON_SOURCE_REF × r²`) : voir
+    #   sa docstring.
 
     n_state = 2
     control_name = "débit de soufflet"
@@ -1014,6 +1017,18 @@ def _wind(exciter, f0, kind, n_modes, q, bore_mm, peak_ratio, name,
 
 ACCORDEON_REF_HZ = 110.0     # l'anche dont les cotes servent de référence
 
+#: Résistance de source (le passage entre le soufflet et la chambre de
+#: l'anche) de l'accordéon à 110 Hz, en Pa·s/m³ ; à la note f elle vaut
+#: `ACCORDEON_SOURCE_REF × (f/110)²`. **PROVISOIRE : aucune mesure de la
+#: résistance de passage n'existe** ; la valeur attend la rampe de pression
+#: étalonnée d'Ewen. Elle remplace 2·10⁸ fixe, qui ne suivait pas la
+#: similitude (voir `accordeon`).
+ACCORDEON_SOURCE_REF = 1.5e7
+#: Pression de soufflet nominale (Pa) que le jeu applique à chaque note :
+#: l'ancien nominal 2,9·10⁻⁶ m³/s × 2·10⁸ Pa·s/m³. Le niveau en m³/s de
+#: chaque note est cette pression divisée par SA résistance de source.
+ACCORDEON_PRESSION_NOMINALE_PA = 580.0
+
 
 def accordeon(f0_hz=110.0, volume_m3=None, loi='traversante', **kw):
     """Anche libre sur chambre fermée.
@@ -1058,8 +1073,23 @@ def accordeon(f0_hz=110.0, volume_m3=None, loi='traversante', **kw):
     et son cadre. Ce n'est pas une dimension du dessin, c'est une tolérance
     d'atelier — elle ne rétrécit pas parce que la note monte.
 
+    La **résistance de source** (soufflet → chambre) suit la similitude elle
+    aussi, en `r²` : `ACCORDEON_SOURCE_REF × r²`, soit 1,5·10⁷ Pa·s/m³ à
+    110 Hz. Elle était fixe à 2·10⁸ alors que toutes les autres cotes
+    suivaient `r`, et c'était la seule : les notes graves (36 à 48) et
+    aiguës (88 à 96) ne partaient pas à basse pression. Preuve (mesures du
+    24/11/2026, 61 notes × 7 pressions de 100 à 1000 Pa) : 348 cases sur 427
+    jouaient, les notes 95 et 96 étaient muettes partout. Le seuil linéaire
+    de départ (hors moteur) avait la même forme (corrélation 0,986 sur 59
+    notes) et devient plat, 118,4 Pa à toutes les notes, quand R suit `r²` ;
+    sur le moteur C avec `R = 1,5·10⁷ r²`, 427 cases sur 427 jouent.
+    **La valeur de référence 1,5·10⁷ est provisoire** : la résistance de
+    passage n'a jamais été mesurée, elle attend la rampe de pression
+    étalonnée. Seule la loi en `r²` est démontrée, pas le coefficient.
+
     Toute cote passée explicitement l'emporte sur la loi d'échelle : c'est ce
-    qui permet de confronter le modèle à une anche réelle mesurée au banc.
+    qui permet de confronter le modèle à une anche réelle mesurée au banc
+    (`source_impedance=2.0e8` redonne l'ancien comportement).
     """
     r = float(f0_hz) / ACCORDEON_REF_HZ
     ref = FreeReedExciter()
@@ -1070,6 +1100,7 @@ def accordeon(f0_hz=110.0, volume_m3=None, loi='traversante', **kw):
         'area_m2': ref.area_m2 / r ** 2,
         'force_area_m2': ref.force_area_m2 / r ** 2,
         'mass_kg': ref.mass_kg / r ** 3,
+        'source_impedance': ACCORDEON_SOURCE_REF * r ** 2,   # provisoire
     }
     if loi == 'traversante':
         echelle.update({'plate_m': ref.plate_m / r,

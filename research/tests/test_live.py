@@ -155,7 +155,7 @@ def test_l_anche_libre_parle_sur_toute_la_tessiture():
     for note in (48, 60, 72, 84):
         x = np.zeros(int(0.8 * inst.samplerate), dtype='float32')
         v = live.Voice()
-        v.note_on(inst.params_for(note), note, inst.level_default)
+        v.note_on(inst.params_for(note), note, inst.niveau_pour(note))
         for i in range(0, x.size - 512, 512):
             v.render(x[i:i + 512])
         alternatif = x[x.size // 2:].astype('float64')
@@ -174,7 +174,7 @@ def test_l_accordage_rattrape_ce_que_la_geometrie_donne_de_travers():
     accorde = live.build_instrument('accordeon', lo=79, hi=79, tune=True)
 
     def ecart(inst):
-        f = live._frequence_jouee(inst.params_for(79), inst.level_default,
+        f = live._frequence_jouee(inst.params_for(79), inst.niveau_pour(79),
                                   inst.samplerate, dur=1.0)
         return abs(1200 * np.log2(f / live.midi_to_hz(79)))
 

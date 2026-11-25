@@ -238,11 +238,12 @@ class RealtimeParams:
     max_open_m: float = 0.0                        # >0 : anche libre (saturation)
     leak_m: float = 0.0
     #: loi de passage de l'anche libre (cf. `hybrid.FreeReedExciter`) :
-    #: `LOI_ECRETEE` (`clip(y + h₀, fuite, max_open)`, l'ancienne) ou
-    #: `LOI_TRAVERSANTE` (la languette traverse sa fente : section
-    #: `largeur × √(gap² + jeu²)`, sans butée haute). Plaque, lame et jeu ne
-    #: servent qu'à la seconde ; la levée au repos est `rest_opening_m`.
-    loi: str = 'ecretee'
+    #: `LOI_TRAVERSANTE` (défaut : la languette traverse sa fente, section
+    #: `largeur × √(gap² + jeu²)`, sans butée haute) ou `LOI_ECRETEE`
+    #: (`clip(y + h₀, fuite, max_open)`, l'ancienne, à demander par son nom).
+    #: Plaque, lame et jeu ne servent qu'à la première ; la levée au repos est
+    #: `rest_opening_m`.
+    loi: str = 'traversante'
     plate_m: float = 0.0
     tongue_m: float = 0.0
     clearance_m: float = 0.0
@@ -296,8 +297,9 @@ LOI_TRAVERSANTE = 'traversante'
 
 
 def loi_c(params):
-    """Numéro de la loi pour le C : 0 écrêtée (défaut d'une structure remise à
-    zéro), 1 traversante."""
+    """Numéro de la loi pour le C : 1 traversante (défaut de `RealtimeParams`),
+    0 écrêtée (à demander par son nom). Le C reçoit toujours le numéro écrit
+    ici, jamais un champ laissé à zéro."""
     return 1 if params.loi == LOI_TRAVERSANTE else 0
 
 
@@ -456,6 +458,24 @@ class RealtimeVoice:
         self._net_prec = None       # débit net au dernier échantillon de sortie
         self._y_prec = None         # position de la lame au pas précédent
         self._y_anche = 0.0         # position de la lame au pas courant
+        self.valve = 1.0            # soupape de clavier : 1 ouverte, 0 fermée
+        self._valve_de = self._valve_a = 1.0
+        self._valve_k = self._valve_n = 0
+
+    def valve_start(self, de, a, n):
+        """Rampe de la soupape de `de` à `a` en `n` échantillons de sortie, en
+        demi-cosinus (`hv_valve_start`). `n` <= 0 : saut."""
+        self._valve_de, self._valve_a = float(de), float(a)
+        self._valve_k, self._valve_n = 0, int(n)
+        self.valve = float(de) if n > 0 else float(a)
+
+    def _valve_pas(self):
+        if self._valve_k < self._valve_n:
+            self._valve_k += 1
+            if self._valve_k == self._valve_n:
+                self.valve = self._valve_a
+            else:
+                self.valve = self._valve_de + (self._valve_a - self._valve_de)                     * 0.5 * (1.0 - np.cos(np.pi * self._valve_k / self._valve_n))
 
     # -- la non-linéarité, la seule chose qui coûte --------------------------
     def _exciter(self, response, level):
@@ -490,6 +510,7 @@ class RealtimeVoice:
         q_src = level
         if p.source_impedance > 0.0:
             q_src -= response / p.source_impedance
+        q_src *= self.valve            # la soupape ferme apport ET fuite
         return q_src - q_out, h
 
     def render(self, n_samples, level, out_opening=False, sortie=None):
@@ -520,6 +541,7 @@ class RealtimeVoice:
 
         for i in range(n):
             h = float('nan')
+            self._valve_pas()
             for _ in range(p.oversample):
                 if self._kick:
                     self.response += 1e-6      # amorce : l'équilibre est un point fixe
@@ -595,6 +617,17 @@ def _f(x):
     return out + "f"
 
 
+def _d(x):
+    """Littéral `double` C (sans suffixe), 17 chiffres : aller-retour exact."""
+    v = float(x)
+    if not np.isfinite(v):
+        v = 0.0
+    out = "{:.17g}".format(v)
+    if "e" not in out and "E" not in out and "." not in out:
+        out += ".0"
+    return out
+
+
 def _ident(name):
     """Identifiant C **ASCII** dérivé d'un nom d'instrument.
 
@@ -652,9 +685,11 @@ C_ENGINE_H = r'''/* Moteur de modèle physique hybride — temps réel, embarqua
 #define HV_OUT_RADIATED 0
 #define HV_OUT_PRESSURE 1
 
-/* Loi de passage de l'anche libre. 0 (défaut d'une structure remise à zéro) :
- * ouverture écrêtée clip(h0 + y, leak, max_open). 1 : la languette traverse sa
- * fente, section width*sqrt(gap^2 + clear^2), sans butée haute. */
+/* Loi de passage de l'anche libre. Le défaut est la loi traversante (1) : la
+ * languette traverse sa fente, section width*sqrt(gap^2 + clear^2), sans butée
+ * haute ; le numéro est toujours écrit par le Python (`loi_c`), jamais laissé
+ * à zéro dans une structure remise à zéro (plaque, lame et jeu seraient nuls).
+ * 0 : ouverture écrêtée clip(h0 + y, leak, max_open), à demander par son nom. */
 #define HV_LAW_CLIPPED 0
 #define HV_LAW_THROUGH 1
 
@@ -664,9 +699,22 @@ typedef struct { float b0, b1, b2, a1, a2; } hv_biquad;
  * 192 kHz) a ses pôles tout près de z = 1 : a1 vaut -1,9999 et a2 0,9999, et
  * le pas de la simple précision (1,2e-7 sur a1) y fait des marches de 1 à 8
  * cents sur la fréquence de la lame. Les écarts, eux, gardent toute leur
- * précision. */
-typedef struct { float b0, b1, b2, da1, ea2; } hv_reed;
+ * précision.
+ * Coefficients ET états du biquad de l'anche sont en double (hv_bqstate_d) :
+ * en float, l'arrondi des états faisait à 192 kHz 0,03 à 0,1 cent de marche
+ * irrégulière sur la hauteur et 3 cents d'écart à 290 Pa (note 45) ; en
+ * double, le résidu tombe à 0,0023 cent (mesuré, essai_C_ablation.py). Le
+ * reste du moteur reste en float.
+ * Coût mesuré sur le PC de développement (10 s de voix, bloc de 512, 4x
+ * suréchantillonné, 9 rendus, notes 45 et 69) : médiane 0,117 s avant, 0,115 s
+ * après (note 45) ; 0,111 s avant et après (note 69) : indiscernable du bruit
+ * de mesure. Sur une carte embarquée le coût est NON MESURÉ : le FPU simple
+ * précision d'un Cortex-M4F/M7 n'a pas de double câblé (le double y est
+ * émulé, donc nettement plus lent) ; à mesurer sur la carte avant de retenir
+ * cette solution pour elle. */
+typedef struct { double b0, b1, b2, da1, ea2; } hv_reed;
 typedef struct { float z1, z2; } hv_bqstate;
+typedef struct { double z1, z2; } hv_bqstate_d;
 
 typedef struct {
     int   family;
@@ -717,7 +765,7 @@ typedef struct {
 
 typedef struct {
     hv_bqstate z[HV_MAX_MODES];
-    hv_bqstate reed_z;
+    hv_bqstate_d reed_z;         /* double : cf. hv_reed */
     hv_bqstate aa_z[HV_MAX_AA];  /* état du filtre anti-repliement */
     float response;
     float cavity;
@@ -726,9 +774,25 @@ typedef struct {
     int   net_ok;                /* 0 : pas encore de débit précédent */
     float y_prev;                /* position de la lame au pas précédent */
     int   y_ok;                  /* 0 : pas encore de position précédente */
+
+    /* Soupape de clavier (anche libre) : conductance en série avec le passage
+     * de la source, G(t) = src_admit * valve, valve de 0 (fermée : la chambre
+     * est isolée) à 1 (ouverte). Elle multiplie l'apport P_s*G ET la fuite
+     * -p*G, c'est-à-dire tout le débit de la source. Au repos (après
+     * hv_reset) valve = 1 : le son d'avant, à l'échantillon. */
+    float valve;                 /* valve au dernier échantillon de sortie */
+    float valve_from, valve_to;  /* début et fin de la rampe en cours */
+    float valve_c, valve_s;      /* cos et sin de pi*k/n, par rotation */
+    float valve_dc, valve_ds;    /* cos et sin du pas pi/n */
+    int   valve_left;            /* échantillons de sortie restant à la rampe, 0 = au repos */
 } hv_state;
 
 void hv_reset(hv_state *st);
+/* Lance la rampe de la soupape de `from` à `to` (0 à 1) en `n` échantillons de
+ * sortie, en demi-cosinus : valve = from + (to-from)*(1-cos(pi*k/n))/2. `n` <= 0 :
+ * saut immédiat. Appelée aux événements de touche, jamais dans le fil audio
+ * (elle seule utilise cosf et sinf). */
+void hv_valve_start(hv_state *st, float from, float to, int n);
 void hv_render(const hv_params *p, hv_state *st, float level,
                float *out, int n);
 
@@ -750,10 +814,10 @@ static inline float bq_step(const hv_biquad *c, hv_bqstate *s, float x)
 
 /* Le biquad de l'anche, même forme que bq_step, mais a1 = da1 - 2 et
  * a2 = 1 - ea2 : -a1*y = 2*y - da1*y et -a2*y = -y + ea2*y. */
-static inline float reed_step(const hv_reed *c, hv_bqstate *s, float x)
+static inline double reed_step(const hv_reed *c, hv_bqstate_d *s, float x)
 {
-    const float y = c->b0 * x + s->z1;
-    s->z1 = c->b1 * x + 2.0f * y - c->da1 * y + s->z2;
+    const double y = c->b0 * x + s->z1;
+    s->z1 = c->b1 * x + 2.0 * y - c->da1 * y + s->z2;
     s->z2 = c->b2 * x - y + c->ea2 * y;
     return y;
 }
@@ -772,6 +836,42 @@ void hv_reset(hv_state *st)
     st->net_ok = 0;
     st->y_prev = 0.0f;
     st->y_ok = 0;
+    st->valve = st->valve_from = st->valve_to = 1.0f;
+    st->valve_c = 1.0f;
+    st->valve_s = st->valve_dc = st->valve_ds = 0.0f;
+    st->valve_left = 0;
+}
+
+void hv_valve_start(hv_state *st, float from, float to, int n)
+{
+    st->valve_from = from;
+    st->valve_to = to;
+    if (n <= 0) {
+        st->valve = to;
+        st->valve_left = 0;
+        return;
+    }
+    st->valve = from;
+    st->valve_left = n;
+    st->valve_c = 1.0f;
+    st->valve_s = 0.0f;
+    st->valve_dc = cosf(3.14159265358979f / (float)n);
+    st->valve_ds = sinf(3.14159265358979f / (float)n);
+}
+
+/* La soupape avance d'un échantillon de sortie : rotation de (c, s) d'un pas. */
+static inline void hv_valve_step(hv_state *st)
+{
+    if (st->valve_left > 0) {
+        const float c = st->valve_c * st->valve_dc - st->valve_s * st->valve_ds;
+        st->valve_s = st->valve_s * st->valve_dc + st->valve_c * st->valve_ds;
+        st->valve_c = c;
+        if (--st->valve_left == 0)
+            st->valve = st->valve_to;
+        else
+            st->valve = st->valve_from
+                      + (st->valve_to - st->valve_from) * 0.5f * (1.0f - c);
+    }
 }
 
 /* La non-linéarité : le seul endroit où l'instrument cesse d'être un filtre. */
@@ -788,7 +888,7 @@ static inline float hv_exciter(const hv_params *p, hv_state *st,
 
     if (p->family == HV_FAMILY_SINGLE_REED) {
         const float dp = level - response;
-        const float y  = reed_step(&p->reed, &st->reed_z, dp);
+        const float y  = (float)reed_step(&p->reed, &st->reed_z, dp);
         float h = p->rest_opening + y;
         float adp;
         if (h < 0.0f) h = 0.0f;              /* l'anche claque sur la table */
@@ -802,7 +902,7 @@ static inline float hv_exciter(const hv_params *p, hv_state *st,
     }
 
     {   /* anche libre : la pression l'ouvre, la soupape interdit le retour */
-        const float y = reed_step(&p->reed, &st->reed_z, response);
+        const float y = (float)reed_step(&p->reed, &st->reed_z, response);
         const float z = p->rest_opening + y;
         float h, q_out = 0.0f, q_src = level;
         if (p->free_law == HV_LAW_THROUGH) {
@@ -821,6 +921,7 @@ static inline float hv_exciter(const hv_params *p, hv_state *st,
         if (response > 0.0f)
             q_out = p->flow_gain * h * response / sqrtf(response + p->visc_pa);
         if (p->src_admit > 0.0f) q_src -= response * p->src_admit;
+        q_src *= st->valve;      /* la soupape ferme apport ET fuite */
         *y_lame = y;
         return q_src - q_out;
     }
@@ -833,6 +934,7 @@ void hv_render(const hv_params *p, hv_state *st, float level,
     const float fs_int = p->fs_out * (float)p->oversample;
     for (i = 0; i < n; ++i) {
         float y = 0.0f;
+        hv_valve_step(st);
         for (k = 0; k < p->oversample; ++k) {
             float acoustic = 0.0f, drive, x, y_lame, src;
             if (!st->kicked) { st->response += 1e-6f; st->kicked = 1; }
@@ -932,8 +1034,8 @@ def to_c_params(params: RealtimeParams, ident=None):
           f"    .n_modes = {len(coeffs)},",
           f"    .oversample = {params.oversample},",
           f"    .modes = {ident}_modes,",
-          f"    .reed = {{{_f(reed[0])}, {_f(reed[1])}, {_f(reed[2])}, "
-          f"{_f(reed[3])}, {_f(reed[4])}}},   /* b0 b1 b2 a1+2 1-a2 */",
+          f"    .reed = {{{_d(reed[0])}, {_d(reed[1])}, {_d(reed[2])}, "
+          f"{_d(reed[3])}, {_d(reed[4])}}},   /* b0 b1 b2 a1+2 1-a2, double */",
           f"    .rest_opening = {_f(params.rest_opening_m)},",
           f"    .width = {_f(params.width_m)},",
           f"    .vena = {_f(params.vena_contracta)},",
