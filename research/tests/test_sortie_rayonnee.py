@@ -179,8 +179,8 @@ def _niveau_db(x):
     return 20 * np.log10(max(np.sqrt(np.mean((x - x.mean()) ** 2)), 1e-12))
 
 
-def _jouer(inst, notes, expression, duree=1.5, bloc=256, gain=0.5):
-    s = live.Synth(inst, polyphony=6, soufflet=Soufflet(), gain=gain)
+def _jouer(inst, notes, expression, duree=1.5, bloc=256, gain=0.5, ouverture_ms=None):
+    s = live.Synth(inst, polyphony=6, soufflet=Soufflet(), gain=gain, ouverture_ms=ouverture_ms)
     s.expression = expression
     for _ in range(int(2.0 * SR / bloc)):
         s.render(bloc)                 # soufflet établi avant la touche
@@ -210,7 +210,13 @@ def test_la_somme_des_voix_n_a_pas_de_composante_continue(accordeon_ecretee):
     # travailler le limiteur (crête 1,0), dont l'écrêtage asymétrique crée un
     # continu (3,7 % de l'écart type) qui n'est pas celui de la voix. Même
     # propriété pour la loi traversante, sous le limiteur : test suivant.
-    _, accord = _jouer(accordeon_ecretee, (57, 61, 64, 69), 0.7)
+    # Pose en échelon (`ouverture_ms=0`), la condition sous laquelle il a été écrit :
+    # à l'ouverture par défaut (5 ms) la voix écrêtée reste au silence exact, car
+    # son équilibre est stable (partie réelle -5,53 /s, la languette est butée
+    # au-delà de `max_open`) et seul l'échelon la décroche. Preuve chiffrée :
+    # `scripts/linearisation_loi_ecretee.py` ; fait fixé par les tests
+    # `test_la_loi_ecretee_...` et `test_l_equilibre_ecrete_...` ci-dessous.
+    _, accord = _jouer(accordeon_ecretee, (57, 61, 64, 69), 0.7, ouverture_ms=0)
     assert abs(np.mean(accord)) < 0.01 * np.std(accord)   # avant : +2,2 pour 0,7
 
 
@@ -220,6 +226,53 @@ def test_la_somme_des_voix_n_a_pas_de_composante_continue_en_loi_traversante(acc
     _, accord = _jouer(accordeon, (57, 61, 64, 69), 0.7, gain=0.1)
     assert np.max(np.abs(accord)) < 0.7                   # le limiteur n'agit pas
     assert abs(np.mean(accord)) < 0.01 * np.std(accord)
+
+
+def _rms(x):
+    x = np.asarray(x, float)               # en double : le carré d'un float32 de 1e-42 vaut 0
+    return float(np.sqrt(np.mean(x ** 2)))
+
+
+def _une_note(inst, ouverture_ms):
+    _, x = _jouer(inst, (57,), 0.7, ouverture_ms=ouverture_ms)
+    return x
+
+
+@sans_compilateur
+def test_la_loi_ecretee_est_muette_a_5_ms_et_sonore_en_echelon(accordeon_ecretee):
+    """Fait mesuré le 25/11/2026 (note 57, expression 0,7, P_s = 1454 Pa) : la loi
+    écrêtée a un équilibre stable (chambre à 635 Pa, languette au-delà de `max_open`)
+    et un cycle ; la montée en demi-cosinus de 5 ms reste dans le bassin de
+    l'équilibre, l'échelon en sort. Mesuré : rms 0,0997 en échelon et à 2 ms, 0
+    exact à 5 ms (moyenne 1,7e-42, un dénormalisé du filtre anti-repliement)."""
+    assert _rms(_une_note(accordeon_ecretee, 0)) > 0.05
+    assert _rms(_une_note(accordeon_ecretee, 5.0)) < 1e-6
+
+
+@sans_compilateur
+def test_la_loi_traversante_est_sonore_en_echelon_et_a_5_ms(accordeon):
+    assert _rms(_une_note(accordeon, 0)) > 0.02
+    assert _rms(_une_note(accordeon, 5.0)) > 0.02
+
+
+def test_l_equilibre_ecrete_est_stable_et_le_traversant_instable_au_point_du_test():
+    """Preuve en double précision, hors moteur C (scripts/linearisation_loi_ecretee.py).
+    Écrêtée : la languette est butée (z > max_open), la rétroaction anche -> débit est
+    nulle, la valeur propre oscillante vaut -w/2Q = -5,53 /s : stable. Elle devient
+    instable sous P_s = 1046 Pa (là où z = max_open). Traversante : +180 /s, instable."""
+    import importlib.util
+    import pathlib
+    chemin = pathlib.Path(__file__).resolve().parents[1] / 'scripts' / 'linearisation_loi_ecretee.py'
+    spec = importlib.util.spec_from_file_location('linearisation_loi_ecretee', chemin)
+    lin = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(lin)
+    ecr = lin.constantes(emb.LOI_ECRETEE)
+    l, x0 = lin.valeur_propre(ecr, lin.PS_TEST)
+    assert ecr['h0'] + x0[0] > ecr['maxo']                        # butée
+    assert l.real == pytest.approx(-ecr['w'] / 2 / ecr['Q'], rel=1e-3)
+    assert lin.valeur_propre(ecr, 1000.0)[0].real > 100.0         # sous 1046 Pa : instable
+    tra = lin.constantes(emb.LOI_TRAVERSANTE)
+    assert lin.valeur_propre(tra, lin.PS_TEST)[0].real > 100.0
 
 
 @sans_compilateur
