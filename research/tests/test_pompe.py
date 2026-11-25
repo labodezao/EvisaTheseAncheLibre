@@ -8,7 +8,14 @@ filtre anti-repliement ; le bilan de la chambre et la lame ne changent pas.
 
 Défaut F = 0 : le son d'avant, à l'échantillon près. Les références du moteur
 d'avant (`ref_pompe_f0.npz`) ont été rendues par le moteur de `origin/main`
-avant l'ajout. Le défaut de F, 0,8 au CC 74 = 64, est **provisoire, non mesuré**.
+avant l'ajout (commit 4c3fb3d, biquad de l'anche en float32).
+
+Références `c` et `synth` régénérées le 25/11/2026 après le passage du biquad de
+l'anche en double (5f44123) : par les routines mêmes de ce fichier (`_c(_params(), n)`
+et `Synth(ouverture_ms=0)`, 40 blocs), avec le moteur d'alors. Cause prouvée du
+changement : l'ancien test passe au commit parent de 5f44123, et au commit de la soupape
+dont on a seulement annulé 5f44123 ; écart avant régénération 3,1e-3 sur une crête de
+0,0415 (`c`). `python` (biquad déjà en float64 dans le miroir Python) est inchangée. Le défaut de F, 0,8 au CC 74 = 64, est **provisoire, non mesuré**.
 """
 import pathlib
 
