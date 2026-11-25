@@ -64,12 +64,18 @@ class _Biquad(ctypes.Structure):
 
 
 class _Reed(ctypes.Structure):
-    """Biquad de l'anche (`hv_reed`) : `da1` = a1 + 2, `ea2` = 1 - a2."""
-    _fields_ = [(n, ctypes.c_float) for n in ('b0', 'b1', 'b2', 'da1', 'ea2')]
+    """Biquad de l'anche (`hv_reed`) : `da1` = a1 + 2, `ea2` = 1 - a2, en
+    double."""
+    _fields_ = [(n, ctypes.c_double) for n in ('b0', 'b1', 'b2', 'da1', 'ea2')]
 
 
 class _BqState(ctypes.Structure):
     _fields_ = [('z1', ctypes.c_float), ('z2', ctypes.c_float)]
+
+
+class _BqStateD(ctypes.Structure):
+    """État du biquad de l'anche (`hv_bqstate_d`), en double."""
+    _fields_ = [('z1', ctypes.c_double), ('z2', ctypes.c_double)]
 
 
 class _Params(ctypes.Structure):
@@ -94,7 +100,7 @@ class _Params(ctypes.Structure):
 
 
 class _State(ctypes.Structure):
-    _fields_ = [('z', _BqState * HV_MAX_MODES), ('reed_z', _BqState),
+    _fields_ = [('z', _BqState * HV_MAX_MODES), ('reed_z', _BqStateD),
                 ('aa_z', _BqState * HV_MAX_AA),
                 ('response', ctypes.c_float), ('cavity', ctypes.c_float),
                 ('kicked', ctypes.c_int),
@@ -1075,6 +1081,9 @@ def _tableau_note(base, niveau, f_nom, samplerate, tolerance_cents=0.3):
 
 def _cle_accord(inst, notes):
     h = hashlib.sha1()
+    # le tableau est mesuré SUR le moteur : un moteur changé (précision de
+    # l'anche en double, soupape) invalide les tableaux déjà gardés
+    h.update(repr(sorted(to_c_engine().items())).encode())
     h.update(repr((ACCORD_VERSION, ACCORD_GRILLE, ACCORD_DUREE_S, ACCORD_DEBUT_S,
                    inst.name,
                    inst.samplerate, inst.a4_hz, inst.level_default,

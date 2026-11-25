@@ -595,6 +595,17 @@ def _f(x):
     return out + "f"
 
 
+def _d(x):
+    """Littéral `double` C (sans suffixe), 17 chiffres : aller-retour exact."""
+    v = float(x)
+    if not np.isfinite(v):
+        v = 0.0
+    out = "{:.17g}".format(v)
+    if "e" not in out and "E" not in out and "." not in out:
+        out += ".0"
+    return out
+
+
 def _ident(name):
     """Identifiant C **ASCII** dérivé d'un nom d'instrument.
 
@@ -664,9 +675,22 @@ typedef struct { float b0, b1, b2, a1, a2; } hv_biquad;
  * 192 kHz) a ses pôles tout près de z = 1 : a1 vaut -1,9999 et a2 0,9999, et
  * le pas de la simple précision (1,2e-7 sur a1) y fait des marches de 1 à 8
  * cents sur la fréquence de la lame. Les écarts, eux, gardent toute leur
- * précision. */
-typedef struct { float b0, b1, b2, da1, ea2; } hv_reed;
+ * précision.
+ * Coefficients ET états du biquad de l'anche sont en double (hv_bqstate_d) :
+ * en float, l'arrondi des états faisait à 192 kHz 0,03 à 0,1 cent de marche
+ * irrégulière sur la hauteur et 3 cents d'écart à 290 Pa (note 45) ; en
+ * double, le résidu tombe à 0,0023 cent (mesuré, essai_C_ablation.py). Le
+ * reste du moteur reste en float.
+ * Coût mesuré sur le PC de développement (10 s de voix, bloc de 512, 4x
+ * suréchantillonné, 9 rendus, notes 45 et 69) : médiane 0,117 s avant, 0,115 s
+ * après (note 45) ; 0,111 s avant et après (note 69) : indiscernable du bruit
+ * de mesure. Sur une carte embarquée le coût est NON MESURÉ : le FPU simple
+ * précision d'un Cortex-M4F/M7 n'a pas de double câblé (le double y est
+ * émulé, donc nettement plus lent) ; à mesurer sur la carte avant de retenir
+ * cette solution pour elle. */
+typedef struct { double b0, b1, b2, da1, ea2; } hv_reed;
 typedef struct { float z1, z2; } hv_bqstate;
+typedef struct { double z1, z2; } hv_bqstate_d;
 
 typedef struct {
     int   family;
@@ -717,7 +741,7 @@ typedef struct {
 
 typedef struct {
     hv_bqstate z[HV_MAX_MODES];
-    hv_bqstate reed_z;
+    hv_bqstate_d reed_z;         /* double : cf. hv_reed */
     hv_bqstate aa_z[HV_MAX_AA];  /* état du filtre anti-repliement */
     float response;
     float cavity;
@@ -750,10 +774,10 @@ static inline float bq_step(const hv_biquad *c, hv_bqstate *s, float x)
 
 /* Le biquad de l'anche, même forme que bq_step, mais a1 = da1 - 2 et
  * a2 = 1 - ea2 : -a1*y = 2*y - da1*y et -a2*y = -y + ea2*y. */
-static inline float reed_step(const hv_reed *c, hv_bqstate *s, float x)
+static inline double reed_step(const hv_reed *c, hv_bqstate_d *s, float x)
 {
-    const float y = c->b0 * x + s->z1;
-    s->z1 = c->b1 * x + 2.0f * y - c->da1 * y + s->z2;
+    const double y = c->b0 * x + s->z1;
+    s->z1 = c->b1 * x + 2.0 * y - c->da1 * y + s->z2;
     s->z2 = c->b2 * x - y + c->ea2 * y;
     return y;
 }
@@ -788,7 +812,7 @@ static inline float hv_exciter(const hv_params *p, hv_state *st,
 
     if (p->family == HV_FAMILY_SINGLE_REED) {
         const float dp = level - response;
-        const float y  = reed_step(&p->reed, &st->reed_z, dp);
+        const float y  = (float)reed_step(&p->reed, &st->reed_z, dp);
         float h = p->rest_opening + y;
         float adp;
         if (h < 0.0f) h = 0.0f;              /* l'anche claque sur la table */
@@ -802,7 +826,7 @@ static inline float hv_exciter(const hv_params *p, hv_state *st,
     }
 
     {   /* anche libre : la pression l'ouvre, la soupape interdit le retour */
-        const float y = reed_step(&p->reed, &st->reed_z, response);
+        const float y = (float)reed_step(&p->reed, &st->reed_z, response);
         const float z = p->rest_opening + y;
         float h, q_out = 0.0f, q_src = level;
         if (p->free_law == HV_LAW_THROUGH) {
@@ -932,8 +956,8 @@ def to_c_params(params: RealtimeParams, ident=None):
           f"    .n_modes = {len(coeffs)},",
           f"    .oversample = {params.oversample},",
           f"    .modes = {ident}_modes,",
-          f"    .reed = {{{_f(reed[0])}, {_f(reed[1])}, {_f(reed[2])}, "
-          f"{_f(reed[3])}, {_f(reed[4])}}},   /* b0 b1 b2 a1+2 1-a2 */",
+          f"    .reed = {{{_d(reed[0])}, {_d(reed[1])}, {_d(reed[2])}, "
+          f"{_d(reed[3])}, {_d(reed[4])}}},   /* b0 b1 b2 a1+2 1-a2, double */",
           f"    .rest_opening = {_f(params.rest_opening_m)},",
           f"    .width = {_f(params.width_m)},",
           f"    .vena = {_f(params.vena_contracta)},",
