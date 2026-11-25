@@ -456,6 +456,24 @@ class RealtimeVoice:
         self._net_prec = None       # débit net au dernier échantillon de sortie
         self._y_prec = None         # position de la lame au pas précédent
         self._y_anche = 0.0         # position de la lame au pas courant
+        self.valve = 1.0            # soupape de clavier : 1 ouverte, 0 fermée
+        self._valve_de = self._valve_a = 1.0
+        self._valve_k = self._valve_n = 0
+
+    def valve_start(self, de, a, n):
+        """Rampe de la soupape de `de` à `a` en `n` échantillons de sortie, en
+        demi-cosinus (`hv_valve_start`). `n` <= 0 : saut."""
+        self._valve_de, self._valve_a = float(de), float(a)
+        self._valve_k, self._valve_n = 0, int(n)
+        self.valve = float(de) if n > 0 else float(a)
+
+    def _valve_pas(self):
+        if self._valve_k < self._valve_n:
+            self._valve_k += 1
+            if self._valve_k == self._valve_n:
+                self.valve = self._valve_a
+            else:
+                self.valve = self._valve_de + (self._valve_a - self._valve_de)                     * 0.5 * (1.0 - np.cos(np.pi * self._valve_k / self._valve_n))
 
     # -- la non-linéarité, la seule chose qui coûte --------------------------
     def _exciter(self, response, level):
@@ -490,6 +508,7 @@ class RealtimeVoice:
         q_src = level
         if p.source_impedance > 0.0:
             q_src -= response / p.source_impedance
+        q_src *= self.valve            # la soupape ferme apport ET fuite
         return q_src - q_out, h
 
     def render(self, n_samples, level, out_opening=False, sortie=None):
@@ -520,6 +539,7 @@ class RealtimeVoice:
 
         for i in range(n):
             h = float('nan')
+            self._valve_pas()
             for _ in range(p.oversample):
                 if self._kick:
                     self.response += 1e-6      # amorce : l'équilibre est un point fixe
@@ -750,9 +770,25 @@ typedef struct {
     int   net_ok;                /* 0 : pas encore de débit précédent */
     float y_prev;                /* position de la lame au pas précédent */
     int   y_ok;                  /* 0 : pas encore de position précédente */
+
+    /* Soupape de clavier (anche libre) : conductance en série avec le passage
+     * de la source, G(t) = src_admit * valve, valve de 0 (fermée : la chambre
+     * est isolée) à 1 (ouverte). Elle multiplie l'apport P_s*G ET la fuite
+     * -p*G, c'est-à-dire tout le débit de la source. Au repos (après
+     * hv_reset) valve = 1 : le son d'avant, à l'échantillon. */
+    float valve;                 /* valve au dernier échantillon de sortie */
+    float valve_from, valve_to;  /* début et fin de la rampe en cours */
+    float valve_c, valve_s;      /* cos et sin de pi*k/n, par rotation */
+    float valve_dc, valve_ds;    /* cos et sin du pas pi/n */
+    int   valve_left;            /* échantillons de sortie restant à la rampe, 0 = au repos */
 } hv_state;
 
 void hv_reset(hv_state *st);
+/* Lance la rampe de la soupape de `from` à `to` (0 à 1) en `n` échantillons de
+ * sortie, en demi-cosinus : valve = from + (to-from)*(1-cos(pi*k/n))/2. `n` <= 0 :
+ * saut immédiat. Appelée aux événements de touche, jamais dans le fil audio
+ * (elle seule utilise cosf et sinf). */
+void hv_valve_start(hv_state *st, float from, float to, int n);
 void hv_render(const hv_params *p, hv_state *st, float level,
                float *out, int n);
 
@@ -796,6 +832,42 @@ void hv_reset(hv_state *st)
     st->net_ok = 0;
     st->y_prev = 0.0f;
     st->y_ok = 0;
+    st->valve = st->valve_from = st->valve_to = 1.0f;
+    st->valve_c = 1.0f;
+    st->valve_s = st->valve_dc = st->valve_ds = 0.0f;
+    st->valve_left = 0;
+}
+
+void hv_valve_start(hv_state *st, float from, float to, int n)
+{
+    st->valve_from = from;
+    st->valve_to = to;
+    if (n <= 0) {
+        st->valve = to;
+        st->valve_left = 0;
+        return;
+    }
+    st->valve = from;
+    st->valve_left = n;
+    st->valve_c = 1.0f;
+    st->valve_s = 0.0f;
+    st->valve_dc = cosf(3.14159265358979f / (float)n);
+    st->valve_ds = sinf(3.14159265358979f / (float)n);
+}
+
+/* La soupape avance d'un échantillon de sortie : rotation de (c, s) d'un pas. */
+static inline void hv_valve_step(hv_state *st)
+{
+    if (st->valve_left > 0) {
+        const float c = st->valve_c * st->valve_dc - st->valve_s * st->valve_ds;
+        st->valve_s = st->valve_s * st->valve_dc + st->valve_c * st->valve_ds;
+        st->valve_c = c;
+        if (--st->valve_left == 0)
+            st->valve = st->valve_to;
+        else
+            st->valve = st->valve_from
+                      + (st->valve_to - st->valve_from) * 0.5f * (1.0f - c);
+    }
 }
 
 /* La non-linéarité : le seul endroit où l'instrument cesse d'être un filtre. */
@@ -845,6 +917,7 @@ static inline float hv_exciter(const hv_params *p, hv_state *st,
         if (response > 0.0f)
             q_out = p->flow_gain * h * response / sqrtf(response + p->visc_pa);
         if (p->src_admit > 0.0f) q_src -= response * p->src_admit;
+        q_src *= st->valve;      /* la soupape ferme apport ET fuite */
         *y_lame = y;
         return q_src - q_out;
     }
@@ -857,6 +930,7 @@ void hv_render(const hv_params *p, hv_state *st, float level,
     const float fs_int = p->fs_out * (float)p->oversample;
     for (i = 0; i < n; ++i) {
         float y = 0.0f;
+        hv_valve_step(st);
         for (k = 0; k < p->oversample; ++k) {
             float acoustic = 0.0f, drive, x, y_lame, src;
             if (!st->kicked) { st->response += 1e-6f; st->kicked = 1; }

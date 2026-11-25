@@ -151,7 +151,7 @@ def test_le_noyau_c_suit_la_reference_python(sortie):
     p = _params_accordeon(sortie=sortie, loi='ecretee')
     cp, garde = live._to_c_params(p)
     v = live.Voice()
-    v.note_on(cp, 57, NIVEAU)
+    v.note_on(cp, 57, NIVEAU, ouverture_ms=0)   # noyau seul : sans la soupape
     bloc = np.zeros(256, np.float32)
     morceaux = []
     for _ in range(2):

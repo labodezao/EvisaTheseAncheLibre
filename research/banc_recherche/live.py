@@ -105,7 +105,11 @@ class _State(ctypes.Structure):
                 ('response', ctypes.c_float), ('cavity', ctypes.c_float),
                 ('kicked', ctypes.c_int),
                 ('net_prec', ctypes.c_float), ('net_ok', ctypes.c_int),
-                ('y_prev', ctypes.c_float), ('y_ok', ctypes.c_int)]
+                ('y_prev', ctypes.c_float), ('y_ok', ctypes.c_int),
+                ('valve', ctypes.c_float), ('valve_from', ctypes.c_float),
+                ('valve_to', ctypes.c_float), ('valve_c', ctypes.c_float),
+                ('valve_s', ctypes.c_float), ('valve_dc', ctypes.c_float),
+                ('valve_ds', ctypes.c_float), ('valve_left', ctypes.c_int)]
 
 
 _LIB = None
@@ -115,7 +119,7 @@ _LIB = None
 #: seul : il lui faut cette liste, écrite dans un `.def`. On préfère ça à un
 #: `__declspec(dllexport)` dans le source — celui-là part sur la carte, il n'a
 #: pas à savoir que Windows existe.
-HV_EXPORTS = ('hv_reset', 'hv_render')
+HV_EXPORTS = ('hv_reset', 'hv_render', 'hv_valve_start')
 
 
 def _nom_bibliotheque():
@@ -234,6 +238,8 @@ def engine_library(force=False):
 
     lib = ctypes.CDLL(str(so))
     lib.hv_reset.argtypes = [ctypes.POINTER(_State)]
+    lib.hv_valve_start.argtypes = [ctypes.POINTER(_State), ctypes.c_float,
+                                   ctypes.c_float, ctypes.c_int]
     lib.hv_render.argtypes = [ctypes.POINTER(_Params), ctypes.POINTER(_State),
                               ctypes.c_float,
                               np.ctypeslib.ndpointer(dtype=np.float32, flags='C'),
@@ -414,7 +420,7 @@ def _frequence_jouee(cp, niveau, samplerate, dur=None, debut=None, f_nom=None):
     ctypes.memmove(ctypes.byref(mesure), ctypes.byref(cp), ctypes.sizeof(cp))
     mesure.out_mode = 1
     v = Voice()
-    v.note_on(mesure, 60, niveau)
+    v.note_on(mesure, 60, niveau, ouverture_ms=0)  # tenue : sans la rampe de la soupape
     n = int(dur * samplerate)
     buf = np.zeros(512, dtype=np.float32)
     x = np.empty(n, dtype=np.float32)
@@ -679,7 +685,8 @@ def _crete_etablie(inst: Instrument, note, dur=2.5, fenetre=0.1):
     quelques centièmes de seconde au moteur C : autant les prendre.
     """
     v = Voice()
-    v.note_on(inst.params_for(note), int(note), inst.niveau_pour(note))
+    v.note_on(inst.params_for(note), int(note), inst.niveau_pour(note),
+              ouverture_ms=0)  # crete d'etalonnage : soupape ouverte
     bloc = max(64, int(fenetre * inst.samplerate))
     buf = np.zeros(bloc, dtype=np.float32)
     crete = 0.0
@@ -951,7 +958,7 @@ def _hauteur_note(base, niveau, f_nom, samplerate, dur=ACCORD_DUREE_S):
                    ctypes.sizeof(base))
     mesure.out_mode = 1
     v = Voice()
-    v.note_on(mesure, 60, niveau)
+    v.note_on(mesure, 60, niveau, ouverture_ms=0)  # tenue : sans la rampe de la soupape
     n = int(dur * samplerate)
     buf = np.zeros(1024, dtype=np.float32)
     x = np.empty(n, dtype=np.float32)
@@ -1200,6 +1207,32 @@ def accord_pour(inst, note, ln_facteurs):
     return float(np.exp(total))
 
 
+#: Soupape de clavier (anche libre) : durée de son ouverture au `note_on` et de sa
+#: fermeture au `note_off`, en ms, en demi-cosinus (`hv_valve_start`). La
+#: soupape est une conductance en série avec le passage de la source,
+#: G = src_admit x a(t), a de 0 à 1 : elle ferme l'apport ET la fuite.
+#:
+#: `OUVERTURE_MS` = 5 : PROVISOIRE. Mesuré (soupape/etalonne.py, notes 53, 69,
+#: 88 à 300 et 1000 Pa) : le délai du rang 1 à -6 dB, compté depuis le début de
+#: l'ouverture, tombe dans la plage de la banque réelle V3 (13 à 29 ms) dans
+#: 3 cas sur 6 pour 5, 8, 10, 12 et 15 ms (2 ou 1 cas sur 6 ailleurs) ; à
+#: égalité, 5 ms est la valeur dont les six délais sont les plus proches du
+#: milieu de la plage (21 ms). Les trois cas tenus sont ceux de 300 Pa ; à
+#: 1000 Pa le délai est hors plage pour 5 ms (2, 9 et 9 ms). Claquement (crête
+#: des 5 premières ms / crête de tenue) < 0,05 aux six cas, contre 0,5 à 5,9
+#: pour l'échelon.
+#: La vélocité n'agit pas sur la durée : la banque V3 n'a qu'une couche de
+#: vélocité enregistrée (prise à 100), aucune mesure ne fonde une loi. NON DÉCIDÉ.
+#:
+#: `FERMETURE_MS` = 60 : PROVISOIRE. Valeur pour laquelle la chute de 10 dB du
+#: moteur (soupape/ferme.py, notes 53, 69, 88) dure 17 à 18 ms, la médiane des
+#: vraies fins mesurées (18 ms, quartiles 13 et 29, 89 notes de morceau). Au
+#: delà de 10 dB la queue des vraies fins (mesurée : 72 à 168 ms pour 20 dB)
+#: n'est pas reproduite : le moteur tombe à zéro.
+OUVERTURE_MS = 5.0
+FERMETURE_MS = 60.0
+
+
 class Voice:
     """Une voix : un état C, une note, une nuance."""
 
@@ -1215,9 +1248,23 @@ class Voice:
         self.canal = 0             # canal MIDI, pour séparer les sommes
         self.appuis = 0            # appuis non relâchés sur (canal, note)
         self.age = 0
+        self.fermeture_ms = FERMETURE_MS
 
-    def note_on(self, params, note, level, canal=0, timbre=None):
-        engine_library().hv_reset(ctypes.byref(self.state))
+    def note_on(self, params, note, level, canal=0, timbre=None,
+                ouverture_ms=None, fermeture_ms=None):
+        """Pose la note. Anche libre : la soupape de clavier s'ouvre en
+        `ouverture_ms` (défaut `OUVERTURE_MS` ; 0 = ouverte d'un coup, l'ancien
+        son à l'échantillon) et se fermera en `fermeture_ms` au `note_off`
+        (défaut `FERMETURE_MS`). Les autres familles n'ont pas de soupape."""
+        lib = engine_library()
+        lib.hv_reset(ctypes.byref(self.state))
+        self.fermeture_ms = (FERMETURE_MS if fermeture_ms is None
+                             else float(fermeture_ms))
+        if params.family == FAMILY_FREE_REED:
+            ouv = OUVERTURE_MS if ouverture_ms is None else float(ouverture_ms)
+            if ouv > 0.0:
+                lib.hv_valve_start(ctypes.byref(self.state), 0.0, 1.0,
+                                   int(round(ouv * 1e-3 * params.fs_out)))
         self.base = params
         self.params = params_timbre(params, **timbre) if timbre else params
         self.note = int(note)
@@ -1234,7 +1281,14 @@ class Voice:
         self.appuis = 0 if tout else max(0, self.appuis - 1)
         if self.appuis > 0:
             return
-        self.target = 0.0          # on coupe l'alimentation, pas le son
+        if self.params is not None and self.params.family == FAMILY_FREE_REED:
+            # la soupape se ferme (la chambre est isolée de la source) ; le
+            # niveau de la source ne bouge pas, le soufflet n'est pas la touche
+            engine_library().hv_valve_start(
+                ctypes.byref(self.state), self.state.valve, 0.0,
+                int(round(self.fermeture_ms * 1e-3 * self.params.fs_out)))
+        else:
+            self.target = 0.0      # on coupe l'alimentation, pas le son
         self.tenue = False
 
     def render(self, out, glide=0.35, silence=1e-6):
@@ -1276,7 +1330,11 @@ class Voice:
         """Âge, libération : à la fin d'un bloc rendu. `True` si la voix vit."""
         self.age += len(out)
         # une touche tenue reste vivante même soufflet à zéro : il peut repartir
-        if self.target == 0.0 and abs(self.level) < 1e-9 and not self.tenue:
+        if self.params is not None and self.params.family == FAMILY_FREE_REED:
+            coupee = self.state.valve == 0.0 and self.state.valve_left == 0
+        else:
+            coupee = self.target == 0.0 and abs(self.level) < 1e-9
+        if coupee and not self.tenue:
             crete = float(np.max(np.abs(out))) if out.size else 0.0
             if crete < silence:
                 self.active = False
@@ -1307,8 +1365,14 @@ class Synth:
     """
 
     def __init__(self, instrument: Instrument, polyphony=6, gain=0.5,
-                 soufflet='auto', p_max=3000.0, timbre=None, pompe=0.0):
+                 soufflet='auto', p_max=3000.0, timbre=None, pompe=0.0,
+                 ouverture_ms=None, fermeture_ms=None):
         self.inst = instrument
+        # soupape de clavier : durées d'ouverture et de fermeture, en ms
+        # (`None` : `OUVERTURE_MS`, `FERMETURE_MS`). La vélocité n'agit pas
+        # dessus : non décidé (une seule couche de vélocité mesurée).
+        self.ouverture_ms = ouverture_ms
+        self.fermeture_ms = fermeture_ms
         self.voices = [Voice() for _ in range(int(polyphony))]
         self.gain = float(gain)
         self.expression = 1.0           # 0..1, molette ou contrôleur à vent
@@ -1445,7 +1509,8 @@ class Synth:
         else:
             niveau = self.inst.niveau_pour(note) * self._nuance(velocity)
         v.note_on(params, note, niveau, canal=canal,
-                  timbre=self._timbre_voix(note))
+                  timbre=self._timbre_voix(note),
+                  ouverture_ms=self.ouverture_ms, fermeture_ms=self.fermeture_ms)
         return v
 
     def note_off(self, note, canal=None):

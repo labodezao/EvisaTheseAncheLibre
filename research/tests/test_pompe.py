@@ -39,7 +39,7 @@ def _params(f0=220.0, pompe=0.0):
 def _c(p, n_blocs):
     cp, _garde = live._to_c_params(p)
     v = live.Voice()
-    v.note_on(cp, 57, NIVEAU)
+    v.note_on(cp, 57, NIVEAU, ouverture_ms=0)    # F = 0 : sans la soupape non plus
     bloc = np.zeros(256, np.float32)
     morceaux = []
     for _ in range(n_blocs):
@@ -137,14 +137,14 @@ def test_f0_synth_identique_au_moteur_d_avant():
                                  source_impedance=2.0e8)
     ref = np.load(REF)['synth']
     for kw in ({}, {'pompe': 0.0}):
-        s = live.Synth(inst, polyphony=1, **kw)
+        s = live.Synth(inst, polyphony=1, ouverture_ms=0, **kw)
         s.pression_mesuree = True
         s.expression = 80 / 127.0
         s.note_on(57, 100)
         x = np.concatenate([s.render(256).copy() for _ in range(40)])
         assert np.array_equal(x, ref)
     # le CC 74 à 0 est F = 0 : même son
-    s = live.Synth(inst, polyphony=1)
+    s = live.Synth(inst, polyphony=1, ouverture_ms=0)
     s.pression_mesuree = True
     s.expression = 80 / 127.0
     assert s.timbre_cc(74, 0)

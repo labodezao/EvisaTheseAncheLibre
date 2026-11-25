@@ -39,7 +39,7 @@ def _rendre_c(n, e, loi, duree=1.0, sortie=emb.SORTIE_RAYONNEE,
     cp, garde = live._to_c_params(p)
     niveau = float(pression_demandee(e)) / v.exciter.source_impedance
     voix = live.Voice()
-    voix.note_on(cp, n, niveau)
+    voix.note_on(cp, n, niveau, ouverture_ms=0)   # noyau seul : sans la soupape
     sortie_c = np.empty(int(duree * SR), np.float32)
     bloc = np.zeros(512, np.float32)
     lib = live.engine_library()
@@ -196,7 +196,7 @@ def test_le_noyau_c_suit_la_reference_python_en_loi_traversante(note, e, sortie)
     niveau = float(pression_demandee(e)) / 2.0e8
     cp, garde = live._to_c_params(p)
     v = live.Voice()
-    v.note_on(cp, note, niveau)
+    v.note_on(cp, note, niveau, ouverture_ms=0)   # noyau seul : sans la soupape
     bloc = np.zeros(256, np.float32)
     morceaux = []
     for _ in range(2):
