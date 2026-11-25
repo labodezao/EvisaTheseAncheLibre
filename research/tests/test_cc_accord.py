@@ -30,7 +30,10 @@ pytestmark = pytest.mark.skipif(
 
 SR = 48000.0
 NOTES = (45, 57, 69, 84)
+#: les points de la grille d'accord, puis des valeurs hors grille (entre deux
+#: points : l'interpolation du tableau y est seule en cause)
 VALS = (0, 16, 32, 48, 64, 80, 96, 112, 127)
+VALS_HORS_GRILLE = (8, 24, 40, 56, 72, 88, 104, 120)
 #: écart toléré à la hauteur de CC 64, en cents
 TOLERANCE = {45: 1.0, 57: 1.0, 69: 1.0, 84: 1.0}
 
@@ -71,7 +74,9 @@ def test_le_tableau_couvre_les_notes(acc):
     forme = tuple(len(live.ACCORD_GRILLE[n]) for n in live.ACCORD_NOMS)
     for n, tab in acc.accord_timbre.items():
         assert tab.shape == forme and np.all(np.isfinite(tab))
-        assert tab[4, 1, 4] == 0.0                     # tous à 64 : rien
+        centre = tuple(live.ACCORD_GRILLE[nom].index(64)
+                       for nom in live.ACCORD_NOMS)
+        assert tab[centre] == 0.0                      # tous à 64 : rien
 
 
 def test_tous_a_64_le_son_est_celui_d_avant(acc):
@@ -107,7 +112,7 @@ def test_un_cc_seul_garde_la_hauteur(acc, note):
     f0 = _hauteur(acc, note)
     pires = {}
     for nom in live.TIMBRE_CC:
-        ecarts = [_cents(_hauteur(acc, note, {nom: v}), f0) for v in VALS]
+        ecarts = [_cents(_hauteur(acc, note, {nom: v}), f0) for v in VALS + VALS_HORS_GRILLE]
         pires[nom] = max(abs(e) for e in ecarts)
     assert max(pires.values()) <= TOLERANCE[note], pires
 

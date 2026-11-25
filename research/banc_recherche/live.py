@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import ctypes
 import hashlib
+import itertools
 import os
 import pathlib
 import shutil
@@ -861,15 +862,24 @@ def params_timbre(base, chambre=1.0, largeur=1.0, q=1.0, jeu=1.0, accord=1.0,
 #
 # Mesuré (accordeon/cc_accord) : la somme des dérives de chaque CC seul ne
 # prédit pas celle d'une combinaison (jusqu'à 26 cents d'écart à la note 84,
-# chambre et Q à 0). Le tableau est donc tabulé en trois dimensions, chambre x
-# largeur x Q, par note, sur la hauteur mesurée du modèle. Le jeu de fente (CC 73) déplace la hauteur de 0,4 cent au
-# plus : pas de correction.
+# chambre et Q à 0). Le tableau est donc tabulé en quatre dimensions, chambre x
+# largeur x Q x jeu, par note, sur la hauteur mesurée du modèle.
+#
+# Points par axe (25/11/2026, accordeon/cp_tests/choix_grille) : l'écart de
+# hauteur d'un CC seul, sur 17 valeurs de CC (0 à 127 par pas de 8), aux notes
+# 45, 57, 69 et 84, interpolé linéairement entre les points d'un axe. Largeur :
+# 3 points 1,48 cent au pire (note 45), 5 points 1,16, 7 points 0,50, 9 points
+# 0,46. Jeu de fente (CC 73) : absent, il déplaçait la hauteur de 1,5 cent à la
+# note 45 ; 3 points 0,90, 5 points 0,48, 7 points 0,36, 9 points 0,44.
+# On garde le plus petit nombre qui passe sous 0,5 cent. Chambre et Q restent à
+# 9 points.
 
 #: réglages tabulés et valeurs de CC de leur grille
 ACCORD_GRILLE = {
     'chambre': (0, 16, 32, 48, 64, 80, 96, 112, 127),
-    'largeur': (0, 64, 127),
+    'largeur': (0, 16, 32, 48, 64, 80, 96, 112, 127),
     'q':       (0, 16, 32, 48, 64, 80, 96, 112, 127),
+    'jeu':     (0, 32, 64, 96, 127),
 }
 ACCORD_NOMS = tuple(ACCORD_GRILLE)
 #: durée rendue pour mesurer une hauteur, s, et début de la fenêtre analysée :
@@ -881,7 +891,7 @@ ACCORD_DEBUT_S = 1.5
 #: près, en cents (la mesure elle-même est juste à 0,03 cent)
 ACCORD_ARRET_CENTS = 0.05
 #: à changer quand une modification de ce bloc change les chiffres du tableau
-ACCORD_VERSION = 4
+ACCORD_VERSION = 5
 
 
 def _hauteur_longue(y, fs, f_nom):
@@ -947,10 +957,24 @@ def _hauteur_note(base, niveau, f_nom, samplerate, dur=ACCORD_DUREE_S):
                            f_nom)
 
 
-def _facteurs_grille(i, j, k):
-    return dict(chambre=facteur_timbre('chambre', ACCORD_GRILLE['chambre'][i]),
-                largeur=facteur_timbre('largeur', ACCORD_GRILLE['largeur'][j]),
-                q=facteur_timbre('q', ACCORD_GRILLE['q'][k]))
+def _facteurs_grille(indices):
+    """Les facteurs de timbre du point `indices` de la grille d'accord."""
+    return {nom: facteur_timbre(nom, ACCORD_GRILLE[nom][i])
+            for nom, i in zip(ACCORD_NOMS, indices)}
+
+
+def _parcours_grille(ng):
+    """Les points d'une grille de `ng` points par axe, en va-et-vient : chaque
+    point est voisin du précédent (un seul axe change d'un cran), donc la
+    correction du voisin est un bon départ pour le suivant."""
+    if len(ng) == 1:
+        for i in range(ng[0]):
+            yield (i,)
+        return
+    interieur = list(_parcours_grille(ng[1:]))
+    for i in range(ng[0]):
+        for reste in (interieur if i % 2 == 0 else reversed(interieur)):
+            yield (i,) + reste
 
 
 def _ecart_cents(base, fac, lg, niveau, f_nom, samplerate, f_ref):
@@ -989,66 +1013,63 @@ def _tableau_note(base, niveau, f_nom, samplerate, tolerance_cents=0.3):
     K0 = 1200.0 / np.log(2.0) * 0.93                 # cents par unité de ln
     pire, perdus, lg = 0.0, 0, 0.0
 
-    for i in range(ng[0]):
-        for jj in range(ng[1]):
-            j = jj if i % 2 == 0 else ng[1] - 1 - jj     # va-et-vient : le
-            for kk in range(ng[2]):                      # voisin reste proche
-                k = kk if (i * ng[1] + jj) % 2 == 0 else ng[2] - 1 - kk
-                cc = (ACCORD_GRILLE['chambre'][i], ACCORD_GRILLE['largeur'][j],
-                      ACCORD_GRILLE['q'][k])
-                if cc == (64, 64, 64):
-                    lg = 0.0
-                    continue
-                fac = _facteurs_grille(i, j, k)
-                vus = {}
+    centre = tuple(64 for _ in ACCORD_NOMS)
+    for indices in _parcours_grille(ng):
+        cc = tuple(ACCORD_GRILLE[nom][i]
+                   for nom, i in zip(ACCORD_NOMS, indices))
+        if cc == centre:
+            lg = 0.0
+            continue
+        fac = _facteurs_grille(indices)
+        vus = {}
 
-                def ecart(x):
-                    x = round(float(x), 6)
-                    if x not in vus:
-                        vus[x] = _ecart_cents(base, fac, x, niveau, f_nom,
-                                              samplerate, f_ref)
-                    return vus[x]
+        def ecart(x):
+            x = round(float(x), 6)
+            if x not in vus:
+                vus[x] = _ecart_cents(base, fac, x, niveau, f_nom,
+                                      samplerate, f_ref)
+            return vus[x]
 
-                K, prec, x = K0, None, lg
-                for _ in range(4):
-                    d = ecart(x)
-                    if not np.isfinite(d) or abs(d) <= tolerance_cents:
+        K, prec, x = K0, None, lg
+        for _ in range(4):
+            d = ecart(x)
+            if not np.isfinite(d) or abs(d) <= tolerance_cents:
+                break
+            if prec is not None and abs(x - prec[0]) > 1e-9:
+                K = float(np.clip((d - prec[1]) / (x - prec[0]),
+                                  0.4 * K0, 2.0 * K0))
+            pas = d / K
+            if prec is not None and abs(d - prec[1]) < 0.25:
+                pas = np.sign(d) * max(abs(pas), ACCORD_PAS)
+            prec = (x, d)
+            x -= pas
+        bons = {u: v for u, v in vus.items() if np.isfinite(v)}
+        if not bons:
+            perdus += 1
+            lg = 0.0
+            continue
+        u0 = min(bons, key=lambda u: abs(bons[u]))
+        if abs(bons[u0]) > tolerance_cents:
+            for sens in (-1.0, 1.0):          # on tâte la lame
+                for m in (1, 2, 3):
+                    e = ecart(u0 + sens * m * ACCORD_PAS)
+                    if not np.isfinite(e) or abs(e) > abs(bons[u0]) + 1.0:
                         break
-                    if prec is not None and abs(x - prec[0]) > 1e-9:
-                        K = float(np.clip((d - prec[1]) / (x - prec[0]),
-                                          0.4 * K0, 2.0 * K0))
-                    pas = d / K
-                    if prec is not None and abs(d - prec[1]) < 0.25:
-                        pas = np.sign(d) * max(abs(pas), ACCORD_PAS)
-                    prec = (x, d)
-                    x -= pas
-                bons = {u: v for u, v in vus.items() if np.isfinite(v)}
-                if not bons:
-                    perdus += 1
-                    lg = 0.0
-                    continue
-                u0 = min(bons, key=lambda u: abs(bons[u]))
-                if abs(bons[u0]) > tolerance_cents:
-                    for sens in (-1.0, 1.0):          # on tâte la lame
-                        for m in (1, 2, 3):
-                            e = ecart(u0 + sens * m * ACCORD_PAS)
-                            if not np.isfinite(e) or abs(e) > abs(bons[u0]) + 1.0:
-                                break
-                    bons = {u: v for u, v in vus.items() if np.isfinite(v)}
-                    u0 = min(bons, key=lambda u: abs(bons[u]))
-                # le milieu des essais qui valent le meilleur
-                egaux = [u for u, v in bons.items()
-                         if abs(abs(v) - abs(bons[u0])) < 0.15
-                         and abs(u - u0) <= 3 * ACCORD_PAS]
-                lg = float(np.mean(egaux))
-                d = ecart(lg) if round(lg, 6) in vus else _ecart_cents(
-                    base, fac, lg, niveau, f_nom, samplerate, f_ref)
-                if np.isfinite(d) and abs(d) <= 3.0:
-                    tab[i, j, k] = lg
-                    pire = max(pire, abs(d))
-                else:
-                    perdus += 1
-                    lg = 0.0
+            bons = {u: v for u, v in vus.items() if np.isfinite(v)}
+            u0 = min(bons, key=lambda u: abs(bons[u]))
+        # le milieu des essais qui valent le meilleur
+        egaux = [u for u, v in bons.items()
+                 if abs(abs(v) - abs(bons[u0])) < 0.15
+                 and abs(u - u0) <= 3 * ACCORD_PAS]
+        lg = float(np.mean(egaux))
+        d = ecart(lg) if round(lg, 6) in vus else _ecart_cents(
+            base, fac, lg, niveau, f_nom, samplerate, f_ref)
+        if np.isfinite(d) and abs(d) <= 3.0:
+            tab[indices] = lg
+            pire = max(pire, abs(d))
+        else:
+            perdus += 1
+            lg = 0.0
     return tab, pire, perdus
 
 
@@ -1079,7 +1100,7 @@ def dossier_cache():
 
 def table_accord_timbre(inst, cache=True, fils=None, rapport=None):
     """Tableau d'accord du timbre pour toutes les notes d'un instrument à anche
-    libre : `{note: ndarray (chambre, largeur, Q)}` de `ln(facteur de
+    libre : `{note: ndarray (chambre, largeur, Q, jeu)}` de `ln(facteur de
     fréquence de lame)`, à passer à `params_timbre(accord=exp(...))`.
 
     Mesuré sur le moteur (cf. `_tableau_note`), une note par fil : l'appel C
@@ -1161,15 +1182,12 @@ def accord_pour(inst, note, ln_facteurs):
                         len(g) - 2)), 0)
         pos.append((i, (v - g[i]) / (g[i + 1] - g[i])))
     total = 0.0
-    for a in (0, 1):
-        for b in (0, 1):
-            for c in (0, 1):
-                w = ((pos[0][1] if a else 1 - pos[0][1])
-                     * (pos[1][1] if b else 1 - pos[1][1])
-                     * (pos[2][1] if c else 1 - pos[2][1]))
-                if w:
-                    total += w * tab[pos[0][0] + a, pos[1][0] + b,
-                                     pos[2][0] + c]
+    for coins in itertools.product((0, 1), repeat=len(pos)):
+        w = 1.0
+        for (i, t), c in zip(pos, coins):
+            w *= t if c else 1.0 - t
+        if w:
+            total += w * tab[tuple(i + c for (i, _), c in zip(pos, coins))]
     return float(np.exp(total))
 
 
