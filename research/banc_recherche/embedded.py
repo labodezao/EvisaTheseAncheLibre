@@ -238,11 +238,12 @@ class RealtimeParams:
     max_open_m: float = 0.0                        # >0 : anche libre (saturation)
     leak_m: float = 0.0
     #: loi de passage de l'anche libre (cf. `hybrid.FreeReedExciter`) :
-    #: `LOI_ECRETEE` (`clip(y + h₀, fuite, max_open)`, l'ancienne) ou
-    #: `LOI_TRAVERSANTE` (la languette traverse sa fente : section
-    #: `largeur × √(gap² + jeu²)`, sans butée haute). Plaque, lame et jeu ne
-    #: servent qu'à la seconde ; la levée au repos est `rest_opening_m`.
-    loi: str = 'ecretee'
+    #: `LOI_TRAVERSANTE` (défaut : la languette traverse sa fente, section
+    #: `largeur × √(gap² + jeu²)`, sans butée haute) ou `LOI_ECRETEE`
+    #: (`clip(y + h₀, fuite, max_open)`, l'ancienne, à demander par son nom).
+    #: Plaque, lame et jeu ne servent qu'à la première ; la levée au repos est
+    #: `rest_opening_m`.
+    loi: str = 'traversante'
     plate_m: float = 0.0
     tongue_m: float = 0.0
     clearance_m: float = 0.0
@@ -296,8 +297,9 @@ LOI_TRAVERSANTE = 'traversante'
 
 
 def loi_c(params):
-    """Numéro de la loi pour le C : 0 écrêtée (défaut d'une structure remise à
-    zéro), 1 traversante."""
+    """Numéro de la loi pour le C : 1 traversante (défaut de `RealtimeParams`),
+    0 écrêtée (à demander par son nom). Le C reçoit toujours le numéro écrit
+    ici, jamais un champ laissé à zéro."""
     return 1 if params.loi == LOI_TRAVERSANTE else 0
 
 
@@ -683,9 +685,11 @@ C_ENGINE_H = r'''/* Moteur de modèle physique hybride — temps réel, embarqua
 #define HV_OUT_RADIATED 0
 #define HV_OUT_PRESSURE 1
 
-/* Loi de passage de l'anche libre. 0 (défaut d'une structure remise à zéro) :
- * ouverture écrêtée clip(h0 + y, leak, max_open). 1 : la languette traverse sa
- * fente, section width*sqrt(gap^2 + clear^2), sans butée haute. */
+/* Loi de passage de l'anche libre. Le défaut est la loi traversante (1) : la
+ * languette traverse sa fente, section width*sqrt(gap^2 + clear^2), sans butée
+ * haute ; le numéro est toujours écrit par le Python (`loi_c`), jamais laissé
+ * à zéro dans une structure remise à zéro (plaque, lame et jeu seraient nuls).
+ * 0 : ouverture écrêtée clip(h0 + y, leak, max_open), à demander par son nom. */
 #define HV_LAW_CLIPPED 0
 #define HV_LAW_THROUGH 1
 

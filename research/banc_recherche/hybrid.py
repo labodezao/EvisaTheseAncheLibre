@@ -553,10 +553,10 @@ class FreeReedExciter(Exciter):
     **Deux lois de passage** (`loi`), c'est-à-dire deux façons de passer du
     déplacement `y` de la languette à la hauteur `h` du passage d'air :
 
-    - `'ecretee'` (l'ancienne, gardée telle quelle) : `h = clip(y + h₀, fuite,
+    - `'ecretee'` (l'ancienne, gardée telle quelle, à demander par son nom) : `h = clip(y + h₀, fuite,
       max_open)`. La languette ne fait jamais que s'approcher de la plaque ou
       s'en éloigner.
-    - `'traversante'` : la languette traverse sa fente, comme une vraie anche
+    - `'traversante'` (le défaut) : la languette traverse sa fente, comme une vraie anche
       libre. Section = `largeur × √(gap² + jeu²)`, `gap` étant celui de
       `coupled_reeds.ReedSetting.gap` : au-dessus de la plaque `gap = y + h₀` ;
       entre la face de la plaque et la sortie de la lame, la languette est dans
@@ -591,7 +591,7 @@ class FreeReedExciter(Exciter):
     rest_offset_m: float = 0.10e-3
     max_open_m: float = 0.50e-3
     leak_m: float = 2.0e-6
-    loi: str = 'ecretee'                 # 'ecretee' (ancienne) ou 'traversante'
+    loi: str = 'traversante'             # défaut ; 'ecretee' (ancienne) à nommer
     plate_m: float = 1.2e-3              # loi traversante : plaque (réf. 110 Hz)
     tongue_m: float = 0.4e-3             # loi traversante : lame au bout
     clearance_m: float = 15e-6           # loi traversante : jeu languette/fente
@@ -605,7 +605,7 @@ class FreeReedExciter(Exciter):
     #   mais ce qui borne l'amplitude dans CE modèle-là n'a pas été
     #   démontré dans la réduction temps réel : la recaler est une étape
     #   mesurée à part, pas une valeur par défaut à recopier.
-    #   Ce défaut de la CLASSE ne change pas. `accordeon()` fait suivre la
+    #   Ce défaut de la CLASSE (source) ne change pas ; celui de la loi, si. `accordeon()` fait suivre la
     #   résistance de source à la note (`ACCORDEON_SOURCE_REF × r²`) : voir
     #   sa docstring.
 

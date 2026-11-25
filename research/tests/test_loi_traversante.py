@@ -92,9 +92,20 @@ def test_l_ancienne_loi_reste_disponible_telle_quelle():
         assert ex.opening(np.array([y, 0.0])) == attendu
 
 
-def test_la_loi_par_defaut_de_l_excitateur_nu_est_l_ancienne():
-    """Les autres usages de `FreeReedExciter` ne changent pas."""
-    assert hybrid.FreeReedExciter().loi == 'ecretee'
+def test_le_defaut_des_deux_structures_est_la_loi_traversante():
+    """Une anche d'accordéon est libre : elle traverse sa fente. Décision du
+    25/11/2026 ; l'ancienne loi se demande par son nom et sonne autrement."""
+    assert hybrid.FreeReedExciter().loi == 'traversante'
+    assert emb.RealtimeParams().loi == 'traversante'
+    assert emb.loi_c(emb.RealtimeParams()) == 1
+    assert hybrid.FreeReedExciter(loi='ecretee').loi == 'ecretee'
+    assert emb.loi_c(emb.RealtimeParams(loi='ecretee')) == 0
+    base = emb.RealtimeParams(family=emb.FAMILY_FREE_REED, reed_freq_hz=220.0)
+    plain = emb.RealtimeVoice(base).render(2048, 3e-6)[0]
+    ecretee = emb.RealtimeVoice(emb.RealtimeParams(
+        family=emb.FAMILY_FREE_REED, reed_freq_hz=220.0, loi='ecretee')
+    ).render(2048, 3e-6)[0]
+    assert not np.allclose(plain, ecretee)
 
 
 def test_une_loi_inconnue_est_refusee():
